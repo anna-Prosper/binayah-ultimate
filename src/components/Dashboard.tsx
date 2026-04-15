@@ -89,6 +89,7 @@ export default function Dashboard() {
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
 
   // --- Cross-device sync via Render API ---
+  const isInitializedRef = useRef(false); // prevents writing stale localStorage over API on mount
   const lastWriteRef = useRef<number>(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownMsgCount = useRef<number>(chatMessages.length);
@@ -109,23 +110,34 @@ export default function Dashboard() {
     } catch { /* AudioContext blocked in some contexts */ }
   }, []);
 
-  // On mount: load shared state from API (API wins over stale localStorage)
+  // On mount: fetch API state first, THEN allow writes
   useEffect(() => {
     fetchState().then(s => {
-      if (!s) return;
-      if (s.chatMessages) { setChatMessages(s.chatMessages); knownMsgCount.current = s.chatMessages.length; }
-      if (s.claims) setClaims(s.claims);
-      if (s.reactions) setReactions(s.reactions);
-      if (s.activityLog) setActivityLog(s.activityLog);
-      if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
-      if (s.comments) setComments(s.comments as Record<string, CommentItem[]>);
-      if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
-      if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
-      if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
-      if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
-      if (s.customStages) setCustomStages(s.customStages);
-      if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-      if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+      if (s && Object.keys(s).length > 0) {
+        if (s.chatMessages) { setChatMessages(s.chatMessages); knownMsgCount.current = s.chatMessages.length; }
+        if (s.claims) setClaims(s.claims);
+        if (s.reactions) setReactions(s.reactions);
+        if (s.activityLog) setActivityLog(s.activityLog);
+        if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+        if (s.comments) {
+          setComments(s.comments as Record<string, CommentItem[]>);
+          for (const [stage, msgs] of Object.entries(s.comments)) {
+            knownCommentsRef.current[stage] = (msgs as CommentItem[]).length;
+          }
+        }
+        if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
+        if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+        if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
+        if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+        if (s.customStages) setCustomStages(s.customStages);
+        if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+        if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+      }
+      // Only allow writes after we've loaded the canonical API state
+      isInitializedRef.current = true;
+    }).catch(() => {
+      // API unreachable — still allow writes so localStorage keeps working
+      isInitializedRef.current = true;
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -188,13 +200,14 @@ export default function Dashboard() {
         if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
       });
     };
-    const id = setInterval(poll, 8000);
+    const id = setInterval(poll, 5000);
     return () => clearInterval(id);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
-  // Write shared state to API whenever it changes (debounced 800ms)
+  // Write shared state to API whenever it changes (debounced 800ms, only after init)
   useEffect(() => {
+    if (!isInitializedRef.current) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
