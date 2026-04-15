@@ -90,6 +90,7 @@ export default function Dashboard() {
 
   // --- Cross-device sync via Render API ---
   const isInitializedRef = useRef(false); // prevents writing stale localStorage over API on mount
+  const isPollUpdateRef = useRef(false);  // prevents poll-triggered writes looping back to API
   const lastWriteRef = useRef<number>(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownMsgCount = useRef<number>(chatMessages.length);
@@ -148,22 +149,25 @@ export default function Dashboard() {
       if (Date.now() - lastWriteRef.current < 2000) return;
       fetchState().then(s => {
         if (!s) return;
+        isPollUpdateRef.current = true;
         if (s.chatMessages) {
           setChatMessages(prev => {
-            if ((s.chatMessages!.length) > knownMsgCount.current) {
-              // new messages arrived — notify if not from current user
-              const newMsgs = s.chatMessages!.slice(knownMsgCount.current);
-              const foreign = newMsgs.find(m => m.userId !== currentUser);
-              if (foreign) {
-                const sender = (s.users as typeof USERS_DEFAULT | undefined)?.find(u => u.id === foreign.userId) ||
-                  users.find(u => u.id === foreign.userId);
-                setChatNotif({ name: sender?.name || foreign.userId, text: foreign.text });
-                playNotifSound();
-                setTimeout(() => setChatNotif(null), 4000);
-              }
-              knownMsgCount.current = s.chatMessages!.length;
+            // Merge by ID — never replace messages already in local state
+            const existingIds = new Set(prev.map(m => m.id));
+            const incoming = s.chatMessages!.filter(m => !existingIds.has(m.id));
+            if (incoming.length === 0) return prev; // nothing new, no re-render
+            // Notify for foreign messages
+            const foreign = incoming.find(m => m.userId !== currentUser);
+            if (foreign) {
+              const sender = (s.users as typeof USERS_DEFAULT | undefined)?.find(u => u.id === foreign.userId) ||
+                users.find(u => u.id === foreign.userId);
+              setChatNotif({ name: sender?.name || foreign.userId, text: foreign.text });
+              playNotifSound();
+              setTimeout(() => setChatNotif(null), 4000);
             }
-            return s.chatMessages!;
+            const merged = [...prev, ...incoming].sort((a, b) => a.id - b.id);
+            knownMsgCount.current = merged.length;
+            return merged;
           });
         }
         if (s.claims) setClaims(s.claims);
@@ -171,24 +175,28 @@ export default function Dashboard() {
         if (s.activityLog) setActivityLog(s.activityLog);
         if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
         if (s.comments) {
-          // detect new comments from others
           setComments(prev => {
-            const next = s.comments as Record<string, CommentItem[]>;
-            for (const [stage, msgs] of Object.entries(next)) {
-              const prevCount = knownCommentsRef.current[stage] ?? (prev[stage]?.length ?? 0);
-              if (msgs.length > prevCount) {
-                const newOnes = msgs.slice(prevCount);
-                const foreign = newOnes.find(m => m.by !== currentUser);
+            const remote = s.comments as Record<string, CommentItem[]>;
+            let changed = false;
+            const merged: Record<string, CommentItem[]> = { ...prev };
+            for (const [stage, msgs] of Object.entries(remote)) {
+              const existing = prev[stage] || [];
+              const existingIds = new Set(existing.map(m => m.id));
+              const incoming = msgs.filter(m => !existingIds.has(m.id));
+              if (incoming.length > 0) {
+                merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
+                changed = true;
+                const foreign = incoming.find(m => m.by !== currentUser);
                 if (foreign) {
                   const sender = users.find(u => u.id === foreign.by);
                   setChatNotif({ name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage });
                   playNotifSound();
                   setTimeout(() => setChatNotif(null), 5000);
                 }
+                knownCommentsRef.current[stage] = merged[stage].length;
               }
-              knownCommentsRef.current[stage] = msgs.length;
             }
-            return next;
+            return changed ? merged : prev;
           });
         }
         if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
@@ -198,6 +206,8 @@ export default function Dashboard() {
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
         if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+        // Reset flag after React has processed state updates
+        setTimeout(() => { isPollUpdateRef.current = false; }, 50);
       });
     };
     const id = setInterval(poll, 5000);
@@ -205,9 +215,10 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
-  // Write shared state to API whenever it changes (debounced 800ms, only after init)
+  // Write shared state to API whenever it changes (debounced 800ms, only after init, not on poll updates)
   useEffect(() => {
     if (!isInitializedRef.current) return;
+    if (isPollUpdateRef.current) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
