@@ -1,6 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
+
+// === LOCALSTORAGE HELPERS ===
+const LS_PREFIX = "binayah_";
+function lsGet<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  try { const v = localStorage.getItem(LS_PREFIX + key); return v ? JSON.parse(v) : fallback; } catch { return fallback; }
+}
+function lsSet(key: string, value: unknown) {
+  try { localStorage.setItem(LS_PREFIX + key, JSON.stringify(value)); } catch { /* quota */ }
+}
 
 // === THEMES ===
 interface ThemeBase {
@@ -223,19 +233,19 @@ interface CommentItem { id: number; text: string; by: string; time: string; }
 
 // === MAIN DASHBOARD ===
 export default function Dashboard(){
-  const [isDark,setIsDark]=useState(true);
-  const [themeId,setThemeId]=useState("warroom");
-  const [currentUser,setCurrentUser]=useState<string|null>(null);
-  const [users,setUsers]=useState(USERS_DEFAULT);
-  const [onboardStep,setOnboardStep]=useState(0);
+  const [isDark,setIsDark]=useState(()=>lsGet("isDark",true));
+  const [themeId,setThemeId]=useState(()=>lsGet("themeId","warroom"));
+  const [currentUser,setCurrentUser]=useState<string|null>(()=>lsGet("currentUser",null));
+  const [users,setUsers]=useState(()=>lsGet("users",USERS_DEFAULT));
+  const [onboardStep,setOnboardStep]=useState(()=>lsGet("onboardStep",0));
   const [selUser,setSelUser]=useState<string|null>(null);
   const [selAvatar,setSelAvatar]=useState<string|null>(null);
   const [exp,setExp]=useState<string|null>("research");
   const [expS,setExpS]=useState<string|null>(null);
-  const [reactions,setReactions]=useState<Record<string, Record<string, string[]>>>({});
-  const [claims,setClaims]=useState<Record<string, string[]>>({});
-  const [subtasks,setSubtasks]=useState<Record<string, SubtaskItem[]>>({});
-  const [comments,setComments]=useState<Record<string, CommentItem[]>>({});
+  const [reactions,setReactions]=useState<Record<string, Record<string, string[]>>>(()=>lsGet("reactions",{}));
+  const [claims,setClaims]=useState<Record<string, string[]>>(()=>lsGet("claims",{}));
+  const [subtasks,setSubtasks]=useState<Record<string, SubtaskItem[]>>(()=>lsGet("subtasks",{}));
+  const [comments,setComments]=useState<Record<string, CommentItem[]>>(()=>lsGet("comments",{}));
   const [commentInput,setCommentInput]=useState<Record<string, string>>({});
   const [subtaskInput,setSubtaskInput]=useState<Record<string, string>>({});
   const [showMockup,setShowMockup]=useState<Record<string, boolean>>({});
@@ -243,6 +253,32 @@ export default function Dashboard(){
   const [claimAnim,setClaimAnim]=useState<{stage:string;pts:number}|null>(null);
   const [toast,setToast]=useState<{text:string;pts:string;color:string}|null>(null);
   const [reactOpen,setReactOpen]=useState<string|null>(null);
+  const [searchQ,setSearchQ]=useState("");
+  const [statusFilter,setStatusFilter]=useState<string|null>(null);
+  const [stageStatusOverrides,setStageStatusOverrides]=useState<Record<string,string>>(()=>lsGet("stageStatusOverrides",{}));
+  const [activityLog,setActivityLog]=useState<{type:string;user:string;target:string;detail:string;time:number}[]>(()=>lsGet("activityLog",[]));
+  const [showActivity,setShowActivity]=useState(false);
+  const [lastSeenActivity,setLastSeenActivity]=useState(()=>lsGet("lastSeenActivity",0));
+
+  // Persist to localStorage
+  useEffect(()=>{lsSet("isDark",isDark)},[isDark]);
+  useEffect(()=>{lsSet("themeId",themeId)},[themeId]);
+  useEffect(()=>{lsSet("currentUser",currentUser)},[currentUser]);
+  useEffect(()=>{lsSet("users",users)},[users]);
+  useEffect(()=>{lsSet("onboardStep",onboardStep)},[onboardStep]);
+  useEffect(()=>{lsSet("reactions",reactions)},[reactions]);
+  useEffect(()=>{lsSet("claims",claims)},[claims]);
+  useEffect(()=>{lsSet("subtasks",subtasks)},[subtasks]);
+  useEffect(()=>{lsSet("comments",comments)},[comments]);
+  useEffect(()=>{lsSet("stageStatusOverrides",stageStatusOverrides)},[stageStatusOverrides]);
+  useEffect(()=>{lsSet("activityLog",activityLog)},[activityLog]);
+  useEffect(()=>{lsSet("lastSeenActivity",lastSeenActivity)},[lastSeenActivity]);
+
+  const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
+  const logActivity = useCallback((type: string, target: string, detail: string) => {
+    if (!currentUser) return;
+    setActivityLog(prev => [{type, user: currentUser, target, detail, time: Date.now()}, ...prev.slice(0, 99)]);
+  }, [currentUser]);
 
   const t=mkTheme(themeId,isDark);
   const sc: Record<string, {l:string;c:string}> = {active:{l:"live",c:t.green},"in-progress":{l:"building",c:t.amber},planned:{l:"planned",c:t.cyan||t.accent},concept:{l:"concept",c:t.purple}};
@@ -251,15 +287,17 @@ export default function Dashboard(){
 
   const allStages=pipelineData.flatMap(p=>p.stages);
   const total=allStages.length;
-  const bySt=(s: string)=>allStages.filter(n=>stageDefaults[n]?.status===s).length;
+  const bySt=(s: string)=>allStages.filter(n=>getStatus(n)===s).length;
   const getPoints=(uid: string)=>{let p=0;Object.entries(claims).forEach(([s,c])=>{if(c.includes(uid))p+=stageDefaults[s]?.points||10;});Object.values(reactions).forEach(e=>{Object.values(e).forEach(r=>{if(r.includes(uid))p+=2;});});return p;};
 
-  const handleClaim=(sid: string)=>{if(!currentUser)return;const alreadyClaimed=(claims[sid]||[]).includes(currentUser);setClaims(prev=>{const c=prev[sid]||[];if(c.includes(currentUser))return{...prev,[sid]:c.filter(u=>u!==currentUser)};return{...prev,[sid]:[...c,currentUser]};});if(!alreadyClaimed){const pts=stageDefaults[sid]?.points||10;const me2=users.find(u=>u.id===currentUser);setClaimAnim({stage:sid,pts});setToast({text:`${me2?.name} claimed ${sid}`,pts:`+${pts}pts`,color:me2?.color||t.accent});setTimeout(()=>setClaimAnim(null),1200);setTimeout(()=>setToast(null),2500);}};
+  const handleClaim=(sid: string)=>{if(!currentUser)return;const alreadyClaimed=(claims[sid]||[]).includes(currentUser);setClaims(prev=>{const c=prev[sid]||[];if(c.includes(currentUser))return{...prev,[sid]:c.filter(u=>u!==currentUser)};return{...prev,[sid]:[...c,currentUser]};});if(!alreadyClaimed){const pts=stageDefaults[sid]?.points||10;const me2=users.find(u=>u.id===currentUser);setClaimAnim({stage:sid,pts});setToast({text:`${me2?.name} claimed ${sid}`,pts:`+${pts}pts`,color:me2?.color||t.accent});logActivity("claim",sid,`+${pts}pts`);setTimeout(()=>setClaimAnim(null),1200);setTimeout(()=>setToast(null),2500);}};
   const handleReact=(sid: string,emoji: string)=>{if(!currentUser)return;setReactions(prev=>{const s={...(prev[sid]||{})};const u=[...(s[emoji]||[])];const i=u.indexOf(currentUser);if(i>=0)u.splice(i,1);else u.push(currentUser);s[emoji]=u;return{...prev,[sid]:s};});};
 
   const addSubtask=(sid: string)=>{const val=subtaskInput[sid]?.trim();if(!val||!currentUser)return;setSubtasks(prev=>({...prev,[sid]:[...(prev[sid]||[]),{id:Date.now(),text:val,done:false,by:currentUser}]}));setSubtaskInput(prev=>({...prev,[sid]:""}));};
   const toggleSubtask=(sid: string,taskId: number)=>{setSubtasks(prev=>({...prev,[sid]:(prev[sid]||[]).map(t=>t.id===taskId?{...t,done:!t.done}:t)}));};
-  const addComment=(sid: string)=>{const val=commentInput[sid]?.trim();if(!val||!currentUser)return;setComments(prev=>({...prev,[sid]:[...(prev[sid]||[]),{id:Date.now(),text:val,by:currentUser,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]}));setCommentInput(prev=>({...prev,[sid]:""}));};
+  const addComment=(sid: string)=>{const val=commentInput[sid]?.trim();if(!val||!currentUser)return;setComments(prev=>({...prev,[sid]:[...(prev[sid]||[]),{id:Date.now(),text:val,by:currentUser,time:new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}]}));logActivity("comment",sid,val);setCommentInput(prev=>({...prev,[sid]:""}));};
+  const STATUS_ORDER = ["concept","planned","in-progress","active"];
+  const cycleStatus=(name: string)=>{const cur=getStatus(name);const idx=STATUS_ORDER.indexOf(cur);const next=STATUS_ORDER[(idx+1)%STATUS_ORDER.length];setStageStatusOverrides(prev=>({...prev,[name]:next}));logActivity("status",name,`→ ${next}`);};
   const shareStage=(name: string)=>{navigator.clipboard?.writeText(`Binayah AI — ${name}`).then(()=>{setCopied(name);setTimeout(()=>setCopied(null),2000);}).catch(()=>{});setCopied(name);setTimeout(()=>setCopied(null),2000);};
 
   const AvatarC=({user,size=28}:{user:typeof USERS_DEFAULT[0];size?:number})=>{const av=AVATARS.find(a=>a.id===user.avatar)||AVATARS[0];return(<div title={user.name} style={{width:size,height:size,borderRadius:"50%",background:`radial-gradient(circle at 30% 30%,${user.color}44,${user.color}11)`,border:`2px solid ${user.color}55`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:size*0.5,boxShadow:`0 0 10px ${user.color}22`}}>{av.emoji}</div>);};
@@ -332,7 +370,8 @@ export default function Dashboard(){
   const Stage=({name,idx,tot,pC,pId}:{name:string;idx:number;tot:number;pC:string;pId:string})=>{
     const k=`${pId}-${idx}`;const isE=expS===k;
     const s=stageDefaults[name];if(!s)return null;
-    const st=sc[s.status];const claimedBy=claims[name]||[];
+    const effectiveStatus=getStatus(name);
+    const st=sc[effectiveStatus];const claimedBy=claims[name]||[];
     const mock=mockups[name] as ((t:T)=>React.ReactNode)|undefined;
     const tasks=subtasks[name]||[];const cmts=comments[name]||[];
     const tasksDone=tasks.filter(x=>x.done).length;
@@ -341,7 +380,7 @@ export default function Dashboard(){
     return(
       <div style={{display:"flex"}}>
         <div style={{display:"flex",flexDirection:"column",alignItems:"center",width:26,flexShrink:0,paddingTop:3}}>
-          <div style={{width:10,height:10,borderRadius:"50%",border:`2px solid ${st.c}`,background:s.status==="active"?st.c:"transparent",boxShadow:s.status==="active"?`0 0 8px ${st.c}44`:"none",zIndex:1}}/>
+          <div style={{width:10,height:10,borderRadius:"50%",border:`2px solid ${st.c}`,background:effectiveStatus==="active"?st.c:"transparent",boxShadow:effectiveStatus==="active"?`0 0 8px ${st.c}44`:"none",zIndex:1}}/>
           {idx<tot-1&&<div style={{width:1.5,flex:1,background:`${st.c}22`,marginTop:1}}/>}
         </div>
         <div onClick={e=>{e.stopPropagation();setExpS(isE?null:k);}} style={{flex:1,background:isE?t.bgHover:t.bgSoft,border:`1px solid ${isE?pC+"33":t.border}`,borderRadius:12,marginBottom:idx<tot-1?4:0,cursor:"pointer",transition:"all 0.2s",overflow:"hidden"}}>
@@ -350,7 +389,7 @@ export default function Dashboard(){
             <div style={{display:"flex",alignItems:"center",gap:5,minWidth:0,flexShrink:1}}>
               <Chev open={isE} color={pC}/>
               <span style={{fontSize:11,fontWeight:700,color:t.text,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{name}</span>
-              <span style={{fontSize:6,fontWeight:700,color:st.c,background:st.c+"12",padding:"1.5px 6px",borderRadius:6,flexShrink:0}}>{st.l}</span>
+              <span onClick={e=>{e.stopPropagation();cycleStatus(name);}} style={{fontSize:6,fontWeight:700,color:st.c,background:st.c+"12",padding:"1.5px 6px",borderRadius:6,flexShrink:0,cursor:"pointer",transition:"all 0.15s"}} title="Click to change status">{st.l}</span>
             </div>
             <div style={{flex:1,display:"flex",alignItems:"center",justifyContent:"flex-end",gap:3}} onClick={e=>e.stopPropagation()}>
               {(()=>{
@@ -478,12 +517,13 @@ export default function Dashboard(){
     );
   };
 
-  return(<div style={{background:t.bg,minHeight:"100vh",color:t.text,fontFamily:"var(--font-dm-sans), sans-serif"}}><style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}`}</style><div style={{maxWidth:1100,margin:"0 auto",padding:"20px 18px"}}>
+  return(<div style={{background:t.bg,minHeight:"100vh",color:t.text,fontFamily:"var(--font-dm-sans), sans-serif"}}><style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team-row{flex-wrap:wrap;gap:6px!important}.bu-header{flex-direction:column;gap:10px!important}.bu-search-row{flex-direction:column}.bu-pipe-hours{display:none!important}}`}</style><div style={{maxWidth:1100,margin:"0 auto",padding:"20px 18px"}}>
     {/* HEADER */}
     <div style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",marginBottom:18}}>
       <div><div style={{display:"flex",alignItems:"center",gap:7,marginBottom:4}}><div style={{width:7,height:7,borderRadius:"50%",background:t.green,boxShadow:`0 0 8px ${t.green}66`}}/><span style={{fontSize:8,letterSpacing:3,color:t.textMuted,textTransform:"uppercase",fontFamily:"var(--font-dm-mono), monospace"}}>{pipelineData.length} pipelines · {total} stages</span></div><div style={{fontSize:24,fontWeight:900,color:t.text,textShadow:`0 0 8px ${t.accent}33`}}>{t.icon} {t.name}</div><div style={{fontSize:10,color:t.textMuted,fontFamily:"var(--font-dm-mono), monospace"}}>{t.sub}</div></div>
       <div style={{display:"flex",alignItems:"center",gap:6}}>
         {me&&<NB color={me.color} style={{background:t.bgCard,padding:"6px 12px",display:"flex",alignItems:"center",gap:8,borderRadius:12}}><AvatarC user={me} size={24}/><div><div style={{fontSize:10,fontWeight:800,color:t.text}}>{me.name}</div><div style={{fontSize:8,color:t.amber,fontWeight:700,fontFamily:"var(--font-dm-mono), monospace"}}>{getPoints(currentUser!)}pts</div></div></NB>}
+        <button onClick={()=>{setShowActivity(!showActivity);setLastSeenActivity(activityLog.length);}} style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.textMuted,fontSize:12,cursor:"pointer",position:"relative"}}>🔔{activityLog.length>lastSeenActivity&&<div style={{position:"absolute",top:-2,right:-2,width:8,height:8,borderRadius:"50%",background:t.red,border:`1.5px solid ${t.bgCard}`}}/>}</button>
         <button onClick={()=>setIsDark(!isDark)} style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.textMuted,fontSize:12,cursor:"pointer"}}>{isDark?"☀️":"🌚"}</button>
         <button onClick={()=>{setOnboardStep(5);setCurrentUser(null);}} style={{background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:10,padding:"6px 10px",color:t.textMuted,fontSize:8,cursor:"pointer",fontFamily:"var(--font-dm-mono), monospace"}}>switch</button>
       </div>
@@ -513,13 +553,47 @@ export default function Dashboard(){
       </NB>
     );})()}
 
+    {/* ACTIVITY PANEL */}
+    {showActivity&&<NB color={t.accent} style={{background:t.bgCard,padding:"12px 14px",marginBottom:8,borderRadius:14,maxHeight:240,overflow:"auto"}}>
+      <div style={{fontSize:7,color:t.textDim,letterSpacing:2,textTransform:"uppercase",marginBottom:6,fontFamily:"var(--font-dm-mono), monospace"}}>activity feed</div>
+      {activityLog.length===0?<div style={{fontSize:9,color:t.textDim,padding:8}}>No activity yet</div>:activityLog.slice(0,20).map((a,i)=>{const u=users.find(x=>x.id===a.user);const ago=Math.round((Date.now()-a.time)/60000);const timeStr=ago<1?"now":ago<60?`${ago}m`:ago<1440?`${Math.round(ago/60)}h`:`${Math.round(ago/1440)}d`;return(
+        <div key={i} style={{display:"flex",alignItems:"center",gap:6,padding:"4px 0",borderBottom:i<19?`1px solid ${t.border}`:"none"}}>
+          {u&&<AvatarC user={u} size={16}/>}
+          <div style={{flex:1,minWidth:0}}>
+            <span style={{fontSize:8,fontWeight:700,color:u?.color||t.text}}>{u?.name}</span>
+            <span style={{fontSize:8,color:t.textMuted}}> {a.type==="claim"?"claimed":a.type==="comment"?"commented on":a.type==="status"?"updated":a.type} </span>
+            <span style={{fontSize:8,fontWeight:600,color:t.text}}>{a.target}</span>
+            {a.detail&&<span style={{fontSize:7,color:t.accent,marginLeft:4}}>{a.detail}</span>}
+          </div>
+          <span style={{fontSize:7,color:t.textDim,flexShrink:0}}>{timeStr}</span>
+        </div>
+      );})}
+    </NB>}
+
+    {/* SEARCH & FILTER */}
+    <div style={{display:"flex",gap:6,marginBottom:8,alignItems:"center",flexWrap:"wrap"}}>
+      <div style={{flex:"1 1 200px",position:"relative"}}>
+        <input value={searchQ} onChange={e=>setSearchQ(e.target.value)} placeholder="Search stages..." style={{width:"100%",background:t.bgCard,border:`1px solid ${t.border}`,borderRadius:10,padding:"7px 12px 7px 28px",fontSize:10,color:t.text,fontFamily:"var(--font-dm-sans), sans-serif",outline:"none"}}/>
+        <span style={{position:"absolute",left:10,top:"50%",transform:"translateY(-50%)",fontSize:11,color:t.textDim}}>🔍</span>
+      </div>
+      <div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+        {[{l:"all",v:null},{l:"live",v:"active"},{l:"building",v:"in-progress"},{l:"planned",v:"planned"},{l:"concept",v:"concept"},{l:"my claims",v:"claimed"}].map(f=>(<button key={f.l} onClick={()=>setStatusFilter(statusFilter===f.v?null:f.v)} style={{background:statusFilter===f.v?t.accent+"20":t.bgCard,border:`1px solid ${statusFilter===f.v?t.accent+"55":t.border}`,borderRadius:8,padding:"3px 10px",fontSize:8,color:statusFilter===f.v?t.accent:t.textMuted,fontWeight:statusFilter===f.v?700:500,cursor:"pointer",fontFamily:"var(--font-dm-mono), monospace",transition:"all 0.15s"}}>{f.l}</button>))}
+      </div>
+    </div>
+
     {/* STATS */}
-    <div style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:12}}>{[{l:"total",v:total,c:t.text},{l:"live",v:bySt("active"),c:t.green},{l:"building",v:bySt("in-progress"),c:t.amber},{l:"planned",v:bySt("planned"),c:t.cyan||t.accent},{l:"concept",v:bySt("concept"),c:t.purple}].map(s=>(<NB key={s.l} color={s.c} style={{background:t.bgCard,padding:"8px 4px",textAlign:"center",borderRadius:10}}><div style={{fontSize:18,fontWeight:900,color:s.c,textShadow:`0 0 8px ${s.c}33`}}>{s.v}</div><div style={{fontSize:6.5,color:t.textMuted,letterSpacing:1.5,fontFamily:"var(--font-dm-mono), monospace"}}>{s.l}</div></NB>))}</div>
+    <div className="bu-stats" style={{display:"grid",gridTemplateColumns:"repeat(5,1fr)",gap:4,marginBottom:12}}>{[{l:"total",v:total,c:t.text},{l:"live",v:bySt("active"),c:t.green},{l:"building",v:bySt("in-progress"),c:t.amber},{l:"planned",v:bySt("planned"),c:t.cyan||t.accent},{l:"concept",v:bySt("concept"),c:t.purple}].map(s=>(<NB key={s.l} color={s.c} style={{background:t.bgCard,padding:"8px 4px",textAlign:"center",borderRadius:10}}><div style={{fontSize:18,fontWeight:900,color:s.c,textShadow:`0 0 8px ${s.c}33`}}>{s.v}</div><div style={{fontSize:6.5,color:t.textMuted,letterSpacing:1.5,fontFamily:"var(--font-dm-mono), monospace"}}>{s.l}</div></NB>))}</div>
 
     {/* PIPELINES */}
-    <div style={{display:"flex",flexDirection:"column",gap:7}}>{pipelineData.map(p=>{
-      const isO=exp===p.id;const pC=ck[p.colorKey];const prC=pr[p.priority];
-      const pct=Math.round((p.stages.filter(s=>stageDefaults[s]?.status==="active").length/p.stages.length)*100);
+    <div style={{display:"flex",flexDirection:"column",gap:7}}>{pipelineData.filter(p=>{
+      const q=searchQ.toLowerCase();
+      const matchesSearch=!q||p.name.toLowerCase().includes(q)||p.stages.some(s=>s.toLowerCase().includes(q));
+      const matchesFilter=!statusFilter||(statusFilter==="claimed"?p.stages.some(s=>(claims[s]||[]).includes(currentUser!)):p.stages.some(s=>getStatus(s)===statusFilter));
+      return matchesSearch&&matchesFilter;
+    }).map(p=>{
+      const isO=exp===p.id||!!searchQ;const pC=ck[p.colorKey];const prC=pr[p.priority];
+      const statusWeight: Record<string,number>={concept:0,planned:25,"in-progress":60,active:100};
+      const pct=Math.round(p.stages.reduce((sum,s)=>sum+(statusWeight[getStatus(s)]||0),0)/p.stages.length);
       const uClaim=[...new Set(p.stages.flatMap(s=>claims[s]||[]))];
       const allPipelineClaimed=p.stages.every(s=>(claims[s]||[]).includes(currentUser!));
       const pipeReactions=reactions[`_pipe_${p.id}`]||{};
@@ -547,7 +621,7 @@ export default function Dashboard(){
               </button>);})}
           </div>
           {uClaim.length>0&&<div style={{display:"flex",marginLeft:2}}>{uClaim.slice(0,5).map(uid=>{const u=users.find(u=>u.id===uid);return u?<div key={uid} style={{marginLeft:-3}}><AvatarC user={u} size={17}/></div>:null;})}</div>}
-        </div></div></div><div style={{textAlign:"right",flexShrink:0,marginLeft:10}}><div style={{fontSize:11,fontWeight:900,color:pC,fontFamily:"var(--font-dm-mono), monospace",textShadow:`0 0 6px ${pC}22`}}>{p.totalHours}</div><div style={{display:"flex",gap:1.5,marginTop:3,justifyContent:"flex-end"}}>{p.stages.map((s,i)=>{const stC=sc[stageDefaults[s]?.status]||{c:t.textDim};return<div key={i} style={{width:5,height:5,borderRadius:1.5,background:stC.c+"33",border:`1px solid ${stC.c}`}}/>;})}</div></div></div>{!isO&&<div style={{display:"flex",flexWrap:"wrap",gap:2,marginTop:6,paddingLeft:18}}>{p.stages.map((s,i)=>{const stC=sc[stageDefaults[s]?.status]||{c:t.textDim};return(<div key={i} style={{display:"flex",alignItems:"center",gap:1.5}}><span style={{fontSize:6.5,color:stC.c,background:stC.c+"0a",padding:"1px 4px",borderRadius:4,fontFamily:"var(--font-dm-mono), monospace"}}>{s}</span>{i<p.stages.length-1&&<span style={{color:t.textDim,fontSize:7}}>→</span>}</div>);})}</div>}</div>{isO&&<div style={{padding:"0 14px 14px",animation:"fadeIn 0.2s ease"}}><div style={{borderTop:`1px solid ${t.border}`,paddingTop:10}}>{p.stages.map((s,i)=><Stage key={i} name={s} idx={i} tot={p.stages.length} pC={pC} pId={p.id}/>)}</div></div>}</NB>);
+        </div></div></div><div style={{textAlign:"right",flexShrink:0,marginLeft:10}}><div style={{fontSize:11,fontWeight:900,color:pC,fontFamily:"var(--font-dm-mono), monospace",textShadow:`0 0 6px ${pC}22`}}>{p.totalHours}</div><div style={{display:"flex",gap:1.5,marginTop:3,justifyContent:"flex-end"}}>{p.stages.map((s,i)=>{const stC=sc[getStatus(s)]||{c:t.textDim};return<div key={i} style={{width:5,height:5,borderRadius:1.5,background:stC.c+"33",border:`1px solid ${stC.c}`}}/>;})}</div></div></div>{!isO&&<div style={{display:"flex",flexWrap:"wrap",gap:2,marginTop:6,paddingLeft:18}}>{p.stages.map((s,i)=>{const stC=sc[getStatus(s)]||{c:t.textDim};return(<div key={i} style={{display:"flex",alignItems:"center",gap:1.5}}><span style={{fontSize:6.5,color:stC.c,background:stC.c+"0a",padding:"1px 4px",borderRadius:4,fontFamily:"var(--font-dm-mono), monospace"}}>{s}</span>{i<p.stages.length-1&&<span style={{color:t.textDim,fontSize:7}}>→</span>}</div>);})}</div>}</div>{isO&&<div style={{padding:"0 14px 14px",animation:"fadeIn 0.2s ease"}}><div style={{borderTop:`1px solid ${t.border}`,paddingTop:10}}>{p.stages.map((s,i)=><Stage key={i} name={s} idx={i} tot={p.stages.length} pC={pC} pId={p.id}/>)}</div></div>}</NB>);
     })}</div>
 
     {/* Toast notification */}
