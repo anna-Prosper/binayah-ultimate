@@ -10,6 +10,7 @@ import Onboarding from "@/components/Onboarding";
 import ActivityFeed from "@/components/ActivityFeed";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
+import { generatePipelineReport } from "@/lib/generatePDF";
 
 export default function Dashboard() {
   const [isDark, setIsDark] = useState(() => lsGet("isDark", true));
@@ -113,6 +114,7 @@ export default function Dashboard() {
             <button onClick={() => { setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 14, cursor: "pointer", position: "relative" }}>
               {"\uD83D\uDD14"}{unseen > 0 && <div style={{ position: "absolute", top: -3, right: -3, minWidth: 14, height: 14, borderRadius: 7, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
+            <button onClick={() => generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! })} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }} title="Export PDF report">{"\uD83D\uDCC4"} PDF</button>
             <button onClick={() => setIsDark(!isDark)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 14, cursor: "pointer" }}>{isDark ? "\u2600\uFE0F" : "\uD83C\uDF1A"}</button>
             <button onClick={() => { setOnboardStep(5); setCurrentUser(null); }} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>switch</button>
           </div>

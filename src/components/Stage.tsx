@@ -66,134 +66,159 @@ export default function Stage({
 
   return (
     <div style={{ display: "flex" }}>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 26, flexShrink: 0, paddingTop: 3 }}>
+      {/* Timeline */}
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0, paddingTop: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${st.c}`, background: effectiveStatus === "active" ? st.c : "transparent", boxShadow: effectiveStatus === "active" ? `0 0 8px ${st.c}44` : "none", zIndex: 1 }} />
-        {idx < tot - 1 && <div style={{ width: 1.5, flex: 1, background: `${st.c}22`, marginTop: 1 }} />}
+        {idx < tot - 1 && <div style={{ width: 1.5, flex: 1, background: `${st.c}22`, marginTop: 2 }} />}
       </div>
-      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 12, marginBottom: idx < tot - 1 ? 4 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden" }}>
-        <div style={{ padding: "10px 12px", display: "flex", alignItems: "center", gap: 6 }}
+
+      {/* Card */}
+      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden" }}>
+
+        {/* Header row */}
+        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}
           onMouseEnter={() => setReactOpen(name)} onMouseLeave={() => setReactOpen(null)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0, flexShrink: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexShrink: 1 }}>
             <Chev open={isE} color={pC} />
-            <span style={{ fontSize: 11, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 6, fontWeight: 700, color: st.c, background: st.c + "12", padding: "1.5px 6px", borderRadius: 6, flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }} title="Click to change status">{st.l}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }} title="Click to change status">{st.l}</span>
           </div>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 3 }} onClick={e => e.stopPropagation()}>
+          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }} onClick={e => e.stopPropagation()}>
+            {/* Reactions */}
             {(() => {
               const sr = rxns[name] || {};
               const existing = Object.entries(sr).filter(([, v]) => v.length > 0);
               const isHover = reactOpen === name;
               if (isHover) {
                 return REACTIONS.map(r => { const us = sr[r] || []; const mine = us.includes(currentUser!); const has = us.length > 0; return (
-                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 10, padding: "2px 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", transition: "all 0.12s", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
-                    <span style={{ fontSize: has ? 12 : 10 }}>{r}</span>
-                    {has && <span style={{ fontSize: 6, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
+                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 10, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", transition: "all 0.12s", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
+                    <span style={{ fontSize: has ? 13 : 11 }}>{r}</span>
+                    {has && <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
                   </button>); });
               }
               return existing.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
-                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 10, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", transition: "all 0.1s" }}>
-                  <span style={{ fontSize: 11 }}>{emoji}</span>
-                  <span style={{ fontSize: 6, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 10, padding: "2px 6px", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", transition: "all 0.1s" }}>
+                  <span style={{ fontSize: 12 }}>{emoji}</span>
+                  <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                 </button>); });
             })()}
-            {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
-            {tasks.length > 0 && <span style={{ fontSize: 7, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
-            {cmts.length > 0 && <span style={{ fontSize: 7, color: t.textMuted }}>&#x1F4AC;{cmts.length}</span>}
-            <span style={{ fontSize: 6.5, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
+            {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 3 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={18} /></div> : null; })}</div>}
+            {tasks.length > 0 && <span style={{ fontSize: 8, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
+            {cmts.length > 0 && <span style={{ fontSize: 8, color: t.textMuted }}>{"\uD83D\uDCAC"}{cmts.length}</span>}
+            <span style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
           </div>
         </div>
 
+        {/* Expanded content */}
         {isE && (
           <div style={{ borderTop: `1px solid ${t.border}`, animation: "fadeIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
-            <div style={{ padding: "8px 12px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
-              {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
-              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 12, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>+{claimAnim.pts}pts</div>}
 
-              <div style={{ display: "flex", gap: 4, alignItems: "center", flexWrap: "wrap" }}>
+            {/* Action bar */}
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
+              {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
+              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 14, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>+{claimAnim.pts}pts</div>}
+
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {!claimedBy.includes(currentUser!) ? (
-                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 10, padding: "7px 18px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 6, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3 }}>
-                    <span style={{ fontSize: 14 }}>&#x1F480;</span>
+                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3 }}>
+                    <span style={{ fontSize: 16 }}>{"\uD83D\uDC80"}</span>
                     <span style={{ color: "#fff", textShadow: "0 1px 2px rgba(0,0,0,0.3)" }}>claim this</span>
-                    <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 6, padding: "1px 6px", fontSize: 8, color: "#fff" }}>+{s.points}pts</span>
+                    <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "2px 8px", fontSize: 9, color: "#fff" }}>+{s.points}pts</span>
                     <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)", animation: "shimmer 2.5s ease-in-out infinite" }} />
                   </button>
                 ) : (
-                  <button onClick={() => handleClaim(name)} style={{ background: t.green + "20", border: `1px solid ${t.green}55`, borderRadius: 10, padding: "7px 14px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 5, boxShadow: `0 0 12px ${t.green}18` }}>
-                    <AvatarC user={me} size={18} />
-                    <span style={{ color: t.green }}>&#x2713; claimed</span>
+                  <button onClick={() => handleClaim(name)} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 6, boxShadow: `0 0 12px ${t.green}18` }}>
+                    <AvatarC user={me} size={20} />
+                    <span style={{ color: t.green }}>{"\u2713"} claimed</span>
                   </button>
                 )}
 
                 {claimedBy.filter(uid => uid !== currentUser).length > 0 && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                    {claimedBy.filter(uid => uid !== currentUser).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid}><AvatarC user={u} size={16} /></div> : null; })}
+                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    {claimedBy.filter(uid => uid !== currentUser).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid}><AvatarC user={u} size={18} /></div> : null; })}
                   </div>
                 )}
 
-                <button onClick={() => shareStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 8, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {copied === name ? "&#x2713; copied" : "&#x1F4CB; share"}
+                <button onClick={() => shareStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                  {copied === name ? "\u2713 copied" : "\uD83D\uDCCB share"}
                 </button>
-                {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "20" : pC + "0a", border: `1px solid ${isMockOpen ? pC + "55" : pC + "25"}`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 8.5, color: isMockOpen ? pC : pC + "cc", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", boxShadow: isMockOpen ? `0 0 8px ${pC}15` : "none" }}>
-                  {isMockOpen ? "&#x25BE; hide details" : "&#x1F4CB; details"}
+                {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "18" : "transparent", border: `1px solid ${isMockOpen ? pC + "44" : pC + "22"}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: isMockOpen ? pC : pC + "aa", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                  {isMockOpen ? "\u25BE hide details" : "\u25B8 details"}
                 </button>}
               </div>
             </div>
 
-            <div style={{ display: "flex", gap: 0, minHeight: 60 }}>
-              <div style={{ flex: 1, padding: "8px 12px", borderRight: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
+            {/* Subtasks + Comments */}
+            <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
+              {/* Subtasks */}
+              <div style={{ flex: 1, padding: "14px 16px", borderRight: `1px solid ${t.border}` }}>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 {tasks.map(task => (
-                  <div key={task.id} onClick={() => toggleSubtask(name, task.id)} style={{ display: "flex", alignItems: "center", gap: 5, padding: "3px 0", cursor: "pointer" }}>
-                    <div style={{ width: 12, height: 12, borderRadius: 3, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                      {task.done && <span style={{ fontSize: 7, color: t.green }}>&#x2713;</span>}
+                  <div key={task.id} onClick={() => toggleSubtask(name, task.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}>
+                    <div style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                      {task.done && <span style={{ fontSize: 8, color: t.green }}>{"\u2713"}</span>}
                     </div>
-                    <span style={{ fontSize: 8, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
-                    <span style={{ fontSize: 6, color: t.textDim }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
+                    <span style={{ fontSize: 9, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
+                    <span style={{ fontSize: 7, color: t.textDim }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
                   </div>
                 ))}
-                <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
-                  <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 6px", fontSize: 7.5, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addSubtask(name)} style={{ background: t.accent + "18", border: `1px solid ${t.accent}33`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 7, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
+                <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                  <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 9, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
 
-              <div style={{ flex: 1, padding: "8px 12px" }}>
-                <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 5 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
-                <div style={{ maxHeight: 100, overflowY: "auto" }}>
+              {/* Comments */}
+              <div style={{ flex: 1, padding: "14px 16px" }}>
+                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
+                <div style={{ maxHeight: 120, overflowY: "auto" }}>
                   {cmts.map(c => { const u = users.find(x => x.id === c.by); return (
-                    <div key={c.id} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                      {u && <AvatarC user={u} size={14} />}
+                    <div key={c.id} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
+                      {u && <AvatarC user={u} size={16} />}
                       <div style={{ flex: 1 }}>
                         <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                          <span style={{ fontSize: 7, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
-                          <span style={{ fontSize: 6, color: t.textDim }}>{c.time}</span>
+                          <span style={{ fontSize: 8, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
+                          <span style={{ fontSize: 7, color: t.textDim }}>{c.time}</span>
                         </div>
-                        <div style={{ fontSize: 8, color: t.textSec, lineHeight: 1.35 }}>{c.text}</div>
+                        <div style={{ fontSize: 9, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
                       </div>
                     </div>
                   ); })}
                 </div>
-                <div style={{ display: "flex", gap: 3, marginTop: 4 }}>
-                  <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 6px", fontSize: 7.5, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addComment(name)} style={{ background: t.accent + "18", border: `1px solid ${t.accent}33`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 7, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>&#x21B5;</button>
+                <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                  <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 9, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
                 </div>
               </div>
             </div>
 
+            {/* Details panel */}
             {mock && isMockOpen && (
-              <div style={{ borderTop: `1px solid ${t.border}`, padding: "12px 12px", animation: "fadeIn 0.2s ease" }}>
-                <div style={{ marginBottom: 10 }}>
-                  <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 4 }}>about</div>
-                  <div style={{ fontSize: 9.5, color: t.textSec, lineHeight: 1.5 }}>{s.desc}</div>
+              <div style={{ borderTop: `1px solid ${t.border}`, padding: "16px", animation: "fadeIn 0.2s ease" }}>
+                {/* About */}
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontWeight: 600 }}>about</div>
+                  <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6 }}>{s.desc}</div>
                 </div>
-                <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                  <div style={{ background: t.surface, borderRadius: 8, padding: "5px 10px", flex: "1 1 80px" }}><div style={{ fontSize: 6, color: t.textDim, letterSpacing: 1, textTransform: "uppercase" }}>points</div><div style={{ fontSize: 11, fontWeight: 800, color: t.amber }}>{s.points}</div></div>
-                  <div style={{ background: t.surface, borderRadius: 8, padding: "5px 10px", flex: "1 1 80px" }}><div style={{ fontSize: 6, color: t.textDim, letterSpacing: 1, textTransform: "uppercase" }}>status</div><div style={{ fontSize: 11, fontWeight: 800, color: st.c }}>{st.l}</div></div>
-                  <div style={{ background: t.surface, borderRadius: 8, padding: "5px 10px", flex: "1 1 80px" }}><div style={{ fontSize: 6, color: t.textDim, letterSpacing: 1, textTransform: "uppercase" }}>owners</div><div style={{ display: "flex", gap: 2, marginTop: 2 }}>{claimedBy.length > 0 ? claimedBy.map(uid => { const u = users.find(u => u.id === uid); return u ? <AvatarC key={uid} user={u} size={16} /> : null; }) : (<span style={{ fontSize: 9, color: t.textDim }}>unclaimed</span>)}</div></div>
+                {/* Info cards */}
+                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
+                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>points</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: t.amber }}>{s.points}</div>
+                  </div>
+                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
+                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>status</div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: st.c }}>{st.l}</div>
+                  </div>
+                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
+                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>owners</div>
+                    <div style={{ display: "flex", gap: 3, marginTop: 3 }}>{claimedBy.length > 0 ? claimedBy.map(uid => { const u = users.find(u => u.id === uid); return u ? <AvatarC key={uid} user={u} size={18} /> : null; }) : (<span style={{ fontSize: 10, color: t.textDim }}>unclaimed</span>)}</div>
+                  </div>
                 </div>
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 6 }}>preview</div>
-                  <div style={{ maxWidth: 360, margin: "0 auto" }}>{mock(t)}</div>
+                {/* Preview mockup */}
+                <div>
+                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>preview</div>
+                  <div style={{ maxWidth: 400, margin: "0 auto" }}>{mock(t)}</div>
                 </div>
               </div>
             )}
