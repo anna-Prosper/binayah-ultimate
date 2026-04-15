@@ -12,7 +12,7 @@ import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import ChatPanel, { type ChatMsg } from "@/components/ChatPanel";
 import { generatePipelineReport } from "@/lib/generatePDF";
-import { fetchState, patchState } from "@/lib/apiSync";
+import { fetchState, patchState, pushMessage, pushComment, pushActivity } from "@/lib/apiSync";
 import KanbanView from "@/components/KanbanView";
 import OverviewPanel from "@/components/OverviewPanel";
 
@@ -222,10 +222,10 @@ export default function Dashboard() {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, reactions, chatMessages, activityLog, subtasks, comments, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users });
+      patchState({ claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users });
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims, reactions, chatMessages, activityLog, subtasks, comments, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
+  }, [claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
 
   // Auto-expand matching pipelines on search
   useEffect(() => {
@@ -240,7 +240,9 @@ export default function Dashboard() {
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
   const logActivity = useCallback((type: string, target: string, detail: string) => {
     if (!currentUser) return;
-    setActivityLog(prev => [{ type, user: currentUser, target, detail, time: Date.now() }, ...prev.slice(0, 99)]);
+    const entry = { type, user: currentUser, target, detail, time: Date.now() };
+    setActivityLog(prev => [entry, ...prev.slice(0, 99)]);
+    pushActivity(entry);
   }, [currentUser]);
 
   const t = mkTheme(themeId, isDark);
@@ -290,6 +292,7 @@ export default function Dashboard() {
     if (!currentUser) return;
     const msg: ChatMsg = { id: Date.now(), userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setChatMessages(prev => [...prev, msg]);
+    pushMessage(msg); // atomic append to API — no clobber
   };
 
   // Claim = take ownership. Points only granted when stage goes LIVE.
@@ -314,7 +317,7 @@ export default function Dashboard() {
   const handleReact = (sid: string, emoji: string) => { if (!currentUser) return; setReactions(prev => { const s = { ...(prev[sid] || {}) }; const u = [...(s[emoji] || [])]; const i = u.indexOf(currentUser); if (i >= 0) u.splice(i, 1); else u.push(currentUser); s[emoji] = u; return { ...prev, [sid]: s }; }); };
   const addSubtask = (sid: string) => { const val = subtaskInput[sid]?.trim(); if (!val || !currentUser) return; setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, done: false, by: currentUser }] })); setSubtaskInput(prev => ({ ...prev, [sid]: "" })); };
   const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t) })); };
-  const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }] })); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
+  const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name} Pipeline`).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
