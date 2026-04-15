@@ -13,6 +13,7 @@ import Stage from "@/components/Stage";
 import ChatPanel, { type ChatMsg } from "@/components/ChatPanel";
 import { generatePipelineReport } from "@/lib/generatePDF";
 import KanbanView from "@/components/KanbanView";
+import OverviewPanel from "@/components/OverviewPanel";
 
 type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -61,7 +62,7 @@ export default function Dashboard() {
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [view, setView] = useState<"list" | "kanban">(() => lsGet("view", "list"));
+  const [view, setView] = useState<"list" | "kanban" | "overview">(() => lsGet("view", "list"));
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
 
@@ -316,13 +317,25 @@ export default function Dashboard() {
           </div>
           {/* View toggle */}
           <div style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
-            {(["list", "kanban"] as const).map(v => (
+            {([["list", "\u2630 list"], ["kanban", "\u25A6 kanban"], ["overview", "\u25A1 overview"]] as const).map(([v, label]) => (
               <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                {v === "list" ? "\u2630 list" : "\u25A6 kanban"}
+                {label}
               </button>
             ))}
           </div>
         </div>
+
+        {/* OVERVIEW VIEW */}
+        {view === "overview" && (
+          <OverviewPanel
+            allPipelines={allPipelines} customStages={customStages} getStatus={getStatus}
+            claims={claims} users={users} sc={sc} ck={ck}
+            stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride}
+            pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides}
+            pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides}
+            searchQ={searchQ} t={t}
+          />
+        )}
 
         {/* KANBAN VIEW */}
         {view === "kanban" && (
