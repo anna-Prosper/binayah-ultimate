@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -41,6 +42,8 @@ interface StageProps {
   addSubtask: (sid: string) => void;
   toggleSubtask: (sid: string, taskId: number) => void;
   addComment: (sid: string) => void;
+  stageDescOverrides: Record<string, string>;
+  setStageDescOverride: (name: string, val: string) => void;
 }
 
 export default function Stage({
@@ -50,7 +53,9 @@ export default function Stage({
   handleClaim, handleReact, cycleStatus, shareStage,
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, addComment,
+  stageDescOverrides, setStageDescOverride,
 }: StageProps) {
+  const [editingDesc, setEditingDesc] = useState(false);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
   const s = stageDefaults[name];
@@ -63,6 +68,14 @@ export default function Stage({
   const cmts = comments[name] || [];
   const tasksDone = tasks.filter(x => x.done).length;
   const isMockOpen = showMockup[name];
+  const currentDesc = stageDescOverrides[name] ?? s.desc;
+
+  // Quick-open preview: expand stage and show mockup at once
+  const openPreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpS(k);
+    setShowMockup(prev => ({ ...prev, [name]: true }));
+  };
 
   return (
     <div style={{ display: "flex" }}>
@@ -76,14 +89,14 @@ export default function Stage({
       <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden" }}>
 
         {/* Header row */}
-        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}
-          onMouseEnter={() => setReactOpen(name)} onMouseLeave={() => setReactOpen(null)}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flexShrink: 1 }}>
+        <div style={{ padding: "12px 14px", display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
             <Chev open={isE} color={pC} />
             <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }} title="Click to change status">{st.l}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: "pointer", transition: "all 0.15s" }} title="Click to cycle status">{st.l}</span>
           </div>
-          <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4 }} onClick={e => e.stopPropagation()}>
+
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
             {/* Reactions */}
             {(() => {
               const sr = rxns[name] || {};
@@ -102,6 +115,19 @@ export default function Stage({
                   <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                 </button>); });
             })()}
+
+            {/* React toggle button */}
+            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textDim, fontFamily: "inherit", opacity: 0.6 }} title="React">
+              {"\uD83D\uDE00"}
+            </button>
+
+            {/* Quick preview button — only for stages with mockups */}
+            {mock && !isE && (
+              <button onClick={openPreview} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0, transition: "all 0.15s" }} title="Quick preview">
+                {"\uD83D\uDC41"} preview
+              </button>
+            )}
+
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 3 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 8, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
             {cmts.length > 0 && <span style={{ fontSize: 8, color: t.textMuted }}>{"\uD83D\uDCAC"}{cmts.length}</span>}
@@ -142,8 +168,9 @@ export default function Stage({
                 <button onClick={() => shareStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {copied === name ? "\u2713 copied" : "\uD83D\uDCCB share"}
                 </button>
+
                 {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "18" : "transparent", border: `1px solid ${isMockOpen ? pC + "44" : pC + "22"}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: isMockOpen ? pC : pC + "aa", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {isMockOpen ? "\u25BE hide details" : "\u25B8 details"}
+                  {isMockOpen ? "\u25BE hide preview" : "\u25B8 show preview"}
                 </button>}
               </div>
             </div>
@@ -192,14 +219,31 @@ export default function Stage({
               </div>
             </div>
 
-            {/* Details panel */}
-            {mock && isMockOpen && (
+            {/* Details / Preview panel */}
+            {isMockOpen && (
               <div style={{ borderTop: `1px solid ${t.border}`, padding: "16px", animation: "fadeIn 0.2s ease" }}>
-                {/* About */}
+                {/* About — editable */}
                 <div style={{ marginBottom: 14 }}>
-                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontWeight: 600 }}>about</div>
-                  <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6 }}>{s.desc}</div>
+                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                    about
+                    {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 9, color: t.textDim, cursor: "pointer", opacity: 0.5 }} title="Edit description">{"\u270E"}</span>}
+                    {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 7, color: t.green, cursor: "pointer", fontWeight: 700, opacity: 0.8 }}>done</span>}
+                  </div>
+                  {editingDesc ? (
+                    <textarea
+                      value={currentDesc}
+                      onChange={e => setStageDescOverride(name, e.target.value)}
+                      autoFocus
+                      rows={3}
+                      style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "8px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "vertical", lineHeight: 1.6 }}
+                    />
+                  ) : (
+                    <div onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: "text", borderRadius: 6, padding: "4px 2px" }} title="Click to edit">
+                      {currentDesc}
+                    </div>
+                  )}
                 </div>
+
                 {/* Info cards */}
                 <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
                   <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
@@ -208,18 +252,21 @@ export default function Stage({
                   </div>
                   <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
                     <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>status</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: st.c }}>{st.l}</div>
+                    <div onClick={() => cycleStatus(name)} style={{ fontSize: 14, fontWeight: 800, color: st.c, cursor: "pointer" }} title="Click to cycle">{st.l}</div>
                   </div>
                   <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
                     <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>owners</div>
                     <div style={{ display: "flex", gap: 3, marginTop: 3 }}>{claimedBy.length > 0 ? claimedBy.map(uid => { const u = users.find(u => u.id === uid); return u ? <AvatarC key={uid} user={u} size={18} /> : null; }) : (<span style={{ fontSize: 10, color: t.textDim }}>unclaimed</span>)}</div>
                   </div>
                 </div>
-                {/* Preview mockup */}
-                <div>
-                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>preview</div>
-                  <div style={{ maxWidth: 400, margin: "0 auto" }}>{mock(t)}</div>
-                </div>
+
+                {/* Mockup preview */}
+                {mock && (
+                  <div>
+                    <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>preview</div>
+                    <div style={{ maxWidth: 400, margin: "0 auto" }}>{mock(t)}</div>
+                  </div>
+                )}
               </div>
             )}
           </div>

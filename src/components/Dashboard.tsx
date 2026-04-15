@@ -20,7 +20,8 @@ export default function Dashboard() {
   const [onboardStep, setOnboardStep] = useState(() => lsGet("onboardStep", 0));
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
-  const [exp, setExp] = useState<string | null>("research");
+  // Multi-expand: array of expanded pipeline IDs
+  const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
   const [expS, setExpS] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
   const [claims, setClaims] = useState<Record<string, string[]>>(() => lsGet("claims", {}));
@@ -36,6 +37,9 @@ export default function Dashboard() {
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
+  const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
+  const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
+  const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
@@ -50,8 +54,21 @@ export default function Dashboard() {
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
+  useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
+  useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
+  useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
+
+  // Auto-expand matching pipelines on search
+  useEffect(() => {
+    if (!searchQ) return;
+    const q = searchQ.toLowerCase();
+    const ids = pipelineData
+      .filter(p => p.name.toLowerCase().includes(q) || p.stages.some(s => s.toLowerCase().includes(q)))
+      .map(p => p.id);
+    setExpanded(prev => [...new Set([...prev, ...ids])]);
+  }, [searchQ]);
 
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
   const logActivity = useCallback((type: string, target: string, detail: string) => {
@@ -69,6 +86,8 @@ export default function Dashboard() {
   const bySt = (s: string) => allStages.filter(n => getStatus(n) === s).length;
   const getPoints = (uid: string) => { let p = 0; Object.entries(claims).forEach(([s, c]) => { if (c.includes(uid)) p += stageDefaults[s]?.points || 10; }); Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); }); return p; };
 
+  const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+
   const handleClaim = (sid: string) => { if (!currentUser) return; const alreadyClaimed = (claims[sid] || []).includes(currentUser); setClaims(prev => { const c = prev[sid] || []; if (c.includes(currentUser)) return { ...prev, [sid]: c.filter(u => u !== currentUser) }; return { ...prev, [sid]: [...c, currentUser] }; }); if (!alreadyClaimed) { const pts = stageDefaults[sid]?.points || 10; const me2 = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser); setClaimAnim({ stage: sid, pts }); setToast({ text: `${me2?.name} claimed ${sid}`, pts: `+${pts}pts`, color: me2?.color || t.accent }); logActivity("claim", sid, `+${pts}pts`); setTimeout(() => setClaimAnim(null), 1200); setTimeout(() => setToast(null), 2500); } };
   const handleReact = (sid: string, emoji: string) => { if (!currentUser) return; setReactions(prev => { const s = { ...(prev[sid] || {}) }; const u = [...(s[emoji] || [])]; const i = u.indexOf(currentUser); if (i >= 0) u.splice(i, 1); else u.push(currentUser); s[emoji] = u; return { ...prev, [sid]: s }; }); };
   const addSubtask = (sid: string) => { const val = subtaskInput[sid]?.trim(); if (!val || !currentUser) return; setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, done: false, by: currentUser }] })); setSubtaskInput(prev => ({ ...prev, [sid]: "" })); };
@@ -76,6 +95,8 @@ export default function Dashboard() {
   const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }] })); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
+  const sharePipeline = (pid: string, name: string) => { const text = `Binayah AI \u2014 ${name} Pipeline`; navigator.clipboard?.writeText(text).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
+  const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
 
   if (onboardStep < 7) {
     return <Onboarding t={t} themeId={themeId} setThemeId={setThemeId} onboardStep={onboardStep} setOnboardStep={setOnboardStep} users={users} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setCurrentUser={setCurrentUser} setUsers={setUsers} />;
@@ -84,12 +105,12 @@ export default function Dashboard() {
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
   if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-dm-sans), sans-serif" }}><button onClick={() => setOnboardStep(0)} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Start Over</button></div>);
 
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, addComment };
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, addComment, stageDescOverrides, setStageDescOverride };
   const unseen = activityLog.length - lastSeenActivity;
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{display:none!important}.bu-header{flex-direction:column;gap:12px!important}}`}</style>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{display:none!important}.bu-header{flex-direction:column;gap:12px!important}}.pipe-desc-edit{cursor:text;}.pipe-desc-edit:hover .edit-hint{opacity:1!important}`}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
 
@@ -137,7 +158,7 @@ export default function Dashboard() {
         {/* ACTIVITY */}
         {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
 
-        {/* SEARCH + FILTER + STATS in one row */}
+        {/* SEARCH + FILTER + STATS */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 300px" }}>
             <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
@@ -159,15 +180,17 @@ export default function Dashboard() {
           const matchesFilter = !statusFilter || (statusFilter === "claimed" ? p.stages.some(s => (claims[s] || []).includes(currentUser!)) : p.stages.some(s => getStatus(s) === statusFilter));
           return matchesSearch && matchesFilter;
         }).map(p => {
-          const isO = exp === p.id || !!searchQ;
+          const isO = expanded.includes(p.id);
           const pC = ck[p.colorKey];
           const prC = pr[p.priority] || { c: t.textMuted };
           const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
           const pct = Math.round(p.stages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / p.stages.length);
           const uClaim = [...new Set(p.stages.flatMap(s => claims[s] || []))];
           const allPipelineClaimed = p.stages.every(s => (claims[s] || []).includes(currentUser!));
-          const pipeReactions = reactions[`_pipe_${p.id}`] || {};
+          const pipeReactKey = `_pipe_${p.id}`;
+          const pipeReactions = reactions[pipeReactKey] || {};
           const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
+          const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
 
           return (
             <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : "none", transition: "all 0.25s" }}>
@@ -176,8 +199,8 @@ export default function Dashboard() {
                 <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg, ${pC}, ${pC}aa)`, transition: "width 0.5s" }} />
               </div>
 
-              {/* Header */}
-              <div onClick={() => setExp(isO ? null : p.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
+              {/* Header — clicking the outer div toggles expand */}
+              <div onClick={() => toggleExpand(p.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
                     <Chev open={isO} color={pC} />
@@ -190,34 +213,76 @@ export default function Dashboard() {
                         <span style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800 }}>{p.priority}</span>
                         {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                       </div>
-                      <p style={{ fontSize: 10, color: t.textSec, margin: 0, lineHeight: 1.4 }}>{p.desc}</p>
 
-                      {/* Action row — only show on hover or when expanded */}
-                      {isO && <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 8, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                      {/* Description — click pencil icon to edit */}
+                      {editingPipeDesc === p.id ? (
+                        <textarea
+                          value={pipeDesc}
+                          onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
+                          onBlur={() => setEditingPipeDesc(null)}
+                          autoFocus
+                          onClick={e => e.stopPropagation()}
+                          rows={2}
+                          style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }}
+                        />
+                      ) : (
+                        <p className="pipe-desc-edit" onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4, userSelect: "none" }}>
+                          <span>{pipeDesc}</span>
+                          <span className="edit-hint" style={{ fontSize: 9, color: t.textDim, opacity: 0.5, flexShrink: 0, transition: "opacity 0.15s" }}>{"\u270E"}</span>
+                        </p>
+                      )}
+
+                      {/* Action row — ALWAYS visible (share, react, details/collapse, claim all) */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+
+                        {/* Share */}
+                        <button onClick={() => sharePipeline(p.id, p.name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", flexShrink: 0 }}>
+                          {copied === `pipe-${p.id}` ? "\u2713 copied" : "\uD83D\uDCCB share"}
+                        </button>
+
+                        {/* React picker — toggle on click, not hover */}
+                        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                          {reactOpen === pipeReactKey
+                            ? <>
+                                {REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (
+                                  <button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "2px 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4, transition: "all 0.1s" }}>
+                                    <span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>
+                                    {us.length > 0 && <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
+                                  </button>); })}
+                                <button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 6px", cursor: "pointer", fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button>
+                              </>
+                            : <>
+                                {pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
+                                  <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit" }}>
+                                    <span style={{ fontSize: 11 }}>{emoji}</span>
+                                    <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                                  </button>); })}
+                                <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 7px", cursor: "pointer", fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
+                              </>
+                          }
+                        </div>
+
+                        {/* Details / Collapse toggle */}
+                        <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", flexShrink: 0 }}>
+                          {isO ? "\u25BE collapse" : "\u25B8 details"}
+                        </button>
+
+                        {/* Claim all */}
                         {!allPipelineClaimed ? (
-                          <button onClick={() => { p.stages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 4, transition: "all 0.2s" }}>
+                          <button onClick={() => { p.stages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3, transition: "all 0.2s", flexShrink: 0 }}>
                             {"\uD83D\uDC80"} claim all
                           </button>
                         ) : (
-                          <span style={{ fontSize: 9, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{"\u2713"} all claimed</span>
+                          <span style={{ fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{"\u2713"} all claimed</span>
                         )}
-                        <div style={{ display: "flex", gap: 2 }} onMouseEnter={() => setReactOpen(`_pipe_${p.id}`)} onMouseLeave={() => setReactOpen(null)}>
-                          {reactOpen === `_pipe_${p.id}` ? REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (
-                            <button key={r} onClick={() => handleReact(`_pipe_${p.id}`, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "2px 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4, transition: "all 0.1s" }}>
-                              <span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>
-                              {us.length > 0 && <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
-                            </button>); })
-                          : pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
-                            <button key={emoji} onClick={() => handleReact(`_pipe_${p.id}`, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit" }}>
-                              <span style={{ fontSize: 11 }}>{emoji}</span>
-                              <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
-                            </button>); })}
-                        </div>
-                        {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 4 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find((u: typeof USERS_DEFAULT[number]) => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={18} /></div> : null; })}</div>}
-                      </div>}
+
+                        {/* Owner avatars */}
+                        {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find((u: typeof USERS_DEFAULT[number]) => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
+                      </div>
                     </div>
                   </div>
-                  {/* Right side: hours + stage dots */}
+
+                  {/* Right: hours + dots + pts */}
                   <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                     <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
                     <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "flex-end" }}>
@@ -227,7 +292,7 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Collapsed stage list */}
+                {/* Collapsed: stage pill list */}
                 {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 8, paddingLeft: 20 }}>
                   {p.stages.map((s, i) => {
                     const stC = sc[getStatus(s)] || { c: t.textDim };
@@ -242,7 +307,7 @@ export default function Dashboard() {
                 </div>}
               </div>
 
-              {/* Expanded stages */}
+              {/* Expanded stage list */}
               {isO && <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                 <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
                   {p.stages.map((s, i) => <Stage key={i} name={s} idx={i} tot={p.stages.length} pC={pC} pId={p.id} {...stageProps} />)}
