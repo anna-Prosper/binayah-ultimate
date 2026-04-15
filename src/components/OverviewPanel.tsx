@@ -192,7 +192,7 @@ export default function OverviewPanel({
                       ) : (
                         <span
                           onClick={() => setEditingStageDesc(name)}
-                          style={{ fontSize: 10, color: t.textMuted, cursor: "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                          style={{ fontSize: 10, color: t.textSec, cursor: "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                           title={desc || "click to add description"}
                         >
                           {desc || <span style={{ color: t.textDim, fontStyle: "italic" }}>—</span>}
