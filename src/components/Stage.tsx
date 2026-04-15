@@ -172,14 +172,14 @@ export default function Stage({
             {/* Action bar */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
-              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 14, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>+{claimAnim.pts}pts</div>}
+              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 12, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"\uD83D\uDC80"} owned!</div>}
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {!claimedBy.includes(currentUser!) ? (
                   <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3 }}>
                     <span style={{ fontSize: 16 }}>{"\uD83D\uDC80"}</span>
                     <span>claim this</span>
-                    <span style={{ background: "rgba(255,255,255,0.2)", borderRadius: 8, padding: "2px 8px", fontSize: 9 }}>+{s.points}pts</span>
+                    <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "2px 8px", fontSize: 8 }}>earn +{s.points} on live</span>
                     <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)", animation: "shimmer 2.5s ease-in-out infinite" }} />
                   </button>
                 ) : (
