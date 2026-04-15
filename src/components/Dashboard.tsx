@@ -96,6 +96,7 @@ export default function Dashboard() {
   const knownMsgCount = useRef<number>(chatMessages.length);
   const [chatNotif, setChatNotif] = useState<{ name: string; text: string; isComment?: boolean; stage?: string } | null>(null);
   const knownCommentsRef = useRef<Record<string, number>>({});
+  const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "offline">("connecting");
 
   const playNotifSound = useCallback(() => {
     try {
@@ -134,11 +135,11 @@ export default function Dashboard() {
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
         if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
       }
-      // Only allow writes after we've loaded the canonical API state
       isInitializedRef.current = true;
+      setSyncStatus("live");
     }).catch(() => {
-      // API unreachable — still allow writes so localStorage keeps working
       isInitializedRef.current = true;
+      setSyncStatus("offline");
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -148,7 +149,8 @@ export default function Dashboard() {
     const poll = () => {
       if (Date.now() - lastWriteRef.current < 2000) return;
       fetchState().then(s => {
-        if (!s) return;
+        if (!s) { setSyncStatus("offline"); return; }
+        setSyncStatus("live");
         isPollUpdateRef.current = true;
         if (s.chatMessages) {
           setChatMessages(prev => {
@@ -360,8 +362,8 @@ export default function Dashboard() {
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.green, boxShadow: `0 0 10px ${t.green}66` }} />
-              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines \u00B7 {total} stages</span>
+              <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
+              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines \u00B7 {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
             </div>
             <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
             <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>{t.sub}</div>
