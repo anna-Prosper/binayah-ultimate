@@ -86,7 +86,7 @@ export default function Stage({
       </div>
 
       {/* Card */}
-      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden" }}>
+      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden", boxShadow: isE ? t.shadowLg : t.shadow }}>
 
         {/* Header row */}
         <div style={{ padding: "10px 14px 4px", display: "flex", alignItems: "center", gap: 8 }}>

@@ -12,6 +12,7 @@ import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import ChatPanel, { type ChatMsg } from "@/components/ChatPanel";
 import { generatePipelineReport } from "@/lib/generatePDF";
+import KanbanView from "@/components/KanbanView";
 
 type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -60,6 +61,7 @@ export default function Dashboard() {
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [view, setView] = useState<"list" | "kanban">(() => lsGet("view", "list"));
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
 
@@ -81,6 +83,7 @@ export default function Dashboard() {
   useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
+  useEffect(() => { lsSet("view", view) }, [view]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
 
   // Auto-expand matching pipelines on search
@@ -175,6 +178,20 @@ export default function Dashboard() {
   const shareStage = (name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name} Pipeline`).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+  const setStageStatusDirect = (name: string, status: string) => {
+    setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
+    logActivity("status", name, `\u2192 ${status}`);
+  };
+  const onKanbanCardClick = (pipelineId: string, stageName: string) => {
+    setView("list");
+    setExpanded(prev => prev.includes(pipelineId) ? prev : [...prev, pipelineId]);
+    const p = allPipelines.find(p => p.id === pipelineId);
+    if (p) {
+      const stages = [...p.stages, ...(customStages[pipelineId] || [])];
+      const idx = stages.indexOf(stageName);
+      if (idx >= 0) setExpS(`${pipelineId}-${idx}`);
+    }
+  };
 
   if (onboardStep < 7) {
     return <Onboarding t={t} themeId={themeId} setThemeId={setThemeId} onboardStep={onboardStep} setOnboardStep={setOnboardStep} users={users} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setCurrentUser={setCurrentUser} setUsers={setUsers} />;
@@ -283,10 +300,20 @@ export default function Dashboard() {
         {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
         {showChat && <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} />}
 
-        {/* SEARCH + STATS */}
+        {/* SEARCH + VIEW TOGGLE + STATS */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 300px" }}>
-            <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
+          <div style={{ flex: "1 1 300px", display: "flex", gap: 6 }}>
+            <div style={{ flex: 1 }}>
+              <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
+            </div>
+            {/* View toggle */}
+            <div style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
+              {(["list", "kanban"] as const).map(v => (
+                <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                  {v === "list" ? "\u2630 list" : "\u25A6 kanban"}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="bu-stats" style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 4, flex: "0 0 auto" }}>
             {[{ l: "total", v: total, c: t.text }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
@@ -298,8 +325,18 @@ export default function Dashboard() {
           </div>
         </div>
 
+        {/* KANBAN VIEW */}
+        {view === "kanban" && (
+          <KanbanView
+            t={t} getStatus={getStatus} setStageStatusDirect={setStageStatusDirect}
+            claims={claims} reactions={reactions} users={users} currentUser={currentUser}
+            sc={sc} ck={ck} customStages={customStages} customPipelines={customPipelines}
+            onCardClick={onKanbanCardClick} searchQ={searchQ}
+          />
+        )}
+
         {/* PIPELINES */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {view === "list" && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {allPipelines.filter(p => {
             const q = searchQ.toLowerCase();
             const allPStages = [...p.stages, ...(customStages[p.id] || [])];
@@ -324,7 +361,7 @@ export default function Dashboard() {
             const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
 
             return (
-              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : "none", transition: "all 0.25s" }}>
+              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s" }}>
                 <div style={{ height: 2, background: t.surface }}>
                   <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} />
                 </div>
@@ -462,7 +499,7 @@ export default function Dashboard() {
               </div>
             </div>
           )}
-        </div>
+        </div>}
 
         {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: t.bgCard, border: `1px solid ${toast.color}33`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 10, boxShadow: `0 8px 32px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace" }}>
           <span style={{ fontSize: 13 }}>{"\uD83D\uDC80"}</span>
