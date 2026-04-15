@@ -10,6 +10,8 @@ interface OnboardingProps {
   t: T;
   themeId: string;
   setThemeId: (id: string) => void;
+  isDark: boolean;
+  setIsDark: (v: boolean) => void;
   onboardStep: number;
   setOnboardStep: (step: number) => void;
   users: UserType[];
@@ -78,7 +80,7 @@ export const FloatingBg = ({ colors, themeStyle }: { colors: string[]; themeStyl
   );
 };
 
-export default function Onboarding({ t, themeId, setThemeId, onboardStep, setOnboardStep, users, selUser, setSelUser, selAvatar, setSelAvatar, setCurrentUser, setUsers }: OnboardingProps) {
+export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, onboardStep, setOnboardStep, users, selUser, setSelUser, selAvatar, setSelAvatar, setCurrentUser, setUsers }: OnboardingProps) {
   const AnimBg = () => (<FloatingBg colors={[t.accent, t.purple || t.accent, t.green, t.amber]} themeStyle={themeId} />);
   const totalStages = pipelineData.reduce((s, p) => s + p.stages.length, 0);
 
@@ -126,8 +128,32 @@ export default function Onboarding({ t, themeId, setThemeId, onboardStep, setOnb
             })}
           </div>
 
+          {/* Dark / Light toggle */}
+          <div style={{ display: "flex", justifyContent: "center", gap: 10, margin: "24px 0 12px", animation: "fadeIn 0.6s ease 0.3s both" }}>
+            {([
+              { dark: true, icon: "\uD83C\uDF1A", label: "lights off", sub: "shadows & neon" },
+              { dark: false, icon: "\u2600\uFE0F", label: "lights on", sub: "clean & sharp" },
+            ] as const).map(opt => {
+              const active = isDark === opt.dark;
+              return (
+                <button key={String(opt.dark)} onClick={() => setIsDark(opt.dark)} style={{
+                  flex: "1 1 0", maxWidth: 200, background: active ? (opt.dark ? "#0a0a14" : "#f4f4f8") : "#0a0a10",
+                  border: `2px solid ${active ? sel.color : "#1a1a22"}`, borderRadius: 14,
+                  padding: "14px 10px", cursor: "pointer", textAlign: "center",
+                  transition: "all 0.3s", fontFamily: "inherit",
+                  boxShadow: active ? `0 0 24px ${sel.color}22` : "none",
+                  transform: active ? "scale(1.04)" : "scale(1)",
+                }}>
+                  <div style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: active ? sel.color : "#555", letterSpacing: 0.5 }}>{opt.label}</div>
+                  <div style={{ fontSize: 8, color: active ? sel.color + "88" : "#333", fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>// {opt.sub}</div>
+                </button>
+              );
+            })}
+          </div>
+
           {/* Stats preview */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 20, margin: "24px 0 20px" }}>
+          <div style={{ display: "flex", justifyContent: "center", gap: 20, margin: "16px 0 20px" }}>
             {[{ l: "pipelines", v: pipelineData.length }, { l: "stages", v: totalStages }, { l: "AI tools", v: "45" }].map((s, i) => (
               <div key={s.l} style={{ textAlign: "center", animation: `countUp 0.5s ease ${0.3 + i * 0.1}s both` }}>
                 <div style={{ fontSize: 20, fontWeight: 900, color: sel.color, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</div>
