@@ -236,7 +236,7 @@ export default function Dashboard() {
             </button>
 
             {/* Theme picker */}
-            <div style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+            <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Switch theme">
                 {t.icon} <span style={{ fontSize: 8 }}>{"\u25BE"}</span>
               </button>
