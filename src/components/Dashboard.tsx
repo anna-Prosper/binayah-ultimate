@@ -12,6 +12,15 @@ import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { generatePipelineReport } from "@/lib/generatePDF";
 
+type CustomPipeline = {
+  id: string; name: string; desc: string; icon: string;
+  colorKey: string; priority: string; totalHours: string; points: number; stages: string[];
+};
+
+const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orange", "lime", "slate"] as const;
+const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
+
 export default function Dashboard() {
   const [isDark, setIsDark] = useState(() => lsGet("isDark", true));
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
@@ -20,7 +29,6 @@ export default function Dashboard() {
   const [onboardStep, setOnboardStep] = useState(() => lsGet("onboardStep", 0));
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
-  // Multi-expand: array of expanded pipeline IDs
   const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
   const [expS, setExpS] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
@@ -39,7 +47,14 @@ export default function Dashboard() {
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
+  const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
+  const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
+  const [customPipelines, setCustomPipelines] = useState<CustomPipeline[]>(() => lsGet("customPipelines", []));
   const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
+  const [editingPipeName, setEditingPipeName] = useState<string | null>(null);
+  const [newStageInput, setNewStageInput] = useState<Record<string, string>>({});
+  const [addingPipeline, setAddingPipeline] = useState(false);
+  const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "\uD83D\uDD27", colorKey: "blue", priority: "MEDIUM" });
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
@@ -56,6 +71,9 @@ export default function Dashboard() {
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
+  useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
+  useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
+  useEffect(() => { lsSet("customPipelines", customPipelines) }, [customPipelines]);
   useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
@@ -64,11 +82,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!searchQ) return;
     const q = searchQ.toLowerCase();
-    const ids = pipelineData
+    const ids = [...pipelineData, ...customPipelines]
       .filter(p => p.name.toLowerCase().includes(q) || p.stages.some(s => s.toLowerCase().includes(q)))
       .map(p => p.id);
     setExpanded(prev => [...new Set([...prev, ...ids])]);
-  }, [searchQ]);
+  }, [searchQ, customPipelines]);
 
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
   const logActivity = useCallback((type: string, target: string, detail: string) => {
@@ -81,12 +99,33 @@ export default function Dashboard() {
   const pr: Record<string, { c: string }> = { NOW: { c: t.red }, HIGH: { c: t.amber }, MEDIUM: { c: t.accent }, LOW: { c: t.textMuted } };
   const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
 
-  const allStages = pipelineData.flatMap(p => p.stages);
+  const allPipelines = [...pipelineData, ...customPipelines];
+  const extraStages = Object.values(customStages).flat();
+  const customPipeStages = customPipelines.flatMap(p => p.stages);
+  const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipeStages, ...extraStages];
   const total = allStages.length;
   const bySt = (s: string) => allStages.filter(n => getStatus(n) === s).length;
   const getPoints = (uid: string) => { let p = 0; Object.entries(claims).forEach(([s, c]) => { if (c.includes(uid)) p += stageDefaults[s]?.points || 10; }); Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); }); return p; };
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const cyclePriority = (pid: string, cur: string) => {
+    const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(cur as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
+    setPipeMetaOverrides(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), priority: next } }));
+  };
+  const addCustomStage = (pid: string) => {
+    const val = newStageInput[pid]?.trim();
+    if (!val) return;
+    setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
+    setNewStageInput(prev => ({ ...prev, [pid]: "" }));
+  };
+  const addCustomPipeline = () => {
+    if (!newPipeForm.name.trim()) return;
+    const id = `custom-${Date.now()}`;
+    setCustomPipelines(prev => [...prev, { ...newPipeForm, id, totalHours: "?h", points: 0, stages: [] }]);
+    setNewPipeForm({ name: "", desc: "", icon: "\uD83D\uDD27", colorKey: "blue", priority: "MEDIUM" });
+    setAddingPipeline(false);
+    setExpanded(prev => [...prev, id]);
+  };
 
   const handleClaim = (sid: string) => { if (!currentUser) return; const alreadyClaimed = (claims[sid] || []).includes(currentUser); setClaims(prev => { const c = prev[sid] || []; if (c.includes(currentUser)) return { ...prev, [sid]: c.filter(u => u !== currentUser) }; return { ...prev, [sid]: [...c, currentUser] }; }); if (!alreadyClaimed) { const pts = stageDefaults[sid]?.points || 10; const me2 = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser); setClaimAnim({ stage: sid, pts }); setToast({ text: `${me2?.name} claimed ${sid}`, pts: `+${pts}pts`, color: me2?.color || t.accent }); logActivity("claim", sid, `+${pts}pts`); setTimeout(() => setClaimAnim(null), 1200); setTimeout(() => setToast(null), 2500); } };
   const handleReact = (sid: string, emoji: string) => { if (!currentUser) return; setReactions(prev => { const s = { ...(prev[sid] || {}) }; const u = [...(s[emoji] || [])]; const i = u.indexOf(currentUser); if (i >= 0) u.splice(i, 1); else u.push(currentUser); s[emoji] = u; return { ...prev, [sid]: s }; }); };
@@ -95,7 +134,7 @@ export default function Dashboard() {
   const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }] })); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
-  const sharePipeline = (pid: string, name: string) => { const text = `Binayah AI \u2014 ${name} Pipeline`; navigator.clipboard?.writeText(text).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
+  const sharePipeline = (pid: string, name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name} Pipeline`).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
 
   if (onboardStep < 7) {
@@ -103,14 +142,14 @@ export default function Dashboard() {
   }
 
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
-  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "var(--font-dm-sans), sans-serif" }}><button onClick={() => setOnboardStep(0)} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Start Over</button></div>);
+  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><button onClick={() => setOnboardStep(0)} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Start Over</button></div>);
 
   const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, addComment, stageDescOverrides, setStageDescOverride };
   const unseen = activityLog.length - lastSeenActivity;
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{display:none!important}.bu-header{flex-direction:column;gap:12px!important}}.pipe-desc-edit{cursor:text;}.pipe-desc-edit:hover .edit-hint{opacity:1!important}`}</style>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{display:none!important}.bu-header{flex-direction:column;gap:12px!important}}`}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
 
@@ -119,7 +158,7 @@ export default function Dashboard() {
           <div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.green, boxShadow: `0 0 10px ${t.green}66` }} />
-              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{pipelineData.length} pipelines \u00B7 {total} stages</span>
+              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines \u00B7 {total} stages</span>
             </div>
             <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
             <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>{t.sub}</div>
@@ -135,7 +174,7 @@ export default function Dashboard() {
             <button onClick={() => { setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 14, cursor: "pointer", position: "relative" }}>
               {"\uD83D\uDD14"}{unseen > 0 && <div style={{ position: "absolute", top: -3, right: -3, minWidth: 14, height: 14, borderRadius: 7, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
-            <button onClick={() => generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! })} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }} title="Export PDF report">{"\uD83D\uDCC4"} PDF</button>
+            <button onClick={() => generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! })} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }} title="Export PDF">{"\uD83D\uDCC4"} PDF</button>
             <button onClick={() => setIsDark(!isDark)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 14, cursor: "pointer" }}>{isDark ? "\u2600\uFE0F" : "\uD83C\uDF1A"}</button>
             <button onClick={() => { setOnboardStep(5); setCurrentUser(null); }} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", color: t.textMuted, fontSize: 9, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>switch</button>
           </div>
@@ -155,10 +194,9 @@ export default function Dashboard() {
           <div style={{ marginLeft: "auto", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} claimed</div>
         </div>
 
-        {/* ACTIVITY */}
         {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
 
-        {/* SEARCH + FILTER + STATS */}
+        {/* SEARCH + STATS */}
         <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch", flexWrap: "wrap" }}>
           <div style={{ flex: "1 1 300px" }}>
             <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
@@ -174,148 +212,223 @@ export default function Dashboard() {
         </div>
 
         {/* PIPELINES */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>{pipelineData.filter(p => {
-          const q = searchQ.toLowerCase();
-          const matchesSearch = !q || p.name.toLowerCase().includes(q) || p.stages.some(s => s.toLowerCase().includes(q));
-          const matchesFilter = !statusFilter || (statusFilter === "claimed" ? p.stages.some(s => (claims[s] || []).includes(currentUser!)) : p.stages.some(s => getStatus(s) === statusFilter));
-          return matchesSearch && matchesFilter;
-        }).map(p => {
-          const isO = expanded.includes(p.id);
-          const pC = ck[p.colorKey];
-          const prC = pr[p.priority] || { c: t.textMuted };
-          const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
-          const pct = Math.round(p.stages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / p.stages.length);
-          const uClaim = [...new Set(p.stages.flatMap(s => claims[s] || []))];
-          const allPipelineClaimed = p.stages.every(s => (claims[s] || []).includes(currentUser!));
-          const pipeReactKey = `_pipe_${p.id}`;
-          const pipeReactions = reactions[pipeReactKey] || {};
-          const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
-          const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {allPipelines.filter(p => {
+            const q = searchQ.toLowerCase();
+            const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+            const matchesSearch = !q || p.name.toLowerCase().includes(q) || allPStages.some(s => s.toLowerCase().includes(q));
+            const matchesFilter = !statusFilter || (statusFilter === "claimed" ? allPStages.some(s => (claims[s] || []).includes(currentUser!)) : allPStages.some(s => getStatus(s) === statusFilter));
+            return matchesSearch && matchesFilter;
+          }).map(p => {
+            const isO = expanded.includes(p.id);
+            const pipeMeta = pipeMetaOverrides[p.id] || {};
+            const pipeName = pipeMeta.name ?? p.name;
+            const pipePriority = pipeMeta.priority ?? p.priority;
+            const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
+            const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+            const pC = ck[p.colorKey] || t.accent;
+            const prC = pr[pipePriority as keyof typeof pr] || { c: t.textMuted };
+            const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
+            const pct = allPStages.length > 0 ? Math.round(allPStages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / allPStages.length) : 0;
+            const uClaim = [...new Set(allPStages.flatMap(s => claims[s] || []))];
+            const allPipelineClaimed = allPStages.length > 0 && allPStages.every(s => (claims[s] || []).includes(currentUser!));
+            const pipeReactKey = `_pipe_${p.id}`;
+            const pipeReactions = reactions[pipeReactKey] || {};
+            const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
 
-          return (
-            <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : "none", transition: "all 0.25s" }}>
-              {/* Progress bar */}
-              <div style={{ height: 2, background: t.surface }}>
-                <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg, ${pC}, ${pC}aa)`, transition: "width 0.5s" }} />
-              </div>
+            return (
+              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : "none", transition: "all 0.25s" }}>
+                {/* Progress bar */}
+                <div style={{ height: 2, background: t.surface }}>
+                  <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} />
+                </div>
 
-              {/* Header — clicking the outer div toggles expand */}
-              <div onClick={() => toggleExpand(p.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
-                    <Chev open={isO} color={pC} />
-                    <div style={{ flex: 1 }}>
-                      {/* Title row */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
-                        <span style={{ fontSize: 16 }}>{p.icon}</span>
-                        <span style={{ fontSize: 14, fontWeight: 900, color: t.text }}>{p.name}</span>
-                        <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 700 }}>{p.stages.length}</span>
-                        <span style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800 }}>{p.priority}</span>
-                        {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
-                      </div>
-
-                      {/* Description — click pencil icon to edit */}
-                      {editingPipeDesc === p.id ? (
-                        <textarea
-                          value={pipeDesc}
-                          onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
-                          onBlur={() => setEditingPipeDesc(null)}
-                          autoFocus
-                          onClick={e => e.stopPropagation()}
-                          rows={2}
-                          style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }}
-                        />
-                      ) : (
-                        <p className="pipe-desc-edit" onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4, userSelect: "none" }}>
-                          <span>{pipeDesc}</span>
-                          <span className="edit-hint" style={{ fontSize: 9, color: t.textDim, opacity: 0.5, flexShrink: 0, transition: "opacity 0.15s" }}>{"\u270E"}</span>
-                        </p>
-                      )}
-
-                      {/* Action row — ALWAYS visible (share, react, details/collapse, claim all) */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-
-                        {/* Share */}
-                        <button onClick={() => sharePipeline(p.id, p.name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", flexShrink: 0 }}>
-                          {copied === `pipe-${p.id}` ? "\u2713 copied" : "\uD83D\uDCCB share"}
-                        </button>
-
-                        {/* React picker — toggle on click, not hover */}
-                        <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-                          {reactOpen === pipeReactKey
-                            ? <>
-                                {REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (
-                                  <button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "2px 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4, transition: "all 0.1s" }}>
-                                    <span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>
-                                    {us.length > 0 && <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
-                                  </button>); })}
-                                <button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 6px", cursor: "pointer", fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button>
-                              </>
-                            : <>
-                                {pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
-                                  <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit" }}>
-                                    <span style={{ fontSize: 11 }}>{emoji}</span>
-                                    <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
-                                  </button>); })}
-                                <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 7px", cursor: "pointer", fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
-                              </>
-                          }
+                {/* Header */}
+                <div onClick={() => toggleExpand(p.id)} style={{ padding: "14px 16px", cursor: "pointer" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
+                      <Chev open={isO} color={pC} />
+                      <div style={{ flex: 1 }}>
+                        {/* Title row — name editable */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 3 }}>
+                          <span style={{ fontSize: 16 }}>{p.icon}</span>
+                          {editingPipeName === p.id ? (
+                            <input
+                              value={pipeName}
+                              onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))}
+                              onBlur={() => setEditingPipeName(null)}
+                              onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }}
+                              autoFocus
+                              onClick={e => e.stopPropagation()}
+                              style={{ fontSize: 14, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 8px", outline: "none", fontFamily: "inherit" }}
+                            />
+                          ) : (
+                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
+                              {pipeName} <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>
+                            </span>
+                          )}
+                          <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                          {/* Priority — click to cycle */}
+                          <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle priority">{pipePriority}</span>
+                          {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                         </div>
 
-                        {/* Details / Collapse toggle */}
-                        <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", flexShrink: 0 }}>
-                          {isO ? "\u25BE collapse" : "\u25B8 details"}
-                        </button>
-
-                        {/* Claim all */}
-                        {!allPipelineClaimed ? (
-                          <button onClick={() => { p.stages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3, transition: "all 0.2s", flexShrink: 0 }}>
-                            {"\uD83D\uDC80"} claim all
-                          </button>
+                        {/* Description — editable */}
+                        {editingPipeDesc === p.id ? (
+                          <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }} />
                         ) : (
-                          <span style={{ fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{"\u2713"} all claimed</span>
+                          <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                            <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
+                            <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>
+                          </p>
                         )}
 
-                        {/* Owner avatars */}
-                        {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find((u: typeof USERS_DEFAULT[number]) => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
+                        {/* Action row — always visible */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                          <button onClick={() => sharePipeline(p.id, pipeName)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                            {copied === `pipe-${p.id}` ? "\u2713 copied" : "\uD83D\uDCCB share"}
+                          </button>
+
+                          {/* React */}
+                          <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+                            {reactOpen === pipeReactKey
+                              ? <>
+                                  {REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (
+                                    <button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "2px 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}>
+                                      <span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>
+                                      {us.length > 0 && <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
+                                    </button>); })}
+                                  <button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 6px", cursor: "pointer", fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button>
+                                </>
+                              : <>
+                                  {pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
+                                    <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 1, fontFamily: "inherit" }}>
+                                      <span style={{ fontSize: 11 }}>{emoji}</span>
+                                      <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                                    </button>); })}
+                                  <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "2px 7px", cursor: "pointer", fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
+                                </>
+                            }
+                          </div>
+
+                          <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+                            {isO ? "\u25BE collapse" : "\u25B8 details"}
+                          </button>
+
+                          {!allPipelineClaimed ? (
+                            <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}>
+                              {"\uD83D\uDC80"} claim all
+                            </button>
+                          ) : (
+                            <span style={{ fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{"\u2713"} all claimed</span>
+                          )}
+
+                          {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find((u: typeof USERS_DEFAULT[number]) => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
+                        </div>
                       </div>
+                    </div>
+
+                    {/* Right: hours + dots + pts */}
+                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
+                      <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "flex-end" }}>
+                        {allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
+                      </div>
+                      <div style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>{p.points}pts</div>
                     </div>
                   </div>
 
-                  {/* Right: hours + dots + pts */}
-                  <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                    <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
-                    <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "flex-end" }}>
-                      {p.stages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
-                    </div>
-                    <div style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>{p.points}pts</div>
-                  </div>
+                  {/* Collapsed stage pills */}
+                  {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 8, paddingLeft: 20 }}>
+                    {allPStages.map((s, i) => {
+                      const stC = sc[getStatus(s)] || { c: t.textDim };
+                      const isClaimed = (claims[s] || []).length > 0;
+                      return (
+                        <div key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                          <span style={{ fontSize: 8, color: stC.c, background: stC.c + "0a", padding: "2px 6px", borderRadius: 5, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
+                          {i < allPStages.length - 1 && <span style={{ color: t.textDim, fontSize: 8 }}>{"\u2192"}</span>}
+                        </div>
+                      );
+                    })}
+                  </div>}
                 </div>
 
-                {/* Collapsed: stage pill list */}
-                {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 3, marginTop: 8, paddingLeft: 20 }}>
-                  {p.stages.map((s, i) => {
-                    const stC = sc[getStatus(s)] || { c: t.textDim };
-                    const isClaimed = (claims[s] || []).length > 0;
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <span style={{ fontSize: 8, color: stC.c, background: stC.c + "0a", padding: "2px 6px", borderRadius: 5, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
-                        {i < p.stages.length - 1 && <span style={{ color: t.textDim, fontSize: 8 }}>{"\u2192"}</span>}
-                      </div>
-                    );
-                  })}
-                </div>}
+                {/* Expanded stages + add stage input */}
+                {isO && (
+                  <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
+                    <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} {...stageProps} />)}
+                    </div>
+
+                    {/* Add stage */}
+                    <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
+                      <input
+                        value={newStageInput[p.id] || ""}
+                        onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))}
+                        onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }}
+                        placeholder="+ add stage to this pipeline..."
+                        style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "6px 10px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+                      />
+                      <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Add new pipeline */}
+          {!addingPipeline ? (
+            <button onClick={() => setAddingPipeline(true)} style={{ background: "transparent", border: `2px dashed ${t.border}`, borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center", transition: "all 0.2s", width: "100%" }}>
+              + new pipeline
+            </button>
+          ) : (
+            <div style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 16, padding: "20px" }} onClick={e => e.stopPropagation()}>
+              <div style={{ fontSize: 9, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
+
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                {/* Icon picker */}
+                <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                  {ICON_OPTIONS.map(ico => (
+                    <button key={ico} onClick={() => setNewPipeForm(p => ({ ...p, icon: ico }))} style={{ background: newPipeForm.icon === ico ? t.accent + "22" : "transparent", border: `1px solid ${newPipeForm.icon === ico ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "4px 6px", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>{ico}</button>
+                  ))}
+                </div>
               </div>
 
-              {/* Expanded stage list */}
-              {isO && <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
-                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                  {p.stages.map((s, i) => <Stage key={i} name={s} idx={i} tot={p.stages.length} pC={pC} pId={p.id} {...stageProps} />)}
-                </div>
-              </div>}
+              <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <input
+                  value={newPipeForm.name}
+                  onChange={e => setNewPipeForm(p => ({ ...p, name: e.target.value }))}
+                  placeholder="Pipeline name *"
+                  autoFocus
+                  style={{ flex: "1 1 200px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", fontWeight: 700 }}
+                />
+                <input
+                  value={newPipeForm.desc}
+                  onChange={e => setNewPipeForm(p => ({ ...p, desc: e.target.value }))}
+                  placeholder="Short description"
+                  style={{ flex: "2 1 280px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }}
+                />
+              </div>
+
+              <div style={{ display: "flex", gap: 6, marginBottom: 14, flexWrap: "wrap", alignItems: "center" }}>
+                <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
+                {PRIORITY_CYCLE.map(p => (
+                  <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "66" : t.border}`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>
+                ))}
+                <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
+                {COLOR_OPTIONS.map(c => (
+                  <div key={c} onClick={() => setNewPipeForm(p => ({ ...p, colorKey: c }))} style={{ width: 14, height: 14, borderRadius: "50%", background: ck[c], cursor: "pointer", border: newPipeForm.colorKey === c ? `2px solid ${t.text}` : "2px solid transparent", flexShrink: 0 }} />
+                ))}
+              </div>
+
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={addCustomPipeline} style={{ background: t.accent, border: "none", borderRadius: 10, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace" }}>create pipeline</button>
+                <button onClick={() => setAddingPipeline(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
+              </div>
             </div>
-          );
-        })}</div>
+          )}
+        </div>
 
         {/* Toast */}
         {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: t.bgCard, border: `1px solid ${toast.color}33`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 10, boxShadow: `0 8px 32px rgba(0,0,0,0.5), 0 0 20px ${toast.color}15`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace" }}>
@@ -324,7 +437,6 @@ export default function Dashboard() {
           <span style={{ fontSize: 11, color: t.green, fontWeight: 800 }}>{toast.pts}</span>
         </div>}
 
-        {/* Footer */}
         <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
         </div>
