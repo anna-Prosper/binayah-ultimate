@@ -284,7 +284,7 @@ export default function Dashboard() {
         </div>
 
         {/* TEAM BAR */}
-        <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14 }}>
+        <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, flexWrap: "wrap" }}>
           {users.map((u: typeof USERS_DEFAULT[number]) => (
             <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.45, transition: "opacity 0.2s" }}>
               <AvatarC user={u} size={26} />
@@ -294,33 +294,32 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
-          <div style={{ marginLeft: "auto", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</div>
+          {/* Stats — moved here from search row */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
+            {[{ l: "total", v: total, c: t.textMuted }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
+              <div key={s.l} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 36, padding: "2px 6px", borderRadius: 8, background: s.c + "10" }}>
+                <span style={{ fontSize: 13, fontWeight: 900, color: s.c, lineHeight: 1.2, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</span>
+                <span style={{ fontSize: 6, color: t.textDim, letterSpacing: 1, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{s.l}</span>
+              </div>
+            ))}
+            <div style={{ width: 1, height: 24, background: t.border, margin: "0 4px" }} />
+            <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</span>
+          </div>
         </div>
 
         {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
-        {showChat && <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} />}
 
-        {/* SEARCH + VIEW TOGGLE + STATS */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch", flexWrap: "wrap" }}>
-          <div style={{ flex: "1 1 300px", display: "flex", gap: 6 }}>
-            <div style={{ flex: 1 }}>
-              <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
-            </div>
-            {/* View toggle */}
-            <div style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
-              {(["list", "kanban"] as const).map(v => (
-                <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {v === "list" ? "\u2630 list" : "\u25A6 kanban"}
-                </button>
-              ))}
-            </div>
+        {/* SEARCH + VIEW TOGGLE */}
+        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
+          <div style={{ flex: 1 }}>
+            <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
           </div>
-          <div className="bu-stats" style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 4, flex: "0 0 auto" }}>
-            {[{ l: "total", v: total, c: t.text }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
-              <div key={s.l} style={{ background: t.bgCard, border: `1px solid ${t.border}`, padding: "8px 12px", textAlign: "center", borderRadius: 10, minWidth: 52 }}>
-                <div style={{ fontSize: 16, fontWeight: 900, color: s.c }}>{s.v}</div>
-                <div style={{ fontSize: 7, color: t.textMuted, letterSpacing: 1, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase" }}>{s.l}</div>
-              </div>
+          {/* View toggle */}
+          <div style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
+            {(["list", "kanban"] as const).map(v => (
+              <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                {v === "list" ? "\u2630 list" : "\u25A6 kanban"}
+              </button>
             ))}
           </div>
         </div>
@@ -511,6 +510,22 @@ export default function Dashboard() {
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
         </div>
       </div>
+
+      {/* CHAT SIDE WIDGET — fixed bottom-right */}
+      {showChat && (
+        <div style={{ position: "fixed", bottom: 24, right: 24, width: 340, zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
+          <div style={{ position: "relative" }}>
+            <button
+              onClick={() => setShowChat(false)}
+              style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, lineHeight: 1, padding: 0 }}
+              title="Close chat"
+            >
+              {"\u00D7"}
+            </button>
+            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
