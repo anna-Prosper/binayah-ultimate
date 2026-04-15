@@ -83,96 +83,138 @@ export const FloatingBg = ({ colors, themeStyle }: { colors: string[]; themeStyl
 export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, onboardStep, setOnboardStep, users, selUser, setSelUser, selAvatar, setSelAvatar, setCurrentUser, setUsers }: OnboardingProps) {
   const AnimBg = () => (<FloatingBg colors={[t.accent, t.purple || t.accent, t.green, t.amber]} themeStyle={themeId} />);
   const totalStages = pipelineData.reduce((s, p) => s + p.stages.length, 0);
+  const [themePhase, setThemePhase] = useState<"theme" | "mode">("theme");
 
-  // === STEP 0: THEME PICKER ===
+  // === STEP 0: THEME PICKER (two phases) ===
   if (onboardStep === 0) {
     const sel = THEME_OPTIONS.find(x => x.id === themeId) || THEME_OPTIONS[0];
-    return (
-      <div style={{ position: "fixed", inset: 0, background: "#030308", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
-        <style>{css}</style>
-        <FloatingBg colors={[sel.color, sel.color + "88", "#ffffff08", sel.color + "44"]} themeStyle={themeId} />
 
-        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 520, width: "92%", animation: "slideUp 0.6s ease" }}>
-          {/* Glitch title */}
-          <div style={{ position: "relative", marginBottom: 8 }}>
-            <div style={{ fontSize: 11, letterSpacing: 6, color: sel.color + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>binayah.ai</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#f0f0f0", letterSpacing: -1.5, lineHeight: 1.1 }}>
-              pick your<br /><span style={{ color: sel.color, textShadow: `0 0 30px ${sel.color}44, 0 0 60px ${sel.color}22`, transition: "color 0.3s, text-shadow 0.3s" }}>command center</span>
+    // Phase 1: pick theme style
+    if (themePhase === "theme") {
+      return (
+        <div style={{ position: "fixed", inset: 0, background: "#030308", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+          <style>{css}</style>
+          <FloatingBg colors={[sel.color, sel.color + "88", "#ffffff08", sel.color + "44"]} themeStyle={themeId} />
+
+          <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 520, width: "92%", animation: "slideUp 0.6s ease" }}>
+            <div style={{ position: "relative", marginBottom: 8 }}>
+              <div style={{ fontSize: 11, letterSpacing: 6, color: sel.color + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>binayah.ai</div>
+              <div style={{ fontSize: 36, fontWeight: 900, color: "#f0f0f0", letterSpacing: -1.5, lineHeight: 1.1 }}>
+                pick your<br /><span style={{ color: sel.color, textShadow: `0 0 30px ${sel.color}44, 0 0 60px ${sel.color}22`, transition: "color 0.3s, text-shadow 0.3s" }}>command center</span>
+              </div>
             </div>
-          </div>
-          <p style={{ fontSize: 11, color: "#555", margin: "8px 0 30px", fontFamily: "var(--font-dm-mono), monospace" }}>// {sel.desc.toLowerCase()}</p>
+            <p style={{ fontSize: 11, color: "#555", margin: "8px 0 30px", fontFamily: "var(--font-dm-mono), monospace" }}>// {sel.desc.toLowerCase()}</p>
 
-          {/* Theme cards */}
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {THEME_OPTIONS.map((th, idx) => {
-              const active = themeId === th.id;
-              return (
-                <button key={th.id} onClick={() => setThemeId(th.id)} style={{
-                  background: active ? th.bg : "#0a0a10", border: `2px solid ${active ? th.color : "#1a1a22"}`,
-                  borderRadius: 18, padding: "18px 12px", cursor: "pointer", textAlign: "center",
-                  transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
-                  boxShadow: active ? `0 0 40px ${th.color}15, inset 0 0 40px ${th.color}08` : "0 2px 8px rgba(0,0,0,0.3)",
-                  transform: active ? "scale(1.02)" : "scale(1)",
-                  animation: `scaleIn 0.4s ease ${idx * 0.08}s both`,
-                }}>
-                  {active && <>
-                    <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 120%, ${th.color}18, transparent 70%)` }} />
-                    <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: th.color, boxShadow: `0 0 8px ${th.color}` }} />
-                  </>}
-                  <div style={{ position: "relative", zIndex: 1 }}>
-                    <div style={{ fontSize: 32, marginBottom: 6, filter: active ? `drop-shadow(0 0 8px ${th.color}44)` : "none", transition: "filter 0.3s" }}>{th.icon}</div>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: active ? th.color : "#666", transition: "color 0.3s", letterSpacing: -0.3 }}>{th.name}</div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {THEME_OPTIONS.map((th, idx) => {
+                const active = themeId === th.id;
+                return (
+                  <button key={th.id} onClick={() => setThemeId(th.id)} style={{
+                    background: active ? th.bg : "#0a0a10", border: `2px solid ${active ? th.color : "#1a1a22"}`,
+                    borderRadius: 18, padding: "18px 12px", cursor: "pointer", textAlign: "center",
+                    transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
+                    boxShadow: active ? `0 0 40px ${th.color}15, inset 0 0 40px ${th.color}08` : "0 2px 8px rgba(0,0,0,0.3)",
+                    transform: active ? "scale(1.02)" : "scale(1)",
+                    animation: `scaleIn 0.4s ease ${idx * 0.08}s both`,
+                  }}>
+                    {active && <>
+                      <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 120%, ${th.color}18, transparent 70%)` }} />
+                      <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: th.color, boxShadow: `0 0 8px ${th.color}` }} />
+                    </>}
+                    <div style={{ position: "relative", zIndex: 1 }}>
+                      <div style={{ fontSize: 32, marginBottom: 6, filter: active ? `drop-shadow(0 0 8px ${th.color}44)` : "none", transition: "filter 0.3s" }}>{th.icon}</div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: active ? th.color : "#666", transition: "color 0.3s", letterSpacing: -0.3 }}>{th.name}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
 
-          {/* Dark / Light toggle */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 10, margin: "24px 0 12px", animation: "fadeIn 0.6s ease 0.3s both" }}>
+            <div style={{ display: "flex", justifyContent: "center", gap: 20, margin: "24px 0 20px" }}>
+              {[{ l: "pipelines", v: pipelineData.length }, { l: "stages", v: totalStages }, { l: "AI tools", v: "45" }].map((s, i) => (
+                <div key={s.l} style={{ textAlign: "center", animation: `countUp 0.5s ease ${0.3 + i * 0.1}s both` }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: sel.color, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</div>
+                  <div style={{ fontSize: 8, color: "#555", letterSpacing: 2, textTransform: "uppercase" }}>{s.l}</div>
+                </div>
+              ))}
+            </div>
+
+            <button onClick={() => setThemePhase("mode")} style={{
+              background: `linear-gradient(135deg, ${sel.color}, ${sel.color}aa)`,
+              border: "none", borderRadius: 16, padding: "16px 52px", color: "#fff", fontSize: 15, fontWeight: 800,
+              cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif",
+              boxShadow: `0 4px 30px ${sel.color}33, 0 0 60px ${sel.color}11`,
+              letterSpacing: 0.5, textTransform: "lowercase", transition: "all 0.3s",
+              position: "relative", overflow: "hidden",
+            }}>
+              <span style={{ position: "relative", zIndex: 1 }}>lock in {sel.name.toLowerCase()} →</span>
+              <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 3s ease-in-out infinite" }} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Phase 2: dark or light — theme is already applied as background
+    return (
+      <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif", transition: "background 0.5s" }}>
+        <style>{css}</style>
+        <AnimBg />
+
+        <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 440, width: "92%", animation: "scaleIn 0.5s ease" }}>
+          <div style={{ fontSize: 11, letterSpacing: 6, color: t.accent + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>{sel.icon} {sel.name}</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: -1, lineHeight: 1.1, marginBottom: 6 }}>
+            set the <span style={{ color: t.accent, textShadow: `0 0 24px ${t.accent}33` }}>vibe</span>
+          </div>
+          <p style={{ fontSize: 11, color: t.textMuted, margin: "0 0 32px", fontFamily: "var(--font-dm-mono), monospace" }}>// how do you want your {sel.name.toLowerCase()}?</p>
+
+          <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 32 }}>
             {([
-              { dark: true, icon: "\uD83C\uDF1A", label: "lights off", sub: "shadows & neon" },
-              { dark: false, icon: "\u2600\uFE0F", label: "lights on", sub: "clean & sharp" },
+              { dark: true, icon: "\uD83C\uDF1A", label: "lights off", sub: "shadows & neon", hint: "late night ops" },
+              { dark: false, icon: "\u2600\uFE0F", label: "lights on", sub: "clean & sharp", hint: "daytime clarity" },
             ] as const).map(opt => {
               const active = isDark === opt.dark;
               return (
                 <button key={String(opt.dark)} onClick={() => setIsDark(opt.dark)} style={{
-                  flex: "1 1 0", maxWidth: 200, background: active ? (opt.dark ? "#0a0a14" : "#f4f4f8") : "#0a0a10",
-                  border: `2px solid ${active ? sel.color : "#1a1a22"}`, borderRadius: 14,
-                  padding: "14px 10px", cursor: "pointer", textAlign: "center",
-                  transition: "all 0.3s", fontFamily: "inherit",
-                  boxShadow: active ? `0 0 24px ${sel.color}22` : "none",
-                  transform: active ? "scale(1.04)" : "scale(1)",
+                  flex: "1 1 0", maxWidth: 200,
+                  background: active ? t.bgCard : t.surface + "44",
+                  border: `2px solid ${active ? t.accent : t.border}`, borderRadius: 18,
+                  padding: "24px 14px", cursor: "pointer", textAlign: "center",
+                  transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit",
+                  boxShadow: active ? `0 0 40px ${t.accent}22, inset 0 0 30px ${t.accent}08` : "none",
+                  transform: active ? "scale(1.05)" : "scale(0.97)",
+                  position: "relative", overflow: "hidden",
                 }}>
-                  <div style={{ fontSize: 24, marginBottom: 4 }}>{opt.icon}</div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: active ? sel.color : "#555", letterSpacing: 0.5 }}>{opt.label}</div>
-                  <div style={{ fontSize: 8, color: active ? sel.color + "88" : "#333", fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>// {opt.sub}</div>
+                  {active && <div style={{ position: "absolute", inset: 0, background: `radial-gradient(circle at 50% 120%, ${t.accent}15, transparent 70%)` }} />}
+                  <div style={{ position: "relative", zIndex: 1 }}>
+                    <div style={{ fontSize: 36, marginBottom: 8, filter: active ? `drop-shadow(0 0 12px ${t.accent}44)` : "none", transition: "filter 0.3s" }}>{opt.icon}</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: active ? t.accent : t.textMuted, transition: "color 0.3s", letterSpacing: 0.3 }}>{opt.label}</div>
+                    <div style={{ fontSize: 9, color: active ? t.textSec : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>// {opt.sub}</div>
+                    <div style={{ fontSize: 8, color: t.textDim, marginTop: 6, fontStyle: "italic" }}>{opt.hint}</div>
+                  </div>
+                  {active && <div style={{ position: "absolute", top: 8, right: 8, width: 8, height: 8, borderRadius: "50%", background: t.accent, boxShadow: `0 0 8px ${t.accent}` }} />}
                 </button>
               );
             })}
           </div>
 
-          {/* Stats preview */}
-          <div style={{ display: "flex", justifyContent: "center", gap: 20, margin: "16px 0 20px" }}>
-            {[{ l: "pipelines", v: pipelineData.length }, { l: "stages", v: totalStages }, { l: "AI tools", v: "45" }].map((s, i) => (
-              <div key={s.l} style={{ textAlign: "center", animation: `countUp 0.5s ease ${0.3 + i * 0.1}s both` }}>
-                <div style={{ fontSize: 20, fontWeight: 900, color: sel.color, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</div>
-                <div style={{ fontSize: 8, color: "#555", letterSpacing: 2, textTransform: "uppercase" }}>{s.l}</div>
-              </div>
-            ))}
+          <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
+            <button onClick={() => setThemePhase("theme")} style={{
+              background: "transparent", border: `1px solid ${t.border}`, borderRadius: 14,
+              padding: "12px 24px", color: t.textMuted, fontSize: 12, fontWeight: 600,
+              cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace",
+            }}>← back</button>
+            <button onClick={() => setOnboardStep(1)} style={{
+              background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`,
+              border: "none", borderRadius: 14, padding: "12px 44px", color: "#fff", fontSize: 14, fontWeight: 800,
+              cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif",
+              boxShadow: `0 4px 24px ${t.accent}33`,
+              textTransform: "lowercase", position: "relative", overflow: "hidden",
+            }}>
+              <span style={{ position: "relative", zIndex: 1 }}>let&apos;s go →</span>
+              <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 3s ease-in-out infinite" }} />
+            </button>
           </div>
-
-          <button onClick={() => setOnboardStep(1)} style={{
-            background: `linear-gradient(135deg, ${sel.color}, ${sel.color}aa)`,
-            border: "none", borderRadius: 16, padding: "16px 52px", color: "#fff", fontSize: 15, fontWeight: 800,
-            cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif",
-            boxShadow: `0 4px 30px ${sel.color}33, 0 0 60px ${sel.color}11`,
-            letterSpacing: 0.5, textTransform: "lowercase", transition: "all 0.3s",
-            position: "relative", overflow: "hidden",
-          }}>
-            <span style={{ position: "relative", zIndex: 1 }}>enter the {sel.name.toLowerCase()} →</span>
-            <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 3s ease-in-out infinite" }} />
-          </button>
         </div>
       </div>
     );
