@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { lsGet, lsSet } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
@@ -12,6 +12,7 @@ import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import ChatPanel, { type ChatMsg } from "@/components/ChatPanel";
 import { generatePipelineReport } from "@/lib/generatePDF";
+import { fetchState, patchState } from "@/lib/apiSync";
 import KanbanView from "@/components/KanbanView";
 import OverviewPanel from "@/components/OverviewPanel";
 
@@ -86,6 +87,121 @@ export default function Dashboard() {
   useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
   useEffect(() => { lsSet("view", view) }, [view]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
+
+  // --- Cross-device sync via Render API ---
+  const lastWriteRef = useRef<number>(0);
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const knownMsgCount = useRef<number>(chatMessages.length);
+  const [chatNotif, setChatNotif] = useState<{ name: string; text: string; isComment?: boolean; stage?: string } | null>(null);
+  const knownCommentsRef = useRef<Record<string, number>>({});
+
+  const playNotifSound = useCallback(() => {
+    try {
+      const ctx = new AudioContext();
+      const o = ctx.createOscillator();
+      const g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.type = "sine"; o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(660, ctx.currentTime + 0.12);
+      g.gain.setValueAtTime(0.15, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      o.start(ctx.currentTime); o.stop(ctx.currentTime + 0.25);
+    } catch { /* AudioContext blocked in some contexts */ }
+  }, []);
+
+  // On mount: load shared state from API (API wins over stale localStorage)
+  useEffect(() => {
+    fetchState().then(s => {
+      if (!s) return;
+      if (s.chatMessages) { setChatMessages(s.chatMessages); knownMsgCount.current = s.chatMessages.length; }
+      if (s.claims) setClaims(s.claims);
+      if (s.reactions) setReactions(s.reactions);
+      if (s.activityLog) setActivityLog(s.activityLog);
+      if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+      if (s.comments) setComments(s.comments as Record<string, CommentItem[]>);
+      if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
+      if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+      if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
+      if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+      if (s.customStages) setCustomStages(s.customStages);
+      if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+      if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Poll every 8 seconds — skip if we wrote in the last 2s to avoid self-overwrite
+  useEffect(() => {
+    const poll = () => {
+      if (Date.now() - lastWriteRef.current < 2000) return;
+      fetchState().then(s => {
+        if (!s) return;
+        if (s.chatMessages) {
+          setChatMessages(prev => {
+            if ((s.chatMessages!.length) > knownMsgCount.current) {
+              // new messages arrived — notify if not from current user
+              const newMsgs = s.chatMessages!.slice(knownMsgCount.current);
+              const foreign = newMsgs.find(m => m.userId !== currentUser);
+              if (foreign) {
+                const sender = (s.users as typeof USERS_DEFAULT | undefined)?.find(u => u.id === foreign.userId) ||
+                  users.find(u => u.id === foreign.userId);
+                setChatNotif({ name: sender?.name || foreign.userId, text: foreign.text });
+                playNotifSound();
+                setTimeout(() => setChatNotif(null), 4000);
+              }
+              knownMsgCount.current = s.chatMessages!.length;
+            }
+            return s.chatMessages!;
+          });
+        }
+        if (s.claims) setClaims(s.claims);
+        if (s.reactions) setReactions(s.reactions);
+        if (s.activityLog) setActivityLog(s.activityLog);
+        if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+        if (s.comments) {
+          // detect new comments from others
+          setComments(prev => {
+            const next = s.comments as Record<string, CommentItem[]>;
+            for (const [stage, msgs] of Object.entries(next)) {
+              const prevCount = knownCommentsRef.current[stage] ?? (prev[stage]?.length ?? 0);
+              if (msgs.length > prevCount) {
+                const newOnes = msgs.slice(prevCount);
+                const foreign = newOnes.find(m => m.by !== currentUser);
+                if (foreign) {
+                  const sender = users.find(u => u.id === foreign.by);
+                  setChatNotif({ name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage });
+                  playNotifSound();
+                  setTimeout(() => setChatNotif(null), 5000);
+                }
+              }
+              knownCommentsRef.current[stage] = msgs.length;
+            }
+            return next;
+          });
+        }
+        if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
+        if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+        if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
+        if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+        if (s.customStages) setCustomStages(s.customStages);
+        if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+        if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+      });
+    };
+    const id = setInterval(poll, 8000);
+    return () => clearInterval(id);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, users]);
+
+  // Write shared state to API whenever it changes (debounced 800ms)
+  useEffect(() => {
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    syncTimerRef.current = setTimeout(() => {
+      lastWriteRef.current = Date.now();
+      patchState({ claims, reactions, chatMessages, activityLog, subtasks, comments, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users });
+    }, 800);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [claims, reactions, chatMessages, activityLog, subtasks, comments, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
 
   // Auto-expand matching pipelines on search
   useEffect(() => {
@@ -238,8 +354,11 @@ export default function Dashboard() {
             )}
 
             {/* Chat */}
-            <button onClick={e => { e.stopPropagation(); setShowChat(!showChat); }} style={{ ...hBtn, fontSize: 14 }} title="Team chat">
+            <button onClick={e => { e.stopPropagation(); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat">
               {"\uD83D\uDCAC"}
+              {chatNotif && !showChat && (
+                <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
+              )}
             </button>
 
             {/* Activity bell */}
@@ -518,6 +637,19 @@ export default function Dashboard() {
           <span style={{ fontSize: 11, color: t.text, fontWeight: 600 }}>{toast.text}</span>
           <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 500 }}>{toast.pts}</span>
         </div>}
+
+        {/* Chat / comment notification */}
+        {chatNotif && (
+          <div style={{ position: "fixed", bottom: 80, right: 24, maxWidth: 300, background: t.bgCard, border: `1px solid ${t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 10, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>{chatNotif.isComment ? "\uD83D\uDCAC" : "\uD83D\uDC40"}</span>
+            <div>
+              <div style={{ fontSize: 9, fontWeight: 800, color: t.accent, marginBottom: 3 }}>{chatNotif.name}</div>
+              <div style={{ fontSize: 10, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>
+              {chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 8, color: t.textMuted, marginTop: 3 }}>on {chatNotif.stage}</div>}
+            </div>
+            <button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 14, padding: 0, marginLeft: "auto", flexShrink: 0 }}>{"\u00D7"}</button>
+          </div>
+        )}
 
         <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
