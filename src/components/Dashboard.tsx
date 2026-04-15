@@ -214,7 +214,7 @@ export default function Dashboard() {
                 <AvatarC user={me} size={28} />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: t.text }}>{me.name}</div>
-                  <div style={{ fontSize: 9, color: getPoints(currentUser!) > 0 ? t.amber : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                  <div style={{ fontSize: 9, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
                 </div>
               </div>
             )}
@@ -273,7 +273,7 @@ export default function Dashboard() {
               <AvatarC user={u} size={26} />
               <div>
                 <div style={{ fontSize: 9, fontWeight: 800, color: t.text }}>{u.name}</div>
-                <div style={{ fontSize: 8, color: getPoints(u.id) > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(u.id) > 0 ? `${getPoints(u.id)}pts` : "no live stages yet"}</div>
+                <div style={{ fontSize: 8, color: getPoints(u.id) > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(u.id)}pts</div>
               </div>
             </div>
           ))}
