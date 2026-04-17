@@ -21,6 +21,12 @@ type CustomPipeline = {
   colorKey: string; priority: string; totalHours: string; points: number; stages: string[];
 };
 
+// Always take name/role/avatar/color from USERS_DEFAULT — only preserve aiAvatar from saved state
+function hydrateUsers(saved: UserType[]): UserType[] {
+  const savedMap = Object.fromEntries(saved.map(u => [u.id, u]));
+  return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: savedMap[def.id]?.aiAvatar })) as UserType[];
+}
+
 const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
 const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orange", "lime", "slate"] as const;
 const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
@@ -33,9 +39,7 @@ export default function Dashboard() {
   const [users, setUsers] = useState(() => {
     // Always hydrate from USERS_DEFAULT so name/role/avatar changes take effect
     // without clearing cache. Only preserve aiAvatar (user-generated custom pfp).
-    const cached = lsGet("users", []) as typeof USERS_DEFAULT;
-    const cachedMap = Object.fromEntries(cached.map((u: typeof USERS_DEFAULT[number]) => [u.id, u]));
-    return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: (cachedMap[def.id] as UserType | undefined)?.aiAvatar })) as UserType[];
+    return hydrateUsers(lsGet("users", []) as UserType[]);
   });
   const [onboardStep, setOnboardStep] = useState(() => {
     const step = lsGet("onboardStep", 0);
@@ -147,7 +151,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(s.users as UserType[]);
+        if (s.users) setUsers(hydrateUsers(s.users as UserType[]));
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
@@ -253,7 +257,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(s.users as UserType[]);
+        if (s.users) setUsers(hydrateUsers(s.users as UserType[]));
         // Reset flag after React has processed state updates
         setTimeout(() => { isPollUpdateRef.current = false; }, 50);
       });
