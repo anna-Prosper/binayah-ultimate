@@ -6,7 +6,7 @@ import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
-import Onboarding from "@/components/Onboarding";
+import Onboarding, { AvatarStep6, FloatingBg } from "@/components/Onboarding";
 import ActivityFeed from "@/components/ActivityFeed";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
@@ -38,7 +38,7 @@ const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orang
 const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
 
 export default function Dashboard() {
-  const [isDark, setIsDark] = useState(() => lsGet("isDark", true));
+  const [isDark, setIsDark] = useState(() => lsGet("isDark", false));
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(() => lsGet("currentUser", null));
@@ -56,6 +56,7 @@ export default function Dashboard() {
   });
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
   const [expS, setExpS] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
@@ -377,8 +378,23 @@ export default function Dashboard() {
   const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t) })); };
   const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
-  const shareStage = (name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name}`).then(() => { setCopied(name); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
-  const sharePipeline = (pid: string, name: string) => { navigator.clipboard?.writeText(`Binayah AI \u2014 ${name} Pipeline`).then(() => { setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); }).catch(() => {}); setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000); };
+  const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
+  const sharePipeline = (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
+    const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
+    const owners = [...new Set(stageList.flatMap(s => claims[s] || []))].map(uid => users.find((u: UserType) => u.id === uid)?.name).filter(Boolean);
+    const lines: string[] = [
+      "Binayah AI  //  Pipeline",
+      "────────────────────────────────",
+      pname,
+      `Priority: ${priority}  ·  ${stageList.length} stages  ·  ${hours}`,
+    ];
+    if (pdesc) { lines.push(""); lines.push(pdesc); }
+    lines.push(""); lines.push("Stages:"); lines.push(stageLines);
+    if (owners.length) { lines.push(""); lines.push(`Owners: ${owners.join(", ")}`); }
+    const text = lines.join("\n");
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000);
+  };
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
   const setStageStatusDirect = (name: string, status: string) => {
     setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
@@ -410,7 +426,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{display:none!important}.bu-header{flex-direction:column;gap:12px!important}}`}</style>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}`}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
 
@@ -426,10 +442,14 @@ export default function Dashboard() {
           </div>
 
           {/* All header buttons — same height via alignItems: stretch on parent */}
-          <div style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
-            {/* User card */}
+          <div className="bu-header-btns" style={{ display: "flex", alignItems: "stretch", gap: 6 }}>
+            {/* User card — clickable to open avatar picker */}
             {me && (
-              <div style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: "0 14px" }}>
+              <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: "0 14px", cursor: "pointer", transition: "border-color 0.2s" }}
+                onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"}
+                onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border}
+                title="Change avatar"
+              >
                 <AvatarC user={me} size={28} />
                 <div>
                   <div style={{ fontSize: 11, fontWeight: 800, color: t.text }}>{me.name}</div>
@@ -515,12 +535,12 @@ export default function Dashboard() {
         {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
 
         {/* SEARCH + VIEW TOGGLE */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
+        <div className="bu-search-row" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
           <div style={{ flex: 1 }}>
             <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
           </div>
           {/* View toggle */}
-          <div style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
+          <div className="bu-view-toggle" style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
             {([["list", "\u2630 list"], ["kanban", "\u25A6 kanban"], ["overview", "\u25A1 overview"]] as const).map(([v, label]) => (
               <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                 {label}
@@ -611,7 +631,7 @@ export default function Dashboard() {
                         )}
 
                         <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 6, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => sharePipeline(p.id, pipeName)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
+                          <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, p.totalHours, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "3px 9px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
                             {copied === `pipe-${p.id}` ? "\u2713 copied" : "\uD83D\uDCCB share"}
                           </button>
 
@@ -637,10 +657,12 @@ export default function Dashboard() {
 
                           {!allPipelineClaimed ? (
                             <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}>
-                              {"\uD83D\uDC80"} own all
+                              {"\uD83D\uDC80"} claim all
                             </button>
                           ) : (
-                            <span style={{ fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{"\u2713"} all owned</span>
+                            <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 7, padding: "3px 10px", cursor: "pointer", fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }} title="Click to unclaim all">
+                              {"\u2713"} all claimed
+                            </button>
                           )}
 
                           {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find((u: typeof USERS_DEFAULT[number]) => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
@@ -648,7 +670,7 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
+                    <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
                       <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
                       <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "flex-end" }}>
                         {allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
@@ -742,6 +764,22 @@ export default function Dashboard() {
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
         </div>
       </div>
+
+      {/* AVATAR PICKER MODAL */}
+      {showAvatarPicker && selUser && (() => {
+        const pickerUser = users.find((u: typeof USERS_DEFAULT[number]) => u.id === selUser);
+        if (!pickerUser) return null;
+        const AnimBgPicker = () => <FloatingBg colors={[pickerUser.color, pickerUser.color + "88", t.accent + "44", pickerUser.color + "44"]} themeStyle={themeId} />;
+        return (
+          <AvatarStep6
+            t={t} user={pickerUser as UserType} selAvatar={selAvatar} setSelAvatar={setSelAvatar}
+            users={users} setUsers={setUsers} setCurrentUser={setCurrentUser}
+            setOnboardStep={() => {}} selUser={selUser} AnimBg={AnimBgPicker}
+            onClose={() => setShowAvatarPicker(false)}
+            onConfirm={() => setShowAvatarPicker(false)}
+          />
+        );
+      })()}
 
       {/* CHAT SIDE WIDGET — fixed bottom-right */}
       {showChat && (

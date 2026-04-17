@@ -7,12 +7,13 @@ import { AvatarC } from "@/components/ui/Avatar";
 import { NB } from "@/components/ui/primitives";
 
 // ─── AI Avatar Step ───────────────────────────────────────────────────────────
-function AvatarStep6({
-  t, user, selAvatar, setSelAvatar, users, setUsers, setCurrentUser, setOnboardStep, selUser, AnimBg,
+export function AvatarStep6({
+  t, user, selAvatar, setSelAvatar, users, setUsers, setCurrentUser, setOnboardStep, selUser, AnimBg, onClose, onConfirm,
 }: {
   t: T; user: UserType; selAvatar: string | null; setSelAvatar: (a: string | null) => void;
   users: UserType[]; setUsers: (u: UserType[]) => void; setCurrentUser: (u: string | null) => void;
   setOnboardStep: (s: number) => void; selUser: string | null; AnimBg: () => React.ReactElement;
+  onClose?: () => void; onConfirm?: () => void;
 }) {
   const [tab, setTab] = useState<"emoji" | "ai">("emoji");
   const [loadedImgs, setLoadedImgs] = useState<Set<string>>(new Set());
@@ -56,21 +57,27 @@ function AvatarStep6({
     );
     setUsers(updated as UserType[]);
     setCurrentUser(selUser);
-    try { localStorage.removeItem("themePhase"); } catch { /* noop */ }
-    setTimeout(() => setOnboardStep(7), 50);
+    if (onConfirm) {
+      onConfirm();
+    } else {
+      try { localStorage.removeItem("themePhase"); } catch { /* noop */ }
+      setTimeout(() => setOnboardStep(7), 50);
+    }
   }
 
   const hints = ["cyberpunk hacker with neon glasses", "minimalist geometric logo", "astronaut explorer", "mystical wolf warrior", "zen monk in golden light"];
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+    <div onClick={() => onClose ? onClose() : setOnboardStep(5)} style={{ position: "fixed", inset: 0, background: t.bg + "ee", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
       <style>{`
         @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
         @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
         @keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
+        @media(min-width:600px){.av-grid{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.av-card{max-height:88vh;overflow-y:hidden!important}}
       `}</style>
       <AnimBg />
-      <NB color={user.color} style={{ background: t.bgCard, padding: "28px 24px", maxWidth: 460, width: "94%", textAlign: "center", animation: "scaleIn 0.4s ease", position: "relative", zIndex: 1, maxHeight: "90vh", overflowY: "auto" }}>
+      <div onClick={e => e.stopPropagation()} className="av-card" style={{ maxHeight: "90vh", overflowY: "auto" }}>
+      <NB color={user.color} style={{ background: t.bgCard, padding: "22px 20px", maxWidth: 460, width: "94vw", textAlign: "center", animation: "scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
         <div style={{ fontSize: 20, fontWeight: 900, color: user.color }}>choose your pfp</div>
         <p style={{ fontSize: 10, color: t.textMuted, margin: "4px 0 16px", fontFamily: "var(--font-dm-mono), monospace" }}>// {user.name.toLowerCase()}, pick your persona</p>
 
@@ -92,7 +99,7 @@ function AvatarStep6({
 
         {/* IMAGE AVATAR TAB */}
         {tab === "emoji" && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "0 auto 20px" }}>
+          <div className="av-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "0 auto 16px" }}>
             {AVATARS.map((av, idx) => {
               const active = selAvatar === av.id && !selAiImg;
               return (
@@ -221,14 +228,15 @@ function AvatarStep6({
 
         <button onClick={confirm} style={{
           background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 14,
-          padding: "14px 44px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer",
+          padding: "12px 40px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer",
           fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`,
           textTransform: "lowercase", position: "relative", overflow: "hidden",
         }}>
-          <span style={{ position: "relative", zIndex: 1 }}>let&apos;s build →</span>
+          <span style={{ position: "relative", zIndex: 1 }}>{onConfirm ? "save avatar →" : "let\u2019s build →"}</span>
           <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 2.5s ease-in-out infinite" }} />
         </button>
       </NB>
+      </div>
     </div>
   );
 }
@@ -405,8 +413,8 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
 
           <div style={{ display: "flex", justifyContent: "center", gap: 12, marginBottom: 32 }}>
             {([
-              { dark: true, icon: "\uD83C\uDF1A", label: "lights off", sub: "shadows & neon", hint: "late night ops" },
               { dark: false, icon: "\u2600\uFE0F", label: "lights on", sub: "clean & sharp", hint: "daytime clarity" },
+              { dark: true, icon: "\uD83C\uDF1A", label: "lights off", sub: "shadows & neon", hint: "late night ops" },
             ] as const).map(opt => {
               const active = isDark === opt.dark;
               return (
@@ -553,7 +561,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
   if (onboardStep === 6) {
     const user = users.find(u => u.id === selUser);
     if (!user) return null;
-    return <AvatarStep6 t={t} user={user} selAvatar={selAvatar} setSelAvatar={setSelAvatar} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} setOnboardStep={setOnboardStep} selUser={selUser} AnimBg={AnimBg} />;
+    return <AvatarStep6 t={t} user={user} selAvatar={selAvatar} setSelAvatar={setSelAvatar} users={users} setUsers={setUsers} setCurrentUser={setCurrentUser} setOnboardStep={setOnboardStep} selUser={selUser} AnimBg={AnimBg} onClose={undefined} onConfirm={undefined} />;
   }
 
   return null;

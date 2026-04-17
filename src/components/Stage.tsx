@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { T } from "@/lib/themes";
-import { REACTIONS, stageDefaults, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
+import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
 import mockups from "@/components/mockups/mockupsMap";
@@ -34,7 +34,7 @@ interface StageProps {
   handleClaim: (sid: string) => void;
   handleReact: (sid: string, emoji: string) => void;
   cycleStatus: (name: string) => void;
-  shareStage: (name: string) => void;
+  shareStage: (name: string, text: string) => void;
   subtaskInput: Record<string, string>;
   setSubtaskInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   commentInput: Record<string, string>;
@@ -70,6 +70,7 @@ export default function Stage({
   const tasksDone = tasks.filter(x => x.done).length;
   const isMockOpen = showMockup[name];
   const currentDesc = stageDescOverrides[name] ?? s.desc;
+  const aboutDesc = stageDescOverrides[name] ?? (stageLongDescs[name] || s.desc);
 
   const openPreview = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -116,7 +117,7 @@ export default function Stage({
             })()}
 
             {/* React toggle */}
-            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textDim, fontFamily: "inherit", opacity: 0.6 }}>
+            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "inherit" }}>
               {"\uD83D\uDE00"}
             </button>
 
@@ -156,15 +157,15 @@ export default function Stage({
               </div>
               {editingDesc ? (
                 <textarea
-                  value={currentDesc}
+                  value={aboutDesc}
                   onChange={e => setStageDescOverride(name, e.target.value)}
                   autoFocus
-                  rows={2}
-                  style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}
+                  rows={4}
+                  style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                 />
               ) : (
-                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 11, color: t.textSec, lineHeight: 1.5, cursor: "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{ flex: 1 }}>{currentDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
+                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
                 </div>
               )}
             </div>
@@ -196,7 +197,21 @@ export default function Stage({
                   </div>
                 )}
 
-                <button onClick={() => shareStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                <button onClick={() => {
+                  const sr = rxns[name] || {};
+                  const owners = claimedBy.map(uid => users.find(u => u.id === uid)?.name).filter(Boolean);
+                  const reacts = Object.entries(sr).filter(([, v]) => v.length > 0).map(([e, v]) => `${e} ×${v.length}`);
+                  const lines: string[] = [
+                    "Binayah AI  //  Stage",
+                    "────────────────────────────────",
+                    name,
+                    `Status: ${effectiveStatus.toUpperCase()}  ·  +${s.points} pts`,
+                  ];
+                  if (currentDesc) { lines.push(""); lines.push(currentDesc); }
+                  if (owners.length) { lines.push(""); lines.push(`Owned by: ${owners.join(", ")}`); }
+                  if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
+                  shareStage(name, lines.join("\n"));
+                }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {copied === name ? "\u2713 copied" : "\uD83D\uDCCB share"}
                 </button>
                 {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "18" : "transparent", border: `1px solid ${isMockOpen ? pC + "44" : pC + "22"}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: isMockOpen ? pC : pC + "aa", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
