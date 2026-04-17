@@ -18,9 +18,14 @@ export const AVATARS = [
   { id: "av_beard_guy",      img: "/avatars/av_beard_guy.jpg",      name: "Grind" },
   { id: "av_robo_girl",      img: "/avatars/av_robo_girl.jpg",      name: "Cyber" },
   { id: "av_bunny_girl",     img: "/avatars/av_bunny_girl.jpg",     name: "Bunny" },
-  { id: "av_shaved_woman",   img: "/avatars/av_shaved_woman.jpg",   name: "Power" },
+  { id: "av_hacker_hoodie",  img: "/avatars/av_hacker_hoodie.jpg",  name: "Hood" },
   { id: "av_trenchcoat_guy", img: "/avatars/av_trenchcoat_guy.jpg", name: "Neo" },
   { id: "av_abdullah",      img: "/avatars/av_abdullah.jpg",      name: "Backbone" },
+  { id: "av_cyber_woman",   img: "/avatars/av_cyber_woman.jpg",   name: "Viper" },
+  { id: "av_street_king",   img: "/avatars/av_street_king.jpg",   name: "King" },
+  { id: "av_exec_woman",    img: "/avatars/av_exec_woman.jpg",    name: "Sharp" },
+  { id: "av_dev_guy",       img: "/avatars/av_dev_guy.jpg",       name: "Stack" },
+  { id: "av_furry_fox",     img: "/avatars/av_furry_fox.jpg",     name: "Blaze" },
 ];
 
 export const USERS_DEFAULT = [
@@ -73,10 +78,10 @@ export const pipelineData = [
     points:350,
   },
   {
-    id:"leads",name:"Lead Lifecycle",icon:"🎯",colorKey:"purple",totalHours:"130-185h",priority:"HIGH",
-    desc:"Capture → score → predict → recover → schedule → nurture. Zero leads lost.",
-    stages:["Lead Responder","Behavior Scoring","Lead Prediction","Leak Detector","Viewing Scheduler","Deal Broadcaster","Post-Sale Nurture","WA Communities","CRM Leaderboard"],
-    points:400,
+    id:"leads",name:"Lead Lifecycle",icon:"🎯",colorKey:"purple",totalHours:"145-205h",priority:"HIGH",
+    desc:"Capture → score → predict → recover → schedule → nurture → retain. Zero leads lost.",
+    stages:["Lead Responder","Behavior Scoring","Lead Prediction","Leak Detector","Viewing Scheduler","Deal Broadcaster","Post-Sale Nurture","WA Communities","CRM Leaderboard","Investor Portal"],
+    points:440,
   },
   {
     id:"content",name:"Content & Intel",icon:"📊",colorKey:"amber",totalHours:"195-265h",priority:"MEDIUM",
@@ -145,6 +150,7 @@ export const stageDescs: Record<string, string> = {
   "Post-Sale Nurture": "1st anniversary: appreciation report + quarterly updates. Turns one-time buyers into referral machines.",
   "WA Communities": "'Marina Watchers', 'CIS Investor Circle.' AI posts DLD data and market commentary. We host the conversation.",
   "CRM Leaderboard": "Leaderboard widget, streaks, and daily challenges layered on the existing CRM. Not a rebuild — a 10-15h layer on top.",
+  "Investor Portal": "Live dashboard for landlord clients — occupancy, rent, costs, market value vs purchase price. AI flags vacancies and drafts renewal messages. Multilingual.",
 
   // CONTENT & INTEL
   "Price Monitor": "Daily scan of Bayut, PF, Dubizzle for price drops, new listings, and underpriced properties.",
@@ -225,6 +231,7 @@ export const stageLongDescs: Record<string, string> = {
   "Post-Sale Nurture": "Client retention and referral engine that keeps past buyers engaged and turns them into an active referral network. Sequence: 30-day welcome, 6-month market update for their area, 1-year anniversary report showing exact appreciation and current value, quarterly updates with nearby development news and yield data. Referral detection: if a client messages about a friend looking to buy, the system flags it immediately. One re-engagement cost to acquire a referral vs full CAC for a new lead.",
   "WA Communities": "Curated WhatsApp investor groups co-managed by AI and a team member. 'Marina Watchers' for Marina investors. 'CIS Investor Circle' for Russian-speaking buyers. 'Business Bay Investors' for the commercial segment. AI posts weekly DLD transaction data, new listing alerts, price movement commentary, and market news. The team member adds a human voice and answers direct questions. These communities keep Binayah top-of-mind between transactions and create a trusted network effect — members invite other investors.",
   "CRM Leaderboard": "Lightweight gamification layer on top of the existing CRM — not a rebuild. A leaderboard widget that tracks response times, leads contacted, viewings booked, and follow-up streaks. Daily challenges: follow up with 5 leads for +200XP. Weekly reset keeps it fresh. The goal is making agents actually want to open the CRM — and compete on the metrics that move the business, not vanity numbers. Estimated 10-15h to build as a layer on the existing system. Not a custom CRM.",
+  "Investor Portal": "Private dashboard giving Binayah's landlord clients full real-time visibility into their asset from anywhere in the world — without giving them the ability to act without Binayah. Live occupancy status, rent received to date, maintenance costs logged, service charge schedule, vacancy days counter, and market value vs purchase price with a live appreciation curve. All leads and transactions flow through Binayah — the portal shows data, never replaces the relationship. AI layer: vacant unit triggers a suggested price adjustment and a pre-drafted landlord message. Lease renewal 90 days out triggers a market update with comparable rents. Significant appreciation (>15%) triggers a portfolio review prompt and a referral ask. Available in Arabic, Russian, Chinese, and English with region-appropriate payment method display.",
 
   // CONTENT & INTEL
   "Price Monitor": "Daily automated scan of Bayut, Property Finder, and Dubizzle for price changes and new listings across every Dubai area. Tracks: price drops by percentage and absolute value, new listings below market rate, developer promotions, and listings that have been sitting >60 days. Output surfaces in the Morning Brief every day. Agents can act on opportunities — price reductions, motivated sellers, off-market deals — before competitors know they exist.",
@@ -285,6 +292,7 @@ const stageStatusMap: Record<string, string> = {
   "Behavior Scoring": "planned",
   "Lead Prediction": "planned",
   "Leak Detector": "planned",
+  "Investor Portal": "concept",
   // Content
   "Price Monitor": "planned",
   "Morning Brief": "planned",

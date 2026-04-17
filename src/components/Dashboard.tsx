@@ -511,7 +511,10 @@ export default function Dashboard() {
         {/* TEAM BAR */}
         <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, flexWrap: "wrap" }}>
           {users.map((u: typeof USERS_DEFAULT[number]) => (
-            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.45, transition: "opacity 0.2s" }}>
+            <div key={u.id} onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.5, transition: "all 0.2s", cursor: "pointer", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.opacity = u.id === currentUser ? "1" : "0.5"; }}
+            >
               <AvatarC user={u} size={26} />
               <div>
                 <div style={{ fontSize: 9, fontWeight: 800, color: t.text }}>{u.name}</div>
