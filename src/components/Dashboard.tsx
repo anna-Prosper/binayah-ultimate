@@ -30,8 +30,20 @@ export default function Dashboard() {
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(() => lsGet("currentUser", null));
-  const [users, setUsers] = useState(() => lsGet("users", USERS_DEFAULT));
-  const [onboardStep, setOnboardStep] = useState(() => lsGet("onboardStep", 0));
+  const [users, setUsers] = useState(() => {
+    // Always hydrate from USERS_DEFAULT so name/role/avatar changes take effect
+    // without clearing cache. Only preserve aiAvatar (user-generated custom pfp).
+    const cached = lsGet("users", []) as typeof USERS_DEFAULT;
+    const cachedMap = Object.fromEntries(cached.map((u: typeof USERS_DEFAULT[number]) => [u.id, u]));
+    return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: (cachedMap[def.id] as { aiAvatar?: string })?.aiAvatar }));
+  });
+  const [onboardStep, setOnboardStep] = useState(() => {
+    const step = lsGet("onboardStep", 0);
+    // If they have a currentUser saved, they completed onboarding — skip to dashboard
+    const savedUser = lsGet("currentUser", null);
+    if (savedUser && step < 7) return 7;
+    return step;
+  });
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
