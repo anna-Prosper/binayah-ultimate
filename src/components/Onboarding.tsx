@@ -533,7 +533,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = u.color + "55"; (e.currentTarget as HTMLElement).style.background = u.color + "08"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <AvatarC user={u} size={40} />
+                <div style={{ width: 40, height: 40, borderRadius: "50%", background: `radial-gradient(circle at 30% 30%, ${u.color}55, ${u.color}22)`, border: `2px solid ${u.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, fontWeight: 800, color: u.color, flexShrink: 0 }}>{u.name[0]}</div>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{u.name}</div>
                   <div style={{ fontSize: 10, color: u.color, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
