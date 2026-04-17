@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { lsGet, lsSet } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
+import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
 import Onboarding from "@/components/Onboarding";
@@ -35,7 +35,7 @@ export default function Dashboard() {
     // without clearing cache. Only preserve aiAvatar (user-generated custom pfp).
     const cached = lsGet("users", []) as typeof USERS_DEFAULT;
     const cachedMap = Object.fromEntries(cached.map((u: typeof USERS_DEFAULT[number]) => [u.id, u]));
-    return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: (cachedMap[def.id] as { aiAvatar?: string })?.aiAvatar }));
+    return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: (cachedMap[def.id] as UserType | undefined)?.aiAvatar })) as UserType[];
   });
   const [onboardStep, setOnboardStep] = useState(() => {
     const step = lsGet("onboardStep", 0);
@@ -147,7 +147,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+        if (s.users) setUsers(s.users as UserType[]);
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
@@ -253,7 +253,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(s.users as typeof USERS_DEFAULT);
+        if (s.users) setUsers(s.users as UserType[]);
         // Reset flag after React has processed state updates
         setTimeout(() => { isPollUpdateRef.current = false; }, 50);
       });
