@@ -71,6 +71,8 @@ export default function Dashboard() {
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
   const [viewingUser, setViewingUser] = useState<string | null>(null);
+  const [ptsFlash, setPtsFlash] = useState(false);
+  const prevMyPtsRef = useRef(0);
   const [reactOpen, setReactOpen] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -102,6 +104,18 @@ export default function Dashboard() {
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
+
+  // Animate pts counter when points increase
+  useEffect(() => {
+    if (!currentUser) return;
+    const myPts = getPoints(currentUser);
+    if (myPts > prevMyPtsRef.current && prevMyPtsRef.current > 0) {
+      setPtsFlash(true);
+      setTimeout(() => setPtsFlash(false), 1800);
+    }
+    prevMyPtsRef.current = myPts;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageStatusOverrides, claims]);
 
   // Points celebration — fires when a stage transitions TO "active" while currentUser is a claimer
   useEffect(() => {
@@ -457,7 +471,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}`}</style>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}`}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
 
@@ -545,48 +559,85 @@ export default function Dashboard() {
             const isMe = u.id === currentUser;
             const uPts = getPoints(u.id);
             const claimedStages = Object.entries(claims).filter(([, cl]) => (cl as string[]).includes(u.id)).map(([s]) => s);
+            const liveOwned = claimedStages.filter(s => getStatus(s) === "active");
+            const rank = [...users].sort((a, b) => getPoints(b.id) - getPoints(a.id)).findIndex(x => x.id === u.id) + 1;
+            const rankEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
             return (
             <div key={u.id} style={{ position: "relative" }}>
-              <div onClick={e => { e.stopPropagation(); if (isMe) { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); } else { setViewingUser(viewingUser === u.id ? null : u.id); } }}
+              <div onClick={e => { e.stopPropagation(); setViewingUser(viewingUser === u.id ? null : u.id); }}
                 style={{ display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s", cursor: "pointer", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                {/* Avatar with ring for current user */}
                 <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
                   <AvatarC user={u} size={26} />
                 </div>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text }}>{u.name}</div>
-                  <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{uPts}pts</div>
+                  <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
               </div>
 
-              {/* View-only popup for other users */}
-              {!isMe && viewingUser === u.id && (
-                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 16, padding: "14px 16px", minWidth: 180, boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
-                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                    <AvatarC user={u} size={40} />
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 900, color: u.color }}>{u.name}</div>
+              {/* Stats popup — my stats (rich) or other user (read-only) */}
+              {viewingUser === u.id && (
+                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 18, padding: "16px", minWidth: 210, boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
+
+                  {/* Header */}
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
+                    <div style={{ borderRadius: "50%", padding: 2, background: `linear-gradient(135deg,${u.color},${u.color}66)`, flexShrink: 0 }}>
+                      <AvatarC user={u} size={42} />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: u.color, display: "flex", alignItems: "center", gap: 5 }}>
+                        {u.name}
+                        <span style={{ fontSize: 11 }}>{rankEmoji}</span>
+                      </div>
                       <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    <div style={{ flex: 1, background: t.bgHover, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{uPts}</div>
-                      <div style={{ fontSize: 7, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>pts</div>
+
+                  {/* Stats row */}
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 6, marginBottom: 10 }}>
+                    <div style={{ background: t.bgHover, borderRadius: 10, padding: "7px 6px", textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}</div>
+                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>pts</div>
                     </div>
-                    <div style={{ flex: 1, background: t.bgHover, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{claimedStages.length}</div>
-                      <div style={{ fontSize: 7, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>owned</div>
+                    <div style={{ background: t.bgHover, borderRadius: 10, padding: "7px 6px", textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{claimedStages.length}</div>
+                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>owned</div>
+                    </div>
+                    <div style={{ background: t.bgHover, borderRadius: 10, padding: "7px 6px", textAlign: "center" }}>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveOwned.length}</div>
+                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>live</div>
                     </div>
                   </div>
+
+                  {/* Claimed stages list */}
                   {claimedStages.length > 0 && (
-                    <div style={{ fontSize: 8, color: t.textMuted, lineHeight: 1.6 }}>
-                      {claimedStages.slice(0, 3).map(s => <div key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: u.color }}>·</span>{s}</div>)}
-                      {claimedStages.length > 3 && <div style={{ color: t.textDim }}>+{claimedStages.length - 3} more</div>}
+                    <div style={{ marginBottom: isMe ? 10 : 0 }}>
+                      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, fontWeight: 600 }}>owned stages</div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                        {claimedStages.map(s => {
+                          const st = sc[getStatus(s)] ?? { l: "concept", c: "#888" };
+                          return (
+                            <div key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 8, color: t.textSec }}>
+                              <span style={{ width: 6, height: 6, borderRadius: "50%", background: st.c, flexShrink: 0, boxShadow: getStatus(s) === "active" ? `0 0 6px ${st.c}` : "none" }} />
+                              <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s}</span>
+                              <span style={{ fontSize: 7, color: st.c, fontWeight: 700 }}>{st.l}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
+                  )}
+                  {claimedStages.length === 0 && <div style={{ fontSize: 8, color: t.textDim, fontStyle: "italic", marginBottom: isMe ? 10 : 0 }}>no stages claimed yet</div>}
+
+                  {/* Change avatar — own profile only */}
+                  {isMe && (
+                    <button onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); setViewingUser(null); }}
+                      style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 10, padding: "7px", cursor: "pointer", fontSize: 9, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
+                      change avatar →
+                    </button>
                   )}
                 </div>
               )}
