@@ -15,6 +15,7 @@ function AvatarStep6({
   setOnboardStep: (s: number) => void; selUser: string | null; AnimBg: () => React.ReactElement;
 }) {
   const [tab, setTab] = useState<"emoji" | "ai">("emoji");
+  const [loadedImgs, setLoadedImgs] = useState<Set<string>>(new Set());
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiImage, setAiImage] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -103,8 +104,13 @@ function AvatarStep6({
                   animation: `scaleIn 0.3s ease ${idx * 0.02}s both`,
                   background: "#111",
                 }}>
+                  {!loadedImgs.has(av.id) && (
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${user.color}18`, fontSize: 18, fontWeight: 800, color: user.color, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+                      {av.name[0]}
+                    </div>
+                  )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={av.img} alt={av.name} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block" }} />
+                  <img src={av.img} alt={av.name} onLoad={() => setLoadedImgs(p => new Set([...p, av.id]))} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block", opacity: loadedImgs.has(av.id) ? 1 : 0, transition: "opacity 0.25s" }} />
                   {active && <div style={{ position: "absolute", inset: 0, background: `${user.color}22`, borderRadius: 12 }} />}
                   <span style={{ position: "absolute", bottom: 3, left: 0, right: 0, fontSize: 7, color: active ? user.color : "#fff9", textAlign: "center", fontFamily: "var(--font-dm-mono), monospace", textShadow: "0 1px 3px #000" }}>{av.name}</span>
                 </button>
