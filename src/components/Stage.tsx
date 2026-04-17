@@ -46,6 +46,7 @@ interface StageProps {
   addComment: (sid: string) => void;
   stageDescOverrides: Record<string, string>;
   setStageDescOverride: (name: string, val: string) => void;
+  liveNotifs: Record<string, { comment?: string; reaction?: string }>;
 }
 
 export default function Stage({
@@ -55,7 +56,7 @@ export default function Stage({
   handleClaim, handleReact, cycleStatus, shareStage,
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
-  stageDescOverrides, setStageDescOverride,
+  stageDescOverrides, setStageDescOverride, liveNotifs,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const k = `${pId}-${idx}`;
@@ -89,7 +90,11 @@ export default function Stage({
       </div>
 
       {/* Card */}
-      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "all 0.2s", overflow: "hidden", boxShadow: isE ? t.shadowLg : t.shadow }}>
+      {(() => {
+        const hasLive = !!(liveNotifs[name]?.comment || liveNotifs[name]?.reaction);
+        const liveColor = liveNotifs[name]?.comment ? t.green : t.accent;
+        return (
+      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
 
         {/* Header row */}
         <div style={{ padding: "10px 14px 4px", display: "flex", alignItems: "center", gap: 8 }}>
@@ -99,7 +104,13 @@ export default function Stage({
             <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: "pointer" }} title="Click to cycle status">{st.l}</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }} onClick={e => e.stopPropagation()}>
+            {/* Live reaction pop */}
+            {liveNotifs[name]?.reaction && (
+              <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 16, pointerEvents: "none", animation: "emojiPop 1.2s ease-out forwards", zIndex: 10 }}>
+                {liveNotifs[name].reaction}
+              </span>
+            )}
             {/* Existing reactions */}
             {(() => {
               const sr = rxns[name] || {};
@@ -253,8 +264,11 @@ export default function Stage({
                 </div>
               </div>
 
-              <div style={{ flex: 1, padding: "14px 16px" }}>
-                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
+              <div style={{ flex: 1, padding: "14px 16px", borderRadius: "0 0 14px 0", transition: "box-shadow 0.3s", animation: liveNotifs[name]?.comment ? "commentPulse 1.5s ease-in-out 2" : "none" }}>
+                <div style={{ fontSize: 8, color: liveNotifs[name]?.comment ? t.green : t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600, transition: "color 0.4s", display: "flex", alignItems: "center", gap: 5 }}>
+                  comments {cmts.length > 0 && `(${cmts.length})`}
+                  {liveNotifs[name]?.comment && <span style={{ fontSize: 8, color: t.green, fontWeight: 700, letterSpacing: 0 }}>· {liveNotifs[name].comment} just commented</span>}
+                </div>
                 <div style={{ maxHeight: 120, overflowY: "auto" }}>
                   {cmts.map(c => { const u = users.find(x => x.id === c.by); return (
                     <div key={c.id} style={{ display: "flex", gap: 6, marginBottom: 6 }}>
@@ -300,6 +314,8 @@ export default function Stage({
           </div>
         )}
       </div>
+        );
+      })()}
     </div>
   );
 }
