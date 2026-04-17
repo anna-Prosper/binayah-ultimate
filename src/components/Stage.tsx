@@ -41,6 +41,8 @@ interface StageProps {
   setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   addSubtask: (sid: string) => void;
   toggleSubtask: (sid: string, taskId: number) => void;
+  lockSubtask: (sid: string, taskId: number) => void;
+  removeSubtask: (sid: string, taskId: number) => void;
   addComment: (sid: string) => void;
   stageDescOverrides: Record<string, string>;
   setStageDescOverride: (name: string, val: string) => void;
@@ -52,7 +54,7 @@ export default function Stage({
   reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim,
   handleClaim, handleReact, cycleStatus, shareStage,
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
-  addSubtask, toggleSubtask, addComment,
+  addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
   stageDescOverrides, setStageDescOverride,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
@@ -148,28 +150,6 @@ export default function Stage({
         {isE && (
           <div style={{ borderTop: `1px solid ${t.border}`, animation: "fadeIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
 
-            {/* Description — editable, shown without needing to open preview */}
-            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${t.border}` }}>
-              <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
-                about
-                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 9, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
-                {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 7, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
-              </div>
-              {editingDesc ? (
-                <textarea
-                  value={aboutDesc}
-                  onChange={e => setStageDescOverride(name, e.target.value)}
-                  autoFocus
-                  rows={4}
-                  style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
-                />
-              ) : (
-                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
-                  <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
-                </div>
-              )}
-            </div>
-
             {/* Action bar */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
@@ -220,17 +200,51 @@ export default function Stage({
               </div>
             </div>
 
+            {/* Description — editable */}
+            <div style={{ padding: "10px 16px", borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
+                about
+                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 9, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
+                {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 7, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
+              </div>
+              {editingDesc ? (
+                <textarea
+                  value={aboutDesc}
+                  onChange={e => setStageDescOverride(name, e.target.value)}
+                  autoFocus
+                  rows={4}
+                  style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
+                />
+              ) : (
+                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                  <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
+                </div>
+              )}
+            </div>
+
             {/* Subtasks + Comments */}
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
               <div style={{ flex: 1, padding: "14px 16px", borderRight: `1px solid ${t.border}` }}>
                 <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 {tasks.map(task => (
-                  <div key={task.id} onClick={() => toggleSubtask(name, task.id)} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", cursor: "pointer" }}>
-                    <div style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderRadius: 6, transition: "background 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                    <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer" }}>
                       {task.done && <span style={{ fontSize: 8, color: t.green }}>{"\u2713"}</span>}
                     </div>
-                    <span style={{ fontSize: 9, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
-                    <span style={{ fontSize: 7, color: t.textDim }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
+                    <span style={{ fontSize: 9, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1, fontStyle: task.locked ? "italic" : "normal" }}>{task.text}</span>
+                    <span style={{ fontSize: 7, color: t.textDim, marginRight: 2 }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
+                    <span onClick={() => lockSubtask(name, task.id)} title={task.locked ? "Unlock" : "Lock"} style={{ fontSize: 9, cursor: "pointer", opacity: 0.5, transition: "opacity 0.15s", color: task.locked ? t.amber : t.textDim }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.5"; }}>
+                      {task.locked ? "\uD83D\uDD12" : "\uD83D\uDD13"}
+                    </span>
+                    {!task.locked && <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 9, cursor: "pointer", opacity: 0, color: t.red, transition: "opacity 0.15s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}>
+                      ×
+                    </span>}
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>

@@ -100,6 +100,26 @@ export default function Dashboard() {
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
+
+  // Points celebration — fires when a stage transitions TO "active" while currentUser is a claimer
+  useEffect(() => {
+    if (!currentUser || !isInitializedRef.current) { prevStatusRef.current = { ...stageStatusOverrides }; return; }
+    Object.entries(stageStatusOverrides).forEach(([stage, newStatus]) => {
+      const prevStatus = prevStatusRef.current[stage];
+      if (newStatus === "active" && prevStatus !== "active") {
+        const claimers = claims[stage] || [];
+        if (claimers.includes(currentUser)) {
+          const pts = stageDefaults[stage]?.points || 10;
+          setToast({ text: `🔥 ${stage} is live!`, pts: `+${pts}pts earned`, color: t.green });
+          setClaimAnim({ stage, pts });
+          setTimeout(() => setClaimAnim(null), 1400);
+          setTimeout(() => setToast(null), 3500);
+        }
+      }
+    });
+    prevStatusRef.current = { ...stageStatusOverrides };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stageStatusOverrides]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
   useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
@@ -121,6 +141,7 @@ export default function Dashboard() {
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
+  const prevStatusRef = useRef<Record<string, string>>({});
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "offline">("connecting");
 
   const playNotifSound = useCallback(() => {
@@ -375,7 +396,9 @@ export default function Dashboard() {
   };
   const handleReact = (sid: string, emoji: string) => { if (!currentUser) return; setReactions(prev => { const s = { ...(prev[sid] || {}) }; const u = [...(s[emoji] || [])]; const i = u.indexOf(currentUser); if (i >= 0) u.splice(i, 1); else u.push(currentUser); s[emoji] = u; return { ...prev, [sid]: s }; }); };
   const addSubtask = (sid: string) => { const val = subtaskInput[sid]?.trim(); if (!val || !currentUser) return; setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, done: false, by: currentUser }] })); setSubtaskInput(prev => ({ ...prev, [sid]: "" })); };
-  const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, done: !t.done } : t) })); };
+  const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
+  const lockSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
+  const removeSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
   const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
@@ -418,7 +441,7 @@ export default function Dashboard() {
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
   if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><button onClick={() => setOnboardStep(0)} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Start Over</button></div>);
 
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, addComment, stageDescOverrides, setStageDescOverride };
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
@@ -511,8 +534,8 @@ export default function Dashboard() {
         {/* TEAM BAR */}
         <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, flexWrap: "wrap" }}>
           {users.map((u: typeof USERS_DEFAULT[number]) => (
-            <div key={u.id} onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.5, transition: "all 0.2s", cursor: "pointer", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+            <div key={u.id} onClick={() => { if (u.id === currentUser) { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.5, transition: "all 0.2s", cursor: u.id === currentUser ? "pointer" : "default", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
+              onMouseEnter={e => { if (u.id === currentUser) { (e.currentTarget as HTMLElement).style.background = u.color + "12"; (e.currentTarget as HTMLElement).style.opacity = "1"; } }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.opacity = u.id === currentUser ? "1" : "0.5"; }}
             >
               <AvatarC user={u} size={26} />
@@ -742,10 +765,10 @@ export default function Dashboard() {
           )}
         </div>}
 
-        {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: t.bgCard, border: `1px solid ${toast.color}33`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 10, boxShadow: `0 8px 32px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace" }}>
-          <span style={{ fontSize: 13 }}>{"\uD83D\uDC80"}</span>
-          <span style={{ fontSize: 11, color: t.text, fontWeight: 600 }}>{toast.text}</span>
-          <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 500 }}>{toast.pts}</span>
+        {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 18, padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 40px ${toast.color}22`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "\u26A1" : "\uD83D\uDC80"}</span>
+          <span style={{ fontSize: 11, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span>
+          <span style={{ fontSize: 11, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span>
         </div>}
 
         {/* Activity notification toast */}

@@ -317,7 +317,7 @@ pipelineData.forEach(p => {
 });
 
 // === TYPES ===
-export interface SubtaskItem { id: number; text: string; done: boolean; by: string; }
+export interface SubtaskItem { id: number; text: string; done: boolean; by: string; locked?: boolean; }
 export interface CommentItem { id: number; text: string; by: string; time: string; }
 export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number };
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active"];
