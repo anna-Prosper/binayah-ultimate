@@ -70,6 +70,7 @@ export default function Dashboard() {
   const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
+  const [viewingUser, setViewingUser] = useState<string | null>(null);
   const [reactOpen, setReactOpen] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -455,7 +456,7 @@ export default function Dashboard() {
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
 
   return (
-    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); }}>
+    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}`}</style>
 
       <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
@@ -540,18 +541,58 @@ export default function Dashboard() {
 
         {/* TEAM BAR */}
         <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, flexWrap: "wrap" }}>
-          {users.map((u: typeof USERS_DEFAULT[number]) => (
-            <div key={u.id} onClick={() => { if (u.id === currentUser) { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); } }} style={{ display: "flex", alignItems: "center", gap: 6, opacity: u.id === currentUser ? 1 : 0.5, transition: "all 0.2s", cursor: u.id === currentUser ? "pointer" : "default", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
-              onMouseEnter={e => { if (u.id === currentUser) { (e.currentTarget as HTMLElement).style.background = u.color + "12"; (e.currentTarget as HTMLElement).style.opacity = "1"; } }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.opacity = u.id === currentUser ? "1" : "0.5"; }}
-            >
-              <AvatarC user={u} size={26} />
-              <div>
-                <div style={{ fontSize: 9, fontWeight: 800, color: t.text }}>{u.name}</div>
-                <div style={{ fontSize: 8, color: getPoints(u.id) > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(u.id)}pts</div>
+          {users.map((u: typeof USERS_DEFAULT[number]) => {
+            const isMe = u.id === currentUser;
+            const uPts = getPoints(u.id);
+            const claimedStages = Object.entries(claims).filter(([, cl]) => (cl as string[]).includes(u.id)).map(([s]) => s);
+            return (
+            <div key={u.id} style={{ position: "relative" }}>
+              <div onClick={e => { e.stopPropagation(); if (isMe) { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); } else { setViewingUser(viewingUser === u.id ? null : u.id); } }}
+                style={{ display: "flex", alignItems: "center", gap: 6, transition: "all 0.2s", cursor: "pointer", borderRadius: 10, padding: "4px 6px", margin: "-4px -6px" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                {/* Avatar with ring for current user */}
+                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                  <AvatarC user={u} size={26} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text }}>{u.name}</div>
+                  <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{uPts}pts</div>
+                </div>
               </div>
+
+              {/* View-only popup for other users */}
+              {!isMe && viewingUser === u.id && (
+                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 16, padding: "14px 16px", minWidth: 180, boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                    <AvatarC user={u} size={40} />
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: u.color }}>{u.name}</div>
+                      <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                    <div style={{ flex: 1, background: t.bgHover, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{uPts}</div>
+                      <div style={{ fontSize: 7, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>pts</div>
+                    </div>
+                    <div style={{ flex: 1, background: t.bgHover, borderRadius: 8, padding: "6px 8px", textAlign: "center" }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{claimedStages.length}</div>
+                      <div style={{ fontSize: 7, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>owned</div>
+                    </div>
+                  </div>
+                  {claimedStages.length > 0 && (
+                    <div style={{ fontSize: 8, color: t.textMuted, lineHeight: 1.6 }}>
+                      {claimedStages.slice(0, 3).map(s => <div key={s} style={{ display: "flex", alignItems: "center", gap: 4 }}><span style={{ color: u.color }}>·</span>{s}</div>)}
+                      {claimedStages.length > 3 && <div style={{ color: t.textDim }}>+{claimedStages.length - 3} more</div>}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ))}
+            );
+          })}
           {/* Stats — moved here from search row */}
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 6 }}>
             {[{ l: "total", v: total, c: t.textMuted }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
