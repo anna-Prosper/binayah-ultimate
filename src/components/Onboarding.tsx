@@ -56,6 +56,7 @@ function AvatarStep6({
     );
     setUsers(updated as UserType[]);
     setCurrentUser(selUser);
+    try { localStorage.removeItem("themePhase"); } catch { /* noop */ }
     setTimeout(() => setOnboardStep(7), 50);
   }
 
@@ -307,7 +308,13 @@ export const FloatingBg = ({ colors, themeStyle }: { colors: string[]; themeStyl
 export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, onboardStep, setOnboardStep, users, selUser, setSelUser, selAvatar, setSelAvatar, setCurrentUser, setUsers }: OnboardingProps) {
   const AnimBg = () => (<FloatingBg colors={[t.accent, t.purple || t.accent, t.green, t.amber]} themeStyle={themeId} />);
   const totalStages = pipelineData.reduce((s, p) => s + p.stages.length, 0);
-  const [themePhase, setThemePhase] = useState<"theme" | "mode">("theme");
+  const [themePhase, setThemePhase] = useState<"theme" | "mode">(() => {
+    try { return (localStorage.getItem("themePhase") as "theme" | "mode") || "theme"; } catch { return "theme"; }
+  });
+  const advancePhase = (phase: "theme" | "mode") => {
+    setThemePhase(phase);
+    try { localStorage.setItem("themePhase", phase); } catch { /* noop */ }
+  };
 
   // === STEP 0: THEME PICKER (two phases) ===
   if (onboardStep === 0) {
@@ -363,7 +370,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
               ))}
             </div>
 
-            <button onClick={() => setThemePhase("mode")} style={{
+            <button onClick={() => advancePhase("mode")} style={{
               background: `linear-gradient(135deg, ${sel.color}, ${sel.color}aa)`,
               border: "none", borderRadius: 16, padding: "16px 52px", color: "#fff", fontSize: 15, fontWeight: 800,
               cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif",
@@ -423,7 +430,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
           </div>
 
           <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
-            <button onClick={() => setThemePhase("theme")} style={{
+            <button onClick={() => advancePhase("theme")} style={{
               background: "transparent", border: `1px solid ${t.border}`, borderRadius: 14,
               padding: "12px 24px", color: t.textMuted, fontSize: 12, fontWeight: 600,
               cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace",

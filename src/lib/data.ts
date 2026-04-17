@@ -24,10 +24,10 @@ export const AVATARS = [
 ];
 
 export const USERS_DEFAULT = [
-  {id:"anna",name:"Anna",role:"PM",avatar:"av_hacker_girl",color:"#ff6b35"},
+  {id:"anna",name:"Anna",role:"The PM",avatar:"av_hacker_girl",color:"#ff6b35"},
   {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"alien",color:"#00ff88"},
   {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"ape",color:"#00d4ff"},
-  {id:"abdullah",name:"Abdullah",role:"The Backbone",avatar:"av_abdullah",color:"#ffcc00"},
+  {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"av_abdullah",color:"#ffcc00"},
   {id:"usama",name:"Usama",role:"The Visionary",avatar:"devil",color:"#bf5af2"},
 ];
 
