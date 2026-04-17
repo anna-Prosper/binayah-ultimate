@@ -323,10 +323,11 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
     // Phase 1: pick theme style
     if (themePhase === "theme") {
       return (
-        <div style={{ position: "fixed", inset: 0, background: "#030308", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+        <div style={{ position: "fixed", inset: 0, background: "#030308", overflowY: "auto", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
           <style>{css}</style>
           <FloatingBg colors={[sel.color, sel.color + "88", "#ffffff08", sel.color + "44"]} themeStyle={themeId} />
 
+          <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 0" }}>
           <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 520, width: "92%", animation: "slideUp 0.6s ease" }}>
             <div style={{ position: "relative", marginBottom: 8 }}>
               <div style={{ fontSize: 11, letterSpacing: 6, color: sel.color + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>binayah.ai</div>
@@ -340,7 +341,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
               {THEME_OPTIONS.map((th, idx) => {
                 const active = themeId === th.id;
                 return (
-                  <button key={th.id} onClick={() => setThemeId(th.id)} style={{
+                  <button key={th.id} onClick={() => { if (themeId === th.id) { advancePhase("mode"); } else { setThemeId(th.id); } }} style={{
                     background: active ? th.bg : "#0a0a10", border: `2px solid ${active ? th.color : "#1a1a22"}`,
                     borderRadius: 18, padding: "18px 12px", cursor: "pointer", textAlign: "center",
                     transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
@@ -382,16 +383,17 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
               <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 3s ease-in-out infinite" }} />
             </button>
           </div>
+          </div>
         </div>
       );
     }
 
     // Phase 2: dark or light — theme is already applied as background
     return (
-      <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif", transition: "background 0.5s" }}>
+      <div style={{ position: "fixed", inset: 0, background: t.bg, overflowY: "auto", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif", transition: "background 0.5s" }}>
         <style>{css}</style>
         <AnimBg />
-
+        <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 0" }}>
         <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 440, width: "92%", animation: "scaleIn 0.5s ease" }}>
           <div style={{ fontSize: 11, letterSpacing: 6, color: t.accent + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>{sel.icon} {sel.name}</div>
           <div style={{ fontSize: 32, fontWeight: 900, color: t.text, letterSpacing: -1, lineHeight: 1.1, marginBottom: 6 }}>
@@ -446,6 +448,7 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
               <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 3s ease-in-out infinite" }} />
             </button>
           </div>
+        </div>
         </div>
       </div>
     );
