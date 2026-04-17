@@ -94,8 +94,10 @@ export default function Dashboard() {
   const lastWriteRef = useRef<number>(0);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownMsgCount = useRef<number>(chatMessages.length);
-  const [chatNotif, setChatNotif] = useState<{ name: string; text: string; isComment?: boolean; stage?: string } | null>(null);
+  const [chatNotif, setChatNotif] = useState<{ name: string; text: string; isComment?: boolean; stage?: string; isReaction?: boolean; isClaim?: boolean } | null>(null);
   const knownCommentsRef = useRef<Record<string, number>>({});
+  const prevClaimsRef = useRef<Record<string, string[]>>({});
+  const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "offline">("connecting");
 
   const playNotifSound = useCallback(() => {
@@ -117,8 +119,8 @@ export default function Dashboard() {
     fetchState().then(s => {
       if (s && Object.keys(s).length > 0) {
         if (s.chatMessages) { setChatMessages(s.chatMessages); knownMsgCount.current = s.chatMessages.length; }
-        if (s.claims) setClaims(s.claims);
-        if (s.reactions) setReactions(s.reactions);
+        if (s.claims) { prevClaimsRef.current = s.claims as Record<string, string[]>; setClaims(s.claims); }
+        if (s.reactions) { prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>; setReactions(s.reactions); }
         if (s.activityLog) setActivityLog(s.activityLog);
         if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
         if (s.comments) {
@@ -172,8 +174,40 @@ export default function Dashboard() {
             return merged;
           });
         }
-        if (s.claims) setClaims(s.claims);
-        if (s.reactions) setReactions(s.reactions);
+        if (s.claims) {
+          const prev = prevClaimsRef.current;
+          for (const [stage, claimers] of Object.entries(s.claims as Record<string, string[]>)) {
+            const prevClaimers = prev[stage] || [];
+            const newClaimers = claimers.filter(uid => !prevClaimers.includes(uid) && uid !== currentUser);
+            if (newClaimers.length > 0) {
+              const claimer = users.find(u => u.id === newClaimers[0]);
+              setChatNotif({ name: claimer?.name || newClaimers[0], text: `claimed "${stage}"`, isClaim: true });
+              playNotifSound();
+              setTimeout(() => setChatNotif(null), 4000);
+            }
+          }
+          prevClaimsRef.current = s.claims as Record<string, string[]>;
+          setClaims(s.claims);
+        }
+        if (s.reactions) {
+          const prev = prevReactionsRef.current;
+          outer: for (const [stage, emojiMap] of Object.entries(s.reactions as Record<string, Record<string, string[]>>)) {
+            const prevStage = prev[stage] || {};
+            for (const [emoji, reactors] of Object.entries(emojiMap)) {
+              const prevReactors = prevStage[emoji] || [];
+              const newReactors = reactors.filter(uid => !prevReactors.includes(uid) && uid !== currentUser);
+              if (newReactors.length > 0) {
+                const reactor = users.find(u => u.id === newReactors[0]);
+                setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
+                playNotifSound();
+                setTimeout(() => setChatNotif(null), 4000);
+                break outer;
+              }
+            }
+          }
+          prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>;
+          setReactions(s.reactions);
+        }
         if (s.activityLog) setActivityLog(s.activityLog);
         if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
         if (s.comments) {
@@ -667,16 +701,18 @@ export default function Dashboard() {
           <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 500 }}>{toast.pts}</span>
         </div>}
 
-        {/* Chat / comment notification */}
+        {/* Activity notification toast */}
         {chatNotif && (
-          <div style={{ position: "fixed", bottom: 80, right: 24, maxWidth: 300, background: t.bgCard, border: `1px solid ${t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 10, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
-            <span style={{ fontSize: 16, flexShrink: 0 }}>{chatNotif.isComment ? "\uD83D\uDCAC" : "\uD83D\uDC40"}</span>
-            <div>
-              <div style={{ fontSize: 9, fontWeight: 800, color: t.accent, marginBottom: 3 }}>{chatNotif.name}</div>
+          <div style={{ position: "fixed", bottom: 80, right: 24, maxWidth: 300, background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 10, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <span style={{ fontSize: 16, flexShrink: 0 }}>
+              {chatNotif.isClaim ? "🤝" : chatNotif.isReaction ? "⚡" : chatNotif.isComment ? "💬" : "👀"}
+            </span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 9, fontWeight: 800, color: chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent, marginBottom: 3 }}>{chatNotif.name}</div>
               <div style={{ fontSize: 10, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>
               {chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 8, color: t.textMuted, marginTop: 3 }}>on {chatNotif.stage}</div>}
             </div>
-            <button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 14, padding: 0, marginLeft: "auto", flexShrink: 0 }}>{"\u00D7"}</button>
+            <button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 14, padding: 0, marginLeft: 4, flexShrink: 0 }}>×</button>
           </div>
         )}
 

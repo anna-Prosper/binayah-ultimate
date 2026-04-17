@@ -1,9 +1,25 @@
 // === AVATARS ===
 export const AVATARS = [
-  {id:"skull",emoji:"💀",name:"Skull"},{id:"ape",emoji:"🦧",name:"Ape"},{id:"frog",emoji:"🐸",name:"Pepe"},{id:"alien",emoji:"👾",name:"Alien"},
-  {id:"ghost",emoji:"👻",name:"Ghost"},{id:"clown",emoji:"🤡",name:"Clown"},{id:"robot",emoji:"🤖",name:"Bot"},{id:"devil",emoji:"😈",name:"Devil"},
-  {id:"moai",emoji:"🗿",name:"Moai"},{id:"brain",emoji:"🧠",name:"Brain"},{id:"pirate",emoji:"🏴‍☠️",name:"Pirate"},{id:"snake",emoji:"🐍",name:"Snake"},
-  {id:"bat",emoji:"🦇",name:"Bat"},{id:"joker",emoji:"🃏",name:"Joker"},{id:"bomb",emoji:"💣",name:"Bomb"},{id:"moon",emoji:"🌚",name:"Moon"},
+  { id: "av_hacker_girl",    img: "/avatars/av_hacker_girl.png",    name: "Ghost" },
+  { id: "av_hacker_glasses", img: "/avatars/av_hacker_glasses.png", name: "Coder" },
+  { id: "av_hacker_blue",    img: "/avatars/av_hacker_blue.png",    name: "Cipher" },
+  { id: "av_hacker_mask",    img: "/avatars/av_hacker_mask.png",    name: "Mask" },
+  { id: "av_fox_hacker",     img: "/avatars/av_fox_hacker.png",     name: "Fox" },
+  { id: "av_ceo_guy",        img: "/avatars/av_ceo_guy.png",        name: "Boss" },
+  { id: "av_ceo_woman",      img: "/avatars/av_ceo_woman.png",      name: "CEO" },
+  { id: "av_boss_older",     img: "/avatars/av_boss_older.png",     name: "Chief" },
+  { id: "av_boss_curly",     img: "/avatars/av_boss_curly.png",     name: "Queen" },
+  { id: "av_boss_watch",     img: "/avatars/av_boss_watch.png",     name: "Flex" },
+  { id: "av_wolf_street",    img: "/avatars/av_wolf_street.png",    name: "Wolf" },
+  { id: "av_locs_guy",       img: "/avatars/av_locs_guy.png",       name: "Vibes" },
+  { id: "av_street_woman",   img: "/avatars/av_street_woman.png",   name: "Slay" },
+  { id: "av_beanie_guy",     img: "/avatars/av_beanie_guy.png",     name: "Low" },
+  { id: "av_curtain_girl",   img: "/avatars/av_curtain_girl.png",   name: "Chill" },
+  { id: "av_beard_guy",      img: "/avatars/av_beard_guy.png",      name: "Grind" },
+  { id: "av_robo_girl",      img: "/avatars/av_robo_girl.png",      name: "Cyber" },
+  { id: "av_bunny_girl",     img: "/avatars/av_bunny_girl.png",     name: "Bunny" },
+  { id: "av_shaved_woman",   img: "/avatars/av_shaved_woman.png",   name: "Power" },
+  { id: "av_trenchcoat_guy", img: "/avatars/av_trenchcoat_guy.png", name: "Neo" },
 ];
 
 export const USERS_DEFAULT = [
@@ -105,4 +121,11 @@ export interface CommentItem { id: number; text: string; by: string; time: strin
 export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number };
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active"];
 
-export type UserType = typeof USERS_DEFAULT[number];
+export interface UserType {
+  id: string;
+  name: string;
+  role: string;
+  avatar: string;
+  color: string;
+  aiAvatar?: string; // base64 data URL when using AI-generated pfp
+}
