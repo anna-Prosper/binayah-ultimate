@@ -209,8 +209,10 @@ function AvatarStep6({
             {aiUserAvatar ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={aiUserAvatar} alt="selected ai avatar" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${user.color}` }} />
+            ) : selAvatar ? (
+              <AvatarC user={{ ...user, avatar: selAvatar }} size={64} />
             ) : (
-              <AvatarC user={{ ...user, avatar: selAvatar || user.avatar }} size={64} />
+              <div style={{ width: 64, height: 64, borderRadius: "50%", background: `radial-gradient(circle at 30% 30%, ${user.color}55, ${user.color}22)`, border: `2px solid ${user.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: user.color }}>{user.name[0]}</div>
             )}
           </div>
           <div style={{ fontSize: 16, fontWeight: 900, color: user.color, marginTop: 10 }}>{user.name}</div>

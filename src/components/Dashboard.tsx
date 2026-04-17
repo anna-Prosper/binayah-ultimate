@@ -79,7 +79,7 @@ export default function Dashboard() {
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false);
-  const [view, setView] = useState<"list" | "kanban" | "overview">(() => lsGet("view", "list"));
+  const [view, setView] = useState<"list" | "kanban" | "overview">("list");
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
 
