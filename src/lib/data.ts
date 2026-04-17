@@ -20,13 +20,14 @@ export const AVATARS = [
   { id: "av_bunny_girl",     img: "/avatars/av_bunny_girl.jpg",     name: "Bunny" },
   { id: "av_shaved_woman",   img: "/avatars/av_shaved_woman.jpg",   name: "Power" },
   { id: "av_trenchcoat_guy", img: "/avatars/av_trenchcoat_guy.jpg", name: "Neo" },
+  { id: "av_abdullah",      img: "/avatars/av_abdullah.jpg",      name: "Backbone" },
 ];
 
 export const USERS_DEFAULT = [
-  {id:"anna",name:"Anna",role:"Growth Architect",avatar:"frog",color:"#ff6b35"},
+  {id:"anna",name:"Anna",role:"PM",avatar:"av_hacker_girl",color:"#ff6b35"},
   {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"alien",color:"#00ff88"},
   {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"ape",color:"#00d4ff"},
-  {id:"abdullah",name:"Abdullah",role:"Content Machine",avatar:"skull",color:"#ffcc00"},
+  {id:"abdullah",name:"Abdullah",role:"The Backbone",avatar:"av_abdullah",color:"#ffcc00"},
   {id:"usama",name:"Usama",role:"The Visionary",avatar:"devil",color:"#bf5af2"},
 ];
 

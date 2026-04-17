@@ -112,7 +112,6 @@ function AvatarStep6({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={av.img} alt={av.name} onLoad={() => setLoadedImgs(p => new Set([...p, av.id]))} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block", opacity: loadedImgs.has(av.id) ? 1 : 0, transition: "opacity 0.25s" }} />
                   {active && <div style={{ position: "absolute", inset: 0, background: `${user.color}22`, borderRadius: 12 }} />}
-                  <span style={{ position: "absolute", bottom: 3, left: 0, right: 0, fontSize: 7, color: active ? user.color : "#fff9", textAlign: "center", fontFamily: "var(--font-dm-mono), monospace", textShadow: "0 1px 3px #000" }}>{av.name}</span>
                 </button>
               );
             })}
