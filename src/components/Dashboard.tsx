@@ -24,7 +24,12 @@ type CustomPipeline = {
 // Always take name/role/avatar/color from USERS_DEFAULT — only preserve aiAvatar from saved state
 function hydrateUsers(saved: UserType[]): UserType[] {
   const savedMap = Object.fromEntries(saved.map(u => [u.id, u]));
-  return USERS_DEFAULT.map(def => ({ ...def, aiAvatar: savedMap[def.id]?.aiAvatar })) as UserType[];
+  // name/role/color always from USERS_DEFAULT; avatar from saved (user's choice); aiAvatar preserved
+  return USERS_DEFAULT.map(def => ({
+    ...def,
+    avatar: savedMap[def.id]?.avatar || "",
+    aiAvatar: savedMap[def.id]?.aiAvatar,
+  })) as UserType[];
 }
 
 const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;

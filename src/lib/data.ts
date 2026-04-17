@@ -28,7 +28,7 @@ export const USERS_DEFAULT = [
   {id:"anna",name:"Anna",role:"The PM",avatar:"",color:"#ff6b35"},
   {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"",color:"#00ff88"},
   {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"",color:"#00d4ff"},
-  {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"av_abdullah",color:"#ffcc00"},
+  {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#ffcc00"},
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
