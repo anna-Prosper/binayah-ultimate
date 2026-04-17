@@ -212,7 +212,7 @@ export default function Stage({
                   if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
                   shareStage(name, lines.join("\n"));
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {copied === name ? "\u2713 copied" : "\uD83D\uDCCB share"}
+                  {copied === name ? "\u2713 copied" : "\uD83D\uDCCB copy"}
                 </button>
                 {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "18" : "transparent", border: `1px solid ${isMockOpen ? pC + "44" : pC + "22"}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: isMockOpen ? pC : pC + "aa", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {isMockOpen ? "\u25BE hide preview" : "\u25B8 show preview"}
