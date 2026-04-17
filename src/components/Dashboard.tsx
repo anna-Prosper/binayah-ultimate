@@ -22,13 +22,14 @@ type CustomPipeline = {
 };
 
 // Always take name/role/avatar/color from USERS_DEFAULT — only preserve aiAvatar from saved state
-function hydrateUsers(saved: UserType[]): UserType[] {
+function hydrateUsers(saved: UserType[], current: UserType[] = []): UserType[] {
   const savedMap = Object.fromEntries(saved.map(u => [u.id, u]));
-  // name/role/color always from USERS_DEFAULT; avatar from saved (user's choice); aiAvatar preserved
+  const currentMap = Object.fromEntries(current.map(u => [u.id, u]));
   return USERS_DEFAULT.map(def => ({
     ...def,
-    avatar: savedMap[def.id]?.avatar || "",
-    aiAvatar: savedMap[def.id]?.aiAvatar,
+    // Local avatar wins over API — prevents poll from overwriting a freshly picked avatar
+    avatar: currentMap[def.id]?.avatar || savedMap[def.id]?.avatar || "",
+    aiAvatar: currentMap[def.id]?.aiAvatar || savedMap[def.id]?.aiAvatar,
   })) as UserType[];
 }
 
@@ -156,7 +157,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(hydrateUsers(s.users as UserType[]));
+        if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
@@ -262,7 +263,7 @@ export default function Dashboard() {
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(hydrateUsers(s.users as UserType[]));
+        if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
         // Reset flag after React has processed state updates
         setTimeout(() => { isPollUpdateRef.current = false; }, 50);
       });
