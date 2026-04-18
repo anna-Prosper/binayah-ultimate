@@ -806,9 +806,9 @@ export default function Dashboard() {
                         <button
                           onClick={e => { e.stopPropagation(); setPipelineLocks(prev => ({ ...prev, [p.id]: !prev[p.id] })); }}
                           title={pipelineLocks[p.id] ? "Unlock pipeline" : "Lock pipeline"}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 0, opacity: pipelineLocks[p.id] ? 1 : 0.25, transition: "opacity 0.2s, transform 0.2s", transform: pipelineLocks[p.id] ? "scale(1.1)" : "scale(1)", color: pipelineLocks[p.id] ? t.amber : t.textDim }}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, padding: 0, opacity: pipelineLocks[p.id] ? 1 : 0.65, transition: "opacity 0.2s, transform 0.2s", transform: pipelineLocks[p.id] ? "scale(1.1)" : "scale(1)", color: pipelineLocks[p.id] ? t.amber : t.textDim }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = pipelineLocks[p.id] ? "1" : "0.25"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = pipelineLocks[p.id] ? "1" : "0.65"; }}
                         >
                           {pipelineLocks[p.id] ? "🔒" : "🔓"}
                         </button>

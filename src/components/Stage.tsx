@@ -64,6 +64,7 @@ export default function Stage({
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
 
@@ -304,48 +305,55 @@ export default function Stage({
               </div>
             </div>
 
-            {/* Gallery panel — mock preview (if any) is always first card */}
+            {/* Gallery panel — collapsible */}
             {(() => {
               const imgs = stageImages[name] || [];
               const hasMock = !!mock;
               const totalCount = (hasMock ? 1 : 0) + imgs.length;
               return (
-                <div style={{ borderTop: `1px solid ${t.border}`, padding: "12px 16px", animation: "fadeIn 0.2s ease" }}>
-                  <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                    gallery {totalCount > 0 && `(${totalCount})`}
-                    <label style={{ fontSize: 8, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                <div style={{ borderTop: `1px solid ${t.border}` }}>
+                  {/* Header row — always visible, click to toggle */}
+                  <div onClick={() => setGalleryOpen(o => !o)} style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
+                    <span style={{ fontSize: 8, color: t.textDim, transition: "transform 0.2s", display: "inline-block", transform: galleryOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                    <span style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600 }}>
+                      gallery {totalCount > 0 && `(${totalCount})`}
+                    </span>
+                    <label onClick={e => e.stopPropagation()} style={{ fontSize: 8, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                       ↑ upload
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();
-                        reader.onload = ev => { if (ev.target?.result) addStageImage(name, ev.target.result as string); };
+                        reader.onload = ev => { if (ev.target?.result) { addStageImage(name, ev.target.result as string); setGalleryOpen(true); } };
                         reader.readAsDataURL(file);
                         e.target.value = "";
                       }} />
                     </label>
                   </div>
-                  {(hasMock || imgs.length > 0) ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
-                      {/* Mock component as first card */}
-                      {hasMock && (
-                        <div style={{ gridColumn: "1 / -1", borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
-                          <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
-                          <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
-                            {mock(t)}
-                          </div>
+                  {/* Expandable content */}
+                  {galleryOpen && (
+                    <div style={{ padding: "0 16px 12px", animation: "fadeIn 0.15s ease" }}>
+                      {(hasMock || imgs.length > 0) ? (
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+                          {hasMock && (
+                            <div style={{ gridColumn: "1 / -1", borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
+                              <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
+                              <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>{mock(t)}</div>
+                            </div>
+                          )}
+                          {imgs.map((src, i) => (
+                            <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface }}>
+                              <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                              <button onClick={() => removeStageImage(name, i)} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                            </div>
+                          ))}
                         </div>
+                      ) : (
+                        <div style={{ fontSize: 9, color: t.textDim, fontStyle: "italic", textAlign: "center", padding: "8px 0" }}>no images yet — upload screenshots or mockups</div>
                       )}
-                      {/* Uploaded images */}
-                      {imgs.map((src, i) => (
-                        <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface }}>
-                          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                          <button onClick={() => removeStageImage(name, i)} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
-                        </div>
-                      ))}
                     </div>
-                  ) : (
-                    <div style={{ fontSize: 9, color: t.textDim, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>no images yet — upload screenshots, mockups, assets</div>
                   )}
                 </div>
               );

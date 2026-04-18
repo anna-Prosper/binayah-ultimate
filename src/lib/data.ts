@@ -2,7 +2,7 @@
 export const AVATARS = [
   { id: "av_hacker_girl",    img: "/avatars/av_hacker_girl.jpg",    name: "Ghost" },
   { id: "av_hacker_glasses", img: "/avatars/av_hacker_glasses.jpg", name: "Coder" },
-  { id: "av_hacker_blue",    img: "/avatars/av_hacker_blue.jpg",    name: "Cipher" },
+  { id: "av_hacker_blue",    img: "/avatars/av_hacker_blue.jpg",    name: "Cyber" },
   { id: "av_hacker_mask",    img: "/avatars/av_hacker_mask.jpg",    name: "Mask" },
   { id: "av_fox_hacker",     img: "/avatars/av_fox_hacker.jpg",     name: "Fox" },
   { id: "av_ceo_guy",        img: "/avatars/av_ceo_guy.jpg",        name: "Boss" },
@@ -22,7 +22,7 @@ export const AVATARS = [
   { id: "av_trenchcoat_guy", img: "/avatars/av_trenchcoat_guy.jpg", name: "Neo" },
   { id: "av_abdullah",      img: "/avatars/av_abdullah.jpg",      name: "Backbone" },
   { id: "av_cyber_woman",   img: "/avatars/av_cyber_woman.jpg",   name: "Viper" },
-  { id: "av_street_king",   img: "/avatars/av_street_king.jpg",   name: "King" },
+  { id: "av_tech_founder",  img: "/avatars/av_tech_founder.jpg",  name: "Founder" },
   { id: "av_exec_woman",    img: "/avatars/av_exec_woman.jpg",    name: "Sharp" },
   { id: "av_dev_guy",       img: "/avatars/av_dev_guy.jpg",       name: "Stack" },
   { id: "av_furry_fox",     img: "/avatars/av_furry_fox.jpg",     name: "Blaze" },
