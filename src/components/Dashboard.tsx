@@ -163,6 +163,7 @@ export default function Dashboard() {
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
   const prevStatusRef = useRef<Record<string, string>>({});
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "offline">("connecting");
+  const [isHydrating, setIsHydrating] = useState(true);
 
   const playNotifSound = useCallback(() => {
     try {
@@ -203,10 +204,15 @@ export default function Dashboard() {
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
+      setIsHydrating(false);
     }).catch(() => {
       isInitializedRef.current = true;
       setSyncStatus("offline");
+      setIsHydrating(false);
     });
+    // Safety timeout: never block the UI for more than 3s
+    const hydrationTimeout = setTimeout(() => setIsHydrating(false), 3000);
+    return () => clearTimeout(hydrationTimeout);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -328,7 +334,13 @@ export default function Dashboard() {
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users });
+      patchState({ claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
+        if (!result.ok) {
+          setSyncStatus("offline");
+          setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber });
+          setTimeout(() => setToast(null), 3500);
+        }
+      });
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
@@ -348,7 +360,11 @@ export default function Dashboard() {
     if (!currentUser) return;
     const entry = { type, user: currentUser, target, detail, time: Date.now() };
     setActivityLog(prev => [entry, ...prev.slice(0, 99)]);
-    pushActivity(entry);
+    pushActivity(entry).then(result => {
+      if (!result.ok) {
+        setSyncStatus("offline");
+      }
+    });
   }, [currentUser]);
 
   const t = mkTheme(themeId, isDark);
@@ -398,7 +414,13 @@ export default function Dashboard() {
     if (!currentUser) return;
     const msg: ChatMsg = { id: Date.now(), userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setChatMessages(prev => [...prev, msg]);
-    pushMessage(msg); // atomic append to API — no clobber
+    pushMessage(msg).then(result => { // atomic append to API — no clobber
+      if (!result.ok) {
+        setSyncStatus("offline");
+        setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber });
+        setTimeout(() => setToast(null), 3500);
+      }
+    });
   };
 
   // Claim = take ownership. Points only granted when stage goes LIVE.
@@ -427,7 +449,7 @@ export default function Dashboard() {
   const removeSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
   const addStageImage = (sid: string, dataUrl: string) => { setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
-  const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
+  const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c).then(result => { if (!result.ok) { setSyncStatus("offline"); setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber }); setTimeout(() => setToast(null), 3500); } }); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
@@ -461,6 +483,16 @@ export default function Dashboard() {
       if (idx >= 0) setExpS(`${pipelineId}-${idx}`);
     }
   };
+
+  if (isHydrating) {
+    return (
+      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: `3px solid ${t.border}`, borderTopColor: t.accent, animation: "spin 0.8s linear infinite" }} />
+        <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 2 }}>LOADING</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   if (onboardStep < 7) {
     return <Onboarding t={t} themeId={themeId} setThemeId={setThemeId} isDark={isDark} setIsDark={setIsDark} onboardStep={onboardStep} setOnboardStep={setOnboardStep} users={users} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setCurrentUser={setCurrentUser} setUsers={setUsers} currentUser={currentUser} />;

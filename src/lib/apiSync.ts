@@ -17,6 +17,8 @@ export type SharedState = {
   updatedAt?: number;
 };
 
+export type SyncResult = { ok: true } | { ok: false; error: string };
+
 export async function fetchState(): Promise<SharedState | null> {
   try {
     const res = await fetch(API_BASE, { cache: "no-store" });
@@ -29,45 +31,73 @@ export async function fetchState(): Promise<SharedState | null> {
 
 // Bulk write for non-array state (claims, reactions, overrides, etc.)
 // chatMessages, comments, and activityLog are excluded — they use atomic appends
-export async function patchState(patch: Partial<SharedState>): Promise<void> {
+export async function patchState(patch: Partial<SharedState>): Promise<SyncResult> {
   try {
-    await fetch(API_BASE, {
+    const res = await fetch(API_BASE, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...patch, updatedAt: Date.now() }),
     });
-  } catch { /* localStorage fallback */ }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
 }
 
 // Atomically append a single chat message (never clobbers other messages)
-export async function pushMessage(msg: { id: number; userId: string; text: string; time: string }): Promise<void> {
+export async function pushMessage(msg: { id: number; userId: string; text: string; time: string }): Promise<SyncResult> {
   try {
-    await fetch(`${API_BASE}/messages`, {
+    const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(msg),
     });
-  } catch { /* localStorage fallback */ }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
 }
 
 // Atomically append a comment to a stage
-export async function pushComment(stage: string, comment: { id: number; text: string; by: string; time: string }): Promise<void> {
+export async function pushComment(stage: string, comment: { id: number; text: string; by: string; time: string }): Promise<SyncResult> {
   try {
-    await fetch(`${API_BASE}/comments`, {
+    const res = await fetch(`${API_BASE}/comments`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage, comment }),
     });
-  } catch { /* localStorage fallback */ }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
 }
 
 // Atomically prepend an activity entry
-export async function pushActivity(entry: { type: string; user: string; target: string; detail: string; time: number }): Promise<void> {
+export async function pushActivity(entry: { type: string; user: string; target: string; detail: string; time: number }): Promise<SyncResult> {
   try {
-    await fetch(`${API_BASE}/activity`, {
+    const res = await fetch(`${API_BASE}/activity`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(entry),
     });
-  } catch { /* localStorage fallback */ }
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
 }
