@@ -139,11 +139,9 @@ export default function Stage({
               {"\uD83D\uDE00"}
             </button>
 
-            {/* Quick preview — for stages with mockups, collapsed only */}
+            {/* Preview badge — indicates stage has a mockup */}
             {mock && !isE && (
-              <button onClick={openPreview} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }} title="Quick preview">
-                {"\uD83D\uDC41"} preview
-              </button>
+              <span style={{ fontSize: 7, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 6, padding: "1px 6px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
             )}
 
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={18} /></div> : null; })}</div>}
@@ -224,9 +222,6 @@ export default function Stage({
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {copied === name ? "\u2713 copied" : "\uD83D\uDCCB copy"}
                 </button>
-                {mock && <button onClick={() => setShowMockup(prev => ({ ...prev, [name]: !prev[name] }))} style={{ background: isMockOpen ? pC + "18" : "transparent", border: `1px solid ${isMockOpen ? pC + "44" : pC + "22"}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: isMockOpen ? pC : pC + "aa", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {isMockOpen ? "\u25BE hide preview" : "\u25B8 show preview"}
-                </button>}
               </div>
             </div>
 
@@ -309,35 +304,15 @@ export default function Stage({
               </div>
             </div>
 
-            {/* Mockup preview panel */}
-            {isMockOpen && mock && (
-              <div style={{ borderTop: `1px solid ${t.border}`, padding: "16px", animation: "fadeIn 0.2s ease" }}>
-                <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
-                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
-                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>points</div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: t.amber }}>{s.points}</div>
-                  </div>
-                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
-                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>status</div>
-                    <div onClick={() => cycleStatus(name)} style={{ fontSize: 14, fontWeight: 800, color: st.c, cursor: "pointer" }} title="Click to cycle">{st.l}</div>
-                  </div>
-                  <div style={{ background: t.surface, borderRadius: 10, padding: "8px 14px", flex: "1 1 80px" }}>
-                    <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 2 }}>owners</div>
-                    <div style={{ display: "flex", gap: 3, marginTop: 3 }}>{claimedBy.length > 0 ? claimedBy.map(uid => { const u = users.find(u => u.id === uid); return u ? <AvatarC key={uid} user={u} size={18} /> : null; }) : (<span style={{ fontSize: 10, color: t.textDim }}>unclaimed</span>)}</div>
-                  </div>
-                </div>
-                <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>preview</div>
-                <div style={{ maxWidth: 400, margin: "0 auto" }}>{mock(t)}</div>
-              </div>
-            )}
-
-            {/* Gallery panel */}
+            {/* Gallery panel — mock preview (if any) is always first card */}
             {(() => {
               const imgs = stageImages[name] || [];
+              const hasMock = !!mock;
+              const totalCount = (hasMock ? 1 : 0) + imgs.length;
               return (
                 <div style={{ borderTop: `1px solid ${t.border}`, padding: "12px 16px", animation: "fadeIn 0.2s ease" }}>
                   <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
-                    gallery {imgs.length > 0 && `(${imgs.length})`}
+                    gallery {totalCount > 0 && `(${totalCount})`}
                     <label style={{ fontSize: 8, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
                       ↑ upload
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
@@ -350,8 +325,18 @@ export default function Stage({
                       }} />
                     </label>
                   </div>
-                  {imgs.length > 0 ? (
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
+                  {(hasMock || imgs.length > 0) ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
+                      {/* Mock component as first card */}
+                      {hasMock && (
+                        <div style={{ gridColumn: "1 / -1", borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
+                          <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
+                          <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
+                            {mock(t)}
+                          </div>
+                        </div>
+                      )}
+                      {/* Uploaded images */}
                       {imgs.map((src, i) => (
                         <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface }}>
                           <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
