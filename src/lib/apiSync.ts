@@ -1,4 +1,4 @@
-const API_BASE = "https://binayah-api.onrender.com/api/pipeline-state";
+const API_BASE = "/api/pipeline-state";
 
 export type SharedState = {
   claims?: Record<string, string[]>;
