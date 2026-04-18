@@ -94,6 +94,7 @@ export default function Dashboard() {
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
+  const [pipelineLocks, setPipelineLocks] = useState<Record<string, boolean>>(() => lsGet("pipelineLocks", {}));
 
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
@@ -106,6 +107,7 @@ export default function Dashboard() {
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
+  useEffect(() => { lsSet("pipelineLocks", pipelineLocks) }, [pipelineLocks]);
 
   // Animate pts counter when points increase
   useEffect(() => {
@@ -741,21 +743,21 @@ export default function Dashboard() {
                           {editingPipeName === p.id ? (
                             <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 8px", outline: "none", fontFamily: "inherit" }} />
                           ) : (
-                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
-                              {pipeName} <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>
+                            <span onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: pipelineLocks[p.id] ? "default" : "text" }} title={pipelineLocks[p.id] ? "Unlock to rename" : "Click to rename"}>
+                              {pipeName} {!pipelineLocks[p.id] && <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>}
                             </span>
                           )}
                           <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
-                          <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
+                          <span onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: pipelineLocks[p.id] ? "default" : "pointer" }} title={pipelineLocks[p.id] ? "Unlock to change priority" : "Click to cycle"}>{pipePriority}</span>
                           {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                         </div>
 
                         {editingPipeDesc === p.id ? (
                           <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }} />
                         ) : (
-                          <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <p onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: pipelineLocks[p.id] ? "default" : "text", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
-                            <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>
+                            {!pipelineLocks[p.id] && <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
                           </p>
                         )}
 
@@ -799,12 +801,23 @@ export default function Dashboard() {
                       </div>
                     </div>
 
-                    <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12 }}>
-                      <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
-                      <div style={{ display: "flex", gap: 2, marginTop: 4, justifyContent: "flex-end" }}>
+                    <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setPipelineLocks(prev => ({ ...prev, [p.id]: !prev[p.id] })); }}
+                          title={pipelineLocks[p.id] ? "Unlock pipeline" : "Lock pipeline"}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: 0, opacity: pipelineLocks[p.id] ? 1 : 0.25, transition: "opacity 0.2s, transform 0.2s", transform: pipelineLocks[p.id] ? "scale(1.1)" : "scale(1)", color: pipelineLocks[p.id] ? t.amber : t.textDim }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = pipelineLocks[p.id] ? "1" : "0.25"; }}
+                        >
+                          {pipelineLocks[p.id] ? "🔒" : "🔓"}
+                        </button>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
                         {allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
                       </div>
-                      <div style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>{p.points}pts</div>
+                      <div style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
                     </div>
                   </div>
 
@@ -827,10 +840,12 @@ export default function Dashboard() {
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
                       {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} {...stageProps} />)}
                     </div>
-                    <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
-                      <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "6px 10px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-                      <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
-                    </div>
+                    {!pipelineLocks[p.id] && (
+                      <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
+                        <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "6px 10px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+                        <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
