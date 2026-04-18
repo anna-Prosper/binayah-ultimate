@@ -912,7 +912,7 @@ export default function Dashboard() {
 
       {/* CHAT SIDE WIDGET — fixed bottom-right */}
       {showChat && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, width: 340, zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", bottom: 88, right: 24, width: 340, zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowChat(false)}
@@ -921,10 +921,42 @@ export default function Dashboard() {
             >
               {"\u00D7"}
             </button>
-            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} />
+            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" />
           </div>
         </div>
       )}
+
+      {/* FAB — AI chat trigger */}
+      <button
+        onClick={e => { e.stopPropagation(); setShowChat(prev => !prev); }}
+        title={showChat ? "Close" : "Ask Binayah AI"}
+        style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 600,
+          width: 54, height: 54, borderRadius: "50%",
+          background: showChat
+            ? t.surface
+            : `linear-gradient(135deg, ${t.accent}, ${t.purple || t.accent})`,
+          border: `1px solid ${showChat ? t.border : "transparent"}`,
+          boxShadow: showChat
+            ? "none"
+            : `0 4px 24px ${t.accent}55, 0 2px 8px rgba(0,0,0,0.3)`,
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: showChat ? 20 : 22,
+          transition: "all 0.25s cubic-bezier(0.34,1.56,0.64,1)",
+          transform: showChat ? "scale(0.9) rotate(90deg)" : "scale(1) rotate(0deg)",
+          animation: showChat ? "none" : "fabPulse 3s ease-in-out infinite",
+        }}
+      >
+        {showChat ? "×" : "🤖"}
+      </button>
+
+      <style>{`
+        @keyframes fabPulse {
+          0%, 100% { box-shadow: 0 4px 24px ${t.accent}55, 0 2px 8px rgba(0,0,0,0.3); }
+          50% { box-shadow: 0 4px 32px ${t.accent}88, 0 2px 12px rgba(0,0,0,0.4); }
+        }
+      `}</style>
     </div>
   );
 }

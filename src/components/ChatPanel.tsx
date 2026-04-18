@@ -14,10 +14,11 @@ interface Props {
   users: UserType[];
   currentUser: string;
   t: T;
+  defaultTab?: "team" | "ai";
 }
 
-export default function ChatPanel({ messages, onSend, users, currentUser, t }: Props) {
-  const [tab, setTab] = useState<"team" | "ai">("team");
+export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team" }: Props) {
+  const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
