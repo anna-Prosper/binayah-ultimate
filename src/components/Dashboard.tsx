@@ -936,7 +936,38 @@ export default function Dashboard() {
             >
               {"\u00D7"}
             </button>
-            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" />
+            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+              const me = users.find(u => u.id === currentUser);
+              const lines: string[] = [];
+              lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
+              lines.push(`Team: ${users.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
+              lines.push("");
+              lines.push(`Pipelines (${allPipelines.length}):`);
+              allPipelines.forEach((p, pi) => {
+                const pName = pipeMetaOverrides[p.id]?.name || p.name;
+                const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
+                const pDesc = pipeDescOverrides[p.id] || p.desc;
+                const locked = pipelineLocks[p.id] ? " [LOCKED]" : "";
+                const stages = [...p.stages, ...(customStages[p.id] || [])];
+                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                stages.forEach((s, si) => {
+                  const st = getStatus(s);
+                  const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
+                  const subN = (subtasks[s] || []).length;
+                  const subDone = (subtasks[s] || []).filter(t => t.done).length;
+                  const comN = (comments[s] || []).length;
+                  const sDesc = stageDescOverrides[s] || "";
+                  lines.push(`   ${pi + 1}.${si + 1} ${s} [${st}] — claimed by ${claimers}${subN ? ` — subtasks ${subDone}/${subN}` : ""}${comN ? ` — ${comN} comments` : ""}${sDesc ? ` — ${sDesc}` : ""}`);
+                });
+              });
+              const recent = activityLog.slice(0, 8);
+              if (recent.length) {
+                lines.push("");
+                lines.push("Recent activity:");
+                recent.forEach(a => lines.push(`- ${a.user} ${a.type} ${a.target}${a.detail ? ` (${a.detail})` : ""}`));
+              }
+              return lines.join("\n");
+            }} />
           </div>
         </div>
       )}

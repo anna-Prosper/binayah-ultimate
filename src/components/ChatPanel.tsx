@@ -15,9 +15,10 @@ interface Props {
   currentUser: string;
   t: T;
   defaultTab?: "team" | "ai";
+  buildAiContext?: () => string;
 }
 
-export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team" }: Props) {
+export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team", buildAiContext }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [aiInput, setAiInput] = useState("");
@@ -49,7 +50,10 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
       const res = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: updated.map(m => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({
+          messages: updated.map(m => ({ role: m.role, content: m.content })),
+          context: buildAiContext?.(),
+        }),
       });
       const data = await res.json();
       const replyTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
