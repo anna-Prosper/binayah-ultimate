@@ -516,8 +516,8 @@ export default function Onboarding({ t, themeId, setThemeId, isDark, setIsDark, 
       <div onClick={() => { if (currentUser) setOnboardStep(7); }} style={{ position: "fixed", inset: 0, background: currentUser ? t.bg + "cc" : t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif", backdropFilter: currentUser ? "blur(4px)" : "none" }}>
         <style>{css}</style>
         <AnimBg />
-        <div onClick={e => e.stopPropagation()} style={{ position: "relative", zIndex: 1 }}>
-        <NB color={t.cyan || t.accent} style={{ background: t.bgCard, padding: "32px 28px", maxWidth: 460, width: "92%", animation: "scaleIn 0.4s ease" }}>
+        <div onClick={e => e.stopPropagation()} style={{ position: "relative", zIndex: 1, width: "92vw", maxWidth: 460 }}>
+        <NB color={t.cyan || t.accent} style={{ background: t.bgCard, padding: "32px 28px", width: "100%", animation: "scaleIn 0.4s ease" }}>
           <div style={{ textAlign: "center", marginBottom: 24 }}>
             <div style={{ fontSize: 22, fontWeight: 900, color: t.text }}>who dis?</div>
             <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>// select your identity</div>
