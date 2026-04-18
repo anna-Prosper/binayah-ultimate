@@ -23,9 +23,9 @@ export const metadata: Metadata = {
   robots: "noindex, nofollow",
   icons: {
     icon: [
-      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.png", type: "image/png" },
     ],
-    apple: "/favicon.ico",
+    apple: "/favicon.png",
   },
   openGraph: {
     title: "Binayah Ultimate · Command Center",
