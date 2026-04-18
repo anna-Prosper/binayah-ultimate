@@ -47,7 +47,10 @@ export function validateChatMessages(messages: unknown): string | null {
 /**
  * Validate the Content-Length header value against MAX_BODY_BYTES.
  * Returns an error string if the declared size exceeds the cap.
- * Note: this is a fast pre-check; the actual body is also bounded by the server.
+ * Note: this is a fast pre-check only — clients using chunked transfer encoding
+ * omit the Content-Length header and will bypass this guard. Vercel imposes a
+ * platform-level 4.5 MB body cap so req.json() will still reject extreme payloads.
+ * A stricter byte-counting stream reader could be added later if needed.
  */
 export function checkContentLength(req: { headers: { get(name: string): string | null } }): string | null {
   const cl = req.headers.get("content-length");
@@ -82,5 +85,19 @@ export function validatePatchKeys(patch: Record<string, unknown>): string | null
     if (FORBIDDEN_KEY_PATTERN.test(k)) return `key "${k}" contains forbidden characters`;
     if (!PATCH_KEY_WHITELIST.has(k)) return `key "${k}" is not an allowed patch key`;
   }
+  return null;
+}
+
+/**
+ * Validate a stage key before interpolating it into a MongoDB path
+ * (e.g., `state.comments.${stage}`). Rejects keys containing Mongo
+ * operators or prototype-pollution vectors, and caps length.
+ */
+export function validateStageKey(stage: unknown): string | null {
+  if (typeof stage !== "string") return "stage must be a string";
+  const s = stage.trim();
+  if (s.length === 0) return "stage must not be empty";
+  if (s.length > 80) return "stage exceeds 80 char limit";
+  if (FORBIDDEN_KEY_PATTERN.test(s)) return `stage "${s}" contains forbidden characters`;
   return null;
 }

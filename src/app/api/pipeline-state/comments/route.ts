@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
+import { checkContentLength, validateStageKey, validateText, validateUserId } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
@@ -38,9 +38,10 @@ export async function POST(req: NextRequest) {
 
   const { stage, comment } = (await req.json()) as { stage: unknown; comment: Record<string, unknown> };
 
-  if (!stage || typeof stage !== "string" || !stage.trim()) {
-    logApi(ROUTE, "validation_fail", { reason: "stage required" });
-    return NextResponse.json({ error: "stage and comment required" }, { status: 400 });
+  const stageErr = validateStageKey(stage);
+  if (stageErr) {
+    logApi(ROUTE, "validation_fail", { reason: stageErr });
+    return NextResponse.json({ error: stageErr }, { status: 400 });
   }
   if (!comment || typeof comment !== "object") {
     logApi(ROUTE, "validation_fail", { reason: "comment required" });
