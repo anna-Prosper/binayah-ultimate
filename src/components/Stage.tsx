@@ -47,6 +47,9 @@ interface StageProps {
   stageDescOverrides: Record<string, string>;
   setStageDescOverride: (name: string, val: string) => void;
   liveNotifs: Record<string, { comment?: string; reaction?: string }>;
+  stageImages: Record<string, string[]>;
+  addStageImage: (name: string, dataUrl: string) => void;
+  removeStageImage: (name: string, idx: number) => void;
 }
 
 export default function Stage({
@@ -57,8 +60,10 @@ export default function Stage({
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
   stageDescOverrides, setStageDescOverride, liveNotifs,
+  stageImages, addStageImage, removeStageImage,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
+  const [editingShortDesc, setEditingShortDesc] = useState(false);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
 
@@ -148,14 +153,28 @@ export default function Stage({
           </div>
         </div>
 
-        {/* Description subtitle — one line, always visible */}
-        {currentDesc ? (
-          <div style={{ paddingLeft: 36, paddingRight: 14, paddingBottom: 8 }}>
-            <p style={{ margin: 0, fontSize: 9, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75 }}>{currentDesc}</p>
-          </div>
-        ) : (
-          <div style={{ paddingLeft: 36, paddingBottom: 6 }} />
-        )}
+        {/* Description subtitle — one line, always visible, click to edit */}
+        <div style={{ paddingLeft: 36, paddingRight: 14, paddingBottom: 8 }} onClick={e => e.stopPropagation()}>
+          {editingShortDesc ? (
+            <input
+              autoFocus
+              value={currentDesc}
+              onChange={e => setStageDescOverride(name, e.target.value)}
+              onBlur={() => setEditingShortDesc(false)}
+              onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setEditingShortDesc(false); }}
+              placeholder="Short description..."
+              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${pC}44`, outline: "none", fontSize: 9, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", padding: "0 0 2px 0", lineHeight: 1.4 }}
+            />
+          ) : (
+            <p
+              onClick={() => setEditingShortDesc(true)}
+              title="Click to edit"
+              style={{ margin: 0, fontSize: 9, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: "text" }}
+            >
+              {currentDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add description...</span>}
+            </p>
+          )}
+        </div>
 
         {/* Expanded content */}
         {isE && (
@@ -246,14 +265,14 @@ export default function Stage({
                     </div>
                     <span style={{ fontSize: 9, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1, fontStyle: task.locked ? "italic" : "normal" }}>{task.text}</span>
                     <span style={{ fontSize: 7, color: t.textDim, marginRight: 2 }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
-                    <span onClick={() => lockSubtask(name, task.id)} title={task.locked ? "Unlock" : "Lock"} style={{ fontSize: 9, cursor: "pointer", opacity: 0.5, transition: "opacity 0.15s", color: task.locked ? t.amber : t.textDim }}
+                    <span onClick={() => lockSubtask(name, task.id)} title={task.locked ? "Unlock" : "Lock"} style={{ fontSize: 11, cursor: "pointer", opacity: task.locked ? 1 : 0.35, transition: "opacity 0.15s", color: task.locked ? t.amber : t.textDim }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.5"; }}>
-                      {task.locked ? "\uD83D\uDD12" : "\uD83D\uDD13"}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = task.locked ? "1" : "0.35"; }}>
+                      {task.locked ? "🔒" : "🔓"}
                     </span>
-                    {!task.locked && <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 9, cursor: "pointer", opacity: 0, color: t.red, transition: "opacity 0.15s" }}
+                    {!task.locked && <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 10, cursor: "pointer", opacity: 0.3, color: t.red, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0"; }}>
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}>
                       ×
                     </span>}
                   </div>
@@ -311,6 +330,41 @@ export default function Stage({
                 <div style={{ maxWidth: 400, margin: "0 auto" }}>{mock(t)}</div>
               </div>
             )}
+
+            {/* Gallery panel */}
+            {(() => {
+              const imgs = stageImages[name] || [];
+              return (
+                <div style={{ borderTop: `1px solid ${t.border}`, padding: "12px 16px", animation: "fadeIn 0.2s ease" }}>
+                  <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600, display: "flex", alignItems: "center", gap: 8 }}>
+                    gallery {imgs.length > 0 && `(${imgs.length})`}
+                    <label style={{ fontSize: 8, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      ↑ upload
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+                        const reader = new FileReader();
+                        reader.onload = ev => { if (ev.target?.result) addStageImage(name, ev.target.result as string); };
+                        reader.readAsDataURL(file);
+                        e.target.value = "";
+                      }} />
+                    </label>
+                  </div>
+                  {imgs.length > 0 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
+                      {imgs.map((src, i) => (
+                        <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface }}>
+                          <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                          <button onClick={() => removeStageImage(name, i)} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 10, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 9, color: t.textDim, fontStyle: "italic", textAlign: "center", padding: "10px 0" }}>no images yet — upload screenshots, mockups, assets</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
