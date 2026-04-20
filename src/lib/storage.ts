@@ -1,5 +1,5 @@
 const LS_PREFIX = "binayah_";
-const LS_VERSION = "v2"; // bump to bust stale cache after pipeline changes
+const LS_VERSION = "v3"; // bump to bust stale cache after pipeline changes
 
 function checkVersion() {
   if (typeof window === "undefined") return;
