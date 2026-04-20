@@ -566,7 +566,7 @@ export default function Dashboard() {
                 {t.icon} <span style={{ fontSize: 8 }}>{"\u25BE"}</span>
               </button>
               {showThemePicker && (
-                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 8, zIndex: 200, width: 220, boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>
+                <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 8, zIndex: 200, width: "min(220px, calc(100vw - 32px))", boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>
                   {THEME_OPTIONS.map(opt => (
                     <div key={opt.id} onClick={() => { setThemeId(opt.id); setShowThemePicker(false); }} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 10px", borderRadius: 10, cursor: "pointer", background: themeId === opt.id ? opt.color + "18" : "transparent", border: `1px solid ${themeId === opt.id ? opt.color + "44" : "transparent"}`, marginBottom: 2, transition: "all 0.15s" }}>
                       <span style={{ fontSize: 20 }}>{opt.icon}</span>
@@ -618,7 +618,7 @@ export default function Dashboard() {
 
               {/* Stats popup — my stats (rich) or other user (read-only) */}
               {viewingUser === u.id && (
-                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 18, padding: "16px", minWidth: 210, boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
+                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 18, padding: "16px", minWidth: 210, maxWidth: "calc(100vw - 32px)", boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
 
                   {/* Header */}
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
@@ -923,7 +923,7 @@ export default function Dashboard() {
 
         {/* Activity notification toast */}
         {chatNotif && (
-          <div style={{ position: "fixed", bottom: 80, right: 24, maxWidth: 300, background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 10, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
+          <div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 10, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
             <span style={{ fontSize: 16, flexShrink: 0 }}>
               {chatNotif.isClaim ? "🤝" : chatNotif.isReaction ? "⚡" : chatNotif.isComment ? "💬" : "👀"}
             </span>
@@ -959,7 +959,7 @@ export default function Dashboard() {
 
       {/* CHAT SIDE WIDGET — fixed bottom-right */}
       {showChat && (
-        <div style={{ position: "fixed", bottom: 88, right: 24, width: 340, zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", bottom: 88, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowChat(false)}

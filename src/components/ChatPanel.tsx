@@ -98,7 +98,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
               return (
                 <div key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
-                  <div style={{ maxWidth: "68%" }}>
+                  <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isMe && <div style={{ fontSize: 7, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
                     <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "7px 11px", fontSize: 11, color: t.text, lineHeight: 1.5 }}>
                       {msg.text}
@@ -134,7 +134,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
                   {!isUser && (
                     <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>🤖</div>
                   )}
-                  <div style={{ maxWidth: "75%" }}>
+                  <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isUser && <div style={{ fontSize: 7, color: t.accent, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
                     <div style={{ background: isUser ? t.accent + "22" : t.surface, border: `1px solid ${isUser ? t.accent + "44" : t.border}`, borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "7px 11px", fontSize: 11, color: t.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
                       {msg.content}

@@ -52,6 +52,13 @@ export default function OverviewPanel({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeIn 0.2s ease" }}>
+      <style>{`
+        @media (max-width: 640px) {
+          .bu-ov-desc { display: none !important; }
+          .bu-ov-name { min-width: 0 !important; flex: 1 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+          .bu-ov-row  { padding: 9px 12px !important; gap: 8px !important; }
+        }
+      `}</style>
       {filtered.map(p => {
         const pC = ck[p.colorKey] || t.accent;
         const meta = pipeMetaOverrides[p.id] || {};
@@ -161,6 +168,7 @@ export default function OverviewPanel({
                 return (
                   <div
                     key={name}
+                    className="bu-ov-row"
                     style={{
                       display: "flex", alignItems: "center", gap: 12,
                       padding: "9px 20px",
@@ -176,10 +184,10 @@ export default function OverviewPanel({
                     <span style={{ fontSize: 7, fontWeight: 800, color: col, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, width: 46 }}>{label}</span>
 
                     {/* Stage name */}
-                    <span style={{ fontSize: 12, fontWeight: 700, color: t.text, flexShrink: 0, minWidth: 120, maxWidth: 200 }}>{name}</span>
+                    <span className="bu-ov-name" style={{ fontSize: 12, fontWeight: 700, color: t.text, flexShrink: 0, minWidth: 120, maxWidth: 200 }}>{name}</span>
 
                     {/* Stage description — editable */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="bu-ov-desc" style={{ flex: 1, minWidth: 0 }}>
                       {editingStageDesc === name ? (
                         <input
                           value={desc}
