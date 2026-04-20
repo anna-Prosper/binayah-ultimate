@@ -39,12 +39,14 @@ export const AvatarC = ({ user, size = 28 }: { user: UserType; size?: number }) 
   // No valid avatar selected yet — show initial
   if (!av) return placeholder;
 
+  const zoom = av.zoom ?? 1;
+
   return (
-    <div style={{ position: "relative", width: size, height: size, flexShrink: 0 }} title={user.name}>
+    <div style={{ position: "relative", width: size, height: size, flexShrink: 0, borderRadius: "50%", overflow: "hidden", border: `2px solid ${user.color}55`, boxShadow: `0 0 10px ${user.color}22`, background: "#111" }} title={user.name}>
       {!loaded && placeholder}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={av.img} alt={user.name} onLoad={() => setLoaded(true)}
-        style={{ position: loaded ? "relative" : "absolute", inset: 0, opacity: loaded ? 1 : 0, width: size, height: size, borderRadius: "50%", objectFit: "cover", objectPosition: "top", border: `2px solid ${user.color}55`, boxShadow: `0 0 10px ${user.color}22`, transition: "opacity 0.2s", background: "#111" }} />
+        style={{ position: loaded ? "relative" : "absolute", inset: 0, opacity: loaded ? 1 : 0, width: size, height: size, objectFit: "cover", objectPosition: "top", transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center", transition: "opacity 0.2s" }} />
     </div>
   );
 };
