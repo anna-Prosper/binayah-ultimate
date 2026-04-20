@@ -118,7 +118,7 @@ export function AvatarStep6({
                     </div>
                   )}
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={av.img} alt={av.name} onLoad={() => setLoadedImgs(p => new Set([...p, av.id]))} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block", opacity: loadedImgs.has(av.id) ? 1 : 0, transition: "opacity 0.25s", transform: av.zoom && av.zoom !== 1 ? `scale(${av.zoom})` : undefined, transformOrigin: "top center" }} />
+                  <img src={av.img} alt={av.name} onLoad={() => setLoadedImgs(p => new Set([...p, av.id]))} style={{ width: "100%", height: "100%", objectFit: "cover", objectPosition: "top", display: "block", opacity: loadedImgs.has(av.id) ? 1 : 0, transition: "opacity 0.25s", transform: av.zoom && av.zoom !== 1 ? `scale(${av.zoom})` : undefined, transformOrigin: "center 20%" }} />
                   {active && <div style={{ position: "absolute", inset: 0, background: `${user.color}22`, borderRadius: 12 }} />}
                 </button>
               );

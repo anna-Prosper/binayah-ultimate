@@ -46,7 +46,7 @@ export const AvatarC = ({ user, size = 28 }: { user: UserType; size?: number }) 
       {!loaded && placeholder}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={av.img} alt={user.name} onLoad={() => setLoaded(true)}
-        style={{ position: loaded ? "relative" : "absolute", inset: 0, opacity: loaded ? 1 : 0, width: size, height: size, objectFit: "cover", objectPosition: "top", transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "top center", transition: "opacity 0.2s" }} />
+        style={{ position: loaded ? "relative" : "absolute", inset: 0, opacity: loaded ? 1 : 0, width: size, height: size, objectFit: "cover", objectPosition: "top", transform: zoom !== 1 ? `scale(${zoom})` : undefined, transformOrigin: "center 20%", transition: "opacity 0.2s" }} />
     </div>
   );
 };
