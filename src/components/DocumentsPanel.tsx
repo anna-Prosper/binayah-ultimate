@@ -100,6 +100,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const saveInFlight = useRef(false);
 
   // Fetch document list
   const fetchList = useCallback(async (pipelineFilter?: string | null) => {
@@ -161,6 +162,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
   // PATCH helper — sets saveStatus, updates list + activeDoc, surfaces toast on error
   const patchDoc = useCallback(async (id: string, fields: Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>) => {
+    if (saveInFlight.current) return;
+    saveInFlight.current = true;
     try {
       setSaveStatus("saving");
       const res = await fetch(`/api/documents/${id}`, {
@@ -188,6 +191,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       setSaveStatus("error");
       showToast("// save failed — check connection", t.red, 4000);
       savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
+    } finally {
+      saveInFlight.current = false;
     }
   }, [showToast, t.red]);
 
