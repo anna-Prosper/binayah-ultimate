@@ -29,7 +29,7 @@ function makeSkeleton() {
         style={{
           height: 200,
           borderRadius: 8,
-          background: "rgba(255,255,255,0.04)",
+          background: "rgba(128,128,128,0.06)",
           animation: "skeletonPulse 1.5s ease-in-out infinite",
         }}
       />

@@ -4,7 +4,8 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validatePatchKeys, validateSubtasks } from "@/lib/validate";
 import { logApi } from "@/lib/log";
-import { pipelineData } from "@/lib/data";
+import { pipelineData, stageDefaults } from "@/lib/data";
+import { sendNotifications } from "@/lib/sendNotifications";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -154,6 +155,16 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Capture pre-patch state for notification diffing (claims + statuses only)
+  let prePatchClaims: Record<string, string[]> = {};
+  let prePatchStatuses: Record<string, string> = {};
+  const needsNotify = "claims" in cleanPatch || "stageStatusOverrides" in cleanPatch;
+  if (needsNotify) {
+    const preDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
+    prePatchClaims = (preDoc?.state?.claims as Record<string, string[]> | undefined) ?? {};
+    prePatchStatuses = (preDoc?.state?.stageStatusOverrides as Record<string, string> | undefined) ?? {};
+  }
+
   const $set: Record<string, unknown> = { updatedAt: new Date() };
   for (const [k, v] of Object.entries(cleanPatch)) {
     $set[`state.${k}`] = v;
@@ -164,5 +175,71 @@ export async function PATCH(req: NextRequest) {
     { new: true }
   ).lean();
   logApi(ROUTE, "PATCH_success");
+
+  // Fire notifications fire-and-forget — never await, never block the response
+  if (needsNotify) {
+    const postState = (doc as { state?: Record<string, unknown> } | null)?.state ?? {};
+    const postClaims = (postState.claims as Record<string, string[]> | undefined) ?? {};
+    const postStatuses = (postState.stageStatusOverrides as Record<string, string> | undefined) ?? {};
+
+    // Build stage→pipeline map
+    const stageToP = new Map<string, string>();
+    for (const p of pipelineData) {
+      for (const s of p.stages) stageToP.set(s, p.id);
+    }
+    const dbCustomStages = (postState.customStages as Record<string, string[]> | undefined) ?? {};
+    for (const [pid, stages] of Object.entries(dbCustomStages)) {
+      for (const stageName of stages) stageToP.set(stageName, pid);
+    }
+
+    // Detect newly-added claimers (claim event)
+    if ("claims" in cleanPatch) {
+      const patchedClaims = cleanPatch.claims as Record<string, string[]>;
+      for (const [stageKey, newClaimers] of Object.entries(patchedClaims)) {
+        const prevClaimers = prePatchClaims[stageKey] ?? [];
+        const addedClaimers = newClaimers.filter(id => !prevClaimers.includes(id));
+        if (addedClaimers.length === 0) continue;
+
+        const pipelineId = stageToP.get(stageKey);
+        const pipeline = pipelineData.find(p => p.id === pipelineId);
+        const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
+
+        void sendNotifications({
+          eventType: "claimed",
+          stageKey,
+          pipelineName,
+          recipientIds: addedClaimers,
+          actorName: addedClaimers[0], // best-effort; actor name resolved in helper
+          points: stageDefaults[stageKey]?.points ?? 10,
+        });
+      }
+    }
+
+    // Detect stages newly transitioned to "active" (active event)
+    if ("stageStatusOverrides" in cleanPatch) {
+      const patchedStatuses = cleanPatch.stageStatusOverrides as Record<string, string>;
+      for (const [stageKey, newStatus] of Object.entries(patchedStatuses)) {
+        if (newStatus !== "active") continue;
+        if (prePatchStatuses[stageKey] === "active") continue; // was already active
+
+        const claimers = postClaims[stageKey] ?? [];
+        if (claimers.length === 0) continue;
+
+        const pipelineId = stageToP.get(stageKey);
+        const pipeline = pipelineData.find(p => p.id === pipelineId);
+        const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
+
+        void sendNotifications({
+          eventType: "active",
+          stageKey,
+          pipelineName,
+          recipientIds: claimers,
+          actorName: "",
+          points: stageDefaults[stageKey]?.points ?? 10,
+        });
+      }
+    }
+  }
+
   return NextResponse.json((doc as { state?: unknown } | null)?.state || {});
 }

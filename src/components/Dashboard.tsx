@@ -25,6 +25,7 @@ import {
 } from "@/components/ui/Skeletons";
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
+import NotificationPrefs from "@/components/NotificationPrefs";
 
 // Lazy-loaded heavy panels — each becomes its own JS chunk
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
@@ -169,6 +170,46 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("lockedPipelines", lockedPipelines) }, [lockedPipelines]);
+
+  // Deep-link: ?pipeline=<name>&stage=<name> from email CTAs
+  // Expand the target pipeline, expand the stage card, and scroll to it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const targetPipeline = params.get("pipeline");
+    const targetStage = params.get("stage");
+    if (!targetPipeline && !targetStage) return;
+
+    // Find the pipeline in static + custom data by name or id
+    const allPipelines = [
+      ...pipelineData,
+      ...customPipelines.map(cp => ({ id: cp.id, name: cp.name, stages: cp.stages })),
+    ];
+
+    let pipelineId: string | null = null;
+    if (targetPipeline) {
+      const found = allPipelines.find(
+        p => p.name === targetPipeline || p.id === targetPipeline
+      );
+      if (found) pipelineId = found.id;
+    }
+
+    // Expand the pipeline
+    if (pipelineId) {
+      setExpanded(prev => prev.includes(pipelineId!) ? prev : [...prev, pipelineId!]);
+    }
+
+    // Expand the stage card and scroll to it after a short delay (render cycle)
+    if (targetStage) {
+      setExpS(targetStage);
+      setTimeout(() => {
+        const el = document.getElementById(`stage-${CSS.escape(targetStage)}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 400);
+    }
+  // Run only once on mount
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Animate pts counter when points increase
   useEffect(() => {
@@ -849,12 +890,15 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                   )}
                   {claimedStages.length === 0 && <div style={{ fontSize: 8, color: t.textDim, fontStyle: "italic", marginBottom: isMe ? 10 : 0 }}>no stages claimed yet</div>}
 
-                  {/* Change avatar — own profile only */}
+                  {/* Change avatar + notification prefs — own profile only */}
                   {isMe && (
-                    <button onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); setViewingUser(null); }}
-                      style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 10, padding: "7px", cursor: "pointer", fontSize: 9, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
-                      change avatar →
-                    </button>
+                    <>
+                      <button onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); setViewingUser(null); }}
+                        style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 10, padding: "7px", cursor: "pointer", fontSize: 9, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
+                        change avatar →
+                      </button>
+                      <NotificationPrefs t={t} />
+                    </>
                   )}
                 </div>
               )}
@@ -1135,7 +1179,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 {isO && (
                   <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} isMobile={isMobile} {...stageProps} />)}
+                      {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} isMobile={isMobile} {...stageProps} /></div>)}
                     </div>
                     {!isLocked(p.id) && (
                       <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
