@@ -743,37 +743,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     }
   };
 
-  // Schema version mismatch — show recovery toast and reload
-  if (isRecovering) {
-    return (
-      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-        <RecoveryToast t={t} message="// cache cleared — fresh start" />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  if (isHydrating) {
-    return (
-      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
-        <div style={{ width: 40, height: 40, borderRadius: "50%", border: `3px solid ${t.border}`, borderTopColor: t.accent, animation: "spin 0.8s linear infinite" }} />
-        <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 2 }}>LOADING</span>
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    );
-  }
-
-  // WelcomeModal is rendered OVER the dashboard (not instead of it) — rendered below in JSX
-
-  const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
-  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
-
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage };
-  const unseen = activityLog.length - lastSeenActivity;
-
-  // Shared button style for all header buttons — ensures uniform height
-  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
-
   // ── Cmd+K palette navigation callbacks ──────────────────────────────────────
   const handlePaletteOpenStage = useCallback((pipelineId: string, stageName: string) => {
     // Switch to pipelines view, expand the pipeline, expand the stage card
@@ -829,6 +798,37 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     }
     setShowWelcome(false);
   }, [initialUserId, currentUser]);
+
+  // Schema version mismatch — show recovery toast and reload
+  if (isRecovering) {
+    return (
+      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <RecoveryToast t={t} message="// cache cleared — fresh start" />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  if (isHydrating) {
+    return (
+      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <div style={{ width: 40, height: 40, borderRadius: "50%", border: `3px solid ${t.border}`, borderTopColor: t.accent, animation: "spin 0.8s linear infinite" }} />
+        <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 2 }}>LOADING</span>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
+  // WelcomeModal is rendered OVER the dashboard (not instead of it) — rendered below in JSX
+
+  const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
+  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
+
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage };
+  const unseen = activityLog.length - lastSeenActivity;
+
+  // Shared button style for all header buttons — ensures uniform height
+  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
