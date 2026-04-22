@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validatePatchKeys } from "@/lib/validate";
+import { checkContentLength, validatePatchKeys, validateSubtasks } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
@@ -52,6 +52,15 @@ export async function PATCH(req: NextRequest) {
   if (keyErr) {
     logApi(ROUTE, "key_injection_blocked", { reason: keyErr });
     return NextResponse.json({ error: keyErr }, { status: 400 });
+  }
+
+  // Subtask bounds validation
+  if ("subtasks" in patch) {
+    const subtaskErr = validateSubtasks(patch.subtasks);
+    if (subtaskErr) {
+      logApi(ROUTE, "validation_fail", { reason: subtaskErr });
+      return NextResponse.json({ error: subtaskErr }, { status: 400 });
+    }
   }
 
   await connectMongo();

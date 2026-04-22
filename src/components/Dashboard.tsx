@@ -479,19 +479,19 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
   const handleReact = (sid: string, emoji: string) => {
     if (!currentUser) return;
-    // Save previous state for rollback
+    // Compute next reactions synchronously so we can pass it to patchState
     const prevReactions = reactions;
-    setReactions(prev => {
-      const s = { ...(prev[sid] || {}) };
-      const u = [...(s[emoji] || [])];
-      const i = u.indexOf(currentUser);
-      if (i >= 0) u.splice(i, 1); else u.push(currentUser);
-      s[emoji] = u;
-      return { ...prev, [sid]: s };
+    const s = { ...(prevReactions[sid] || {}) };
+    const u = [...(s[emoji] || [])];
+    const i = u.indexOf(currentUser);
+    if (i >= 0) u.splice(i, 1); else u.push(currentUser);
+    s[emoji] = u;
+    const nextReactions = { ...prevReactions, [sid]: s };
+    setReactions(nextReactions);
+    patchState({ reactions: nextReactions }).catch(() => {
+      setReactions(prevReactions);
+      showToast("// reaction didn’t land", t.amber);
     });
-    // patchState is debounced via the write effect — if it fails, rollback
-    // We rely on the write effect's failure handler to show the toast
-    void prevReactions; // used if we add explicit patch here
   };
   const MAX_SUBTASKS = 20;
   const MAX_SUBTASK_LEN = 200;

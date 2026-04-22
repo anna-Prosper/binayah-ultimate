@@ -79,17 +79,33 @@ export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
 export function useToasts() {
   const [toasts, setToasts] = useState<ToastItem[]>([]);
   const counterRef = useRef(0);
+  const timers = useRef<Map<number, NodeJS.Timeout>>(new Map());
+
+  // Clear all pending timers on unmount to prevent state updates on unmounted component
+  useEffect(() => {
+    return () => {
+      timers.current.forEach(timer => clearTimeout(timer));
+      timers.current.clear();
+    };
+  }, []);
 
   const showToast = useCallback((message: string, color: string, durationMs = 3000) => {
     const id = ++counterRef.current;
     setToasts(prev => [...prev.slice(-2), { id, message, color }]); // max 3
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
+      timers.current.delete(id);
     }, durationMs);
+    timers.current.set(id, timer);
     return id;
   }, []);
 
   const dismissToast = useCallback((id: number) => {
+    const timer = timers.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      timers.current.delete(id);
+    }
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 

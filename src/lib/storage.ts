@@ -12,7 +12,9 @@ export const ALL_LS_KEYS = [
   "chatMessages", "view", "lastSeenActivity",
 ];
 
-const VERSION_KEY = LS_PREFIX + "_schema_ver";
+const VERSION_KEY = LS_PREFIX + "schema_ver";
+// Legacy key that had an extra underscore — cleared on migration to avoid cruft
+const VERSION_KEY_LEGACY = LS_PREFIX + "_schema_ver";
 
 export function checkSchemaVersion(): boolean {
   if (typeof window === "undefined") return true;
@@ -27,6 +29,8 @@ export function clearAllLsKeys(): void {
   if (typeof window === "undefined") return;
   try {
     ALL_LS_KEYS.forEach(k => localStorage.removeItem(LS_PREFIX + k));
+    // Clear legacy double-underscore key if still present
+    localStorage.removeItem(VERSION_KEY_LEGACY);
     // Also clear any binayah_ prefixed keys not in the known list (belt-and-suspenders)
     Object.keys(localStorage)
       .filter(k => k.startsWith(LS_PREFIX) && k !== VERSION_KEY)
@@ -38,6 +42,7 @@ export function clearAllLsKeys(): void {
 export function markSchemaVersionCurrent(): void {
   if (typeof window === "undefined") return;
   try {
+    localStorage.removeItem(VERSION_KEY_LEGACY);
     localStorage.setItem(VERSION_KEY, SCHEMA_VERSION);
   } catch { /* quota */ }
 }

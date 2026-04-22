@@ -88,6 +88,42 @@ export function validatePatchKeys(patch: Record<string, unknown>): string | null
   return null;
 }
 
+/** Max subtasks per stage */
+export const MAX_SUBTASKS_PER_STAGE = 20;
+/** Max characters per subtask text */
+export const MAX_SUBTASK_TEXT_LEN = 200;
+
+/**
+ * Validate a subtasks map before persisting it.
+ * Each stage may have at most MAX_SUBTASKS_PER_STAGE subtasks,
+ * and each subtask's text must be <= MAX_SUBTASK_TEXT_LEN chars.
+ * Returns null on pass, or an error string on first violation.
+ */
+export function validateSubtasks(subtasks: unknown): string | null {
+  if (typeof subtasks !== "object" || subtasks === null || Array.isArray(subtasks)) {
+    return "subtasks must be an object";
+  }
+  const map = subtasks as Record<string, unknown>;
+  for (const [stage, items] of Object.entries(map)) {
+    if (!Array.isArray(items)) return `subtasks["${stage}"] must be an array`;
+    if (items.length > MAX_SUBTASKS_PER_STAGE) {
+      return `subtasks["${stage}"] exceeds max ${MAX_SUBTASKS_PER_STAGE} subtasks`;
+    }
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (typeof item !== "object" || item === null) {
+        return `subtasks["${stage}"][${i}] must be an object`;
+      }
+      const obj = item as Record<string, unknown>;
+      if (typeof obj.text !== "string") return `subtasks["${stage}"][${i}].text must be a string`;
+      if (obj.text.length > MAX_SUBTASK_TEXT_LEN) {
+        return `subtasks["${stage}"][${i}].text exceeds ${MAX_SUBTASK_TEXT_LEN} char limit`;
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Validate a stage key before interpolating it into a MongoDB path
  * (e.g., `state.comments.${stage}`). Rejects keys containing Mongo

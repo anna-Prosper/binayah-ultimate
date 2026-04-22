@@ -38,7 +38,14 @@ export function AvatarStep6({
         body: JSON.stringify({ prompt: aiPrompt }),
       });
       const data = await res.json();
-      if (!res.ok) { setAiError(data.error || "generation failed"); return; }
+      if (!res.ok) {
+        if (data.error === "GENERATION_TIMEOUT") {
+          setAiError("// avatar gen timed out — try again");
+        } else {
+          setAiError(data.error || "generation failed");
+        }
+        return;
+      }
       if (data.image) { setAiImage(data.image); setSelAiImg(data.image); setAiUserAvatar(data.image); }
       else setAiError("no image returned — try a different prompt");
     } catch {

@@ -112,5 +112,5 @@ export async function POST(req: NextRequest) {
   }
 
   logApi(ROUTE, "timeout", { taskId });
-  return NextResponse.json({ error: "RATE_LIMITED", message: "timed out — try again" }, { status: 504 });
+  return NextResponse.json({ error: "GENERATION_TIMEOUT", message: "timed out — try again" }, { status: 504 });
 }
