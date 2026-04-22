@@ -49,14 +49,17 @@ src/
 ├── components/
 │   ├── Dashboard.tsx                 # Main controller — all state lives here; isLocked() guard; activeNavItem state
 │   ├── LeftSidebar.tsx               # Permanent left rail (desktop ≥768px) — pipelines/docs/activity/chat nav
-│   ├── DocumentsPanel.tsx            # Notion-style rich text docs — TipTap, 2-col layout, pipeline filter (lazy-loaded)
+│   ├── NotificationBell.tsx          # SSE notification bell — header badge + dropdown. Named event: es.addEventListener("activity",...). Bell types: claimed/active/comment. binayah_notif_seen_at localStorage. Exponential backoff.
+│   ├── SearchPalette.tsx             # Cmd+K/Ctrl+K search palette — stages, docs (full-content), people. Module-scope docCache 5-min TTL. export invalidateDocCache(). r.ok guard.
+│   ├── WelcomeModal.tsx              # Thin wrapper for <Onboarding sessionUser={...}/>; writes binayah_welcomed_<fixedUserId> on dismiss.
+│   ├── DocumentsPanel.tsx            # Notion-style rich text docs — TipTap, 2-col layout, pipeline filter (lazy-loaded). initialDocId prop for Cmd+K routing. 3s debounce-save + blur-save with saveInFlight guard. Attribution strip. invalidateDocCache() after save.
 │   ├── Stage.tsx                     # Individual stage card UI; isLocked prop blocks edits
 │   ├── KanbanView.tsx                # Drag-and-drop kanban board; horizontal scroll snap on mobile
-│   ├── OverviewPanel.tsx             # Pipeline metrics / progress summary (lazy-loaded)
+│   ├── OverviewPanel.tsx             # Pipeline metrics / progress summary (lazy-loaded). Metrics/Timeline toggle. Timeline: status_change log per pipeline, newest-first, canonical status color swatches, AvatarC + relative time.
 │   ├── ChatPanel.tsx                 # Team chat + Claude AI (lazy-loaded; SSE subscription on team tab; BottomSheet on mobile)
 │   ├── LoginClient.tsx               # Login form — warroom dark, Google + email/password
 │   ├── NotificationPrefs.tsx         # Email notification toggle pill (in user stats popup)
-│   ├── Onboarding.tsx                # 7-step onboarding (including AvatarStep6, FloatingBg)
+│   ├── Onboarding.tsx                # Multi-step personalised onboarding: theme picker → pipeline intros → avatar → celebration. All hook components (TypedTitle, CelebStep) lifted to module level. Identity pre-filled from auth session (sessionUser prop). ob-* keyframe naming in AvatarStep6. binayah_welcomed_<fixedUserId> localStorage flag.
 │   ├── ActivityFeed.tsx              # Real-time activity log panel (lazy-loaded; BottomSheet mobile)
 │   ├── SearchFilter.tsx              # Search input + status filter pills
 │   └── ui/
@@ -82,9 +85,9 @@ src/
 ├── types/
 │   └── next-auth.d.ts               # Session extended with fixedUserId: string
 └── lib/
-    ├── chatBus.ts                    # Module-scoped EventEmitter singleton for SSE chat; setMaxListeners(200)
-    ├── BinayahDocument.ts            # Mongoose model: title, content (TipTap JSON/Mixed), createdBy, pipelineId, timestamps
-    ├── auth.ts                       # NextAuthOptions, ADMIN_EMAIL_MAP (8 emails → fixedUserId)
+    ├── chatBus.ts                    # Module-scoped EventEmitter singleton for SSE chat + activity events; setMaxListeners(200). Emits "message" and "activity". Bell filter in NotificationBell: claimed/active/comment — status_change excluded from bell.
+    ├── BinayahDocument.ts            # Mongoose model: title, content (TipTap JSON/Mixed), createdBy, pipelineId, updatedBy (String|null — server-side only, never from client body), timestamps
+    ├── auth.ts                       # NextAuthOptions, ADMIN_EMAIL_MAP (8 emails → fixedUserId: anna/aakarshit/usama/ahsan/prajeesh/abdallah)
     ├── AuthUser.ts                   # Mongoose model: email, passwordHash, fixedUserId, emailNotifications
     ├── data.ts                       # All static data: pipelineData, stageDefaults, USERS_DEFAULT (6 users incl. Prajeesh)
     ├── email.ts                      # nodemailer SMTP transport (SMTP_USER/SMTP_PASS)
@@ -296,6 +299,57 @@ When `pipelineLocks[pipelineId] === true` (state in Dashboard.tsx):
 - **TipTap theming:** `DocumentsPanel` overrides all default TipTap prose styles via CSS vars injected from `t.*` tokens. Do NOT add `@tiptap/extension-*` without also adding theme overrides for the new element types.
 - **State isolation:** `DocumentsPanel` owns all documents state locally — list, activeId, save state. Nothing flows up to Dashboard. This is intentional.
 
+
+## Personalised onboarding — WelcomeModal (added Apr 2026)
+
+- **Flow:** 6 steps — theme picker → pipeline intros (4 steps) → avatar → celebration.
+- **Identity pre-filled from session** — `sessionUser: UserType` prop on Onboarding, identity never asked of the user.
+- **Displayed once per user:** `binayah_welcomed_<fixedUserId>` localStorage key (set on dismiss). No `SCHEMA_VERSION` bump needed.
+- **Hook components must be at module level** — `TypedTitle` and `CelebStep` are defined OUTSIDE the Onboarding component (not inside a conditional render). Violating this causes a React hooks order crash.
+- **Keyframe naming:** All CSS keyframes in Onboarding are prefixed `ob-*` (ob-spin, ob-shimmer, ob-fadeIn, ob-popIn, ob-ringExpand, ob-scaleIn, ob-scanlineH) to avoid collisions. AvatarStep6 must use these exact names.
+
+## SSE activity events (added Apr 2026)
+
+The SSE stream at `/api/pipeline-state/messages/stream` now fans out TWO event types:
+
+1. **Default message events** — `data: {...}
+
+` — received by ChatPanel via `es.onmessage`
+2. **Named activity events** — `event: activity
+data: {...}
+
+` — must be received via `es.addEventListener("activity", handler)`
+
+**Bell event filter:** `claimed`, `active`, `comment` only. `status_change` (Stage 5) is intentionally excluded from the bell — it appears in the timeline view instead.
+
+**chatBus emitters:**
+- `messages/route.ts` — emits `"message"` after MongoDB write
+- `activity/route.ts` — emits `"activity"` for claimed/active/comment types
+- `pipeline-state/route.ts` — emits `"activity"` for status_change types (Stage 5)
+
+All three routes require `export const runtime = "nodejs"` for chatBus access.
+
+## Cmd+K search palette (added Apr 2026)
+
+- **Keyboard trigger:** `(e.metaKey || e.ctrlKey) && e.key === "k"` — both Mac and non-Mac. `e.preventDefault()` required.
+- **Document content fetch:** `GET /api/documents?includeContent=true` returns `{_id, title, pipelineId, plaintext}` (server extracts TipTap JSON → plaintext). Cached in `docCache` (module-scope, 5-min TTL) in `SearchPalette.tsx`.
+- **Cache invalidation:** `invalidateDocCache()` exported from `SearchPalette.tsx`. Call it from any component that saves a document — `DocumentsPanel` already does this.
+- **Routing on Enter:** stage results switch to pipelines view; doc results open DocumentsPanel via `initialDocId` prop (reset to null first via `requestAnimationFrame` so same-doc re-open works); person results open user stats.
+- **`r.ok` guard:** always check `if (!r.ok) throw new Error(r.statusText)` before calling `.json()` on fetched responses.
+
+## Document attribution (added Apr 2026)
+
+- **`updatedBy` field:** added to `BinayahDocument` schema. Always set server-side in PATCH from `session.user.fixedUserId`. Client body value discarded — this is a security contract.
+- **Debounce-save:** 3s timer in DocumentsPanel; cancelled and immediately saved on blur. `saveInFlight` ref prevents simultaneous PATCH on debounce+blur overlap.
+- **Attribution strip:** below the title input in DocumentsPanel. Shows `AvatarC` + "last saved by [name], [relative time]". "// unsaved" in `t.textDim` if `updatedBy` is null.
+
+## Pipeline timeline (added Apr 2026)
+
+- **`status_change` emission:** In PATCH `/api/pipeline-state/route.ts`, when `stageStatusOverrides` changes, a `status_change` activity entry is emitted inline (not via the activity API route). Shape: `{ type: 'status_change', user, target: stageName, detail: "from → to", pipeline: pipelineId, time: Date.now() }`. Also emitted to chatBus.
+- **Timeline view:** OverviewPanel has a metrics/timeline toggle. Timeline filters `activityLog` to `type === 'status_change'` AND `pipeline === selectedPipeline`. Newest-first, vertical rail.
+- **Status color canon:** `concept → t.textMuted`, `planned → t.amber`, `in-progress → t.cyan`, `active → t.green`. Never break this mapping — it's the language of the app.
+- **`status_change` is excluded from the notification bell** — `BELL_TYPES` in `NotificationBell.tsx` does not include it. Keep it that way.
+
 ---
 
 # §3 — Data models
@@ -405,12 +459,9 @@ type UserType = {
 
 **MongoDB in local/sandbox:** Atlas SRV DNS lookup fails — `/api/pipeline-state` returns 500. Expected. Mark `severity: "env"`, do NOT fail QA for this. The dashboard renders from LocalStorage and the client-side state renders fine. Vercel staging catches real DB issues.
 
-**No auth flow.** There is no login/signup. The "user" is selected during the 7-step onboarding and stored in localStorage. QA does not need to authenticate.
+**Auth is required.** The app uses next-auth v4. All routes are auth-gated by middleware. QA can verify auth-gated routes return 307 (not 500) when unauthenticated.
 
-**Onboarding bypass:** If `currentUser` exists in localStorage, onboarding is skipped (step forced to 7). Puppeteer/Playwright can set localStorage before navigating to skip it:
-```js
-await page.evaluate(() => localStorage.setItem("currentUser", "anna"));
-```
+**Auth bypass for QA:** Pre-set auth session via next-auth cookies or use `getServerSession` mock. The WelcomeModal is skipped if `binayah_welcomed_<fixedUserId>` is set in localStorage: `await page.evaluate(() => localStorage.setItem("binayah_welcomed_anna", Date.now().toString()));`
 
 ## Frequently missing dev packages (already present, do NOT reinstall)
 - `@playwright/test`
