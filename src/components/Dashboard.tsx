@@ -1146,7 +1146,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride}
                 pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides}
                 pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides}
-                searchQ={searchQ} t={t}
+                searchQ={searchQ} activityLog={activityLog} t={t}
               />
             </Suspense>
           </ErrorBoundary>

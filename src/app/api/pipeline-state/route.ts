@@ -6,8 +6,12 @@ import { checkContentLength, validatePatchKeys, validateSubtasks } from "@/lib/v
 import { logApi } from "@/lib/log";
 import { pipelineData, stageDefaults } from "@/lib/data";
 import { sendNotifications } from "@/lib/sendNotifications";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
+import { chatBus } from "@/lib/chatBus";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 const WORKSPACE = { workspaceId: "main" };
 const ROUTE = "/api/pipeline-state";
 
@@ -155,6 +159,10 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Get session user for activity attribution (best-effort; not required for state write)
+  const session = await getServerSession(authOptions);
+  const actorUserId = session?.user?.fixedUserId ?? "unknown";
+
   // Capture pre-patch state for notification diffing (claims + statuses only)
   let prePatchClaims: Record<string, string[]> = {};
   let prePatchStatuses: Record<string, string> = {};
@@ -175,6 +183,58 @@ export async function PATCH(req: NextRequest) {
     { new: true }
   ).lean();
   logApi(ROUTE, "PATCH_success");
+
+  // Emit status_change activity entries for any stageStatusOverrides changes
+  if ("stageStatusOverrides" in cleanPatch) {
+    const patchedStatuses = cleanPatch.stageStatusOverrides as Record<string, string>;
+
+    // Build stage→pipeline map for this emit (may differ from lock-check map above)
+    const stageToP2 = new Map<string, string>();
+    for (const p of pipelineData) {
+      for (const s of p.stages) stageToP2.set(s, p.id);
+    }
+    const postStateDoc = (doc as { state?: Record<string, unknown> } | null)?.state ?? {};
+    const dbCustomStages2 = (postStateDoc.customStages as Record<string, string[]> | undefined) ?? {};
+    for (const [pid, stages] of Object.entries(dbCustomStages2)) {
+      for (const stageName of stages) stageToP2.set(stageName, pid);
+    }
+
+    const statusChangeEntries: Record<string, unknown>[] = [];
+    for (const [stageName, newStatus] of Object.entries(patchedStatuses)) {
+      const fromStatus = prePatchStatuses[stageName] ?? "concept";
+      if (fromStatus === newStatus) continue; // no actual change
+      const pipelineId = stageToP2.get(stageName) ?? "";
+      const entry = {
+        type: "status_change",
+        user: actorUserId,
+        target: stageName,
+        detail: `${fromStatus} → ${newStatus}`,
+        pipeline: pipelineId,
+        time: Date.now(),
+      };
+      statusChangeEntries.push(entry);
+    }
+
+    if (statusChangeEntries.length > 0) {
+      // Bulk prepend all status_change entries, keep newest-first, cap at 200
+      await PipelineState.findOneAndUpdate(
+        WORKSPACE,
+        {
+          $push: {
+            "state.activityLog": {
+              $each: statusChangeEntries,
+              $position: 0,
+              $slice: 200,
+            },
+          },
+        }
+      );
+      // Fan out to SSE subscribers (bell filter excludes status_change — correct by design)
+      for (const entry of statusChangeEntries) {
+        chatBus.emit("activity", entry);
+      }
+    }
+  }
 
   // Fire notifications fire-and-forget — never await, never block the response
   if (needsNotify) {
