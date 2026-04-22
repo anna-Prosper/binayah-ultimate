@@ -74,6 +74,7 @@ export const PATCH_KEY_WHITELIST = new Set([
   "pipeMetaOverrides",
   "customStages",
   "customPipelines",
+  "lockedPipelines",
   "users",
   "updatedAt",
 ]);

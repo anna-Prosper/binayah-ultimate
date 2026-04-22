@@ -4,6 +4,7 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateStageKey, validateText, validateUserId } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { pipelineData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -15,6 +16,14 @@ async function ensureDoc() {
     { $setOnInsert: { state: {}, updatedAt: new Date() } },
     { upsert: true }
   );
+}
+
+/** Resolve a stage name to its pipeline ID from static data. */
+function getPipelineIdForStage(stageName: string): string | undefined {
+  for (const p of pipelineData) {
+    if (p.stages.includes(stageName)) return p.id;
+  }
+  return undefined;
 }
 
 export async function POST(req: NextRequest) {
@@ -62,6 +71,22 @@ export async function POST(req: NextRequest) {
   try {
     await connectMongo();
     await ensureDoc();
+
+    // Pipeline lock enforcement — check if the target stage's pipeline is locked
+    const stageName = stage as string;
+    const pipelineId = getPipelineIdForStage(stageName);
+    if (pipelineId) {
+      const currentDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
+      const lockedPipelines = (currentDoc?.state?.lockedPipelines as string[] | undefined) || [];
+      if (lockedPipelines.includes(pipelineId)) {
+        logApi(ROUTE, "pipeline_locked", { pipelineId, stage: stageName });
+        return NextResponse.json(
+          { error: "PIPELINE_LOCKED", message: "Pipeline is locked", pipelineId },
+          { status: 423 }
+        );
+      }
+    }
+
     // $slice: -100 keeps the most recent 100 comments per stage
     await PipelineState.findOneAndUpdate(
       WORKSPACE,

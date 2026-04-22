@@ -13,11 +13,12 @@ export type SharedState = {
   pipeMetaOverrides?: Record<string, { name?: string; priority?: string }>;
   customStages?: Record<string, string[]>;
   customPipelines?: unknown[];
+  lockedPipelines?: string[];
   users?: unknown[];
   updatedAt?: number;
 };
 
-export type SyncResult = { ok: true } | { ok: false; error: string };
+export type SyncResult = { ok: true } | { ok: false; error: string; status?: number };
 
 export async function fetchState(): Promise<SharedState | null> {
   try {
@@ -40,7 +41,7 @@ export async function patchState(patch: Partial<SharedState>): Promise<SyncResul
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err) {
@@ -76,7 +77,7 @@ export async function pushComment(stage: string, comment: { id: number; text: st
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}` };
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
     }
     return { ok: true };
   } catch (err) {

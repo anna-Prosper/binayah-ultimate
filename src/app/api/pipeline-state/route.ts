@@ -4,10 +4,17 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validatePatchKeys, validateSubtasks } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { pipelineData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
 const ROUTE = "/api/pipeline-state";
+
+// Keys that are NOT blocked by a pipeline lock (only the lock list itself can be changed)
+const LOCK_EXEMPT_KEYS = new Set(["lockedPipelines", "users", "customPipelines", "updatedAt"]);
+
+// Keys that can be targeted at pipeline-specific stages/state
+const PIPELINE_SCOPED_KEYS = new Set(["stageStatusOverrides", "claims", "reactions", "subtasks", "stageDescOverrides", "customStages", "pipeDescOverrides", "pipeMetaOverrides"]);
 
 async function ensureDoc() {
   await PipelineState.findOneAndUpdate(
@@ -15,6 +22,55 @@ async function ensureDoc() {
     { $setOnInsert: { state: {}, updatedAt: new Date() } },
     { upsert: true }
   );
+}
+
+/** Given a patch and the current locked pipeline IDs, check if the patch mutates a locked pipeline.
+ *  Strategy: if _pipelineId is provided in the patch, check it directly.
+ *  Otherwise, for stageStatusOverrides/claims/subtasks/reactions/stageDescOverrides,
+ *  try to resolve the stage key to a pipeline and check if it's locked.
+ */
+function findLockedConflict(patch: Record<string, unknown>, lockedPipelines: string[]): string | null {
+  if (!lockedPipelines.length) return null;
+
+  // Explicit pipeline ID hint from client
+  if (patch._pipelineId && typeof patch._pipelineId === "string") {
+    if (lockedPipelines.includes(patch._pipelineId)) {
+      return patch._pipelineId;
+    }
+    return null; // client told us the pipeline, it's not locked
+  }
+
+  // Build stage->pipeline map from static data
+  const stageToP = new Map<string, string>();
+  for (const p of pipelineData) {
+    for (const s of p.stages) stageToP.set(s, p.id);
+  }
+
+  for (const [key, value] of Object.entries(patch)) {
+    if (LOCK_EXEMPT_KEYS.has(key)) continue;
+    if (!PIPELINE_SCOPED_KEYS.has(key)) continue;
+    if (typeof value !== "object" || value === null) continue;
+
+    // Check each stage key in the value map
+    for (const stageKey of Object.keys(value as Record<string, unknown>)) {
+      // Handle pipeline reaction key (_pipe_<id>)
+      if (stageKey.startsWith("_pipe_")) {
+        const pid = stageKey.slice(6);
+        if (lockedPipelines.includes(pid)) return pid;
+        continue;
+      }
+      const pid = stageToP.get(stageKey);
+      if (pid && lockedPipelines.includes(pid)) return pid;
+    }
+
+    // For pipeDescOverrides / pipeMetaOverrides — keys are pipeline IDs
+    if (key === "pipeDescOverrides" || key === "pipeMetaOverrides" || key === "customStages") {
+      for (const pid of Object.keys(value as Record<string, unknown>)) {
+        if (lockedPipelines.includes(pid)) return pid;
+      }
+    }
+  }
+  return null;
 }
 
 export async function GET() {
@@ -47,16 +103,19 @@ export async function PATCH(req: NextRequest) {
 
   const patch = (await req.json()) as Record<string, unknown>;
 
+  // Remove internal _pipelineId hint before whitelist check (not a persisted key)
+  const { _pipelineId, ...cleanPatch } = patch;
+
   // Whitelist check — reject unknown keys and keys containing . $ __proto__ etc.
-  const keyErr = validatePatchKeys(patch);
+  const keyErr = validatePatchKeys(cleanPatch);
   if (keyErr) {
     logApi(ROUTE, "key_injection_blocked", { reason: keyErr });
     return NextResponse.json({ error: keyErr }, { status: 400 });
   }
 
   // Subtask bounds validation
-  if ("subtasks" in patch) {
-    const subtaskErr = validateSubtasks(patch.subtasks);
+  if ("subtasks" in cleanPatch) {
+    const subtaskErr = validateSubtasks(cleanPatch.subtasks);
     if (subtaskErr) {
       logApi(ROUTE, "validation_fail", { reason: subtaskErr });
       return NextResponse.json({ error: subtaskErr }, { status: 400 });
@@ -64,11 +123,29 @@ export async function PATCH(req: NextRequest) {
   }
 
   await connectMongo();
+  await ensureDoc();
+
+  // Pipeline lock enforcement — fetch current lockedPipelines from DB
+  // Only check if the patch touches pipeline-scoped fields
+  const hasPipelineScopedKeys = Object.keys(cleanPatch).some(k => PIPELINE_SCOPED_KEYS.has(k));
+  if (hasPipelineScopedKeys) {
+    const currentDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
+    const lockedPipelines = (currentDoc?.state?.lockedPipelines as string[] | undefined) || [];
+    const patchForLockCheck = _pipelineId ? { ...cleanPatch, _pipelineId } : cleanPatch;
+    const conflictPipelineId = findLockedConflict(patchForLockCheck as Record<string, unknown>, lockedPipelines);
+    if (conflictPipelineId) {
+      logApi(ROUTE, "pipeline_locked", { pipelineId: conflictPipelineId });
+      return NextResponse.json(
+        { error: "PIPELINE_LOCKED", message: "Pipeline is locked", pipelineId: conflictPipelineId },
+        { status: 423 }
+      );
+    }
+  }
+
   const $set: Record<string, unknown> = { updatedAt: new Date() };
-  for (const [k, v] of Object.entries(patch)) {
+  for (const [k, v] of Object.entries(cleanPatch)) {
     $set[`state.${k}`] = v;
   }
-  await ensureDoc();
   const doc = await PipelineState.findOneAndUpdate(
     WORKSPACE,
     { $set },

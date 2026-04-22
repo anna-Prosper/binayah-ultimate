@@ -50,6 +50,7 @@ interface StageProps {
   stageImages: Record<string, string[]>;
   addStageImage: (name: string, dataUrl: string) => void;
   removeStageImage: (name: string, idx: number) => void;
+  isLocked: boolean;
 }
 
 export default function Stage({
@@ -61,6 +62,7 @@ export default function Stage({
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
   stageDescOverrides, setStageDescOverride, liveNotifs,
   stageImages, addStageImage, removeStageImage,
+  isLocked,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
@@ -107,10 +109,11 @@ export default function Stage({
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
             <Chev open={isE} color={pC} />
             <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: "pointer" }} title="Click to cycle status">{st.l}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }} onClick={e => e.stopPropagation()}>
+            {isLocked && <span style={{ fontSize: 11, color: t.amber, opacity: 0.85, flexShrink: 0 }} title="Pipeline is locked">🔒</span>}
             {/* Live reaction pop */}
             {liveNotifs[name]?.reaction && (
               <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 16, pointerEvents: "none", animation: "emojiPop 1.2s ease-out forwards", zIndex: 10 }}>
@@ -136,9 +139,9 @@ export default function Stage({
             })()}
 
             {/* React toggle */}
-            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "inherit" }}>
+            {!isLocked && <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "inherit" }}>
               {"\uD83D\uDE00"}
-            </button>
+            </button>}
 
             {/* Preview badge — indicates stage has a mockup */}
             {mock && !isE && (
@@ -154,7 +157,7 @@ export default function Stage({
 
         {/* Description subtitle — one line, always visible, click to edit */}
         <div style={{ paddingLeft: 36, paddingRight: 14, paddingBottom: 8 }} onClick={e => e.stopPropagation()}>
-          {editingShortDesc ? (
+          {editingShortDesc && !isLocked ? (
             <input
               autoFocus
               value={currentDesc}
@@ -162,11 +165,12 @@ export default function Stage({
               onBlur={() => setEditingShortDesc(false)}
               onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setEditingShortDesc(false); }}
               placeholder="Short description..."
+              disabled={isLocked}
               style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${pC}44`, outline: "none", fontSize: 9, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", padding: "0 0 2px 0", lineHeight: 1.4 }}
             />
           ) : (
             <p
-              onClick={() => setEditingShortDesc(true)}
+              onClick={() => { if (!isLocked) setEditingShortDesc(true); }}
               title="Click to edit"
               style={{ margin: 0, fontSize: 9, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: "text" }}
             >
@@ -177,10 +181,10 @@ export default function Stage({
 
         {/* Expanded content */}
         {isE && (
-          <div style={{ borderTop: `1px solid ${t.border}`, animation: "fadeIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
+          <div style={{ borderTop: `1px solid ${isLocked ? t.amber + "33" : t.border}`, animation: "fadeIn 0.2s ease", boxShadow: isLocked ? `inset 0 0 0 1px ${t.amber}22` : "none" }} onClick={e => e.stopPropagation()}>
 
             {/* Action bar */}
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden", pointerEvents: isLocked ? "none" : "auto", cursor: isLocked ? "not-allowed" : "auto" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
               {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 12, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"\uD83D\uDC80"} owned!</div>}
 
@@ -230,19 +234,20 @@ export default function Stage({
             <div style={{ padding: "10px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, fontWeight: 600, display: "flex", alignItems: "center", gap: 6 }}>
                 about
-                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 9, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
+                {!editingDesc && !isLocked && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 9, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
                 {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 7, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
               </div>
-              {editingDesc ? (
+              {editingDesc && !isLocked ? (
                 <textarea
                   value={aboutDesc}
                   onChange={e => setStageDescOverride(name, e.target.value)}
                   autoFocus
+                  disabled={isLocked}
                   rows={4}
                   style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                 />
               ) : (
-                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
+                <div onClick={() => { if (!isLocked) setEditingDesc(true); }} title={isLocked ? "Pipeline is locked" : "Click to edit"} style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, cursor: isLocked ? "not-allowed" : "text", display: "flex", alignItems: "flex-start", gap: 6 }}>
                   <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
                 </div>
               )}
@@ -250,7 +255,7 @@ export default function Stage({
 
             {/* Subtasks + Comments */}
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
-              <div style={{ flex: 1, padding: "14px 16px", borderRight: `1px solid ${t.border}` }}>
+              <div style={{ flex: 1, padding: "14px 16px", borderRight: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
                 <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 {tasks.map(task => (
                   <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderRadius: 6, transition: "background 0.15s" }}
@@ -274,8 +279,8 @@ export default function Stage({
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 9, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
+                  <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
+                  <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 8, padding: "5px 10px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 9, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
 
@@ -299,8 +304,8 @@ export default function Stage({
                   ); })}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 9, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
+                  <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 9, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
+                  <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 8, padding: "5px 10px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 9, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
                 </div>
               </div>
             </div>
@@ -320,9 +325,9 @@ export default function Stage({
                     <span style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600 }}>
                       gallery {totalCount > 0 && `(${totalCount})`}
                     </span>
-                    <label onClick={e => e.stopPropagation()} style={{ fontSize: 8, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
-                      ↑ upload
-                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
+                    <label onClick={e => { e.stopPropagation(); if (isLocked) { return; } }} style={{ fontSize: 8, color: isLocked ? t.textDim : pC, cursor: isLocked ? "not-allowed" : "pointer", fontWeight: 700, background: isLocked ? t.surface : pC + "15", border: `1px solid ${isLocked ? t.border : pC + "33"}`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", pointerEvents: isLocked ? "none" : "auto" }}>
+                      {isLocked ? "🔒 locked" : "↑ upload"}
+                      <input type="file" accept="image/*" disabled={isLocked} style={{ display: "none" }} onChange={e => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();

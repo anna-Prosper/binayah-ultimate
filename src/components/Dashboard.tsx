@@ -115,7 +115,10 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
-  const [pipelineLocks, setPipelineLocks] = useState<Record<string, boolean>>(() => lsGet("pipelineLocks", {}));
+  // lockedPipelines: canonical list of locked pipeline IDs, persisted to MongoDB
+  const [lockedPipelines, setLockedPipelines] = useState<string[]>(() => lsGet("lockedPipelines", []));
+  // isLocked helper — check if a pipeline is locked
+  const isLocked = (pipelineId: string) => lockedPipelines.includes(pipelineId);
   const { toasts, showToast, dismissToast } = useToasts();
 
   // Schema version recovery — clear stale cache and reload
@@ -140,7 +143,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
-  useEffect(() => { lsSet("pipelineLocks", pipelineLocks) }, [pipelineLocks]);
+  useEffect(() => { lsSet("lockedPipelines", lockedPipelines) }, [lockedPipelines]);
 
   // Animate pts counter when points increase
   useEffect(() => {
@@ -233,6 +236,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+        if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
       }
       isInitializedRef.current = true;
@@ -350,6 +354,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+        if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
         // Reset flag after React has processed state updates
         setTimeout(() => { isPollUpdateRef.current = false; }, 50);
@@ -361,21 +366,27 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   }, [currentUser, users]);
 
   // Write shared state to API whenever it changes (debounced 800ms, only after init, not on poll updates)
+  // NOTE: reactions are excluded here — handleReact owns its own direct patchState call to avoid double-write
   useEffect(() => {
     if (!isInitializedRef.current) return;
     if (isPollUpdateRef.current) return;
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
+      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
         if (!result.ok) {
-          setSyncStatus("offline");
-          showToast("// offline \u2014 changes saved locally", t.amber);
+          if ((result as { status?: number }).status === 423) {
+            showToast("// pipeline is locked \u2014 unlock to make changes", t.amber);
+            fetchState().then(s => { if (s?.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]); });
+          } else {
+            setSyncStatus("offline");
+            showToast("// offline \u2014 changes saved locally", t.amber);
+          }
         }
       });
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
+  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
 
   // Auto-expand matching pipelines on search
   useEffect(() => {
@@ -405,6 +416,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
 
   const allPipelines = [...pipelineData, ...customPipelines];
+  // Map stage name -> pipeline ID for lock checks
+  const getPipelineForStage = (stageName: string): string | undefined => {
+    for (const p of allPipelines) {
+      const stages = [...p.stages, ...(customStages[p.id] || [])];
+      if (stages.includes(stageName)) return p.id;
+    }
+    return undefined;
+  };
+  const isStageInLockedPipeline = (stageName: string): boolean => {
+    const pid = getPipelineForStage(stageName);
+    return pid ? isLocked(pid) : false;
+  };
   const allStages = [
     ...pipelineData.flatMap(p => p.stages),
     ...customPipelines.flatMap(p => p.stages),
@@ -425,12 +448,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const cyclePriority = (pid: string, cur: string) => {
+    if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
     const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(cur as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
     setPipeMetaOverrides(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), priority: next } }));
   };
   const addCustomStage = (pid: string) => {
     const val = newStageInput[pid]?.trim();
     if (!val) return;
+    if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
     setNewStageInput(prev => ({ ...prev, [pid]: "" }));
   };
@@ -461,6 +486,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Claim = take ownership. Points only granted when stage goes LIVE.
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
+    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     const alreadyClaimed = (claims[sid] || []).includes(currentUser);
     setClaims(prev => {
       const c = prev[sid] || [];
@@ -479,6 +505,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
   const handleReact = (sid: string, emoji: string) => {
     if (!currentUser) return;
+    // Check lock for both stage reactions (sid = stage name) and pipeline reactions (sid = _pipe_<id>)
+    if (sid.startsWith("_pipe_")) {
+      const pid = sid.slice(6);
+      if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
+    } else if (isStageInLockedPipeline(sid)) {
+      showToast("// pipeline is locked", t.amber); return;
+    }
     // Compute next reactions synchronously so we can pass it to patchState
     const prevReactions = reactions;
     const s = { ...(prevReactions[sid] || {}) };
@@ -498,6 +531,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const addSubtask = (sid: string) => {
     const val = subtaskInput[sid]?.trim();
     if (!val || !currentUser) return;
+    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     if (val.length > MAX_SUBTASK_LEN) {
       showToast("// subtask too long — max 200 chars", t.red);
       return;
@@ -512,15 +546,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), newTask] }));
     setSubtaskInput(prev => ({ ...prev, [sid]: "" }));
   };
-  const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
-  const lockSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
-  const removeSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
-  const addStageImage = (sid: string, dataUrl: string) => { setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
+  const toggleSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
+  const lockSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
+  const removeSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
+  const addStageImage = (sid: string, dataUrl: string) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
   const MAX_COMMENT_LEN = 1000;
   const addComment = (sid: string) => {
     const val = commentInput[sid]?.trim();
     if (!val || !currentUser) return;
+    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     if (val.length > MAX_COMMENT_LEN) {
       showToast("// comment too long — max 1000 chars", t.red);
       return;
@@ -538,12 +573,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           ...prev,
           [sid]: (prev[sid] || []).filter(x => x.id !== commentId),
         }));
-        setSyncStatus("offline");
-        showToast("// comment lost — try again", t.red);
+        if ((result as { status?: number }).status === 423) {
+          showToast("// pipeline is locked — unlock to make changes", t.amber);
+        } else {
+          setSyncStatus("offline");
+          showToast("// comment lost — try again", t.red);
+        }
       }
     });
   };
-  const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
+  const cycleStatus = (name: string) => { if (isStageInLockedPipeline(name)) { showToast("// pipeline is locked", t.amber); return; } const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
     const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
@@ -845,7 +884,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             t={t} getStatus={getStatus} setStageStatusDirect={setStageStatusDirect}
             claims={claims} reactions={reactions} users={users} currentUser={currentUser}
             sc={sc} ck={ck} customStages={customStages} customPipelines={customPipelines}
-            onCardClick={onKanbanCardClick} searchQ={searchQ}
+            onCardClick={onKanbanCardClick} searchQ={searchQ} lockedPipelines={lockedPipelines}
           />
         )}
 
@@ -875,7 +914,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
 
             return (
-              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s" }}>
+              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isLocked(p.id) ? t.amber + "33" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s", opacity: isLocked(p.id) ? 0.82 : 1 }}>
                 <div style={{ height: 2, background: t.surface }}>
                   <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} />
                 </div>
@@ -890,21 +929,22 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                           {editingPipeName === p.id ? (
                             <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 8px", outline: "none", fontFamily: "inherit" }} />
                           ) : (
-                            <span onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: pipelineLocks[p.id] ? "default" : "text" }} title={pipelineLocks[p.id] ? "Unlock to rename" : "Click to rename"}>
-                              {pipeName} {!pipelineLocks[p.id] && <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>}
+                            <span onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: isLocked(p.id) ? "default" : "text" }} title={isLocked(p.id) ? "Unlock to rename" : "Click to rename"}>
+                              {pipeName} {!isLocked(p.id) && <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>}
+                              {isLocked(p.id) && <span style={{ fontSize: "0.7rem", color: t.amber, background: t.amber + "11", border: `1px solid ${t.amber}44`, borderRadius: 6, padding: "2px 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>🔒 locked</span>}
                             </span>
                           )}
                           <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
-                          <span onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: pipelineLocks[p.id] ? "default" : "pointer" }} title={pipelineLocks[p.id] ? "Unlock to change priority" : "Click to cycle"}>{pipePriority}</span>
+                          <span onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: isLocked(p.id) ? "default" : "pointer" }} title={isLocked(p.id) ? "Unlock to change priority" : "Click to cycle"}>{pipePriority}</span>
                           {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                         </div>
 
                         {editingPipeDesc === p.id ? (
                           <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }} />
                         ) : (
-                          <p onClick={e => { e.stopPropagation(); if (!pipelineLocks[p.id]) setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: pipelineLocks[p.id] ? "default" : "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <p onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: isLocked(p.id) ? "default" : "text", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
-                            {!pipelineLocks[p.id] && <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
+                            {!isLocked(p.id) && <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
                           </p>
                         )}
 
@@ -951,13 +991,24 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <button
-                          onClick={e => { e.stopPropagation(); setPipelineLocks(prev => ({ ...prev, [p.id]: !prev[p.id] })); }}
-                          title={pipelineLocks[p.id] ? "Unlock pipeline" : "Lock pipeline"}
-                          style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 16, padding: 0, opacity: pipelineLocks[p.id] ? 1 : 0.65, transition: "opacity 0.2s, transform 0.2s", transform: pipelineLocks[p.id] ? "scale(1.1)" : "scale(1)", color: pipelineLocks[p.id] ? t.amber : t.textDim }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            const nowLocked = !isLocked(p.id);
+                            const next = nowLocked
+                              ? [...lockedPipelines.filter(id => id !== p.id), p.id]
+                              : lockedPipelines.filter(id => id !== p.id);
+                            setLockedPipelines(next);
+                            patchState({ lockedPipelines: next }).then(result => {
+                              if (!result.ok) showToast("// lock change failed", t.amber);
+                            });
+                            logActivity(nowLocked ? "lock" : "unlock", p.id, `${nowLocked ? "locked" : "unlocked"} pipeline ${pipeName}`);
+                          }}
+                          title={isLocked(p.id) ? "Unlock pipeline" : "Lock pipeline"}
+                          style={{ background: isLocked(p.id) ? t.amber + "15" : "transparent", border: isLocked(p.id) ? `1px solid ${t.amber}44` : "none", borderRadius: 8, cursor: "pointer", fontSize: 16, padding: isLocked(p.id) ? "3px 7px" : 0, opacity: isLocked(p.id) ? 1 : 0.55, transition: "opacity 0.2s, transform 0.2s, box-shadow 0.2s", transform: isLocked(p.id) ? "scale(1.1)" : "scale(1)", color: isLocked(p.id) ? t.amber : t.textDim, boxShadow: isLocked(p.id) ? `0 0 8px ${t.amber}44` : "none" }}
                           onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = pipelineLocks[p.id] ? "1" : "0.65"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = isLocked(p.id) ? "1" : "0.65"; }}
                         >
-                          {pipelineLocks[p.id] ? "🔒" : "🔓"}
+                          {isLocked(p.id) ? "🔒" : "🔓"}
                         </button>
                         <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
                       </div>
@@ -985,9 +1036,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 {isO && (
                   <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} {...stageProps} />)}
+                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} {...stageProps} />)}
                     </div>
-                    {!pipelineLocks[p.id] && (
+                    {!isLocked(p.id) && (
                       <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
                         <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "6px 10px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
                         <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
@@ -1094,7 +1145,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 const pName = pipeMetaOverrides[p.id]?.name || p.name;
                 const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
                 const pDesc = pipeDescOverrides[p.id] || p.desc;
-                const locked = pipelineLocks[p.id] ? " [LOCKED]" : "";
+                const locked = isLocked(p.id) ? " [LOCKED]" : "";
                 const stages = [...p.stages, ...(customStages[p.id] || [])];
                 lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
                 stages.forEach((s, si) => {

@@ -6,7 +6,7 @@ const LS_PREFIX = "binayah_";
 export const ALL_LS_KEYS = [
   "isDark", "themeId", "currentUser", "users", "onboardStep",
   "reactions", "claims", "subtasks", "comments",
-  "stageStatusOverrides", "stageImages", "pipelineLocks",
+  "stageStatusOverrides", "stageImages", "lockedPipelines",
   "stageDescOverrides", "pipeDescOverrides", "pipeMetaOverrides",
   "customStages", "customPipelines", "expanded", "activityLog",
   "chatMessages", "view", "lastSeenActivity",
