@@ -9,6 +9,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ChatMsg = { id: number; userId: string; text: string; time: string };
+type ActivityItem = { type: string; user: string; target: string; detail: string; time: number };
 
 const WORKSPACE = { workspaceId: "main" };
 
@@ -20,12 +21,13 @@ export async function GET(req: NextRequest) {
   }
 
   const since = parseInt(req.nextUrl.searchParams.get("since") ?? "0", 10);
+  const sinceActivity = req.nextUrl.searchParams.get("sinceActivity") ?? null;
 
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      // Helper to send a SSE data event
+      // Helper to send a SSE data event (default message event type)
       const send = (msg: ChatMsg) => {
         try {
           controller.enqueue(encoder.encode(`data: ${JSON.stringify(msg)}\n\n`));
@@ -34,40 +36,95 @@ export async function GET(req: NextRequest) {
         }
       };
 
+      // Helper to send a SSE activity event (named event type — clients must add
+      // a specific addEventListener("activity", ...) listener to receive these)
+      const sendActivity = (item: ActivityItem) => {
+        try {
+          controller.enqueue(encoder.encode(`event: activity\ndata: ${JSON.stringify(item)}\n\n`));
+        } catch {
+          // Stream already closed
+        }
+      };
+
       // Subscribe to live bus BEFORE the DB flush to eliminate the race window
-      // where a message is emitted between the query completing and the subscription.
-      // Messages that arrive during the flush are buffered and deduped below.
-      const liveBuffer: ChatMsg[] = [];
+      // where a message/activity is emitted between the query completing and the subscription.
+      // Events that arrive during the flush are buffered and deduped below.
+      const liveMsgBuffer: ChatMsg[] = [];
+      const liveActivityBuffer: ActivityItem[] = [];
+      let flushed = false;
+
       const onMessage = (msg: ChatMsg) => {
         if (flushed) {
           send(msg);
         } else {
-          liveBuffer.push(msg);
+          liveMsgBuffer.push(msg);
         }
       };
-      let flushed = false;
+
+      const onActivity = (item: ActivityItem) => {
+        if (flushed) {
+          sendActivity(item);
+        } else {
+          liveActivityBuffer.push(item);
+        }
+      };
+
       chatBus.on("message", onMessage);
+      chatBus.on("activity", onActivity);
 
       // Flush missed messages since last known id
       const seenIds = new Set<number>();
+      // For activity gap-fill, track seen entries by stringified content to avoid dupes
+      const seenActivityKeys = new Set<string>();
+
       try {
         await connectMongo();
-        const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { chatMessages?: ChatMsg[] } } | null;
+        const doc = await PipelineState.findOne(WORKSPACE).lean() as {
+          state?: {
+            chatMessages?: ChatMsg[];
+            activityLog?: ActivityItem[];
+          }
+        } | null;
+
+        // Gap-fill chat messages
         const historical = doc?.state?.chatMessages ?? [];
         const missed = historical.filter((m) => m.id > since);
         for (const m of missed) {
           seenIds.add(m.id);
           send(m);
         }
+
+        // Gap-fill activity entries newer than sinceActivity
+        // sinceActivity is a stringified time number from the last known activity item
+        if (sinceActivity !== null) {
+          const sinceTime = parseInt(sinceActivity, 10);
+          const BELL_TYPES = new Set(["claimed", "active", "comment"]);
+          const activityLog = doc?.state?.activityLog ?? [];
+          const missedActivity = activityLog.filter(
+            (a) => BELL_TYPES.has(a.type) && a.time > sinceTime
+          );
+          // activityLog is stored newest-first, so reverse to send oldest-first
+          for (const a of [...missedActivity].reverse()) {
+            const key = `${a.type}:${a.user}:${a.target}:${a.time}`;
+            seenActivityKeys.add(key);
+            sendActivity(a);
+          }
+        }
       } catch {
         // MongoDB unavailable in local dev — continue without historical messages
       }
 
-      // Replay live messages buffered during flush, deduped
+      // Replay live events buffered during flush, deduped
       flushed = true;
-      for (const m of liveBuffer) {
+      for (const m of liveMsgBuffer) {
         if (!seenIds.has(m.id)) {
           send(m);
+        }
+      }
+      for (const a of liveActivityBuffer) {
+        const key = `${a.type}:${a.user}:${a.target}:${a.time}`;
+        if (!seenActivityKeys.has(key)) {
+          sendActivity(a);
         }
       }
 
@@ -84,6 +141,7 @@ export async function GET(req: NextRequest) {
       const cleanup = () => {
         clearInterval(pingInterval);
         chatBus.off("message", onMessage);
+        chatBus.off("activity", onActivity);
         try { controller.close(); } catch { /* already closed */ }
       };
 

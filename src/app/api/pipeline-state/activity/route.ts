@@ -4,7 +4,12 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { chatBus } from "@/lib/chatBus";
 
+// Event types surfaced in the notification bell
+const BELL_EVENT_TYPES = new Set(["claimed", "active", "comment"]);
+
+export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
 const ROUTE = "/api/pipeline-state/activity";
@@ -81,6 +86,13 @@ export async function POST(req: NextRequest) {
     },
     { new: true }
   );
+
+  // Fan out to SSE subscribers for bell-relevant event types only
+  const entryType = typeof entry.type === "string" ? entry.type : "";
+  if (BELL_EVENT_TYPES.has(entryType)) {
+    chatBus.emit("activity", entry);
+  }
+
   logApi(ROUTE, "success");
   return NextResponse.json({ ok: true });
 }

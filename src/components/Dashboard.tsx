@@ -33,6 +33,10 @@ import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/Le
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
   ssr: false, // uses localStorage + browser APIs
 });
+const NotificationBell = dynamic(() => import("@/components/NotificationBell"), {
+  ssr: false,
+  loading: () => null,
+});
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), {
   ssr: false,
 });
@@ -804,6 +808,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
               )}
             </button>
+
+            {/* Notification bell — SSE-driven real-time activity badge */}
+            {currentUser && (
+              <NotificationBell t={t} currentUserId={currentUser} users={users} />
+            )}
 
             {/* Activity bell */}
             <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Activity">
