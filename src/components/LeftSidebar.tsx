@@ -2,7 +2,7 @@
 
 import { T } from "@/lib/themes";
 
-export type NavItem = "pipelines" | "documents" | "activity" | "chat";
+export type NavItem = "pipelines" | "tasks" | "documents" | "activity" | "chat";
 
 export interface SidebarPipeline {
   id: string;
@@ -22,6 +22,7 @@ interface Props {
 
 const NAV_ITEMS: { id: NavItem; label: string; icon: string }[] = [
   { id: "pipelines", label: "pipelines", icon: "⚡" },
+  { id: "tasks",     label: "tasks",     icon: "✓" },
   { id: "documents", label: "documents", icon: "📄" },
   { id: "activity",  label: "activity",  icon: "🔔" },
   { id: "chat",      label: "chat",      icon: "💬" },

@@ -41,6 +41,9 @@ const NotificationBell = dynamic(() => import("@/components/NotificationBell"), 
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), {
   ssr: false,
 });
+const TasksView = dynamic(() => import("@/components/TasksView"), {
+  ssr: false,
+});
 const KanbanView = dynamic(() => import("@/components/KanbanView"), {
   ssr: false, // drag-and-drop is browser-only
 });
@@ -1136,6 +1139,28 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               <div style={{ marginTop: 16 }}>
                 <ActivityFeed activityLog={activityLog} users={users} t={t} />
               </div>
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {/* Desktop: Tasks view when activeNavItem === 'tasks' */}
+        {!isMobile && activeNavItem === "tasks" && (
+          <ErrorBoundary onError={() => showToast("// tasks failed to load — refresh to retry", t.red)}>
+            <Suspense fallback={null}>
+              <TasksView
+                t={t}
+                allPipelines={allPipelines}
+                customStages={customStages}
+                pipeMetaOverrides={pipeMetaOverrides}
+                subtasks={subtasks}
+                claims={claims}
+                getStatus={getStatus}
+                sc={sc}
+                users={users}
+                currentUser={currentUser}
+                onClaim={handleClaim}
+                onSubtaskToggle={toggleSubtask}
+              />
             </Suspense>
           </ErrorBoundary>
         )}
