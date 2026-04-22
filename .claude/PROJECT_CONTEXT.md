@@ -37,17 +37,23 @@ src/
 │       ├── chat/route.ts             # Claude AI assistant (rate-limited 20/min)
 │       ├── generate-pfp/route.ts     # OpenAI avatar generation
 │       ├── unsubscribe/route.ts      # GET — HMAC-signed unsubscribe link (public, no auth required)
+│       ├── documents/
+│       │   ├── route.ts              # GET (list, ?pipelineId filter) + POST (create). Auth-gated.
+│       │   └── [id]/route.ts         # GET + PATCH (whitelist: title/content/pipelineId) + DELETE
 │       └── pipeline-state/
 │           ├── route.ts              # GET/PATCH pipeline state (MongoDB); 423 for locked pipelines
 │           ├── activity/route.ts     # POST activity log event; 423 for locked pipelines
 │           ├── comments/route.ts     # POST stage comment (stage-key validated); 423 for locked
-│           └── messages/route.ts     # POST team chat message
+│           ├── messages/route.ts     # POST team chat message; emits to chatBus after write
+│           └── messages/stream/route.ts  # GET SSE stream — Node.js runtime, 30s keep-alive ping
 ├── components/
-│   ├── Dashboard.tsx                 # Main controller — all state lives here; isLocked() guard
+│   ├── Dashboard.tsx                 # Main controller — all state lives here; isLocked() guard; activeNavItem state
+│   ├── LeftSidebar.tsx               # Permanent left rail (desktop ≥768px) — pipelines/docs/activity/chat nav
+│   ├── DocumentsPanel.tsx            # Notion-style rich text docs — TipTap, 2-col layout, pipeline filter (lazy-loaded)
 │   ├── Stage.tsx                     # Individual stage card UI; isLocked prop blocks edits
 │   ├── KanbanView.tsx                # Drag-and-drop kanban board; horizontal scroll snap on mobile
 │   ├── OverviewPanel.tsx             # Pipeline metrics / progress summary (lazy-loaded)
-│   ├── ChatPanel.tsx                 # Team chat + Claude AI (lazy-loaded; BottomSheet on mobile)
+│   ├── ChatPanel.tsx                 # Team chat + Claude AI (lazy-loaded; SSE subscription on team tab; BottomSheet on mobile)
 │   ├── LoginClient.tsx               # Login form — warroom dark, Google + email/password
 │   ├── NotificationPrefs.tsx         # Email notification toggle pill (in user stats popup)
 │   ├── Onboarding.tsx                # 7-step onboarding (including AvatarStep6, FloatingBg)
@@ -76,7 +82,9 @@ src/
 ├── types/
 │   └── next-auth.d.ts               # Session extended with fixedUserId: string
 └── lib/
-    ├── auth.ts                       # NextAuthOptions, ADMIN_EMAIL_MAP (7 emails → fixedUserId)
+    ├── chatBus.ts                    # Module-scoped EventEmitter singleton for SSE chat; setMaxListeners(200)
+    ├── BinayahDocument.ts            # Mongoose model: title, content (TipTap JSON/Mixed), createdBy, pipelineId, timestamps
+    ├── auth.ts                       # NextAuthOptions, ADMIN_EMAIL_MAP (8 emails → fixedUserId)
     ├── AuthUser.ts                   # Mongoose model: email, passwordHash, fixedUserId, emailNotifications
     ├── data.ts                       # All static data: pipelineData, stageDefaults, USERS_DEFAULT (6 users incl. Prajeesh)
     ├── email.ts                      # nodemailer SMTP transport (SMTP_USER/SMTP_PASS)
@@ -264,6 +272,30 @@ When `pipelineLocks[pipelineId] === true` (state in Dashboard.tsx):
 - Internally uses `notifyRateLimit.ts` (5-min cooldown per user×stage×event), checks `AuthUser.emailNotifications` pref, and catches all errors internally — it never throws to the caller.
 - HMAC unsubscribe tokens use `NEXTAUTH_SECRET`. Unsubscribe route is public (middleware excluded).
 
+## Left sidebar navigation (added Apr 2026)
+
+- `activeNavItem: "pipelines" | "documents" | "activity" | "chat"` lives in `Dashboard.tsx`, persisted to localStorage key `binayah_activeNav` (additive — no `SCHEMA_VERSION` bump needed).
+- **Desktop (≥768px):** Dashboard is `display:flex` row — `LeftSidebar` (220px, fixed) + content area (flex:1).
+- **Mobile (<768px):** sidebar is `display:none`. Existing top-bar + BottomSheet patterns are unchanged.
+- Adding a new top-level nav item: add to `NAV_ITEMS` array in `LeftSidebar.tsx` AND handle the new `activeNavItem` value in Dashboard's render switch.
+
+## SSE real-time chat (added Apr 2026)
+
+- **`chatBus`** (`src/lib/chatBus.ts`) — module-scoped Node.js `EventEmitter` singleton. Import from both `messages/route.ts` (emitter) and `messages/stream/route.ts` (subscriber). `setMaxListeners(200)` set to avoid Node warnings.
+- **Runtime must be `"nodejs"`** on the stream route (`export const runtime = "nodejs"`). Edge Runtime cannot maintain a module-scoped singleton or run Mongoose. This is a hard constraint.
+- **Race-free subscribe pattern:** the stream route registers `chatBus.on` BEFORE the MongoDB gap-fill query, buffers live messages during the flush, then replays deduped after. Do not invert this order — subscribe-after-flush loses messages.
+- **`?since=<lastId>`:** client passes last known message id on connect. Server flushes only messages with `id > since`. ChatPanel sends this on every `new EventSource(...)` call including reconnects.
+- **Keep-alive:** `setInterval(() => controller.enqueue(": ping\n\n"), 30_000)`. Clear interval on `req.signal.aborted`.
+- **Vercel serverless note:** SSE connections on Vercel serverless functions time out at 60s by default. The 30s ping keeps the connection alive. On reconnect, gap-fill via `?since=` ensures no message loss.
+
+## Notion-style Documents (added Apr 2026)
+
+- **Model:** `BinayahDocument` in `src/lib/BinayahDocument.ts`. `content` field is `Mixed` (TipTap JSON output object). Indexed on `updatedAt: -1` and `pipelineId: 1`.
+- **API routes:** `/api/documents` (list + create) and `/api/documents/[id]` (get + patch + delete). All auth-gated. PATCH whitelist: `title`, `content`, `pipelineId` only. `content` must be a non-null plain object (validated in route).
+- **Documents API is NOT subject to `validatePatchKeys` or `validateStageKey`** — those are for `PipelineState` only. Documents has its own whitelist inline in the route.
+- **TipTap theming:** `DocumentsPanel` overrides all default TipTap prose styles via CSS vars injected from `t.*` tokens. Do NOT add `@tiptap/extension-*` without also adding theme overrides for the new element types.
+- **State isolation:** `DocumentsPanel` owns all documents state locally — list, activeId, save state. Nothing flows up to Dashboard. This is intentional.
+
 ---
 
 # §3 — Data models
@@ -346,6 +378,12 @@ type UserType = {
 | `/api/generate-pfp` | POST | OpenAI avatar generation | — |
 | `/api/pipeline-state` | GET | Fetch full state from MongoDB | Auth-gated (middleware) |
 | `/api/pipeline-state` | PATCH | Update state fields | Key whitelist; 423 if pipeline locked |
+| `/api/pipeline-state/messages/stream` | GET | SSE real-time chat stream | Session-gated; **Node.js runtime only** |
+| `/api/documents` | GET | List documents (optional ?pipelineId) | Session-gated |
+| `/api/documents` | POST | Create document | Session-gated, rate-limited |
+| `/api/documents/[id]` | GET | Fetch single doc with content | Session-gated |
+| `/api/documents/[id]` | PATCH | Update title/content/pipelineId | Session-gated, whitelisted |
+| `/api/documents/[id]` | DELETE | Delete document | Session-gated |
 | `/api/unsubscribe` | GET | Email unsubscribe via HMAC token | Public (no auth) — HMAC-sha256 signed |
 | `/api/pipeline-state/activity` | POST | Log activity event | — |
 | `/api/pipeline-state/comments` | POST | Add comment to a stage | `validateStageKey()` on stage param |
