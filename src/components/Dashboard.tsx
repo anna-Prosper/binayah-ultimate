@@ -359,24 +359,27 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         setSyncStatus("live");
         isPollUpdateRef.current = true;
         if (s.chatMessages) {
+          let pendingChatNotif: { name: string; text: string } | null = null;
           setChatMessages(prev => {
             // Merge by ID — never replace messages already in local state
             const existingIds = new Set(prev.map(m => m.id));
             const incoming = s.chatMessages!.filter(m => !existingIds.has(m.id));
             if (incoming.length === 0) return prev; // nothing new, no re-render
-            // Notify for foreign messages
             const foreign = incoming.find(m => m.userId !== currentUser);
             if (foreign) {
               const sender = (s.users as typeof USERS_DEFAULT | undefined)?.find(u => u.id === foreign.userId) ||
                 users.find(u => u.id === foreign.userId);
-              setChatNotif({ name: sender?.name || foreign.userId, text: foreign.text });
-              playNotifSound();
-              setTimeout(() => setChatNotif(null), 4000);
+              pendingChatNotif = { name: sender?.name || foreign.userId, text: foreign.text };
             }
             const merged = [...prev, ...incoming].sort((a, b) => a.id - b.id);
             knownMsgCount.current = merged.length;
             return merged;
           });
+          if (pendingChatNotif) {
+            setChatNotif(pendingChatNotif);
+            playNotifSound();
+            setTimeout(() => setChatNotif(null), 4000);
+          }
         }
         if (s.claims) {
           const prev = prevClaimsRef.current;
@@ -418,6 +421,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.activityLog) setActivityLog(s.activityLog);
         if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
         if (s.comments) {
+          let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
+          let pendingLiveNotif: { stage: string; name: string } | null = null;
           setComments(prev => {
             const remote = s.comments as Record<string, CommentItem[]>;
             let changed = false;
@@ -432,18 +437,24 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 const foreign = incoming.find(m => m.by !== currentUser);
                 if (foreign) {
                   const sender = users.find(u => u.id === foreign.by);
-                  setChatNotif({ name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage });
-                  playNotifSound();
-                  setTimeout(() => setChatNotif(null), 5000);
-                  // In-place glow on the stage card/comment section
-                  setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], comment: sender?.name || foreign.by } }));
-                  setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].comment; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 4000);
+                  pendingCommentNotif = { name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage };
+                  pendingLiveNotif = { stage, name: sender?.name || foreign.by };
                 }
                 knownCommentsRef.current[stage] = merged[stage].length;
               }
             }
             return changed ? merged : prev;
           });
+          if (pendingCommentNotif) {
+            setChatNotif(pendingCommentNotif);
+            playNotifSound();
+            setTimeout(() => setChatNotif(null), 5000);
+          }
+          if (pendingLiveNotif) {
+            const { stage: stg, name } = pendingLiveNotif;
+            setLiveNotifs(prev => ({ ...prev, [stg]: { ...prev[stg], comment: name } }));
+            setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stg]) { delete n[stg].comment; if (!Object.keys(n[stg]).length) delete n[stg]; } return n; }), 4000);
+          }
         }
         if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
         if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
@@ -582,17 +593,20 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
     // SSE remote message handler — dedupe by id and append to chat messages state
   const handleRemoteMessage = useCallback((msg: ChatMsg) => {
+    let pendingNotif: { name: string; text: string } | null = null;
     setChatMessages(prev => {
       if (prev.some(m => m.id === msg.id)) return prev; // already present (optimistic or poll)
-      // Notify for foreign messages
       if (msg.userId !== currentUser) {
         const sender = users.find(u => u.id === msg.userId);
-        setChatNotif({ name: sender?.name || msg.userId, text: msg.text });
-        playNotifSound();
-        setTimeout(() => setChatNotif(null), 4000);
+        pendingNotif = { name: sender?.name || msg.userId, text: msg.text };
       }
       return [...prev, msg].sort((a, b) => a.id - b.id);
     });
+    if (pendingNotif) {
+      setChatNotif(pendingNotif);
+      playNotifSound();
+      setTimeout(() => setChatNotif(null), 4000);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
