@@ -9,7 +9,8 @@ import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
-import Onboarding, { AvatarStep6, FloatingBg } from "@/components/Onboarding";
+import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
+import WelcomeModal from "@/components/WelcomeModal";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { type ChatMsg } from "@/components/ChatPanel";
@@ -86,14 +87,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     // without clearing cache. Only preserve aiAvatar (user-generated custom pfp).
     return hydrateUsers(lsGet("users", []) as UserType[]);
   });
-  const [onboardStep, setOnboardStep] = useState(() => {
-    // If session provides a fixedUserId, skip ALL onboarding (user is authenticated)
-    if (initialUserId) return 7;
-    const step = lsGet("onboardStep", 0);
-    // If they have a currentUser saved, they completed onboarding — skip to dashboard
-    const savedUser = lsGet("currentUser", null);
-    if (savedUser && step < 7) return 7;
-    return step;
+  const [onboardStep] = useState(7); // legacy compat — always 7 now; identity from session
+  // showWelcome: true on first login (localStorage key binayah_welcomed_<fixedUserId> is absent)
+  const [showWelcome, setShowWelcome] = useState(() => {
+    if (typeof window === "undefined" || !initialUserId) return false;
+    return !localStorage.getItem(`binayah_welcomed_${initialUserId}`);
   });
 
   // Sync session fixedUserId with localStorage on mount — session is authoritative
@@ -173,7 +171,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
   useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
   useEffect(() => { lsSet("users", users) }, [users]);
-  useEffect(() => { lsSet("onboardStep", onboardStep) }, [onboardStep]);
+  // onboardStep is no longer dynamic — removed LS sync
   useEffect(() => { lsSet("reactions", reactions) }, [reactions]);
   useEffect(() => { lsSet("claims", claims) }, [claims]);
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
@@ -730,18 +728,32 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     );
   }
 
-  if (onboardStep < 7) {
-    return <Onboarding t={t} themeId={themeId} setThemeId={setThemeId} isDark={isDark} setIsDark={setIsDark} onboardStep={onboardStep} setOnboardStep={setOnboardStep} users={users} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setCurrentUser={setCurrentUser} setUsers={setUsers} currentUser={currentUser} />;
-  }
+  // WelcomeModal is rendered OVER the dashboard (not instead of it) — rendered below in JSX
 
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
-  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><button onClick={() => setOnboardStep(0)} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "12px 24px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>Start Over</button></div>);
+  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
 
   const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
+
+  // WelcomeModal dismiss handler — persists avatar choice and marks user as welcomed
+  const handleWelcomeDismiss = useCallback(({ avatar, aiAvatar }: { avatar: string | null; aiAvatar: string | null }) => {
+    if (initialUserId) {
+      try { localStorage.setItem(`binayah_welcomed_${initialUserId}`, Date.now().toString()); } catch { /* noop */ }
+    }
+    // Persist avatar selection if chosen
+    if (avatar || aiAvatar) {
+      setUsers(prev => prev.map(u =>
+        u.id === currentUser
+          ? { ...u, avatar: avatar || u.avatar, aiAvatar: aiAvatar || u.aiAvatar }
+          : u
+      ));
+    }
+    setShowWelcome(false);
+  }, [initialUserId, currentUser]);
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
@@ -1507,6 +1519,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           50% { box-shadow: 0 4px 32px ${t.accent}88, 0 2px 12px rgba(0,0,0,0.4); }
         }
       `}</style>
+
+      {/* WELCOME MODAL — first login only */}
+      {showWelcome && initialUserId && me && (
+        <WelcomeModal
+          user={me}
+          t={t}
+          totalStages={total}
+          onDismiss={handleWelcomeDismiss}
+        />
+      )}
 
       {/* Error / action toast stack */}
       <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
