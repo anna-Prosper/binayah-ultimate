@@ -280,7 +280,7 @@ export default function OverviewPanel({
                                   </span>
                                 </>
                               )}
-                              <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }}>
+                              <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }} title={new Date(entry.time).toLocaleString()}>
                                 {relativeTime(entry.time)}
                               </span>
                             </div>
@@ -396,6 +396,11 @@ export default function OverviewPanel({
 
                 {/* Stage rows */}
                 <div style={{ borderTop: `1px solid ${t.border}` }}>
+                  {stages.length === 0 && (
+                    <div style={{ padding: "20px 24px", textAlign: "center", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
+                      // no stages yet — add some to this pipeline
+                    </div>
+                  )}
                   {stages.map((name, i) => {
                     const status = getStatus(name);
                     const col = sc[status]?.c || t.textDim;

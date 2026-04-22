@@ -31,6 +31,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInputError, setAiInputError] = useState<string | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
+  const [sseHasConnected, setSseHasConnected] = useState(false); // true after first successful open
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -54,6 +55,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       es.onopen = () => {
         if (!mountedRef.current) return;
         setSseConnected(true);
+        setSseHasConnected(true);
         backoffRef.current = 1000; // reset backoff on successful connection
       };
 
@@ -162,8 +164,8 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
           {tab === "team" ? "team chat" : "binayah ai"}
         </span>
-        {/* Reconnecting indicator */}
-        {tab === "team" && !sseConnected && (
+        {/* M-2: Only show "reconnecting" after we've had a successful connection before; otherwise it's just "connecting" */}
+        {tab === "team" && !sseConnected && sseHasConnected && (
           <span style={{ fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
             // reconnecting...
           </span>

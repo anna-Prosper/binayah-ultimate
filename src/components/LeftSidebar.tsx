@@ -100,7 +100,7 @@ export default function LeftSidebar({
           borderTop: `1px solid ${t.border}`,
         }}>
           <div style={{ padding: "6px 14px", fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600 }}>
-            pipelines
+            workspaces
           </div>
           {pipelines.map(p => {
             const isActive = activePipelineId === p.id;

@@ -214,6 +214,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
     whiteSpace: "nowrap" as const,
     gap: 5,
     position: "relative" as const,
+    minHeight: 44,
   };
 
   const visibleNotifs = notifications.slice(0, MAX_VISIBLE);
@@ -441,6 +442,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                             fontFamily: "var(--font-dm-mono), monospace",
                             marginTop: 2,
                           }}
+                          title={new Date(item.time).toLocaleString()}
                         >
                           {relativeTime(item.time)}
                         </div>

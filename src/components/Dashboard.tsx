@@ -79,7 +79,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (typeof window === "undefined") return false;
     return !checkSchemaVersion();
   });
-  const [isDark, setIsDark] = useState(() => lsGet("isDark", false));
+  const [isDark, setIsDark] = useState(() => lsGet("isDark", true));
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
@@ -123,6 +123,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
   const [viewingUser, setViewingUser] = useState<string | null>(null);
+  const viewingUserPopupRef = useRef<HTMLDivElement>(null);
   const [ptsFlash, setPtsFlash] = useState(false);
   const prevMyPtsRef = useRef(0);
   const [reactOpen, setReactOpen] = useState<string | null>(null);
@@ -183,10 +184,28 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         e.preventDefault();
         setShowPalette(prev => !prev);
       }
+      // S-1: Escape closes viewingUser popup
+      if (e.key === "Escape") {
+        setViewingUser(null);
+        setShowThemePicker(false);
+        setReactOpen(null);
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, []);
+
+  // S-1: Click-outside detection for viewingUser popup
+  useEffect(() => {
+    if (!viewingUser) return;
+    const handler = (e: MouseEvent) => {
+      if (viewingUserPopupRef.current && !viewingUserPopupRef.current.contains(e.target as Node)) {
+        setViewingUser(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [viewingUser]);
 
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
@@ -828,7 +847,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
-  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
+  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5, minHeight: 44 };
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
@@ -873,7 +892,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             )}
 
             {/* Chat */}
-            <button onClick={e => { e.stopPropagation(); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat">
+            <button onClick={e => { e.stopPropagation(); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat" aria-label="Open team chat">
               {"\uD83D\uDCAC"}
               {chatNotif && !showChat && (
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
@@ -886,14 +905,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             )}
 
             {/* Activity bell */}
-            <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Activity">
+            <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Notifications" aria-label="View notifications">
               {"\uD83D\uDD14"}
               {unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 7, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
 
             {/* Documents — mobile only (desktop uses sidebar) */}
             {isMobile && (
-              <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 14 }} title="Documents">
+              <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 14 }} title="Documents" aria-label="View documents">
                 {"📄"}
               </button>
             )}
@@ -910,7 +929,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
             {/* Theme picker */}
             <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
-              <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Switch theme">
+              <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Change theme" aria-label="Change theme">
                 {t.icon} <span style={{ fontSize: 8 }}>{"\u25BE"}</span>
               </button>
               {showThemePicker && (
@@ -966,7 +985,10 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
               {/* Stats popup — my stats (rich) or other user (read-only) */}
               {viewingUser === u.id && (
-                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 18, padding: "16px", minWidth: 210, maxWidth: "calc(100vw - 32px)", boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
+                <div ref={viewingUserPopupRef} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 18, padding: "16px 16px 16px 16px", minWidth: 210, maxWidth: "min(320px, calc(100vw - 32px))", boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
+
+                  {/* × close button */}
+                  <button onClick={() => setViewingUser(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, color: t.textDim, lineHeight: 1, padding: "2px 6px", borderRadius: 6 }} aria-label="Close">×</button>
 
                   {/* Header */}
                   <div style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 12 }}>
@@ -1416,7 +1438,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 {COLOR_OPTIONS.map(c => <div key={c} onClick={() => setNewPipeForm(p => ({ ...p, colorKey: c }))} style={{ width: 14, height: 14, borderRadius: "50%", background: ck[c], cursor: "pointer", border: newPipeForm.colorKey === c ? `2px solid ${t.text}` : "2px solid transparent", flexShrink: 0 }} />)}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={addCustomPipeline} style={{ background: t.accent, border: "none", borderRadius: 10, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace" }}>create pipeline</button>
+                <button onClick={addCustomPipeline} disabled={!newPipeForm.name.trim()} style={{ background: t.accent, border: "none", borderRadius: 10, padding: "8px 20px", cursor: newPipeForm.name.trim() ? "pointer" : "not-allowed", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", opacity: newPipeForm.name.trim() ? 1 : 0.45, transition: "opacity 0.15s" }}>create pipeline</button>
                 <button onClick={() => setAddingPipeline(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
               </div>
             </div>

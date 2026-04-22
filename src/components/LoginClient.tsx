@@ -437,25 +437,31 @@ export default function LoginClient() {
             <div style={{ flex: 1, height: 1, background: t.border }} />
           </div>
 
-          {/* Email toggle */}
-          <div style={{ marginTop: 16 }}>
+          {/* Email toggle — styled as secondary CTA matching Google button height */}
+          <div style={{ marginTop: 12 }}>
             <button
               className="login-email-link"
               onClick={() => { setEmailExpanded(!emailExpanded); clearError(); }}
               disabled={isInFlight}
               style={{
-                background: "none",
-                border: "none",
-                padding: 0,
+                width: "100%",
+                height: 44,
+                background: "transparent",
+                border: `1px solid ${t.border}`,
+                borderRadius: 10,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
                 cursor: isInFlight ? "not-allowed" : "pointer",
                 fontFamily: "var(--font-dm-mono), monospace",
                 fontSize: 13,
                 color: t.textSec,
-                transition: "color 0.15s",
-                display: "inline-block",
+                transition: "border-color 0.15s, color 0.15s",
+                opacity: isInFlight ? 0.5 : 1,
               }}
             >
-              {emailExpanded ? "hide ↑" : "sign in with email →"}
+              {emailExpanded ? "✕ hide email form" : "✉ sign in with email"}
             </button>
           </div>
 
