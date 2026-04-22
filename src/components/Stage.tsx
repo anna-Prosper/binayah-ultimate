@@ -5,7 +5,8 @@ import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
-import mockups from "@/components/mockups/mockupsMap";
+import mockupsMap from "@/components/mockups/mockupsMap";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import BottomSheet from "@/components/ui/BottomSheet";
 
 interface StageProps {
@@ -78,7 +79,7 @@ export default function Stage({
   const effectiveStatus = getStatus(name);
   const st = sc[effectiveStatus] ?? { l: "concept", c: "#888" };
   const claimedBy = claims[name] || [];
-  const mock = mockups[name] as ((t: T) => React.ReactNode) | undefined;
+  const MockupComp = mockupsMap[name] ?? null;
   const tasks = subtasks[name] || [];
   const cmts = comments[name] || [];
   const tasksDone = tasks.filter(x => x.done).length;
@@ -158,7 +159,7 @@ export default function Stage({
             </button>}
 
             {/* Preview badge — indicates stage has a mockup */}
-            {mock && !(isMobile ? mobileSheetOpen : isE) && (
+            {MockupComp && !(isMobile ? mobileSheetOpen : isE) && (
               <span style={{ fontSize: 7, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 6, padding: "1px 6px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
             )}
 
@@ -327,7 +328,7 @@ export default function Stage({
             {/* Gallery panel — collapsible */}
             {(() => {
               const imgs = stageImages[name] || [];
-              const hasMock = !!mock;
+              const hasMock = !!MockupComp;
               const totalCount = (hasMock ? 1 : 0) + imgs.length;
               return (
                 <div style={{ borderTop: `1px solid ${t.border}` }}>
@@ -359,7 +360,11 @@ export default function Stage({
                           {hasMock && (
                             <div style={{ gridColumn: "1 / -1", borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
                               <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
-                              <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>{mock(t)}</div>
+                              <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
+                                <ErrorBoundary>
+                                  {MockupComp && <MockupComp t={t} />}
+                                </ErrorBoundary>
+                              </div>
                             </div>
                           )}
                           {imgs.map((src, i) => (
@@ -460,12 +465,14 @@ export default function Stage({
               </div>
             </div>
 
-            {/* Mockup (if available) */}
-            {mock && (
+            {/* Mockup (if available) — lazy-loaded component */}
+            {MockupComp && (
               <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${t.border}` }}>
                 <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, padding: "10px 0 8px", opacity: 0.8 }}>▸ live preview</div>
                 <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
-                  {mock(t)}
+                  <ErrorBoundary>
+                    <MockupComp t={t} />
+                  </ErrorBoundary>
                 </div>
               </div>
             )}

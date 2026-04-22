@@ -1,149 +1,377 @@
 "use client";
 
-import { T } from "@/lib/themes";
-import { Phone, WaM, WaSys, Browser, Term, TL, Notifs } from "./MockupShells";
-import { Bar, Stat, ScoreCircle } from "@/components/ui/primitives";
+/**
+ * mockupsMap — lazy component map for per-stage mockup code-splitting.
+ *
+ * Each entry is a next/dynamic lazy component (ssr:false) accepting { t: T }.
+ * Stage.tsx renders <MockupComponent t={t} /> instead of calling a render function.
+ *
+ * Grouping strategy: one file per pipeline section → 7 chunks.
+ * Only the chunk for the open stage's pipeline loads, not all mockup code.
+ */
 
-const mockups: Record<string, (t: T) => React.ReactNode> = {
+import dynamic from "next/dynamic";
+import React from "react";
+import { T } from "@/lib/themes";
+import { MockupSkeleton } from "@/components/ui/Skeletons";
+
+type MockupProps = { t: T };
+
+// Skeleton factory — needs t at render time, not at module-level.
+// We use a wrapper component so we can pass t to MockupSkeleton.
+function makeSkeleton() {
+  // This is the loading slot. next/dynamic loading() does NOT receive props,
+  // so we render a static placeholder. The real skeleton with t colors
+  // is shown via Suspense wrapping in Stage.tsx.
+  return function MockupLoadingPlaceholder() {
+    return (
+      <div
+        style={{
+          height: 200,
+          borderRadius: 8,
+          background: "rgba(255,255,255,0.04)",
+          animation: "skeletonPulse 1.5s ease-in-out infinite",
+        }}
+      />
+    );
+  };
+}
+
+const loadingPlaceholder = makeSkeleton();
 
 // ─── RESEARCH ──────────────────────────────────────────────────────────────
-
-"OpenClaw Research":(t)=>(<Browser t={t} url="docs.openclaw.ai/compare"><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>{[{n:"Qwen 3.6+",cost:"FREE",s:92,q:78,c:t.green},{n:"Claude Proxy",cost:"$0*",s:71,q:95,c:t.accent},{n:"Ollama",cost:"FREE",s:45,q:62,c:t.amber},{n:"Claude API",cost:"$$/tok",s:88,q:97,c:t.purple}].map(m=>(<div key={m.n} style={{background:t.surface,borderRadius:5,padding:5}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6.5,fontWeight:700,color:m.c}}>{m.n}</span><span style={{fontSize:5.5,color:t.textDim}}>{m.cost}</span></div><div style={{display:"flex",alignItems:"center",gap:2,marginTop:2}}><span style={{fontSize:5,color:t.textDim,width:20}}>Spd</span><div style={{flex:1,height:3,background:t.border,borderRadius:2}}><div style={{width:`${m.s}%`,height:"100%",background:m.c,borderRadius:2}}/></div></div><div style={{display:"flex",alignItems:"center",gap:2,marginTop:1}}><span style={{fontSize:5,color:t.textDim,width:20}}>Qual</span><div style={{flex:1,height:3,background:t.border,borderRadius:2}}><div style={{width:`${m.q}%`,height:"100%",background:m.c,borderRadius:2}}/></div></div></div>))}</div></Browser>),
-
-"Dev Pipeline Research":(t)=>(<Browser t={t} url="admin/pipeline-test"><div style={{display:"flex",flexDirection:"column",gap:2}}>{[{n:"PM reads TASKS.md",icon:"📋",c:t.accent,done:true,ms:"0.2s"},{n:"Dev Agent writes code",icon:"💻",c:t.green,done:true,ms:"4.1s"},{n:"QA Agent reviews",icon:"🔍",c:t.amber,done:true,ms:"1.3s"},{n:"Fix loop (0 fails)",icon:"♻",c:t.purple,done:true,ms:"—"},{n:"git push → deploy",icon:"🚀",c:t.cyan||t.accent,done:false,ms:"..."}].map((s,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5,background:s.done?t.surface+"88":t.surface,borderRadius:5,padding:"4px 6px",opacity:s.done?1:0.45}}><div style={{width:15,height:15,borderRadius:"50%",background:s.done?s.c+"22":"transparent",border:`1.5px solid ${s.c}`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:6,color:s.c,fontWeight:800,flexShrink:0}}>{s.done?"✓":i+1}</div><span style={{fontSize:7,fontWeight:600,color:t.text,flex:1}}>{s.n}</span><span style={{fontSize:5.5,color:t.textDim,fontFamily:"monospace"}}>{s.ms}</span></div>))}</div></Browser>),
-
-"Qdrant Research":(t)=>(<Browser t={t} url="qdrant.tech/compare"><div style={{marginBottom:5}}>{[["","Local","Cloud","Pinecone"],["Cost/mo","$0","$25+","$70+"],["Latency","12ms","28ms","45ms"],["Privacy","✓ NDA","Cloud","Cloud"],["Setup","Medium","Easy","Easy"]].map((r,i)=>(<div key={i} style={{display:"flex",gap:0,borderBottom:`1px solid ${t.border}22`,paddingBottom:2,marginBottom:2}}>{r.map((c,j)=>(<span key={j} style={{flex:1,fontSize:i===0?5.5:6,fontWeight:i===0||j===0?700:j===1&&i>0?600:400,color:i===0?t.textMuted:j===0?t.textSec:j===1&&i>0?t.green:t.textDim,textAlign:j>0?"center":"left" as const}}>{c}</span>))}</div>))}</div><div style={{background:t.green+"12",borderRadius:5,padding:"3px 6px",display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6,color:t.green,fontWeight:700}}>→ Qdrant Local recommended</span><span style={{fontSize:5.5,color:t.green}}>NDA safe ✓</span></div></Browser>),
-
-"Hosting Strategy":(t)=>(<Browser t={t} url="admin/infra-decision"><div style={{display:"flex",gap:4,marginBottom:5}}>{[{n:"DO Docker",p:"$12/mo",rec:true,c:t.green,sub:"Start here"},{n:"AWS ECS",p:"$30/mo",rec:false,c:t.accent,sub:"When scaling"}].map(x=>(<div key={x.n} style={{flex:1,background:t.surface,borderRadius:6,padding:"6px 5px",border:`1px solid ${x.rec?x.c+"55":t.border}`,textAlign:"center"}}><div style={{fontSize:7,fontWeight:700,color:x.c}}>{x.n}</div><div style={{fontSize:13,fontWeight:900,color:t.text,margin:"2px 0"}}>{x.p}</div><div style={{fontSize:5.5,color:x.rec?x.c:t.textDim}}>{x.rec?"✓ RECOMMENDED":x.sub}</div></div>))}</div>{[{l:"Deploy speed",a:95,b:60},{l:"Cost",a:90,b:50},{l:"Scale ceiling",a:55,b:95}].map(x=>(<div key={x.l} style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}><span style={{fontSize:5.5,color:t.textDim,width:52}}>{x.l}</span><div style={{flex:1,height:4,background:t.surface,borderRadius:2}}><div style={{width:`${x.a}%`,height:"100%",background:t.green,borderRadius:2}}/></div><span style={{fontSize:5,color:t.textDim,width:14,textAlign:"right"}}>{x.a}%</span></div>))}</Browser>),
-
-"Infra Setup":(t)=>(<Term t={t}><TL c="#888">$ ./deploy.sh binayah-vps</TL><TL>{"✓"} Docker 24.0 installed</TL><TL>{"✓"} OpenClaw deployed :8080</TL><TL>{"✓"} Models loaded: qwen3.6</TL><TL>{"✓"} WhatsApp API connected</TL><TL c="#fbbf24">{"○"} Running first agent test...</TL><TL c="#4afa83">{"→"} PM Agent: ready 🟢</TL></Term>),
+const OpenClawResearch = dynamic<MockupProps>(
+  () => import("./ResearchMockups").then(m => ({ default: m.OpenClawResearch })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DevPipelineResearch = dynamic<MockupProps>(
+  () => import("./ResearchMockups").then(m => ({ default: m.DevPipelineResearch })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const QdrantResearch = dynamic<MockupProps>(
+  () => import("./ResearchMockups").then(m => ({ default: m.QdrantResearch })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const HostingStrategy = dynamic<MockupProps>(
+  () => import("./ResearchMockups").then(m => ({ default: m.HostingStrategy })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const InfraSetup = dynamic<MockupProps>(
+  () => import("./ResearchMockups").then(m => ({ default: m.InfraSetup })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── DEV PIPELINE ──────────────────────────────────────────────────────────
-
-"PM Agent":(t)=>(<Browser t={t} url="admin/pm-agent"><div style={{fontSize:7,fontWeight:800,color:t.text,marginBottom:5}}>📋 Sprint Queue</div>{[{task:"WA slot booking logic",p:"P1",c:t.red,by:"Dev Agent"},{task:"/hi multilingual page",p:"P2",c:t.amber,by:"Dev Agent"},{task:"Lead score webhook",p:"P3",c:t.accent,by:"Queued"}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:5.5,fontWeight:800,color:x.c,background:x.c+"18",padding:"1px 4px",borderRadius:3}}>{x.p}</span><span style={{fontSize:6.5,color:t.text,flex:1}}>{x.task}</span><span style={{fontSize:5.5,color:t.textDim}}>{x.by}</span></div>))}<div style={{fontSize:6,color:t.textDim,marginTop:4}}>3 tasks in LOG.md · 2 completed today</div></Browser>),
-
-"Dev Agent":(t)=>(<Term t={t}><TL c="#888">$ claude-code --task=P1</TL><TL c="#5b9cf6">↳ Reading wa-scheduler.ts</TL><TL c="#5b9cf6">↳ Analyzing 4 related files</TL><TL>Writing slot-booking logic...</TL><TL>Tests: ✓ 18/18 passing</TL><TL c="#4afa83">git commit -m "feat: WA scheduler"</TL><TL c="#4afa83">→ QA Agent notified 🟢</TL></Term>),
-
-"QA Agent":(t)=>(<Browser t={t} url="admin/qa-review"><div style={{fontSize:7,fontWeight:800,color:t.text,marginBottom:4}}>🔍 feat: WA scheduler</div>{[{c:"Code correctness",p:true},{c:"18/18 tests passing",p:true},{c:"Error handling",p:true},{c:"Edge: double-book?",p:false}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 0"}}><span style={{fontSize:7,color:x.p?t.green:t.red,fontWeight:700}}>{x.p?"✓":"✗"}</span><span style={{fontSize:6.5,color:x.p?t.textSec:t.red}}>{x.c}</span></div>))}<div style={{background:t.red+"12",borderRadius:5,padding:"3px 6px",marginTop:4,display:"flex",gap:4}}><span style={{fontSize:6,color:t.red}}>↩ Sent back: fix L94 double-book case → Dev Agent</span></div></Browser>),
-
-"Code Review":(t)=>(<Browser t={t} url="admin/review-queue"><div style={{background:t.green+"10",border:`1px solid ${t.green}33`,borderRadius:6,padding:"5px 7px",marginBottom:5}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:7,fontWeight:700,color:t.text}}>feat: WA scheduler</span><span style={{fontSize:5.5,color:t.green,fontWeight:700}}>QA ✓ PASSED</span></div><div style={{fontSize:5.5,color:t.textDim,marginTop:1}}>3 files · 127 additions · 14 deletions</div></div>{[{c:"Works end-to-end?",ok:true},{c:"Obvious edge cases?",ok:true},{c:"Ready to ship?",ok:true}].map((x,i)=>(<div key={i} style={{display:"flex",gap:4,padding:"1.5px 0"}}><span style={{fontSize:6.5,color:x.ok?t.green:t.amber}}>{x.ok?"✓":"?"}</span><span style={{fontSize:6.5,color:t.textSec}}>{x.c}</span></div>))}<div style={{display:"flex",gap:3,marginTop:5}}><div style={{flex:1,background:t.green,borderRadius:4,padding:"3px 0",textAlign:"center",fontSize:6,color:"#fff",fontWeight:700}}>✓ Merge</div><div style={{flex:1,background:t.surface,borderRadius:4,padding:"3px 0",textAlign:"center",fontSize:6,color:t.textSec}}>→ PM Agent</div></div></Browser>),
-
-"Content Factory":(t)=>(<Browser t={t} url="admin/launch-kit"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><span style={{fontSize:7.5,fontWeight:800,color:t.text}}>🚀 Creek Vista T3</span><span style={{fontSize:6,color:t.green,fontWeight:700}}>12 min</span></div>{[["📝","Blog","8 langs","✓"],["📱","Social","LI · IG · X","✓"],["📧","Email","4 segments","✓"],["💬","WA draft","Broadcast","✓"],["🌐","Landing","SEO ready","✓"],["🎬","Video script","Abdullah","✓"]].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0",borderBottom:`1px solid ${t.border}11`}}><span style={{fontSize:9}}>{x[0]}</span><span style={{fontSize:6.5,color:t.text,flex:1,fontWeight:600}}>{x[1]}</span><span style={{fontSize:5.5,color:t.textDim}}>{x[2]}</span><span style={{fontSize:6,color:t.green,fontWeight:700}}>{x[3]}</span></div>))}<div style={{background:t.amber+"12",borderRadius:4,padding:"3px 6px",marginTop:4}}><span style={{fontSize:6,color:t.amber,fontWeight:600}}>⏳ Pending Approval Hub review</span></div></Browser>),
+const PMAgent = dynamic<MockupProps>(
+  () => import("./DevMockups").then(m => ({ default: m.PMAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DevAgent = dynamic<MockupProps>(
+  () => import("./DevMockups").then(m => ({ default: m.DevAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const QAAgent = dynamic<MockupProps>(
+  () => import("./DevMockups").then(m => ({ default: m.QAAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const CodeReview = dynamic<MockupProps>(
+  () => import("./DevMockups").then(m => ({ default: m.CodeReview })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ContentFactory = dynamic<MockupProps>(
+  () => import("./DevMockups").then(m => ({ default: m.ContentFactory })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── CORE PLATFORM ─────────────────────────────────────────────────────────
-
-"Property API":(t)=>(<Term t={t}><TL c="#5b9cf6">GET /api/properties?area=marina&max=2M&beds=2</TL><TL c="#888">200 OK · 47 results · 31ms</TL><TL>{`{ id:"mrn_t2", roi:7.2, dev:"Emaar" }`}</TL><TL c="#888">━━━━━━━━━━━━━━━━━━</TL><TL c="#fbbf24">Consumers: Bot · Web · Calc · Content</TL><TL c="#4afa83">Uptime: 99.98% · Cache: 94% hit</TL></Term>),
-
-"CRM Integration":(t)=>(<Browser t={t} url="admin/crm-status">{[{n:"Lead Responder",s:"Live",c:t.green},{n:"Behavior Scoring",s:"Live",c:t.green},{n:"Approval Hub",s:"Pending",c:t.amber},{n:"KPI Dashboard",s:"Pending",c:t.amber},{n:"WA Communities",s:"Planned",c:t.purple},{n:"Leak Detector",s:"Planned",c:t.purple}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:6.5,color:t.text}}>{x.n}</span><span style={{fontSize:6,color:x.c,fontWeight:700,background:x.c+"12",padding:"1px 5px",borderRadius:4}}>{x.s}</span></div>))}</Browser>),
-
-"Approval Hub":(t)=>(<Notifs t={t} items={[{t:"📧 RU Newsletter",body:"Ruble analysis + 4 listings · AI draft",time:"2m",c:t.accent,action:"✓ Approve  ✎ Edit  ✗ Reject"},{t:"💬 Follow-up · Ahmed K.",body:"3 days silent — new Palm match found",time:"5m",c:t.amber,action:"✓ Send  ✎ Edit"},{t:"📝 Blog · 'Hidden costs'",body:"8 languages · SEO optimized",time:"1h",c:t.green,action:"✓ Published"}]}/>),
-
-"Knowledge Base":(t)=>(<Term t={t}><TL c="#888">$ qdrant-index --all</TL><TL c="#5b9cf6">↳ Indexing codebase...</TL><TL>{"✓"} 2,847 code chunks indexed</TL><TL>{"✓"} 412 business doc chunks</TL><TL>{"✓"} 891 past PR chunks</TL><TL c="#888">━━━━ search test ━━━━</TL><TL c="#5b9cf6">query: "marina roi 2024"</TL><TL c="#4afa83">{"→"} 3 results · 23ms 🟢</TL></Term>),
-
-"KPI Dashboard":(t)=>(<Browser t={t} url="crm.binayah.com/kpi"><div style={{display:"flex",gap:3,marginBottom:5}}><Stat t={t} label="Response" value="47s" color={t.green}/><Stat t={t} label="Conv %" value="3.8" color={t.accent}/><Stat t={t} label="Pipeline" value="$4.2M" color={t.purple}/><Stat t={t} label="QA Pass" value="94%" color={t.green}/></div><Bar t={t} label="🇷🇺 Russia" value={34} color={t.accent}/><Bar t={t} label="🇮🇳 India" value={28} color={t.green}/><Bar t={t} label="🇹🇷 Turkey" value={18} color={t.amber}/><Bar t={t} label="🇨🇳 China" value={11} color={t.cyan||t.accent}/></Browser>),
-
-"Translation Memory":(t)=>(<Browser t={t} url="admin/translations"><div style={{display:"flex",gap:3,marginBottom:5}}><Stat t={t} label="Terms" value="847" color={t.accent}/><Stat t={t} label="Languages" value="8" color={t.green}/><Stat t={t} label="Saved" value="$420" color={t.amber}/></div>{[{en:"Sea view apt",ru:"Квартира с видом",n:142},{en:"Payment plan",ru:"План оплаты",n:89},{en:"Golden Visa",ru:"Золотая виза",n:67}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginBottom:2}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.en}</span><span style={{fontSize:5.5,color:t.textDim}}>×{x.n}</span></div><div style={{fontSize:6,color:t.accent}}>🇷🇺 {x.ru}</div></div>))}</Browser>),
+const PropertyAPI = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.PropertyAPI })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const CRMIntegration = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.CRMIntegration })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ApprovalHub = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.ApprovalHub })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const KnowledgeBase = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.KnowledgeBase })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const KPIDashboard = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.KPIDashboard })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const TranslationMemory = dynamic<MockupProps>(
+  () => import("./CoreMockups").then(m => ({ default: m.TranslationMemory })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── COMMS HUB ─────────────────────────────────────────────────────────────
-
-"WA Translation":(t)=>(<Phone t={t} title="Alexei 🇷🇺"><WaM text="Ищу квартиру, бюджет 2М" time="10:23"/><WaSys text="🔄 RU→EN  ·  0.3¢"/><WaM out label="Agent sees" text="Looking for apartment, 2M AED" time="10:23"/><WaM out label="Agent types" text="3 great sea-view options!" time="10:24"/><WaSys text="🔄 EN→RU  ·  0.3¢"/><WaM out label="Client gets" text="3 варианта с видом на море!" time="10:24"/></Phone>),
-
-"AI Sales Agent":(t)=>(<Phone t={t} title="Binayah AI 🤖"><WaM text="预算300万，高回报" time="14:02"/><WaM out text={"Conf: 94% ✓\n最佳：BizBay 7.2%\nJVC 7.8% · 12套 📋"} time="14:02"/><WaM text="发给我详情" time="14:03"/><WaM out text="Sending 3 listings to Sarah 👋" time="14:03"/><WaSys text="→ Briefing card sent to agent"/></Phone>),
-
-"Timezone Drips":(t)=>(<Browser t={t} url="admin/drip-scheduler">{[{tz:"🇷🇺 Moscow",local:"9:00 AM",s:"✓ Sent",c:t.green},{tz:"🇮🇳 Mumbai",local:"10:30 AM",s:"Queued",c:t.amber},{tz:"🇨🇳 Beijing",local:"8:00 AM",s:"Tomorrow",c:t.accent},{tz:"🇹🇷 Istanbul",local:"12:00 PM",s:"Queued",c:t.amber}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",borderBottom:`1px solid ${t.border}22`}}><div><span style={{fontSize:6.5,color:t.text}}>{x.tz}</span><span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.local}</span></div><span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.s}</span></div>))}</Browser>),
-
-"WA Compliance":(t)=>(<Browser t={t} url="admin/wa-health"><div style={{display:"flex",gap:3,marginBottom:5}}><Stat t={t} label="Quality" value="High" color={t.green}/><Stat t={t} label="Opt-in" value="94%" color={t.accent}/><Stat t={t} label="Templates" value="12/12" color={t.green}/></div>{[{n:"Marketing template",s:"Approved",c:t.green},{n:"Follow-up sequence",s:"Approved",c:t.green},{n:"Bulk broadcast",s:"Under review",c:t.amber},{n:"Monthly report",s:"Draft",c:t.textDim}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:6.5,color:t.text}}>{x.n}</span><span style={{fontSize:6,color:x.c,fontWeight:600}}>{x.s}</span></div>))}</Browser>),
+const WATranslation = dynamic<MockupProps>(
+  () => import("./CommsMockups").then(m => ({ default: m.WATranslation })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const AISalesAgent = dynamic<MockupProps>(
+  () => import("./CommsMockups").then(m => ({ default: m.AISalesAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const TimezoneDrips = dynamic<MockupProps>(
+  () => import("./CommsMockups").then(m => ({ default: m.TimezoneDrips })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const WACompliance = dynamic<MockupProps>(
+  () => import("./CommsMockups").then(m => ({ default: m.WACompliance })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── MULTILINGUAL ENGINE ───────────────────────────────────────────────────
-
-"Multilingual Dirs":(t)=>(<Browser t={t} url="binayah.com/tr"><div style={{background:t.surface,borderRadius:6,padding:6,marginBottom:4}}><div style={{fontSize:8.5,fontWeight:800,color:t.text}}>🏠 Binayah Dubai</div><div style={{fontSize:6,color:t.textMuted}}>Dubai&apos;da en iyi gayrimenkuller</div><div style={{display:"flex",gap:4,marginTop:3}}><span style={{fontSize:6,color:t.amber,fontWeight:700}}>📅 Taksit planı</span><span style={{fontSize:6,color:t.green}}>✈ İstanbul direk uçuş</span></div></div><div style={{display:"flex",gap:2,flexWrap:"wrap"}}>{[{f:"🇷🇺",c:"/ru"},{f:"🇮🇳",c:"/hi"},{f:"🇹🇷",c:"/tr",active:true},{f:"🇨🇳",c:"/cn"},{f:"🇮🇷",c:"/fa"},{f:"🇫🇷",c:"/fr"},{f:"🇩🇪",c:"/de"},{f:"🇰🇿",c:"/kz"}].map(x=>(<span key={x.c} style={{fontSize:6,background:(x as {active?:boolean}).active?t.amber+"22":t.surface,padding:"1px 4px",borderRadius:3,color:(x as {active?:boolean}).active?t.amber:t.textMuted,border:(x as {active?:boolean}).active?`1px solid ${t.amber}44`:"none"}}>{x.f}{x.c}</span>))}</div></Browser>),
-
-"Regional SEO":(t)=>(<Browser t={t} url="yandex.ru / baidu.com"><div style={{marginBottom:4}}>{[{d:"binayah.ru",e:"Yandex",r:"#4",c:t.accent,note:"↑2 this week"},{d:"binayah.kz",e:"Yandex KZ",r:"#7",c:t.green,note:"New"},{d:"binayah.cn",e:"Baidu",r:"ICP pending",c:t.amber,note:"In review"},{d:"WeChat OA",e:"WeChat",r:"2.1K fans",c:t.purple,note:"Live"}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><div><span style={{fontSize:6.5,fontWeight:700,color:x.c}}>{x.d}</span><span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.e}</span></div><div style={{textAlign:"right"}}><span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.r}</span><span style={{fontSize:5,color:t.textDim,display:"block"}}>{x.note}</span></div></div>))}</div></Browser>),
-
-"Data Collection":(t)=>(<Browser t={t} url="admin/visitor-intel"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Sessions" value="4.2K" color={t.accent}/><Stat t={t} label="Countries" value="34" color={t.green}/><Stat t={t} label="Avg time" value="4:12" color={t.amber}/></div>{[{flag:"🇷🇺",n:"Russia",avg:"$820K",intent:"Invest",pct:34,c:t.accent},{flag:"🇮🇳",n:"India",avg:"$310K",intent:"EOI",pct:28,c:t.green},{flag:"🇹🇷",n:"Turkey",avg:"$540K",intent:"Reloc",pct:18,c:t.amber}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"2px 0"}}><span style={{fontSize:8}}>{x.flag}</span><span style={{fontSize:6,color:t.textSec,flex:1}}>{x.n} · {x.avg} · {x.intent}</span><div style={{width:40,height:3,background:t.border,borderRadius:2}}><div style={{width:`${x.pct}%`,height:"100%",background:x.c,borderRadius:2}}/></div></div>))}</Browser>),
-
-"Dynamic Homepage":(t)=>(<div style={{display:"flex",gap:3}}>{[{f:"🇷🇺",l:"Russian",a:"Marina · RUB",cta:"Golden Visa →",c:t.accent},{f:"🇮🇳",l:"Indian",a:"JVC · INR",cta:"EMI Calc →",c:t.green},{f:"🇹🇷",l:"Turkish",a:"Business Bay · TRY",cta:"Taksit →",c:t.amber}].map(v=>(<div key={v.l} style={{flex:1,background:t.surface,borderRadius:6,padding:"5px 4px",textAlign:"center"}}><span style={{fontSize:13}}>{v.f}</span><div style={{fontSize:6,fontWeight:700,color:v.c,marginTop:2}}>{v.l}</div><div style={{fontSize:5.5,color:t.textSec,marginTop:1}}>{v.a}</div><div style={{fontSize:5,color:v.c,marginTop:3,fontWeight:600}}>{v.cta}</div></div>))}</div>),
-
-"Newsletters":(t)=>(<Browser t={t} url="admin/push-newsletters">{[{f:"🇷🇺",s:"Ruble -4% hedge angle",o:"38%",sent:"4.2K"},{f:"🇮🇳",s:"JVC under 400K — NRI guide",o:"42%",sent:"3.1K"},{f:"🇹🇷",s:"0% ödeme planı öne çıkar",o:"31%",sent:"1.8K"}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6.5,color:t.textSec}}>{x.f} {x.s}</span></div><div style={{display:"flex",gap:6,marginTop:1}}><span style={{fontSize:5.5,color:t.green}}>↗ {x.o} open</span><span style={{fontSize:5.5,color:t.textDim}}>{x.sent} sent</span></div></div>))}</Browser>),
-
-"Geo Campaigns":(t)=>(<Browser t={t} url="admin/geo-campaigns">{[{flag:"🇹🇷",title:"Turkey surge +47%",status:"Pending approval",budget:"$200/d",c:t.red},{flag:"🇷🇺",title:"Russia bounce -12%",status:"Paused",budget:"—",c:t.amber},{flag:"🇮🇳",title:"India steady +8%",status:"Running",budget:"$80/d",c:t.green}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}><div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}><span style={{fontSize:7}}>{x.flag} <span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.title}</span></span><span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.budget}</span></div><div style={{fontSize:5.5,color:x.c,marginTop:1,fontWeight:600}}>{x.status}</div></div>))}</Browser>),
+const MultilingualDirs = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.MultilingualDirs })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const RegionalSEO = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.RegionalSEO })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DataCollection = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.DataCollection })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DynamicHomepage = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.DynamicHomepage })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const NewslettersMulti = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.Newsletters })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const GeoCampaigns = dynamic<MockupProps>(
+  () => import("./MultiMockups").then(m => ({ default: m.GeoCampaigns })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── LEAD LIFECYCLE ────────────────────────────────────────────────────────
-
-"Lead Responder":(t)=>(<Phone t={t} title="Bayut — Ahmed K."><WaSys text="Lead received · 10:23:00"/><WaM out text={"✓ 23s response\n2BR Marina options:\n1. Emaar T2 · 1.8M · 6.5%\n2. DAMAC · 1.6M · 7.1%\n→ Briefing sent to Sarah"} time="10:23"/><WaSys text="Sarah notified ·  score: 87"/></Phone>),
-
-"Behavior Scoring":(t)=>(<Browser t={t} url="crm/live-visitors">{[{id:"#4821",s:92,sig:"3rd visit · Marina 3BR · viewed payment plan",c:t.red,action:"🔔 Alert Sarah"},{id:"#4819",s:67,sig:"JVC · 2 visits · price filter used",c:t.amber,action:"Watch"},{id:"#4815",s:23,sig:"Bounced after 8s",c:t.textDim,action:"Ignore"}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 0",borderBottom:`1px solid ${t.border}22`}}><div style={{width:26,height:26,borderRadius:"50%",background:x.c+"15",border:`2px solid ${x.c}`,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}><span style={{fontSize:8,fontWeight:800,color:x.c}}>{x.s}</span></div><div style={{flex:1}}><div style={{fontSize:6,color:t.textSec,lineHeight:1.3}}>{x.sig}</div></div><span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.action}</span></div>))}</Browser>),
-
-"Lead Prediction":(t)=>(<Browser t={t} url="crm/prediction"><div style={{display:"flex",alignItems:"center",gap:8,marginBottom:5}}><ScoreCircle value={64} color={t.green}/><div><div style={{fontSize:7,fontWeight:700,color:t.text}}>Model accuracy: 64%</div><div style={{fontSize:6,color:t.green}}>2,400 records · improves weekly</div></div></div><Bar t={t} label="🇷🇺 Bayut" value={72} color={t.green}/><Bar t={t} label="🇮🇳 Web" value={58} color={t.amber}/><Bar t={t} label="🇬🇧 PF" value={45} color={t.amber}/><Bar t={t} label="🇩🇪 Cold" value={22} color={t.red}/></Browser>),
-
-"Leak Detector":(t)=>(<Notifs t={t} items={[{t:"⚠ Ahmed K. · 4 days silent",body:"NEW MATCH: Marina 2BR dropped to 1.6M",time:"9PM",c:t.red,action:"→ Auto-draft sent · approve?"},{t:"⚠ Olga S. · 3 days silent",body:"3 Palm listings under her budget",time:"9PM",c:t.amber,action:"→ Draft ready · approve?"},{t:"✓ Wei L. · responded",body:"Viewing booked for Wednesday",time:"9PM",c:t.green}]}/>),
-
-"Viewing Scheduler":(t)=>(<Phone t={t} title="Ahmed K."><WaM out text={"Available slots:\n📅 Sun 2PM · Mon 10AM\n📅 Tue 4PM · Wed 12PM\nWhich works?"} time="10:14"/><WaM text="Monday 10AM works" time="10:16"/><WaM out text={"✓ Booked Mon 10AM\nSarah will meet you at Marina T2 👋\nReminder sent"} time="10:17"/><WaSys text="→ Agent notified · reminder set"/></Phone>),
-
-"Deal Broadcaster":(t)=>(<Phone t={t} title="Price Drops 📉"><WaM out text={"📉 NEW DROP:\nMarina Heights T2\n1.3M → 1.2M (-7.7%)\n6.8% yield · Emaar"} time="6:00"/><WaSys text="→ 34 matching investors"/><WaM text="Interested, send details" time="6:09"/><WaM text="Still available?" time="6:14"/></Phone>),
-
-"Post-Sale Nurture":(t)=>(<Phone t={t} title="Olga S. 🇷🇺"><WaM out text={"🎉 1 year, Olga!\n📈 Your unit: +12.4%\n💰 Now worth 2.02M AED\n🚇 Metro station Q3 2025"} time="9:00"/><WaM text="Wow! My friend is looking too..." time="9:14"/><WaSys text="🎯 Referral detected → team alerted"/></Phone>),
-
-"WA Communities":(t)=>(<Phone t={t} title="🏗 Marina Watchers (38)"><WaM out label="🤖" text={"📊 Week update:\n12 txns · avg 1,840/sqft\nPrice trend: +2.1% MoM\n[Full report →]"} time="7:05"/><WaM text="Worth buying now or wait?" time="7:22"/><WaM out label="🤖" text={"Last 6mo: +14% appreciation\nHistorically Q1 is strongest 📋"} time="7:30"/></Phone>),
-
-"Investor Portal":(t)=>(<Browser t={t} url="portal.binayah.com/portfolio"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Occupancy" value="94%" color={t.green}/><Stat t={t} label="Rent YTD" value="142K" color={t.accent}/><Stat t={t} label="Appreciation" value="+18%" color={t.purple}/></div>{[{label:"Marina Heights 2BR",status:"Occupied",rent:"12,500/mo",val:"1.94M",cost:"2,400",c:t.green},{label:"JVC Studio",status:"Vacant 12d",rent:"—",val:"820K",cost:"180",c:t.red},{label:"Business Bay 1BR",status:"Renewing",rent:"9,800/mo",val:"1.45M",cost:"900",c:t.amber}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6.5,fontWeight:700,color:t.text}}>{x.label}</span><span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.status}</span></div><div style={{display:"flex",gap:8,marginTop:1}}><span style={{fontSize:5.5,color:t.textDim}}>Rent: {x.rent}</span><span style={{fontSize:5.5,color:t.textDim}}>Value: {x.val}</span><span style={{fontSize:5.5,color:t.textDim}}>Cost: {x.cost}</span></div></div>))}<div style={{background:t.purple+"10",borderRadius:4,padding:"3px 5px"}}><span style={{fontSize:5.5,color:t.purple}}>🤖 AI: JVC vacant — suggested AED 6,800/mo (-3%). Draft landlord message ready.</span></div></Browser>),
-
-"CRM Leaderboard":(t)=>(<Browser t={t} url="crm/leaderboard"><div style={{fontSize:7.5,fontWeight:800,color:t.text,marginBottom:4}}>🏆 This Week</div>{[{n:"Sarah M.",xp:2840,streak:12,c:t.amber,badge:"🔥"},{n:"Omar K.",xp:2310,streak:8,c:t.accent,badge:"💀"},{n:"Ali R.",xp:1890,streak:3,c:t.textSec,badge:"⚡"}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"3px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:7,fontWeight:800,color:x.c,width:12}}>{i+1}.</span><span style={{fontSize:7,fontWeight:700,color:t.text,flex:1}}>{x.n}</span><span style={{fontSize:6.5,color:t.purple}}>{x.xp}XP</span><span style={{fontSize:7}}>{x.badge}×{x.streak}</span></div>))}<div style={{background:t.amber+"12",borderRadius:5,padding:4,marginTop:4}}><div style={{fontSize:6,color:t.amber,fontWeight:600}}>📌 Daily: Follow up 5 leads → +200XP</div></div></Browser>),
+const LeadResponder = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.LeadResponder })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const BehaviorScoring = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.BehaviorScoring })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const LeadPrediction = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.LeadPrediction })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const LeakDetector = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.LeakDetector })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ViewingScheduler = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.ViewingScheduler })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DealBroadcaster = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.DealBroadcaster })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const PostSaleNurture = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.PostSaleNurture })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const WACommunities = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.WACommunities })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const InvestorPortal = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.InvestorPortal })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const CRMLeaderboard = dynamic<MockupProps>(
+  () => import("./LeadMockups").then(m => ({ default: m.CRMLeaderboard })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── CONTENT & INTEL ───────────────────────────────────────────────────────
-
-"Price Monitor":(t)=>(<Browser t={t} url="admin/competitor-scan"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Drops" value="12" color={t.red}/><Stat t={t} label="New" value="5" color={t.green}/><Stat t={t} label="Underpriced" value="3" color={t.amber}/></div>{[{s:"Bayut",n:"Marina 2BR -8%",c:t.red,time:"2h"},{s:"PF",n:"JVC 1BR new",c:t.green,time:"4h"},{s:"Dubizzle",n:"Arjan -120K",c:t.amber,time:"6h"}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><div><span style={{fontSize:6,fontWeight:700,color:x.c}}>{x.s}</span><span style={{fontSize:6.5,color:t.textSec,marginLeft:4}}>{x.n}</span></div><span style={{fontSize:5.5,color:t.textDim}}>{x.time} ago</span></div>))}</Browser>),
-
-"Morning Brief":(t)=>(<Phone t={t} title="Binayah AI ☀️"><WaM out text={"☀️ Apr 18 — Morning Brief\n\n📊 DLD: 47 txns, Marina +3%\n💰 Avg: 2.1M AED · +$4M pipeline\n\n🔔 12 hot leads to call\n⚠ 3 silent 48h+ (follow-up ready)\n\n🏆 Sarah: 3 viewings booked\n📈 SEO: +12% organic this week"} time="7:00"/></Phone>),
-
-"Market Reports":(t)=>(<Browser t={t} url="reports/apr-2026"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Txns" value="847" color={t.accent}/><Stat t={t} label="Avg" value="1.8M" color={t.green}/><Stat t={t} label="Growth" value="+2.8%" color={t.green}/></div><Bar t={t} label="Marina" value={82} color={t.accent}/><Bar t={t} label="JVC" value={94} color={t.green}/><Bar t={t} label="Downtown" value={71} color={t.amber}/><div style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginTop:3}}><span style={{fontSize:5.5,color:t.textDim}}>📥 Lead magnet: 234 downloads this week</span></div></Browser>),
-
-"Dev Reports":(t)=>(<Browser t={t} url="reports/developers"><div style={{display:"flex",gap:4,marginBottom:5}}><ScoreCircle value={87} color={t.green} size={40}/><div><div style={{fontSize:8,fontWeight:800,color:t.text}}>Emaar</div><div style={{fontSize:6,color:t.green,fontWeight:600}}>Top Tier</div></div><div style={{marginLeft:"auto"}}><ScoreCircle value={61} color={t.amber} size={40}/><div style={{fontSize:6,color:t.amber,textAlign:"center"}}>Azizi</div></div></div><Bar t={t} label="On-time" value={87} color={t.green}/><Bar t={t} label="Appreciation" value={78} color={t.accent}/><Bar t={t} label="Resale speed" value={64} color={t.amber}/></Browser>),
-
-"Off-Plan Eval":(t)=>(<Browser t={t} url="evaluate/creek-vista-t3"><div style={{display:"flex",alignItems:"center",gap:6,marginBottom:5}}><ScoreCircle value={82} color={t.green} size={44}/><div><div style={{fontSize:8,fontWeight:800,color:t.text}}>Creek Vista T3</div><div style={{fontSize:7,color:t.green,fontWeight:700}}>STRONG BUY</div><div style={{fontSize:5.5,color:t.textDim}}>Emaar · Q4 2027</div></div></div><Bar t={t} label="Developer" value={87} color={t.green}/><Bar t={t} label="ROI proj." value={71} color={t.amber}/><Bar t={t} label="Location" value={84} color={t.accent}/><Bar t={t} label="Risk" value={18} color={t.green}/></Browser>),
-
-"Viral Agent":(t)=>(<Browser t={t} url="admin/viral-agent"><div style={{background:t.amber+"15",borderRadius:6,padding:"4px 6px",marginBottom:4,display:"flex",gap:4,alignItems:"center"}}><span style={{fontSize:10}}>🔥</span><div><div style={{fontSize:6.5,fontWeight:700,color:t.amber}}>Trending: Golden visa 2026 changes</div><div style={{fontSize:5.5,color:t.textDim}}>LinkedIn · Reddit · Google · ×3 spike</div></div></div>{[["📝","Blog","8 langs · SEO","✓ ready"],["📱","Social","LI+IG+X","✓ ready"],["📧","Email","4 segments","✓ ready"],["💬","WA blast","Broadcast","✓ ready"]].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0",borderBottom:`1px solid ${t.border}11`}}><span style={{fontSize:8}}>{x[0]}</span><span style={{fontSize:6.5,color:t.text,flex:1,fontWeight:600}}>{x[1]}</span><span style={{fontSize:5.5,color:t.textDim}}>{x[2]}</span><span style={{fontSize:6,color:t.green,fontWeight:700}}>{x[3]}</span></div>))}<div style={{fontSize:6,color:t.amber,marginTop:3,fontWeight:600}}>⏳ Anna reviewing — publish in 15min</div></Browser>),
-
-"Video Agent":(t)=>(<Browser t={t} url="video/creek-vista-t3"><div style={{background:t.surface,borderRadius:8,padding:"8px 6px",textAlign:"center",marginBottom:4}}><div style={{fontSize:18,marginBottom:2}}>▶</div><div style={{fontSize:7.5,fontWeight:700,color:t.text}}>Creek Vista T3 Walkthrough</div><div style={{fontSize:6,color:t.textDim}}>AI script + voiceover · 90s</div><div style={{height:3,background:t.border,borderRadius:2,marginTop:4}}><div style={{width:"62%",height:"100%",background:t.accent,borderRadius:2}}/></div></div><div style={{display:"flex",gap:2,justifyContent:"center"}}>{["🇬🇧 EN","🇷🇺 RU","🇨🇳 ZH","🇹🇷 TR","🇮🇳 HI","🇩🇪 DE"].map(x=>(<span key={x} style={{fontSize:5.5,background:t.surface,padding:"1px 3px",borderRadius:3,color:t.cyan||t.accent}}>{x}</span>))}</div></Browser>),
-
-"Signal Detection":(t)=>(<Notifs t={t} items={[{t:"🚨 Microsoft HQ → Dubai",body:"10K+ exec relocations · target CFOs, CTOs, VPs",time:"2h ago",c:t.red,action:"→ Launch exec campaign"},{t:"📉 Ruble -6.2% today",body:"CIS buyers lose buying power — shift spend to AED",time:"4h ago",c:t.amber,action:"→ Hedge angle newsletter"},{t:"✈ New Istanbul–DXB route",body:"Flydubai daily from Jan 2026 · Turkish demand incoming",time:"1d ago",c:t.accent,action:"→ Turkish landing page"}]}/>),
-
-"ROI Calculator":(t)=>(<Browser t={t} url="tools/roi-calculator"><div style={{background:t.surface,borderRadius:6,padding:"5px 7px",marginBottom:4}}><div style={{fontSize:6,color:t.textDim,marginBottom:1}}>Marina 2BR — if you bought in 2019</div><div style={{fontSize:15,fontWeight:900,color:t.green}}>1.95M <span style={{fontSize:9}}>(+62%)</span></div><div style={{fontSize:6,color:t.accent}}>+380K rental income · net yield 7.1%</div></div><div style={{background:t.accent+"12",borderRadius:5,padding:"4px 6px"}}><div style={{fontSize:6,fontWeight:600,color:t.accent}}>📌 Similar opportunity today: Creek Vista T3 · 1.3M</div></div></Browser>),
-
-"Crypto Buyer Page":(t)=>(<Browser t={t} url="binayah.com/buy-with-crypto"><div style={{marginBottom:4}}><div style={{fontSize:8,fontWeight:800,color:t.text}}>Buy Dubai Property with Crypto</div><div style={{display:"flex",gap:2,marginTop:3,flexWrap:"wrap"}}>{[{s:"₿ BTC",c:"#f7931a"},{s:"Ξ ETH",c:"#627eea"},{s:"◎ USDT",c:"#26a17b"},{s:"◉ USDC",c:"#2775ca"}].map(x=>(<span key={x.s} style={{fontSize:6,background:x.c+"18",color:x.c,border:`1px solid ${x.c}33`,padding:"1px 5px",borderRadius:4,fontWeight:700}}>{x.s}</span>))}</div></div>{[{n:"RERA verify",s:"Check developer"},{"n":"Escrow open",s:"DLD supervised"},{"n":"Crypto transfer",s:"1-3 business days"},{"n":"Title deed",s:"Your name ✓"}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:5,padding:"2px 0"}}><div style={{width:14,height:14,borderRadius:"50%",background:t.accent+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:6,color:t.accent,fontWeight:800,flexShrink:0}}>{i+1}</div><div><span style={{fontSize:6.5,color:t.text,fontWeight:600}}>{x.n}</span><span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.s}</span></div></div>))}</Browser>),
-
-"Area Guides":(t)=>(<Browser t={t} url="binayah.com/areas/downtown"><div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}><div><div style={{fontSize:8,fontWeight:800,color:t.text}}>Downtown Dubai</div><div style={{fontSize:5.5,color:t.textDim}}>Burj Khalifa District</div></div><div style={{textAlign:"right"}}><div style={{fontSize:12,fontWeight:900,color:t.accent}}>78</div><div style={{fontSize:5,color:t.textDim}}>ROI score</div></div></div><Bar t={t} label="Lifestyle" value={94} color={t.accent}/><Bar t={t} label="ROI" value={74} color={t.green}/><Bar t={t} label="Schools" value={58} color={t.amber}/><div style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginTop:3}}><span style={{fontSize:5.5,color:t.textDim}}>Avg 3BR: 4.2M · 6.1% yield · ⚠ High service charge</span></div></Browser>),
-
-"Market Dashboard":(t)=>(<Browser t={t} url="binayah.com/market"><div style={{display:"flex",gap:3,marginBottom:5}}><Stat t={t} label="Txns" value="1,247" color={t.accent}/><Stat t={t} label="Sqft" value="1,840" color={t.green}/><Stat t={t} label="MoM" value="+2.8%" color={t.green}/><Stat t={t} label="YoY" value="+14%" color={t.purple}/></div><Bar t={t} label="Marina" value={87} color={t.accent}/><Bar t={t} label="Downtown" value={74} color={t.purple}/><Bar t={t} label="JVC" value={68} color={t.green}/><Bar t={t} label="Biz Bay" value={61} color={t.amber}/><div style={{fontSize:5.5,color:t.textDim,marginTop:3}}>🤖 AI: Marina +9% projected next 12mo</div></Browser>),
-
-"Social Agent":(t)=>(<Browser t={t} url="reddit.com/r/dubai"><div style={{background:t.surface,borderRadius:6,padding:"5px 6px",marginBottom:3}}><div style={{fontSize:6.5,fontWeight:700,color:t.text}}>Worth buying Dubai vs London right now?</div><div style={{fontSize:5.5,color:t.textDim}}>r/dubai · 127 upvotes · 43 comments</div></div><div style={{borderLeft:`2.5px solid ${t.accent}`,paddingLeft:6}}><div style={{display:"flex",gap:3,alignItems:"center",marginBottom:2}}><div style={{width:14,height:14,borderRadius:"50%",background:t.accent+"22",border:`1px solid ${t.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:7}}>B</div><span style={{fontSize:6,fontWeight:700,color:t.accent}}>Binayah_AI · 🔺 89</span></div><div style={{fontSize:6,color:t.textSec,lineHeight:1.4}}>Dubai: 7.1% yield, 0% tax, Golden Visa path. DLD data shows Marina +14% YoY. London: 3.2%, 28% CGT. Different risk profile but Dubai ROI is hard to beat right now.</div></div></Browser>),
-
-"Newsletter":(t)=>(<Browser t={t} url="newsletter.binayah.com"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Subscribers" value="2.4K" color={t.accent}/><Stat t={t} label="Open rate" value="48%" color={t.green}/><Stat t={t} label="Fwd rate" value="12%" color={t.amber}/></div><div style={{background:t.surface,borderRadius:5,padding:"5px 6px"}}><div style={{fontSize:6.5,fontWeight:700,color:t.text,marginBottom:2}}>This week&apos;s issue:</div><div style={{fontSize:6,color:t.textSec,lineHeight:1.4}}>&quot;The one thing nobody tells you about off-plan ROI (and why developers hate us for saying it)&quot;</div><div style={{fontSize:5.5,color:t.textDim,marginTop:2}}>1 insight · 1 data point · 1 honest take</div></div></Browser>),
+const PriceMonitor = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.PriceMonitor })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const MorningBrief = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.MorningBrief })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const MarketReports = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.MarketReports })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const DevReports = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.DevReports })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const OffPlanEval = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.OffPlanEval })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ViralAgent = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.ViralAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const VideoAgent = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.VideoAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const SignalDetection = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.SignalDetection })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ROICalculator = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.ROICalculator })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const CryptoBuyerPage = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.CryptoBuyerPage })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const AreaGuides = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.AreaGuides })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const MarketDashboard = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.MarketDashboard })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const SocialAgent = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.SocialAgent })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const Newsletter = dynamic<MockupProps>(
+  () => import("./ContentMockups").then(m => ({ default: m.Newsletter })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── OUTBOUND ──────────────────────────────────────────────────────────────
-
-"LinkedIn Scrape":(t)=>(<Browser t={t} url="apollo.io / phantombuster"><div style={{display:"flex",gap:3,marginBottom:4}}><Stat t={t} label="Flagged" value="47" color={t.accent}/><Stat t={t} label="Verified" value="31" color={t.green}/><Stat t={t} label="Hot" value="8" color={t.red}/></div>{[{n:"James T.",r:"CFO",sig:"'Relocating to Dubai'",s:94,c:t.red},{n:"Anna V.",r:"Dir",sig:"Company expanding UAE",s:77,c:t.amber},{n:"Wei L.",r:"VP",sig:"'Just moved to Dubai'",s:63,c:t.accent}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:6.5,fontWeight:700,color:t.text,flex:1}}>{x.n} · {x.r}</span><span style={{fontSize:5.5,color:t.textDim,flex:2}}>{x.sig}</span><div style={{width:20,height:20,borderRadius:"50%",background:x.c+"15",border:`1.5px solid ${x.c}`,display:"flex",alignItems:"center",justifyContent:"center"}}><span style={{fontSize:6.5,fontWeight:800,color:x.c}}>{x.s}</span></div></div>))}</Browser>),
-
-"Forum Listener":(t)=>(<Browser t={t} url="admin/forum-monitor">{[{s:"r/dubai",p:"'looking to buy investment property in Marina'",intent:"HIGH",c:t.red},{s:"r/expats",p:"'relocating to Dubai in March, need advice'",intent:"HIGH",c:t.amber},{s:"FB Dubai Expats",p:"'anyone recommend a property agent?'",intent:"MED",c:t.accent}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:6,fontWeight:700,color:x.c}}>{x.s}</span><span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.intent}</span></div><div style={{fontSize:6,color:t.textSec,lineHeight:1.3}}>&quot;{x.p}&quot;</div></div>))}</Browser>),
-
-"Cold Outreach System":(t)=>(<Browser t={t} url="admin/outreach-hub"><div style={{display:"flex",gap:3,marginBottom:5}}><Stat t={t} label="Verified" value="847" color={t.green}/><Stat t={t} label="Warming" value="78%" color={t.amber}/><Stat t={t} label="Replied" value="34" color={t.accent}/><Stat t={t} label="Meetings" value="7" color={t.purple}/></div>{[{n:"Email enrichment",s:"847 verified",c:t.green},{n:"Domain warming",s:"78% ready · 8 days left",c:t.amber},{n:"Sequence A (reloc)",s:"3 active · 8% reply",c:t.accent},{n:"Sequence B (invest)",s:"1 active · 12% reply",c:t.accent}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.n}</span><span style={{fontSize:6,color:x.c}}>{x.s}</span></div>))}</Browser>),
+const LinkedInScrape = dynamic<MockupProps>(
+  () => import("./OutboundMockups").then(m => ({ default: m.LinkedInScrape })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ForumListener = dynamic<MockupProps>(
+  () => import("./OutboundMockups").then(m => ({ default: m.ForumListener })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ColdOutreachSystem = dynamic<MockupProps>(
+  () => import("./OutboundMockups").then(m => ({ default: m.ColdOutreachSystem })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
 // ─── WEB TOOLS ─────────────────────────────────────────────────────────────
+const LoginMyList = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.LoginMyList })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const PropertyMap = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.PropertyMap })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const PropertyCompare = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.PropertyCompare })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const NeighbourhoodQuiz = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.NeighbourhoodQuiz })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const CityCalculator = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.CityCalculator })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const ScamChecker = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.ScamChecker })),
+  { ssr: false, loading: loadingPlaceholder }
+);
+const AreaFutureMap = dynamic<MockupProps>(
+  () => import("./WebToolsMockups").then(m => ({ default: m.AreaFutureMap })),
+  { ssr: false, loading: loadingPlaceholder }
+);
 
-"Login & My List":(t)=>(<Browser t={t} url="binayah.com/account"><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}><div style={{width:28,height:28,borderRadius:"50%",background:t.accent+"22",border:`2px solid ${t.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>👤</div><div><div style={{fontSize:7,fontWeight:700,color:t.text}}>Welcome back, Ahmed</div><div style={{fontSize:5.5,color:t.textDim}}>3 saved · 1 under review</div></div></div>{[{name:"Marina Heights 2BR",price:"1.6M",tag:"Saved",c:t.accent},{name:"JVC Studio · Payment plan",price:"720K",tag:"Saved",c:t.accent},{name:"My Palm apt · 3BR",price:"—",tag:"Under Review",c:t.amber}].map((x,i)=>(<div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}><span style={{fontSize:6.5,color:t.text,flex:1}}>{x.name}</span><span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.tag}</span></div>))}</Browser>),
-
-"Property Map":(t)=>(<Browser t={t} url="binayah.com/map"><div style={{display:"flex",flexDirection:"column",gap:2.5}}>{[{zone:"Marina",sqft:"1,840",trend:"+2.1%",risk:"⚠ 3 towers u/c",c:t.accent},{zone:"JVC",sqft:"980",trend:"+1.4%",risk:"✓ Low risk",c:t.green},{zone:"Downtown",sqft:"2,240",trend:"+3.1%",risk:"⚠ High service charge",c:t.amber}].map((x,i)=>(<div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",borderLeft:`2.5px solid ${x.c}`}}><div style={{display:"flex",justifyContent:"space-between"}}><span style={{fontSize:7,fontWeight:700,color:x.c}}>{x.zone}</span><span style={{fontSize:6.5,color:t.green,fontWeight:700}}>{x.trend}</span></div><div style={{display:"flex",gap:8,marginTop:1}}><span style={{fontSize:5.5,color:t.textDim}}>{x.sqft}/sqft</span><span style={{fontSize:5.5,color:t.textDim}}>{x.risk}</span></div></div>))}<div style={{background:t.accent+"10",borderRadius:4,padding:"3px 5px"}}><span style={{fontSize:5.5,color:t.accent}}>💬 AI: "best ROI under 1.5M?" → JVC 7.8% ✓</span></div></div></Browser>),
-
-"Property Compare":(t)=>(<Browser t={t} url="binayah.com/compare">{[["","Marina T2","Creek Vista"],["Price","1.8M","1.3M"],["ROI","6.5%","7.8%"],["Developer","Emaar","Sobha"],["Ready","2019","2027"],["Score","82","76"]].map((r,i)=>(<div key={i} style={{display:"flex",gap:3,borderBottom:i<5?`1px solid ${t.border}22`:"none",paddingBottom:2,marginBottom:2}}>{r.map((c,j)=>(<span key={j} style={{flex:j===0?1.5:1,fontSize:i===0?5.5:6.5,fontWeight:i===0||j===0?700:j===2&&i>0?700:400,color:i===0?t.textMuted:j===0?t.textSec:j===2&&i>0?t.green:t.textSec,textAlign:j>0?"center":"left" as const}}>{c}</span>))}</div>))}<div style={{background:t.accent+"10",borderRadius:4,padding:"3px 5px"}}><span style={{fontSize:5.5,color:t.accent}}>📥 Download PDF comparison → lead captured</span></div></Browser>),
-
-"Neighbourhood Quiz":(t)=>(<Browser t={t} url="binayah.com/quiz"><div style={{textAlign:"center",marginBottom:5}}><span style={{fontSize:16}}>🏠</span><div style={{fontSize:8,fontWeight:800,color:t.text,marginTop:2}}>Find your Dubai community</div><div style={{display:"flex",alignItems:"center",gap:3,justifyContent:"center",marginTop:3}}><div style={{flex:1,height:3,background:t.border,borderRadius:2}}><div style={{width:"60%",height:"100%",background:t.accent,borderRadius:2}}/></div><span style={{fontSize:5.5,color:t.textDim}}>Q3/5</span></div></div><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>{["🏖 Beach access","🌃 Nightlife","👨‍👩‍👧 Family-first","📈 Max ROI"].map(x=>(<div key={x} style={{background:t.surface,borderRadius:6,padding:"6px 4px",textAlign:"center",fontSize:6.5,color:t.textSec,cursor:"pointer"}}>{x}</div>))}</div></Browser>),
-
-"City Calculator":(t)=>(<Browser t={t} url="binayah.com/vs/dubai-vs-moscow">{[["","🇷🇺 Moscow","🇦🇪 Dubai"],["Yield","3.2%","7.1%"],["Tax","13%+","0%"],["Visa","—","Golden ✓"],["Growth 1Y","+1.8%","+14%"],["Currency","RUB risk","USD pegged"]].map((r,i)=>(<div key={i} style={{display:"flex",gap:3,borderBottom:i<5?`1px solid ${t.border}22`:"none",paddingBottom:1.5,marginBottom:1.5}}>{r.map((c,j)=>(<span key={j} style={{flex:j===0?1.2:1,fontSize:i===0?6:6.5,fontWeight:i===0||j===0?700:(j===2&&i>0)?700:400,color:i===0?t.textMuted:j===0?t.textSec:(j===2&&i>0)?t.green:t.textSec,textAlign:j>0?"center":"left" as const}}>{c}</span>))}</div>))}</Browser>),
-
-"Scam Checker":(t)=>(<Browser t={t} url="binayah.com/scam-check"><div style={{display:"flex",alignItems:"center",gap:5,marginBottom:4}}><ScoreCircle value={78} color={t.amber} size={40}/><div><div style={{fontSize:7.5,fontWeight:800,color:t.amber}}>SUSPICIOUS</div><div style={{fontSize:5.5,color:t.textDim}}>Score 78/100 — proceed with caution</div></div></div>{[{c:"RERA registration",p:true},{c:"Price vs DLD comps",p:true},{c:"Scam language detected",p:false,note:"'guaranteed ROI'"},{c:"Photo reverse search",p:false,note:"Stolen from Bayut"},{c:"WhatsApp-only contact",p:false,note:"No office address"}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0"}}><span style={{fontSize:7,color:x.p?t.green:t.red,fontWeight:700}}>{x.p?"✓":"✗"}</span><span style={{fontSize:6.5,color:x.p?t.textSec:t.red,flex:1}}>{x.c}</span>{(x as {note?:string}).note&&<span style={{fontSize:5,color:t.red}}>{(x as {note?:string}).note}</span>}</div>))}</Browser>),
-
-"Area Future Map":(t)=>(<Browser t={t} url="binayah.com/future-map"><div style={{fontSize:7,fontWeight:800,color:t.text,marginBottom:4}}>📍 Dubai Marina, Block 5</div>{[{icon:"🏗",label:"View corridor",verdict:"⚠ At risk",detail:"3 towers permitted behind",c:t.amber},{icon:"🚇",label:"Metro expansion",verdict:"✓ Line 2 planned",detail:"500m by 2028",c:t.green},{icon:"🔊",label:"Noise risk",verdict:"✓ Low",detail:"No roads planned nearby",c:t.green},{icon:"🏭",label:"Construction density",verdict:"🚨 High",detail:"12 towers in 2km radius",c:t.red},{icon:"📈",label:"Value trajectory",verdict:"✓ +8% proj.",detail:"Based on 5Y DLD data",c:t.green}].map((x,i)=>(<div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0",borderBottom:`1px solid ${t.border}11`}}><span style={{fontSize:9}}>{x.icon}</span><span style={{fontSize:5.5,color:t.textSec,flex:1}}>{x.label}</span><div style={{textAlign:"right"}}><div style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.verdict}</div><div style={{fontSize:4.5,color:t.textDim}}>{x.detail}</div></div></div>))}</Browser>),
-
+/**
+ * Map of stage name → lazy React component.
+ * Stage.tsx renders: const MockupComp = mockupsMap[name]; return <MockupComp t={t} />;
+ */
+const mockupsMap: Record<string, React.ComponentType<MockupProps>> = {
+  // Research
+  "OpenClaw Research": OpenClawResearch,
+  "Dev Pipeline Research": DevPipelineResearch,
+  "Qdrant Research": QdrantResearch,
+  "Hosting Strategy": HostingStrategy,
+  "Infra Setup": InfraSetup,
+  // Dev
+  "PM Agent": PMAgent,
+  "Dev Agent": DevAgent,
+  "QA Agent": QAAgent,
+  "Code Review": CodeReview,
+  "Content Factory": ContentFactory,
+  // Core
+  "Property API": PropertyAPI,
+  "CRM Integration": CRMIntegration,
+  "Approval Hub": ApprovalHub,
+  "Knowledge Base": KnowledgeBase,
+  "KPI Dashboard": KPIDashboard,
+  "Translation Memory": TranslationMemory,
+  // Comms
+  "WA Translation": WATranslation,
+  "AI Sales Agent": AISalesAgent,
+  "Timezone Drips": TimezoneDrips,
+  "WA Compliance": WACompliance,
+  // Multi
+  "Multilingual Dirs": MultilingualDirs,
+  "Regional SEO": RegionalSEO,
+  "Data Collection": DataCollection,
+  "Dynamic Homepage": DynamicHomepage,
+  "Newsletters": NewslettersMulti,
+  "Geo Campaigns": GeoCampaigns,
+  // Lead
+  "Lead Responder": LeadResponder,
+  "Behavior Scoring": BehaviorScoring,
+  "Lead Prediction": LeadPrediction,
+  "Leak Detector": LeakDetector,
+  "Viewing Scheduler": ViewingScheduler,
+  "Deal Broadcaster": DealBroadcaster,
+  "Post-Sale Nurture": PostSaleNurture,
+  "WA Communities": WACommunities,
+  "Investor Portal": InvestorPortal,
+  "CRM Leaderboard": CRMLeaderboard,
+  // Content
+  "Price Monitor": PriceMonitor,
+  "Morning Brief": MorningBrief,
+  "Market Reports": MarketReports,
+  "Dev Reports": DevReports,
+  "Off-Plan Eval": OffPlanEval,
+  "Viral Agent": ViralAgent,
+  "Video Agent": VideoAgent,
+  "Signal Detection": SignalDetection,
+  "ROI Calculator": ROICalculator,
+  "Crypto Buyer Page": CryptoBuyerPage,
+  "Area Guides": AreaGuides,
+  "Market Dashboard": MarketDashboard,
+  "Social Agent": SocialAgent,
+  "Newsletter": Newsletter,
+  // Outbound
+  "LinkedIn Scrape": LinkedInScrape,
+  "Forum Listener": ForumListener,
+  "Cold Outreach System": ColdOutreachSystem,
+  // Web Tools
+  "Login & My List": LoginMyList,
+  "Property Map": PropertyMap,
+  "Property Compare": PropertyCompare,
+  "Neighbourhood Quiz": NeighbourhoodQuiz,
+  "City Calculator": CityCalculator,
+  "Scam Checker": ScamChecker,
+  "Area Future Map": AreaFutureMap,
 };
 
-export default mockups;
+export type { MockupProps };
+export default mockupsMap;

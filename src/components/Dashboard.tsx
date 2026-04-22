@@ -10,15 +10,35 @@ import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, ty
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
 import Onboarding, { AvatarStep6, FloatingBg } from "@/components/Onboarding";
-import ActivityFeed from "@/components/ActivityFeed";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
-import ChatPanel, { type ChatMsg } from "@/components/ChatPanel";
+import { type ChatMsg } from "@/components/ChatPanel";
 import { generatePipelineReport } from "@/lib/generatePDF";
 import { fetchState, patchState, pushMessage, pushComment, pushActivity } from "@/lib/apiSync";
-import KanbanView from "@/components/KanbanView";
-import OverviewPanel from "@/components/OverviewPanel";
 import { ToastContainer, RecoveryToast, useToasts } from "@/components/ui/Toast";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import {
+  ChatSkeleton,
+  ActivitySkeleton,
+  KanbanSkeleton,
+  OverviewSkeleton,
+} from "@/components/ui/Skeletons";
+import dynamic from "next/dynamic";
+import { Suspense } from "react";
+
+// Lazy-loaded heavy panels — each becomes its own JS chunk
+const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
+  ssr: false, // uses localStorage + browser APIs
+});
+const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), {
+  ssr: false,
+});
+const KanbanView = dynamic(() => import("@/components/KanbanView"), {
+  ssr: false, // drag-and-drop is browser-only
+});
+const OverviewPanel = dynamic(() => import("@/components/OverviewPanel"), {
+  ssr: false,
+});
 
 type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -855,10 +875,20 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         </div>
 
         {/* Activity Feed — BottomSheet on mobile, inline on desktop */}
-        {!isMobile && showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
+        {!isMobile && showActivity && (
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<ActivitySkeleton t={t} />}>
+              <ActivityFeed activityLog={activityLog} users={users} t={t} />
+            </Suspense>
+          </ErrorBoundary>
+        )}
         {isMobile && (
           <BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}>
-            <ActivityFeed activityLog={activityLog} users={users} t={t} />
+            <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+              <Suspense fallback={<ActivitySkeleton t={t} />}>
+                <ActivityFeed activityLog={activityLog} users={users} t={t} />
+              </Suspense>
+            </ErrorBoundary>
           </BottomSheet>
         )}
 
@@ -879,24 +909,32 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
         {/* OVERVIEW VIEW */}
         {view === "overview" && (
-          <OverviewPanel
-            allPipelines={allPipelines} customStages={customStages} getStatus={getStatus}
-            claims={claims} users={users} sc={sc} ck={ck}
-            stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride}
-            pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides}
-            pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides}
-            searchQ={searchQ} t={t}
-          />
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<OverviewSkeleton t={t} />}>
+              <OverviewPanel
+                allPipelines={allPipelines} customStages={customStages} getStatus={getStatus}
+                claims={claims} users={users} sc={sc} ck={ck}
+                stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride}
+                pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides}
+                pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides}
+                searchQ={searchQ} t={t}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {/* KANBAN VIEW */}
         {view === "kanban" && (
-          <KanbanView
-            t={t} getStatus={getStatus} setStageStatusDirect={setStageStatusDirect}
-            claims={claims} reactions={reactions} users={users} currentUser={currentUser}
-            sc={sc} ck={ck} customStages={customStages} customPipelines={customPipelines}
-            onCardClick={onKanbanCardClick} searchQ={searchQ} lockedPipelines={lockedPipelines}
-          />
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<KanbanSkeleton t={t} />}>
+              <KanbanView
+                t={t} getStatus={getStatus} setStageStatusDirect={setStageStatusDirect}
+                claims={claims} reactions={reactions} users={users} currentUser={currentUser}
+                sc={sc} ck={ck} customStages={customStages} customPipelines={customPipelines}
+                onCardClick={onKanbanCardClick} searchQ={searchQ} lockedPipelines={lockedPipelines}
+              />
+            </Suspense>
+          </ErrorBoundary>
         )}
 
         {/* PIPELINES */}
@@ -1187,6 +1225,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       {/* CHAT — BottomSheet on mobile, fixed side-widget on desktop */}
       {isMobile ? (
         <BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}>
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<ChatSkeleton t={t} />}>
           <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
@@ -1219,6 +1259,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               }
               return lines.join("\n");
             }} />
+            </Suspense>
+          </ErrorBoundary>
           </BottomSheet>
       ) : showChat ? (
         <div style={{ position: "fixed", bottom: 88, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
@@ -1230,6 +1272,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             >
               {"\u00D7"}
             </button>
+            <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+              <Suspense fallback={<ChatSkeleton t={t} />}>
             <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
@@ -1262,6 +1306,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               }
               return lines.join("\n");
             }} />
+              </Suspense>
+            </ErrorBoundary>
           </div>
         </div>
       ) : null}
