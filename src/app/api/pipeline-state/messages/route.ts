@@ -4,6 +4,7 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { chatBus } from "@/lib/chatBus";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -62,5 +63,7 @@ export async function POST(req: NextRequest) {
   ).lean();
   const total = ((doc as { state?: { chatMessages?: unknown[] } } | null)?.state?.chatMessages || []).length;
   logApi(ROUTE, "success", { total });
+  // Emit to SSE subscribers so all connected clients receive the message instantly
+  chatBus.emit("message", msg);
   return NextResponse.json({ ok: true, total });
 }

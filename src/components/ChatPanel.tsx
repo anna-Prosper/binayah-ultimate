@@ -13,6 +13,7 @@ const MAX_MSG_LEN = 2000;
 interface Props {
   messages: ChatMsg[];
   onSend: (text: string) => void;
+  onRemoteMessage?: (msg: ChatMsg) => void;
   users: UserType[];
   currentUser: string;
   t: T;
@@ -22,18 +23,70 @@ interface Props {
   mobileMode?: boolean;
 }
 
-export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false }: Props) {
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiInputError, setAiInputError] = useState<string | null>(null);
+  const [sseConnected, setSseConnected] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
+  const esRef = useRef<EventSource | null>(null);
+  const backoffRef = useRef<number>(1000);
+  const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
   useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages.length]);
+
+  // SSE subscription — team chat only. AI tab has no SSE.
+  useEffect(() => {
+    mountedRef.current = true;
+
+    const connect = () => {
+      if (!mountedRef.current) return;
+      const lastId = messages.length > 0 ? messages[messages.length - 1].id : 0;
+      const es = new EventSource(`/api/pipeline-state/messages/stream?since=${lastId}`);
+      esRef.current = es;
+
+      es.onopen = () => {
+        if (!mountedRef.current) return;
+        setSseConnected(true);
+        backoffRef.current = 1000; // reset backoff on successful connection
+      };
+
+      es.onmessage = (event) => {
+        if (!mountedRef.current) return;
+        try {
+          const msg = JSON.parse(event.data) as ChatMsg;
+          onRemoteMessage?.(msg);
+        } catch { /* malformed event, skip */ }
+      };
+
+      es.onerror = () => {
+        if (!mountedRef.current) return;
+        setSseConnected(false);
+        es.close();
+        esRef.current = null;
+        // Exponential backoff: 1s → 2s → 4s → capped at 30s
+        const delay = Math.min(backoffRef.current, 30_000);
+        backoffRef.current = Math.min(backoffRef.current * 2, 30_000);
+        reconnectTimerRef.current = setTimeout(connect, delay);
+      };
+    };
+
+    connect();
+
+    return () => {
+      mountedRef.current = false;
+      if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+      esRef.current?.close();
+      esRef.current = null;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // intentionally only on mount — SSE runs for component lifetime
 
   const canSend = input.trim().length > 0 && input.trim().length <= MAX_MSG_LEN;
 
@@ -100,10 +153,21 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
     }>
       {/* Header + tabs */}
       <div style={{ padding: "10px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.amber, boxShadow: `0 0 6px ${t.amber}88` }} />
+        {/* SSE connection dot — only shown on team tab */}
+        {tab === "team" ? (
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: sseConnected ? t.green : t.amber, boxShadow: `0 0 6px ${sseConnected ? t.green : t.amber}88`, transition: "all 0.3s" }} title={sseConnected ? "live" : "reconnecting..."} />
+        ) : (
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.amber, boxShadow: `0 0 6px ${t.amber}88` }} />
+        )}
         <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
           {tab === "team" ? "team chat" : "binayah ai"}
         </span>
+        {/* Reconnecting indicator */}
+        {tab === "team" && !sseConnected && (
+          <span style={{ fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
+            // reconnecting...
+          </span>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
           {(["team", "ai"] as const).map(v => (
             <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "2px 10px", cursor: "pointer", fontSize: 8, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
@@ -127,7 +191,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
               const u = users.find(u => u.id === msg.userId);
               const isMe = msg.userId === currentUser;
               return (
-                <div key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end" }}>
+                <div key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", animation: "msgFadeIn 0.15s ease" }}>
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isMe && <div style={{ fontSize: 7, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
@@ -282,6 +346,10 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
         @keyframes bounce {
           0%, 60%, 100% { transform: translateY(0) }
           30% { transform: translateY(-5px) }
+        }
+        @keyframes msgFadeIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
     </div>

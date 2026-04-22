@@ -26,6 +26,7 @@ import {
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import NotificationPrefs from "@/components/NotificationPrefs";
+import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 
 // Lazy-loaded heavy panels — each becomes its own JS chunk
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
@@ -39,6 +40,10 @@ const KanbanView = dynamic(() => import("@/components/KanbanView"), {
 });
 const OverviewPanel = dynamic(() => import("@/components/OverviewPanel"), {
   ssr: false,
+});
+const DocumentsPanel = dynamic(() => import("@/components/DocumentsPanel"), {
+  ssr: false,
+  loading: () => null,
 });
 
 type CustomPipeline = {
@@ -146,6 +151,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const isMobile = useIsMobile(768);
   // Per-pipeline ⋮ menu open state for mobile header
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
+  // Left sidebar nav — desktop only; persisted so user returns to where they left off
+  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "pipelines") as NavItem);
+  // Active pipeline in sidebar sub-list — remembers last selected pipeline
+  const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
+  // Mobile documents sheet
+  const [showDocumentsMobile, setShowDocumentsMobile] = useState(false);
 
   // Schema version recovery — clear stale cache and reload
   useEffect(() => {
@@ -251,6 +262,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
   useEffect(() => { lsSet("view", view) }, [view]);
+  useEffect(() => { lsSet("binayah_activeNav", activeNavItem) }, [activeNavItem]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
 
   // --- Cross-device sync via Render API ---
@@ -549,6 +561,22 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     });
   };
 
+    // SSE remote message handler — dedupe by id and append to chat messages state
+  const handleRemoteMessage = useCallback((msg: ChatMsg) => {
+    setChatMessages(prev => {
+      if (prev.some(m => m.id === msg.id)) return prev; // already present (optimistic or poll)
+      // Notify for foreign messages
+      if (msg.userId !== currentUser) {
+        const sender = users.find(u => u.id === msg.userId);
+        setChatNotif({ name: sender?.name || msg.userId, text: msg.text });
+        playNotifSound();
+        setTimeout(() => setChatNotif(null), 4000);
+      }
+      return [...prev, msg].sort((a, b) => a.id - b.id);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser, users]);
+
   // Claim = take ownership. Points only granted when stage goes LIVE.
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
@@ -719,7 +747,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:768px){.bu-pipe-left{width:100%!important}.bu-pipe-actions{flex-wrap:wrap!important;gap:4px!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "16px 12px" : "24px 20px", overflowX: "hidden" }}>
+      {/* Top section: header + team bar — max-width constrained */}
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px 12px 0" : "24px 20px 0", overflowX: "hidden" }}>
 
         {/* HEADER */}
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
@@ -769,6 +798,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               {"\uD83D\uDD14"}
               {unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 7, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
+
+            {/* Documents — mobile only (desktop uses sidebar) */}
+            {isMobile && (
+              <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 14 }} title="Documents">
+                {"📄"}
+              </button>
+            )}
 
             {/* PDF */}
             <button onClick={() => {
@@ -917,15 +953,36 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</span>
           </div>
         </div>
+      </div>{/* end top-section maxWidth */}
 
-        {/* Activity Feed — BottomSheet on mobile, inline on desktop */}
-        {!isMobile && showActivity && (
-          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
-            <Suspense fallback={<ActivitySkeleton t={t} />}>
-              <ActivityFeed activityLog={activityLog} users={users} t={t} />
-            </Suspense>
-          </ErrorBoundary>
+      {/* Main body: sidebar (desktop) + content area */}
+      <div style={{ display: "flex", flexDirection: "row", maxWidth: 1400, margin: "0 auto", minHeight: "calc(100vh - 200px)" }}>
+        {/* LEFT SIDEBAR — desktop only */}
+        {!isMobile && (
+          <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
+            <LeftSidebar
+              t={t}
+              activeNav={activeNavItem}
+              onNavChange={(item) => {
+                setActiveNavItem(item);
+                if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); }
+                else if (item === "chat") setShowChat(true);
+                else { setShowActivity(false); setShowChat(false); }
+              }}
+              pipelines={allPipelines as SidebarPipeline[]}
+              activePipelineId={activeSidebarPipeline}
+              onPipelineSelect={(id) => {
+                setActiveSidebarPipeline(id);
+                setExpanded(prev => prev.includes(id) ? prev : [...prev, id]);
+              }}
+            />
+          </div>
         )}
+
+        {/* MAIN CONTENT AREA */}
+        <div style={{ flex: 1, minWidth: 0, padding: isMobile ? "0 12px 16px" : "0 20px 24px", overflowX: "hidden" }}>
+
+        {/* Mobile: Activity Feed BottomSheet — unchanged */}
         {isMobile && (
           <BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}>
             <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
@@ -935,6 +992,56 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </ErrorBoundary>
           </BottomSheet>
         )}
+
+        {/* Desktop: Documents panel when activeNavItem === 'documents' */}
+        {!isMobile && activeNavItem === "documents" && (
+          <ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}>
+            <Suspense fallback={null}>
+              <div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}>
+                <DocumentsPanel t={t} />
+              </div>
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {/* Desktop: Activity inline when activeNavItem === 'activity' */}
+        {!isMobile && activeNavItem === "activity" && (
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<ActivitySkeleton t={t} />}>
+              <div style={{ marginTop: 16 }}>
+                <ActivityFeed activityLog={activityLog} users={users} t={t} />
+              </div>
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {/* Desktop: Chat inline when activeNavItem === 'chat' */}
+        {!isMobile && activeNavItem === "chat" && (
+          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+            <Suspense fallback={<ChatSkeleton t={t} />}>
+              <div style={{ marginTop: 16 }}>
+                <ChatPanel
+                  messages={chatMessages}
+                  onSend={sendChat}
+                  onRemoteMessage={handleRemoteMessage}
+                  users={users}
+                  currentUser={currentUser!}
+                  t={t}
+                  defaultTab="team"
+                  buildAiContext={() => {
+                    const me = users.find(u => u.id === currentUser);
+                    const lines: string[] = [];
+                    lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
+                    return lines.join("\n");
+                  }}
+                />
+              </div>
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {/* PIPELINES VIEW — shown when pipelines nav is active (or on mobile where sidebar is hidden) */}
+        {(isMobile || activeNavItem === "pipelines") && (<div style={{ marginTop: 16 }}>
 
         {/* SEARCH + VIEW TOGGLE */}
         <div className="bu-search-row" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
@@ -1223,6 +1330,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </div>
           )}
         </div>}
+        </div>)}{/* end pipelines wrapper */}
 
         {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 18, padding: "14px 28px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 40px ${toast.color}22`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>
           <span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "\u26A1" : "\uD83D\uDC80"}</span>
@@ -1248,7 +1356,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
         </div>
-      </div>
+        </div>{/* end main content area */}
+      </div>{/* end sidebar+content flex row */}
 
       {/* AVATAR PICKER MODAL */}
       {showAvatarPicker && selUser && (() => {
@@ -1266,12 +1375,23 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         );
       })()}
 
+      {/* Documents BottomSheet — mobile only */}
+      {isMobile && (
+        <BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}>
+          <ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}>
+            <Suspense fallback={null}>
+              <DocumentsPanel t={t} />
+            </Suspense>
+          </ErrorBoundary>
+        </BottomSheet>
+      )}
+
       {/* CHAT — BottomSheet on mobile, fixed side-widget on desktop */}
       {isMobile ? (
         <BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}>
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<ChatSkeleton t={t} />}>
-          <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+          <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
@@ -1318,7 +1438,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </button>
             <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
               <Suspense fallback={<ChatSkeleton t={t} />}>
-            <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+            <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
