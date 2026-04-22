@@ -56,6 +56,8 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
   const mountedRef = useRef(true);
   // Tracks keys we've already ingested to avoid duplicates on reconnect
   const seenKeysRef = useRef<Set<string>>(new Set());
+  // Ref mirror of `open` so SSE handler can read it without stale closure
+  const openRef = useRef(false);
 
   // Load seenAt from localStorage on mount
   useEffect(() => {
@@ -132,20 +134,14 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
           if (item.time > lastActivityIdRef.current) {
             lastActivityIdRef.current = item.time;
           }
-          setNotifications(prev => {
-            const next = [item, ...prev].slice(0, MAX_NOTIFICATIONS);
-            return next;
-          });
-          // Only increment unread if dropdown is closed
-          setOpen(isOpen => {
-            if (!isOpen) {
-              setUnreadCount(c => c + 1);
-              // Trigger pulse animation
-              setPulse(true);
-              setTimeout(() => setPulse(false), 300);
-            }
-            return isOpen;
-          });
+          setNotifications(prev => [item, ...prev].slice(0, MAX_NOTIFICATIONS));
+          // Only increment unread if dropdown is closed — use ref to avoid
+          // calling setState inside another setState updater (React error #310)
+          if (!openRef.current) {
+            setUnreadCount(c => c + 1);
+            setPulse(true);
+            setTimeout(() => setPulse(false), 300);
+          }
         } catch { /* malformed event */ }
       });
 
@@ -176,7 +172,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        openRef.current = false; setOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -187,7 +183,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
   useEffect(() => {
     if (!open) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setOpen(false);
+      if (e.key === "Escape") { openRef.current = false; setOpen(false); }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
@@ -195,11 +191,10 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
 
   const handleBellClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setOpen(prev => {
-      const next = !prev;
-      if (next) markRead();
-      return next;
-    });
+    const next = !openRef.current;
+    openRef.current = next;
+    setOpen(next);
+    if (next) markRead();
   }, [markRead]);
 
   // Shared header button style — matches Dashboard hBtn

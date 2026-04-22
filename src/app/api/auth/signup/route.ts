@@ -6,10 +6,20 @@ import { ADMIN_EMAIL_MAP } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json() as { email?: string; password?: string };
+    const { email, password, secret } = await req.json() as { email?: string; password?: string; secret?: string };
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required." }, { status: 400 });
+    }
+
+    // Require signup secret
+    const expectedSecret = process.env.SIGNUP_SECRET;
+    if (!expectedSecret) {
+      console.error("[signup] SIGNUP_SECRET not set");
+      return NextResponse.json({ error: "Signup is not configured. Contact admin." }, { status: 503 });
+    }
+    if (!secret || secret !== expectedSecret) {
+      return NextResponse.json({ error: "Invalid signup secret." }, { status: 403 });
     }
 
     const normalizedEmail = email.toLowerCase().trim();

@@ -55,6 +55,7 @@ export default function LoginClient() {
   const [isSignup, setIsSignup] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [signupSecret, setSignupSecret] = useState("");
   const [authState, setAuthState] = useState<AuthState>("idle");
   const [error, setError] = useState<string | null>(null);
   const [isSignupError, setIsSignupError] = useState(false);
@@ -150,7 +151,7 @@ export default function LoginClient() {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+        body: JSON.stringify({ email: email.trim().toLowerCase(), password, secret: signupSecret }),
       });
       const data = await res.json() as { ok?: boolean; error?: string; email?: string };
       if (!res.ok) {
@@ -522,6 +523,34 @@ export default function LoginClient() {
                 }}
               />
 
+              {/* Signup secret — only shown in signup mode */}
+              {isSignup && (
+                <input
+                  className="login-input"
+                  type="password"
+                  value={signupSecret}
+                  onChange={e => { setSignupSecret(e.target.value); clearError(); }}
+                  placeholder="signup secret"
+                  autoComplete="off"
+                  readOnly={authState === "loading_credentials" || authState === "loading_signup"}
+                  style={{
+                    width: "100%",
+                    height: 44,
+                    background: t.surface,
+                    border: `1px solid ${t.border}`,
+                    borderRadius: 8,
+                    padding: "0 12px",
+                    fontSize: 13,
+                    fontFamily: "var(--font-dm-sans), sans-serif",
+                    color: t.text,
+                    transition: "border-color 0.15s, box-shadow 0.15s",
+                    boxSizing: "border-box",
+                    display: "block",
+                    marginTop: 8,
+                  }}
+                />
+              )}
+
               {/* Bottom row: signup toggle + submit */}
               <div
                 style={{
@@ -535,7 +564,7 @@ export default function LoginClient() {
                 <button
                   type="button"
                   className="login-toggle-link"
-                  onClick={() => { setIsSignup(!isSignup); clearError(); }}
+                  onClick={() => { setIsSignup(!isSignup); clearError(); setSignupSecret(""); }}
                   disabled={isInFlight}
                   style={{
                     background: "none",
