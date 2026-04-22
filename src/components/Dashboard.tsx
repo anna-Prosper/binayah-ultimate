@@ -783,7 +783,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     // Navigate to documents panel and open the doc
     setActiveNavItem("documents");
     if (isMobile) { setShowDocumentsMobile(true); }
-    setPaletteDocId(docId);
+    // Reset first so useEffect in DocumentsPanel fires even if same doc opened twice
+    setPaletteDocId(null);
+    requestAnimationFrame(() => setPaletteDocId(docId));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isMobile]);
 

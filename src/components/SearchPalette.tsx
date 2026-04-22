@@ -257,7 +257,7 @@ export default function SearchPalette({
         } else {
           setDocsLoading(true);
           fetch("/api/documents?includeContent=true")
-            .then(r => r.json())
+            .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
             .then((data: { docs: DocWithContent[] }) => {
               docCache.set(data.docs);
               setDocsWithContent(data.docs);
