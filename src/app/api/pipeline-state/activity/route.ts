@@ -60,6 +60,18 @@ export async function POST(req: NextRequest) {
 
   await connectMongo();
   await ensureDoc();
+
+  // Lock guard: reject non-lock/unlock activity for locked pipelines
+  if (entry.pipeline && typeof entry.pipeline === "string") {
+    const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { lockedPipelines?: string[] } } | null;
+    const lockedPipelines: string[] = doc?.state?.lockedPipelines || [];
+    const entryType = typeof entry.type === "string" ? entry.type : "";
+    if (lockedPipelines.includes(entry.pipeline) && entryType !== "lock" && entryType !== "unlock") {
+      logApi(ROUTE, "pipeline_locked", { pipeline: entry.pipeline });
+      return NextResponse.json({ error: "PIPELINE_LOCKED" }, { status: 423 });
+    }
+  }
+
   // $slice: 200 keeps the most recent 200 entries (prepended, so slice from front)
   await PipelineState.findOneAndUpdate(
     WORKSPACE,

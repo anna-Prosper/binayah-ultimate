@@ -66,23 +66,30 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
             -webkit-overflow-scrolling: touch;
             scroll-snap-type: x mandatory;
             gap: 10px;
-            padding-bottom: 12px;
+            padding-bottom: 16px;
             margin-left: -20px;
             margin-right: -20px;
             padding-left: 20px;
             padding-right: 20px;
+            scrollbar-width: none;
           }
           .bu-kb-board::-webkit-scrollbar { display: none; }
           .bu-kb-col {
-            flex: 0 0 260px;
+            flex: 0 0 85vw;
             min-width: 260px;
+            max-width: 360px;
             min-height: 300px;
             scroll-snap-align: start;
+          }
+          .bu-kb-card {
+            padding: 12px 14px !important;
+            min-height: 44px;
           }
           .bu-kb-card-name { font-size: 13px !important; }
           .bu-kb-card-desc { font-size: 10px !important; }
           .bu-kb-card-tag  { font-size: 9px !important; }
           .bu-kb-empty::after { content: "tap a card to move"; }
+          .bu-kb-col-header { position: sticky; top: 0; background: inherit; z-index: 2; padding-top: 4px; padding-bottom: 8px; }
         }
       `}</style>
       <div className="bu-kb-board">
@@ -100,7 +107,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
               style={{ background: dragOver === col.id ? stc.c + "0c" : t.bgSoft, border: `2px solid ${dragOver === col.id ? stc.c + "55" : t.border}`, borderRadius: 16, padding: "12px 10px", transition: "all 0.15s" }}
             >
               {/* Column header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "0 2px" }}>
+              <div className="bu-kb-col-header" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "0 2px" }}>
                 <span style={{ fontSize: 14 }}>{col.emoji}</span>
                 <span style={{ fontSize: 8, fontWeight: 800, color: stc.c, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
                 <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 10, padding: "1px 8px" }}>
@@ -118,6 +125,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                   return (
                     <div
                       key={s.name}
+                      className="bu-kb-card"
                       draggable={!lockedPipelines.includes(s.pipelineId)}
                       onDragStart={e => { if (lockedPipelines.includes(s.pipelineId)) { e.preventDefault(); return; } setDragging(s.name); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setDragging(null); setDragOver(null); }}

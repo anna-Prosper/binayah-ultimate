@@ -6,6 +6,7 @@ import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type Commen
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
 import mockups from "@/components/mockups/mockupsMap";
+import BottomSheet from "@/components/ui/BottomSheet";
 
 interface StageProps {
   name: string;
@@ -51,6 +52,7 @@ interface StageProps {
   addStageImage: (name: string, dataUrl: string) => void;
   removeStageImage: (name: string, idx: number) => void;
   isLocked: boolean;
+  isMobile?: boolean;
 }
 
 export default function Stage({
@@ -62,11 +64,12 @@ export default function Stage({
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
   stageDescOverrides, setStageDescOverride, liveNotifs,
   stageImages, addStageImage, removeStageImage,
-  isLocked,
+  isLocked, isMobile = false,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
 
@@ -101,18 +104,29 @@ export default function Stage({
       {(() => {
         const hasLive = !!(liveNotifs[name]?.comment || liveNotifs[name]?.reaction);
         const liveColor = liveNotifs[name]?.comment ? t.green : t.accent;
+        // On mobile, tapping opens a BottomSheet instead of inline-expanding
+        const handleCardClick = (e: React.MouseEvent) => {
+          e.stopPropagation();
+          if (isMobile) {
+            setMobileSheetOpen(true);
+          } else {
+            setExpS(isE ? null : k);
+          }
+        };
         return (
-      <div onClick={e => { e.stopPropagation(); setExpS(isE ? null : k); }} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
+      <div onClick={handleCardClick} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
 
-        {/* Header row */}
-        <div style={{ padding: "10px 14px 4px", display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1 }}>
-            <Chev open={isE} color={pC} />
-            <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</span>
+        {/* Header row — on mobile: name+status on first line, meta on second */}
+        <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
+          {/* Line 1: chevron + name + status */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, width: "100%" }}>
+            <Chev open={isMobile ? mobileSheetOpen : isE} color={pC} />
+            <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
             <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative" }} onClick={e => e.stopPropagation()}>
+          {/* Line 2 (mobile) or inline (desktop): reactions + meta */}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative", flexWrap: "wrap", ...(isMobile ? { paddingLeft: 22 } : {}) }} onClick={e => e.stopPropagation()}>
             {isLocked && <span style={{ fontSize: 11, color: t.amber, opacity: 0.85, flexShrink: 0 }} title="Pipeline is locked">🔒</span>}
             {/* Live reaction pop */}
             {liveNotifs[name]?.reaction && (
@@ -126,29 +140,29 @@ export default function Stage({
               const existing = Object.entries(sr).filter(([, v]) => v.length > 0);
               if (reactOpen === name) {
                 return REACTIONS.map(r => { const us = sr[r] || []; const mine = us.includes(currentUser!); const has = us.length > 0; return (
-                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 10, padding: "2px 5px", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
+                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 10, padding: isMobile ? "6px 8px" : "2px 5px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
                     <span style={{ fontSize: has ? 13 : 11 }}>{r}</span>
                     {has && <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
                   </button>); });
               }
               return existing.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
-                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 10, padding: "2px 6px", cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
+                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 10, padding: isMobile ? "6px 8px" : "2px 6px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
                   <span style={{ fontSize: 12 }}>{emoji}</span>
                   <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                 </button>); });
             })()}
 
             {/* React toggle */}
-            {!isLocked && <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "inherit" }}>
+            {!isLocked && <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "6px 10px" : "2px 6px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "inherit" }}>
               {"\uD83D\uDE00"}
             </button>}
 
             {/* Preview badge — indicates stage has a mockup */}
-            {mock && !isE && (
+            {mock && !(isMobile ? mobileSheetOpen : isE) && (
               <span style={{ fontSize: 7, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 6, padding: "1px 6px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
             )}
 
-            {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={18} /></div> : null; })}</div>}
+            {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 8, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
             {cmts.length > 0 && <span style={{ fontSize: 8, color: t.textMuted }}>{"\uD83D\uDCAC"}{cmts.length}</span>}
             <span style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
@@ -190,14 +204,14 @@ export default function Stage({
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {!claimedBy.includes(currentUser!) ? (
-                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3 }}>
+                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
                     <span style={{ fontSize: 16 }}>{"\uD83D\uDC80"}</span>
                     <span>claim this</span>
                     <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "2px 8px", fontSize: 8 }}>earn +{s.points} on live</span>
                     <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)", animation: "shimmer 2.5s ease-in-out infinite" }} />
                   </button>
                 ) : (
-                  <button onClick={() => handleClaim(name)} title="Click to unclaim" style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 6, boxShadow: `0 0 12px ${t.green}18` }}>
+                  <button onClick={() => handleClaim(name)} title="Click to unclaim" style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 6, boxShadow: `0 0 12px ${t.green}18`, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
                     <AvatarC user={me} size={20} />
                     <span>{"\u2713"} claimed</span>
                     <span style={{ fontSize: 8, color: t.textMuted, fontWeight: 500, opacity: 0.7 }}>· unclaim?</span>
@@ -368,6 +382,96 @@ export default function Stage({
       </div>
         );
       })()}
+
+      {/* Mobile BottomSheet — expanded stage detail */}
+      {isMobile && (
+        <BottomSheet
+          open={mobileSheetOpen}
+          onClose={() => setMobileSheetOpen(false)}
+          title={name}
+          t={t}
+        >
+          <div style={{ padding: "0 0 env(safe-area-inset-bottom, 0)" }}>
+            {/* Action bar */}
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden", pointerEvents: isLocked ? "none" : "auto", cursor: isLocked ? "not-allowed" : "auto" }}>
+              {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
+              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                {!claimedBy.includes(currentUser!) ? (
+                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "12px 20px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
+                    <span style={{ fontSize: 18 }}>{"💀"}</span>
+                    <span>claim this</span>
+                    <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "2px 8px", fontSize: 9 }}>earn +{s.points} on live</span>
+                  </button>
+                ) : (
+                  <button onClick={() => handleClaim(name)} title="Click to unclaim" style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 12, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", minHeight: 44 }}>
+                    <AvatarC user={me} size={22} />
+                    <span>{"✓"} claimed</span>
+                    <span style={{ fontSize: 9, color: t.textMuted, fontWeight: 500, opacity: 0.7 }}>· unclaim?</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Description */}
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}` }}>
+              <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 5, fontWeight: 600 }}>about</div>
+              <div style={{ fontSize: 12, color: t.textSec, lineHeight: 1.6 }}>
+                {aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>No description</span>}
+              </div>
+            </div>
+
+            {/* Subtasks */}
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
+              <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
+              {tasks.map(task => (
+                <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+                  <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 20, height: 20, borderRadius: 6, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer", minWidth: 44, minHeight: 44 }}>
+                    {task.done && <span style={{ fontSize: 12, color: t.green }}>{"✓"}</span>}
+                  </div>
+                  <span style={{ fontSize: 12, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
+                </div>
+              ))}
+              <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
+                <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 10, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
+              </div>
+            </div>
+
+            {/* Comments */}
+            <div style={{ padding: "12px 16px" }}>
+              <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
+              <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 10 }}>
+                {cmts.map(c => { const u = users.find(x => x.id === c.by); return (
+                  <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                    {u && <AvatarC user={u} size={22} />}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                        <span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
+                        <span style={{ fontSize: 9, color: t.textDim }}>{c.time}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: t.textSec, lineHeight: 1.5, marginTop: 2 }}>{c.text}</div>
+                    </div>
+                  </div>
+                ); })}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 10, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
+              </div>
+            </div>
+
+            {/* Mockup (if available) */}
+            {mock && (
+              <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${t.border}` }}>
+                <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, padding: "10px 0 8px", opacity: 0.8 }}>▸ live preview</div>
+                <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
+                  {mock(t)}
+                </div>
+              </div>
+            )}
+          </div>
+        </BottomSheet>
+      )}
     </div>
   );
 }

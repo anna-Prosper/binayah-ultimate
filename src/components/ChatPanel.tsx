@@ -18,9 +18,11 @@ interface Props {
   t: T;
   defaultTab?: "team" | "ai";
   buildAiContext?: () => string;
+  /** When true: renders flat (no outer card border/radius) for embedding in a BottomSheet */
+  mobileMode?: boolean;
 }
 
-export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team", buildAiContext }: Props) {
+export default function ChatPanel({ messages, onSend, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [aiInput, setAiInput] = useState("");
@@ -88,8 +90,14 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
   const inputCharCount = input.length;
   const isInputTooLong = inputCharCount > MAX_MSG_LEN;
 
+  // In mobile mode, the BottomSheet provides the container; render flat with taller message areas
+  const msgAreaHeight = mobileMode ? "calc(50vh - 80px)" : 220;
+
   return (
-    <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, marginBottom: 16, overflow: "hidden", animation: "fadeIn 0.2s ease" }}>
+    <div style={mobileMode
+      ? { background: t.bgCard, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }
+      : { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, marginBottom: 16, overflow: "hidden", animation: "fadeIn 0.2s ease" }
+    }>
       {/* Header + tabs */}
       <div style={{ padding: "10px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
         <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.amber, boxShadow: `0 0 6px ${t.amber}88` }} />
@@ -108,7 +116,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
       {/* Team chat */}
       {tab === "team" && (
         <>
-          <div style={{ height: 220, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
@@ -146,7 +154,8 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
                   background: "transparent",
                   border: `1px solid ${isInputTooLong ? t.red + "88" : t.border}`,
                   borderRadius: 10,
-                  padding: "8px 12px",
+                  padding: mobileMode ? "12px" : "8px 12px",
+                  minHeight: mobileMode ? 44 : undefined,
                   fontSize: 10,
                   color: t.text,
                   fontFamily: "inherit",
@@ -160,7 +169,9 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
                   background: canSend ? t.accent : t.surface,
                   border: "none",
                   borderRadius: 10,
-                  padding: "8px 16px",
+                  padding: mobileMode ? "12px 20px" : "8px 16px",
+                  minHeight: mobileMode ? 44 : undefined,
+                  minWidth: mobileMode ? 44 : undefined,
                   cursor: canSend ? "pointer" : "not-allowed",
                   fontSize: 13,
                   color: canSend ? "#fff" : t.textMuted,
@@ -185,7 +196,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
       {/* AI chat */}
       {tab === "ai" && (
         <>
-          <div style={{ height: 220, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
             {aiMessages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 28 }}>🤖</span>

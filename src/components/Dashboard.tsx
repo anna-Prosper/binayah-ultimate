@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import BottomSheet from "@/components/ui/BottomSheet";
 import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
@@ -120,6 +122,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // isLocked helper — check if a pipeline is locked
   const isLocked = (pipelineId: string) => lockedPipelines.includes(pipelineId);
   const { toasts, showToast, dismissToast } = useToasts();
+  const isMobile = useIsMobile(768);
+  // Per-pipeline ⋮ menu open state for mobile header
+  const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
 
   // Schema version recovery — clear stale cache and reload
   useEffect(() => {
@@ -650,10 +655,10 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
 
   return (
-    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}`}</style>
+    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:768px){.bu-pipe-left{width:100%!important}.bu-pipe-actions{flex-wrap:wrap!important;gap:4px!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      <div style={{ maxWidth: 1100, margin: "0 auto", padding: "24px 20px" }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "16px 12px" : "24px 20px", overflowX: "hidden" }}>
 
         {/* HEADER */}
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
@@ -849,18 +854,24 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </div>
         </div>
 
-        {showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
+        {/* Activity Feed — BottomSheet on mobile, inline on desktop */}
+        {!isMobile && showActivity && <ActivityFeed activityLog={activityLog} users={users} t={t} />}
+        {isMobile && (
+          <BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}>
+            <ActivityFeed activityLog={activityLog} users={users} t={t} />
+          </BottomSheet>
+        )}
 
         {/* SEARCH + VIEW TOGGLE */}
         <div className="bu-search-row" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
           <div style={{ flex: 1 }}>
             <SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} />
           </div>
-          {/* View toggle */}
+          {/* View toggle — icon-only on mobile, full labels on desktop */}
           <div className="bu-view-toggle" style={{ display: "flex", gap: 3, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 6px" }}>
-            {([["list", "\u2630 list"], ["kanban", "\u25A6 kanban"], ["overview", "\u25A1 overview"]] as const).map(([v, label]) => (
-              <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                {label}
+            {([["list", "\u2630 list", "\u2630"], ["kanban", "\u25A6 kanban", "\u25A6"], ["overview", "\u25A1 overview", "\u25A1"]] as const).map(([v, label, icon]) => (
+              <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                {isMobile ? icon : label}
               </button>
             ))}
           </div>
@@ -988,6 +999,56 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       </div>
                     </div>
 
+                    {/* Mobile-only: lock toggle + ⋮ menu for secondary actions */}
+                    {isMobile && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 6 }} onClick={e => e.stopPropagation()}>
+                        {/* Lock toggle — always visible on mobile */}
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            const nowLocked = !isLocked(p.id);
+                            const next = nowLocked
+                              ? [...lockedPipelines.filter(id => id !== p.id), p.id]
+                              : lockedPipelines.filter(id => id !== p.id);
+                            setLockedPipelines(next);
+                            patchState({ lockedPipelines: next }).then(result => {
+                              if (!result.ok) showToast("// lock change failed", t.amber);
+                            });
+                            logActivity(nowLocked ? "lock" : "unlock", p.id, `${nowLocked ? "locked" : "unlocked"} pipeline ${pipeName}`);
+                          }}
+                          title={isLocked(p.id) ? "Unlock pipeline" : "Lock pipeline"}
+                          style={{ background: isLocked(p.id) ? t.amber + "15" : "transparent", border: isLocked(p.id) ? `1px solid ${t.amber}44` : `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 14, padding: "6px 10px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: isLocked(p.id) ? t.amber : t.textDim, transition: "all 0.2s" }}
+                        >
+                          {isLocked(p.id) ? "🔒" : "🔓"}
+                        </button>
+                        {/* ⋮ menu for secondary actions */}
+                        <div style={{ position: "relative" }}>
+                          <button
+                            onClick={e => { e.stopPropagation(); setPipeMenuOpen(pipeMenuOpen === p.id ? null : p.id); }}
+                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 14, padding: "6px 10px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: t.textMuted }}
+                          >
+                            ⋮
+                          </button>
+                          {pipeMenuOpen === p.id && (
+                            <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 6, zIndex: 50, minWidth: 150, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeIn 0.15s ease" }}>
+                              {!isLocked(p.id) && (
+                                <>
+                                  <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
+                                    rename pipeline
+                                  </button>
+                                  <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
+                                    edit description
+                                  </button>
+                                </>
+                              )}
+                              <button onClick={e => { e.stopPropagation(); toggleExpand(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
+                                {isO ? "collapse" : "expand stages"}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
                     <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <button
@@ -1036,7 +1097,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 {isO && (
                   <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} {...stageProps} />)}
+                      {allPStages.map((s, i) => <Stage key={`${p.id}-${s}`} name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} isMobile={isMobile} {...stageProps} />)}
                     </div>
                     {!isLocked(p.id) && (
                       <div style={{ display: "flex", gap: 6, marginTop: 10, paddingLeft: 28 }} onClick={e => e.stopPropagation()}>
@@ -1123,8 +1184,43 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         );
       })()}
 
-      {/* CHAT SIDE WIDGET — fixed bottom-right */}
-      {showChat && (
+      {/* CHAT — BottomSheet on mobile, fixed side-widget on desktop */}
+      {isMobile ? (
+        <BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}>
+          <ChatPanel messages={chatMessages} onSend={sendChat} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+              const me = users.find(u => u.id === currentUser);
+              const lines: string[] = [];
+              lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
+              lines.push(`Team: ${users.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
+              lines.push("");
+              lines.push(`Pipelines (${allPipelines.length}):`);
+              allPipelines.forEach((p, pi) => {
+                const pName = pipeMetaOverrides[p.id]?.name || p.name;
+                const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
+                const pDesc = pipeDescOverrides[p.id] || p.desc;
+                const locked = isLocked(p.id) ? " [LOCKED]" : "";
+                const stages = [...p.stages, ...(customStages[p.id] || [])];
+                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                stages.forEach((s, si) => {
+                  const st = getStatus(s);
+                  const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
+                  const subN = (subtasks[s] || []).length;
+                  const subDone = (subtasks[s] || []).filter(t => t.done).length;
+                  const comN = (comments[s] || []).length;
+                  const sDesc = stageDescOverrides[s] || "";
+                  lines.push(`   ${pi + 1}.${si + 1} ${s} [${st}] — claimed by ${claimers}${subN ? ` — subtasks ${subDone}/${subN}` : ""}${comN ? ` — ${comN} comments` : ""}${sDesc ? ` — ${sDesc}` : ""}`);
+                });
+              });
+              const recent = activityLog.slice(0, 8);
+              if (recent.length) {
+                lines.push("");
+                lines.push("Recent activity:");
+                recent.forEach(a => lines.push(`- ${a.user} ${a.type} ${a.target}${a.detail ? ` (${a.detail})` : ""}`));
+              }
+              return lines.join("\n");
+            }} />
+          </BottomSheet>
+      ) : showChat ? (
         <div style={{ position: "fixed", bottom: 88, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
           <div style={{ position: "relative" }}>
             <button
@@ -1168,9 +1264,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             }} />
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* FAB — AI chat trigger */}
+            {/* FAB — AI chat trigger */}
       <button
         onClick={e => { e.stopPropagation(); setShowChat(prev => !prev); }}
         title={showChat ? "Close" : "Ask Binayah AI"}

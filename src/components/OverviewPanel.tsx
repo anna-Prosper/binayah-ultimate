@@ -53,10 +53,17 @@ export default function OverviewPanel({
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, animation: "fadeIn 0.2s ease" }}>
       <style>{`
-        @media (max-width: 640px) {
+        @media (max-width: 768px) {
           .bu-ov-desc { display: none !important; }
           .bu-ov-name { min-width: 0 !important; flex: 1 !important; max-width: none !important; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
           .bu-ov-row  { padding: 9px 12px !important; gap: 8px !important; }
+          /* Full-width progress bar on mobile */
+          .bu-ov-progress { width: 100% !important; flex-direction: row !important; align-items: center !important; gap: 10px !important; }
+          .bu-ov-progress-bar { flex: 1 !important; width: auto !important; }
+          .bu-ov-header-right { flex-direction: column !important; align-items: flex-start !important; gap: 6px !important; margin-top: 8px !important; }
+          .bu-ov-card-header { flex-wrap: wrap !important; }
+          /* Leaderboard tap targets */
+          .bu-ov-leader-row { min-height: 44px !important; padding: 10px 16px !important; }
         }
       `}</style>
       {filtered.map(p => {
@@ -123,9 +130,9 @@ export default function OverviewPanel({
                 </div>
 
                 {/* Progress */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+                <div className="bu-ov-progress" style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
                   <span style={{ fontSize: 20, fontWeight: 900, color: pct === 100 ? t.green : pC, fontFamily: "var(--font-dm-mono), monospace" }}>{pct}%</span>
-                  <div style={{ width: 80, height: 4, background: t.surface, borderRadius: 2, overflow: "hidden" }}>
+                  <div className="bu-ov-progress-bar" style={{ width: 80, height: 4, background: t.surface, borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: pct === 100 ? t.green : pC, borderRadius: 2, transition: "width 0.4s" }} />
                   </div>
                 </div>
