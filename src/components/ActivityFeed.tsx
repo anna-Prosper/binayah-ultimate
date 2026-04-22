@@ -11,23 +11,51 @@ interface ActivityFeedProps {
   t: T;
 }
 
+// Cap client-side rendering at 200 entries
+const CLIENT_CAP = 200;
+
+function relativeTime(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  const seconds = Math.floor(diff / 1000);
+  if (seconds < 60) return "just now";
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
 export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProps) {
+  const capped = activityLog.slice(0, CLIENT_CAP);
+
   return (
     <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 14px", marginBottom: 8, borderRadius: 14, maxHeight: 240, overflow: "auto" }}>
-      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-dm-mono), monospace" }}>activity feed</div>
-      {activityLog.length === 0 ? (
-        <div style={{ fontSize: 9, color: t.textDim, padding: 8 }}>No activity yet</div>
+      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 6 }}>
+        activity feed
+        {activityLog.length > CLIENT_CAP && (
+          <span style={{ fontSize: 7, color: t.amber, fontWeight: 700 }}>
+            (showing {CLIENT_CAP} of {activityLog.length})
+          </span>
+        )}
+      </div>
+      {capped.length === 0 ? (
+        <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 20 }}>📋</span>
+          <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no activity yet — make a move</span>
+        </div>
       ) : (
-        activityLog.slice(0, 20).map((a, i) => {
+        capped.map((a, i) => {
           const u = users.find(x => x.id === a.user);
-          const ago = Math.round((Date.now() - a.time) / 60000);
-          const timeStr = ago < 1 ? "now" : ago < 60 ? `${ago}m` : ago < 1440 ? `${Math.round(ago / 60)}h` : `${Math.round(ago / 1440)}d`;
+          const timeStr = relativeTime(a.time);
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < 19 ? `1px solid ${t.border}` : "none" }}>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < capped.length - 1 ? `1px solid ${t.border}` : "none" }}>
               {u && <AvatarC user={u} size={16} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 8, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
-                <span style={{ fontSize: 8, color: t.textMuted }}> {a.type === "claim" ? "claimed" : a.type === "comment" ? "commented on" : a.type === "status" ? "updated" : a.type} </span>
+                <span style={{ fontSize: 8, color: t.textMuted }}>
+                  {" "}{a.type === "claim" ? "claimed" : a.type === "comment" ? "commented on" : a.type === "status" ? "updated" : a.type}{" "}
+                </span>
                 <span style={{ fontSize: 8, fontWeight: 600, color: t.text }}>{a.target}</span>
                 {a.detail && <span style={{ fontSize: 7, color: t.accent, marginLeft: 4 }}>{a.detail}</span>}
               </div>

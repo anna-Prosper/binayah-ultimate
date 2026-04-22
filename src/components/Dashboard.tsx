@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { signOut } from "next-auth/react";
-import { lsGet, lsSet } from "@/lib/storage";
+import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -16,6 +16,7 @@ import { generatePipelineReport } from "@/lib/generatePDF";
 import { fetchState, patchState, pushMessage, pushComment, pushActivity } from "@/lib/apiSync";
 import KanbanView from "@/components/KanbanView";
 import OverviewPanel from "@/components/OverviewPanel";
+import { ToastContainer, RecoveryToast, useToasts } from "@/components/ui/Toast";
 
 type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -39,6 +40,11 @@ const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orang
 const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
 
 export default function Dashboard({ initialUserId }: { initialUserId?: string }) {
+  // Schema version recovery — runs synchronously before any state reads
+  const [isRecovering, setIsRecovering] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return !checkSchemaVersion();
+  });
   const [isDark, setIsDark] = useState(() => lsGet("isDark", false));
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -110,6 +116,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
   const [pipelineLocks, setPipelineLocks] = useState<Record<string, boolean>>(() => lsGet("pipelineLocks", {}));
+  const { toasts, showToast, dismissToast } = useToasts();
+
+  // Schema version recovery — clear stale cache and reload
+  useEffect(() => {
+    if (!isRecovering) return;
+    clearAllLsKeys();
+    const timer = setTimeout(() => {
+      window.location.reload();
+    }, 2500);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
@@ -352,8 +370,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       patchState({ claims, reactions, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
         if (!result.ok) {
           setSyncStatus("offline");
-          setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber });
-          setTimeout(() => setToast(null), 3500);
+          showToast("// offline \u2014 changes saved locally", t.amber);
         }
       });
     }, 800);
@@ -427,13 +444,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
   const sendChat = (text: string) => {
     if (!currentUser) return;
-    const msg: ChatMsg = { id: Date.now(), userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    const msgId = Date.now();
+    const msg: ChatMsg = { id: msgId, userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    // Optimistic: add immediately
     setChatMessages(prev => [...prev, msg]);
-    pushMessage(msg).then(result => { // atomic append to API — no clobber
+    pushMessage(msg).then(result => {
       if (!result.ok) {
+        // Rollback on failure
+        setChatMessages(prev => prev.filter(m => m.id !== msgId));
         setSyncStatus("offline");
-        setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber });
-        setTimeout(() => setToast(null), 3500);
+        showToast("// message lost \u2014 try again", t.red);
       }
     });
   };
@@ -457,14 +477,72 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       setTimeout(() => setToast(null), 2500);
     }
   };
-  const handleReact = (sid: string, emoji: string) => { if (!currentUser) return; setReactions(prev => { const s = { ...(prev[sid] || {}) }; const u = [...(s[emoji] || [])]; const i = u.indexOf(currentUser); if (i >= 0) u.splice(i, 1); else u.push(currentUser); s[emoji] = u; return { ...prev, [sid]: s }; }); };
-  const addSubtask = (sid: string) => { const val = subtaskInput[sid]?.trim(); if (!val || !currentUser) return; setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: Date.now(), text: val, done: false, by: currentUser }] })); setSubtaskInput(prev => ({ ...prev, [sid]: "" })); };
+  const handleReact = (sid: string, emoji: string) => {
+    if (!currentUser) return;
+    // Save previous state for rollback
+    const prevReactions = reactions;
+    setReactions(prev => {
+      const s = { ...(prev[sid] || {}) };
+      const u = [...(s[emoji] || [])];
+      const i = u.indexOf(currentUser);
+      if (i >= 0) u.splice(i, 1); else u.push(currentUser);
+      s[emoji] = u;
+      return { ...prev, [sid]: s };
+    });
+    // patchState is debounced via the write effect — if it fails, rollback
+    // We rely on the write effect's failure handler to show the toast
+    void prevReactions; // used if we add explicit patch here
+  };
+  const MAX_SUBTASKS = 20;
+  const MAX_SUBTASK_LEN = 200;
+  const addSubtask = (sid: string) => {
+    const val = subtaskInput[sid]?.trim();
+    if (!val || !currentUser) return;
+    if (val.length > MAX_SUBTASK_LEN) {
+      showToast("// subtask too long — max 200 chars", t.red);
+      return;
+    }
+    const current = subtasks[sid] || [];
+    if (current.length >= MAX_SUBTASKS) {
+      showToast("// max 20 subtasks per stage", t.amber);
+      return;
+    }
+    const taskId = Date.now();
+    const newTask = { id: taskId, text: val, done: false, by: currentUser };
+    setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), newTask] }));
+    setSubtaskInput(prev => ({ ...prev, [sid]: "" }));
+  };
   const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
   const lockSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
   const removeSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
   const addStageImage = (sid: string, dataUrl: string) => { setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
-  const addComment = (sid: string) => { const val = commentInput[sid]?.trim(); if (!val || !currentUser) return; const c = { id: Date.now(), text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) }; setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] })); pushComment(sid, c).then(result => { if (!result.ok) { setSyncStatus("offline"); setToast({ text: "saved locally \u2014 will retry", pts: "offline", color: t.amber }); setTimeout(() => setToast(null), 3500); } }); logActivity("comment", sid, val); setCommentInput(prev => ({ ...prev, [sid]: "" })); };
+  const MAX_COMMENT_LEN = 1000;
+  const addComment = (sid: string) => {
+    const val = commentInput[sid]?.trim();
+    if (!val || !currentUser) return;
+    if (val.length > MAX_COMMENT_LEN) {
+      showToast("// comment too long — max 1000 chars", t.red);
+      return;
+    }
+    const commentId = Date.now();
+    const c = { id: commentId, text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    // Optimistic: add immediately
+    setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] }));
+    setCommentInput(prev => ({ ...prev, [sid]: "" }));
+    logActivity("comment", sid, val.slice(0, 100));
+    pushComment(sid, c).then(result => {
+      if (!result.ok) {
+        // Rollback: remove the optimistic comment
+        setComments(prev => ({
+          ...prev,
+          [sid]: (prev[sid] || []).filter(x => x.id !== commentId),
+        }));
+        setSyncStatus("offline");
+        showToast("// comment lost — try again", t.red);
+      }
+    });
+  };
   const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
@@ -498,6 +576,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       if (idx >= 0) setExpS(`${pipelineId}-${idx}`);
     }
   };
+
+  // Schema version mismatch — show recovery toast and reload
+  if (isRecovering) {
+    return (
+      <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
+        <RecoveryToast t={t} message="// cache cleared — fresh start" />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
 
   if (isHydrating) {
     return (
@@ -536,7 +624,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines \u00B7 {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
             </div>
             <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
-            <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>{t.sub}</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
+              <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{t.sub}</div>
+              {syncStatus === "offline" && (
+                <span style={{ fontSize: 8, color: t.amber, background: t.amber + "18", border: `1px solid ${t.amber}44`, borderRadius: 6, padding: "1px 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>
+                  // offline — changes saved locally
+                </span>
+              )}
+            </div>
           </div>
 
           {/* All header buttons — same height via alignItems: stretch on parent */}
@@ -571,7 +666,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </button>
 
             {/* PDF */}
-            <button onClick={() => generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! })} style={{ ...hBtn }} title="Export PDF">
+            <button onClick={() => {
+              const result = generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! });
+              if (!result.ok) {
+                showToast("// pdf export failed", t.red);
+              }
+            }} style={{ ...hBtn }} title="Export PDF">
               {"\uD83D\uDCC4"} PDF
             </button>
 
@@ -1050,6 +1150,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           50% { box-shadow: 0 4px 32px ${t.accent}88, 0 2px 12px rgba(0,0,0,0.4); }
         }
       `}</style>
+
+      {/* Error / action toast stack */}
+      <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }

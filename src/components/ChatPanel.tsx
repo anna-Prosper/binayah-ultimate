@@ -6,7 +6,9 @@ import { AvatarC } from "@/components/ui/Avatar";
 import { type UserType } from "@/lib/data";
 
 export type ChatMsg = { id: number; userId: string; text: string; time: string };
-type AiMsg = { role: "user" | "assistant"; content: string; time: string };
+type AiMsg = { role: "user" | "assistant"; content: string; time: string; error?: boolean };
+
+const MAX_MSG_LEN = 2000;
 
 interface Props {
   messages: ChatMsg[];
@@ -24,15 +26,18 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
+  const [aiInputError, setAiInputError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
   useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages.length]);
 
+  const canSend = input.trim().length > 0 && input.trim().length <= MAX_MSG_LEN;
+
   const send = () => {
     const text = input.trim();
-    if (!text) return;
+    if (!text || text.length > MAX_MSG_LEN) return;
     onSend(text);
     setInput("");
   };
@@ -40,6 +45,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
   const sendAi = async () => {
     const text = aiInput.trim();
     if (!text || aiLoading) return;
+    setAiInputError(null);
     const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
     const userMsg: AiMsg = { role: "user", content: text, time: now };
     const updated = [...aiMessages, userMsg];
@@ -55,15 +61,32 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
           context: buildAiContext?.(),
         }),
       });
-      const data = await res.json();
       const replyTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-      setAiMessages(prev => [...prev, { role: "assistant", content: data.reply || data.error || "no response", time: replyTime }]);
+      if (res.status === 429) {
+        setAiMessages(prev => [...prev, { role: "assistant", content: "// slow down — 20 messages per minute", time: replyTime, error: true }]);
+        return;
+      }
+      const data = await res.json() as { reply?: string; error?: string };
+      if (!res.ok || data.error) {
+        const errMsg = data.error?.toLowerCase().includes("rate") || data.error?.toLowerCase().includes("429")
+          ? "// slow down — 20 messages per minute"
+          : data.error?.toLowerCase().includes("context") || data.error?.toLowerCase().includes("too long")
+          ? "// context too long — start a fresh conversation"
+          : "// ai is taking a nap — try again";
+        setAiMessages(prev => [...prev, { role: "assistant", content: errMsg, time: replyTime, error: true }]);
+        return;
+      }
+      setAiMessages(prev => [...prev, { role: "assistant", content: data.reply || "no response", time: replyTime }]);
     } catch {
-      setAiMessages(prev => [...prev, { role: "assistant", content: "network error — try again", time: now }]);
+      const errTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      setAiMessages(prev => [...prev, { role: "assistant", content: "// ai is taking a nap — try again", time: errTime, error: true }]);
     } finally {
       setAiLoading(false);
     }
   };
+
+  const inputCharCount = input.length;
+  const isInputTooLong = inputCharCount > MAX_MSG_LEN;
 
   return (
     <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, marginBottom: 16, overflow: "hidden", animation: "fadeIn 0.2s ease" }}>
@@ -89,7 +112,7 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
-                <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>no messages yet — start the chat</span>
+                <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no messages yet — break the silence</span>
               </div>
             )}
             {messages.map(msg => {
@@ -110,9 +133,51 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
             })}
             <div ref={bottomRef} />
           </div>
-          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 6 }}>
-            <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }} placeholder="message the team..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }} />
-            <button onClick={send} style={{ background: t.accent, border: "none", borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center" }}>↵</button>
+          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}` }}>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+                placeholder="message the team..."
+                maxLength={MAX_MSG_LEN + 50} /* allow overage to show counter */
+                style={{
+                  flex: 1,
+                  background: "transparent",
+                  border: `1px solid ${isInputTooLong ? t.red + "88" : t.border}`,
+                  borderRadius: 10,
+                  padding: "8px 12px",
+                  fontSize: 10,
+                  color: t.text,
+                  fontFamily: "inherit",
+                  outline: "none",
+                }}
+              />
+              <button
+                onClick={send}
+                disabled={!canSend}
+                style={{
+                  background: canSend ? t.accent : t.surface,
+                  border: "none",
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  cursor: canSend ? "pointer" : "not-allowed",
+                  fontSize: 13,
+                  color: canSend ? "#fff" : t.textMuted,
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: canSend ? 1 : 0.5,
+                  transition: "all 0.15s",
+                }}
+              >↵</button>
+            </div>
+            {isInputTooLong && (
+              <div style={{ fontSize: 8, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+                // {inputCharCount}/{MAX_MSG_LEN} — message too long
+              </div>
+            )}
           </div>
         </>
       )}
@@ -135,8 +200,18 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
                     <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>🤖</div>
                   )}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
-                    {!isUser && <div style={{ fontSize: 7, color: t.accent, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
-                    <div style={{ background: isUser ? t.accent + "22" : t.surface, border: `1px solid ${isUser ? t.accent + "44" : t.border}`, borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "7px 11px", fontSize: 11, color: t.text, lineHeight: 1.6, whiteSpace: "pre-wrap" }}>
+                    {!isUser && <div style={{ fontSize: 7, color: msg.error ? t.red : t.accent, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
+                    <div style={{
+                      background: isUser ? t.accent + "22" : msg.error ? t.red + "12" : t.surface,
+                      border: `1px solid ${isUser ? t.accent + "44" : msg.error ? t.red + "33" : t.border}`,
+                      borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
+                      padding: "7px 11px",
+                      fontSize: 11,
+                      color: msg.error ? t.red : t.text,
+                      lineHeight: 1.6,
+                      whiteSpace: "pre-wrap",
+                      fontFamily: msg.error ? "var(--font-dm-mono), monospace" : "inherit",
+                    }}>
                       {msg.content}
                     </div>
                     <div style={{ fontSize: 7, color: t.textDim, marginTop: 3, textAlign: isUser ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
@@ -154,9 +229,40 @@ export default function ChatPanel({ messages, onSend, users, currentUser, t, def
             )}
             <div ref={aiBottomRef} />
           </div>
-          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 6 }}>
-            <input value={aiInput} onChange={e => setAiInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAi(); } }} placeholder="ask binayah ai..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }} disabled={aiLoading} />
-            <button onClick={sendAi} disabled={aiLoading} style={{ background: aiLoading ? t.surface : `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, border: "none", borderRadius: 10, padding: "8px 16px", cursor: aiLoading ? "default" : "pointer", fontSize: 11, color: "#fff", fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", opacity: aiLoading ? 0.5 : 1 }}>→</button>
+          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}` }}>
+            {aiInputError && (
+              <div style={{ fontSize: 8, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6 }}>
+                {aiInputError}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                value={aiInput}
+                onChange={e => { setAiInput(e.target.value); setAiInputError(null); }}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAi(); } }}
+                placeholder="ask binayah ai..."
+                disabled={aiLoading}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }}
+              />
+              <button
+                onClick={sendAi}
+                disabled={aiLoading || !aiInput.trim()}
+                style={{
+                  background: (aiLoading || !aiInput.trim()) ? t.surface : `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`,
+                  border: "none",
+                  borderRadius: 10,
+                  padding: "8px 16px",
+                  cursor: (aiLoading || !aiInput.trim()) ? "not-allowed" : "pointer",
+                  fontSize: 11,
+                  color: "#fff",
+                  fontWeight: 700,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  opacity: (aiLoading || !aiInput.trim()) ? 0.5 : 1,
+                }}
+              >→</button>
+            </div>
           </div>
         </>
       )}

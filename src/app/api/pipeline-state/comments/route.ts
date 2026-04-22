@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   if (!rl.ok) {
     logApi(ROUTE, "rate_limited", { retryAfter: rl.retryAfter });
     return NextResponse.json(
-      { error: "Too many requests — slow down" },
+      { error: "RATE_LIMITED", message: "Too many requests — slow down" },
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
     );
   }
@@ -53,23 +53,28 @@ export async function POST(req: NextRequest) {
     logApi(ROUTE, "validation_fail", { reason: byErr });
     return NextResponse.json({ error: byErr }, { status: 400 });
   }
-  const textErr = validateText(comment.text, "text", 2000);
+  const textErr = validateText(comment.text, "text", 1000);
   if (textErr) {
     logApi(ROUTE, "validation_fail", { reason: textErr });
     return NextResponse.json({ error: textErr }, { status: 400 });
   }
 
-  await connectMongo();
-  await ensureDoc();
-  // $slice: -50 keeps the most recent 50 comments per stage
-  await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    {
-      $push: { [`state.comments.${stage}`]: { $each: [comment], $slice: -50 } },
-      $set: { updatedAt: new Date() },
-    },
-    { new: true }
-  );
-  logApi(ROUTE, "success", { stage });
-  return NextResponse.json({ ok: true });
+  try {
+    await connectMongo();
+    await ensureDoc();
+    // $slice: -100 keeps the most recent 100 comments per stage
+    await PipelineState.findOneAndUpdate(
+      WORKSPACE,
+      {
+        $push: { [`state.comments.${stage}`]: { $each: [comment], $slice: -100 } },
+        $set: { updatedAt: new Date() },
+      },
+      { new: true }
+    );
+    logApi(ROUTE, "success", { stage });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    logApi(ROUTE, "db_error", { message: (err as Error).message });
+    return NextResponse.json({ error: "COMMENT_FAILED", message: "Failed to save comment — try again" }, { status: 500 });
+  }
 }

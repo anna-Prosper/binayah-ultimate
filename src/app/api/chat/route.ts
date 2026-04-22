@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
   if (!rl.ok) {
     logApi(ROUTE, "rate_limited", { retryAfter: rl.retryAfter });
     return NextResponse.json(
-      { error: "Too many requests — slow down" },
+      { error: "RATE_LIMITED", message: "Too many requests — slow down" },
       { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
     );
   }
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
     const data = await res.json();
     if (!res.ok) {
       logApi(ROUTE, "openai_error", { status: res.status });
-      return NextResponse.json({ error: data.error?.message || "OpenAI request failed" }, { status: 500 });
+      return NextResponse.json({ error: "AI_FAILED", message: data.error?.message || "OpenAI request failed" }, { status: 500 });
     }
 
     const reply = data.choices?.[0]?.message?.content ?? "";
@@ -104,9 +104,9 @@ export async function POST(req: NextRequest) {
     clearTimeout(timeoutId);
     if ((err as Error).name === "AbortError") {
       logApi(ROUTE, "timeout");
-      return NextResponse.json({ error: "Request timed out — try again" }, { status: 504 });
+      return NextResponse.json({ error: "AI_FAILED", message: "Request timed out — try again" }, { status: 504 });
     }
     logApi(ROUTE, "error", { message: (err as Error).message });
-    return NextResponse.json({ error: "OpenAI request failed" }, { status: 500 });
+    return NextResponse.json({ error: "AI_FAILED", message: "OpenAI request failed" }, { status: 500 });
   }
 }

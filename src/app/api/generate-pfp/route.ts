@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
 
   if (!API_KEY) {
     logApi(ROUTE, "missing_api_key");
-    return NextResponse.json({ error: "API key not configured" }, { status: 500 });
+    return NextResponse.json({ error: "OPENAI_FAILED", message: "API key not configured" }, { status: 500 });
   }
 
   const body = await req.json();
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
   const createData = await createRes.json();
   if (!createRes.ok || createData.code !== 200) {
     logApi(ROUTE, "task_creation_failed", { msg: createData.msg });
-    return NextResponse.json({ error: createData.msg || "task creation failed" }, { status: 500 });
+    return NextResponse.json({ error: "OPENAI_FAILED", message: createData.msg || "task creation failed" }, { status: 500 });
   }
   const taskId = createData.data.taskId;
   logApi(ROUTE, "task_created", { taskId });
@@ -107,10 +107,10 @@ export async function POST(req: NextRequest) {
     }
     if (state === "failed") {
       logApi(ROUTE, "generation_failed", { taskId, failMsg: pollData.data?.failMsg });
-      return NextResponse.json({ error: pollData.data?.failMsg || "generation failed" }, { status: 500 });
+      return NextResponse.json({ error: "OPENAI_FAILED", message: pollData.data?.failMsg || "generation failed" }, { status: 500 });
     }
   }
 
   logApi(ROUTE, "timeout", { taskId });
-  return NextResponse.json({ error: "timed out — try again" }, { status: 504 });
+  return NextResponse.json({ error: "RATE_LIMITED", message: "timed out — try again" }, { status: 504 });
 }

@@ -14,8 +14,23 @@ interface PDFOptions {
 const STATUS_LABELS: Record<string, string> = { active: "LIVE", "in-progress": "BUILDING", planned: "PLANNED", concept: "CONCEPT" };
 const PRIORITY_ORDER = ["NOW", "HIGH", "MEDIUM", "LOW"];
 
-export function generatePipelineReport(opts: PDFOptions) {
+export type PDFResult = { ok: true } | { ok: false; error: string };
+
+export function generatePipelineReport(opts: PDFOptions): PDFResult {
+  try {
+    return _generatePipelineReport(opts);
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "pdf generation failed" };
+  }
+}
+
+function _generatePipelineReport(opts: PDFOptions): PDFResult {
   const { claims, users, getStatus, getPoints, currentUser } = opts;
+
+  if (!pipelineData || pipelineData.length === 0) {
+    return { ok: false, error: "no pipeline data to export" };
+  }
+
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
   const w = doc.internal.pageSize.getWidth();
   const me = users.find(u => u.id === currentUser);
@@ -222,4 +237,5 @@ export function generatePipelineReport(opts: PDFOptions) {
 
   // Save
   doc.save(`binayah-pipeline-report-${new Date().toISOString().slice(0, 10)}.pdf`);
+  return { ok: true };
 }

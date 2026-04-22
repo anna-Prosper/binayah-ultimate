@@ -60,11 +60,11 @@ export async function POST(req: NextRequest) {
 
   await connectMongo();
   await ensureDoc();
-  // $slice: 100 keeps the most recent 100 entries (prepended, so slice from front)
+  // $slice: 200 keeps the most recent 200 entries (prepended, so slice from front)
   await PipelineState.findOneAndUpdate(
     WORKSPACE,
     {
-      $push: { "state.activityLog": { $each: [entry], $position: 0, $slice: 100 } },
+      $push: { "state.activityLog": { $each: [entry], $position: 0, $slice: 200 } },
       $set: { updatedAt: new Date() },
     },
     { new: true }

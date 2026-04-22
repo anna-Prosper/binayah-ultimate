@@ -1,0 +1,148 @@
+"use client";
+
+import { useEffect, useRef, useState, useCallback } from "react";
+import { T } from "@/lib/themes";
+
+export type ToastItem = {
+  id: number;
+  message: string;
+  color: string;
+};
+
+interface ToastContainerProps {
+  t: T;
+  toasts: ToastItem[];
+  onDismiss: (id: number) => void;
+}
+
+// Toast container — renders up to 3 stacked toasts, fixed bottom-center
+export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
+  if (toasts.length === 0) return null;
+  return (
+    <>
+      <style>{`
+        @keyframes toastSlideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes toastFadeOut {
+          from { opacity: 1; }
+          to   { opacity: 0; }
+        }
+      `}</style>
+      <div
+        style={{
+          position: "fixed",
+          bottom: 28,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 9999,
+          display: "flex",
+          flexDirection: "column-reverse",
+          alignItems: "center",
+          gap: 8,
+          pointerEvents: "none",
+        }}
+      >
+        {toasts.slice(0, 3).map((toast, i) => (
+          <div
+            key={toast.id}
+            style={{
+              background: t.bgCard,
+              border: `1px solid ${toast.color}44`,
+              borderRadius: 10,
+              padding: "9px 16px",
+              fontSize: 11,
+              fontFamily: "var(--font-dm-mono), monospace",
+              color: toast.color,
+              boxShadow: `0 4px 24px rgba(0,0,0,0.45), 0 0 12px ${toast.color}22`,
+              animation: "toastSlideUp 0.2s ease-out",
+              opacity: 1 - i * 0.15,
+              pointerEvents: "auto",
+              cursor: "pointer",
+              whiteSpace: "nowrap",
+              maxWidth: "min(360px, calc(100vw - 48px))",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+            }}
+            onClick={() => onDismiss(toast.id)}
+          >
+            {toast.message}
+          </div>
+        ))}
+      </div>
+    </>
+  );
+}
+
+// Hook for managing toasts
+export function useToasts() {
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const counterRef = useRef(0);
+
+  const showToast = useCallback((message: string, color: string, durationMs = 3000) => {
+    const id = ++counterRef.current;
+    setToasts(prev => [...prev.slice(-2), { id, message, color }]); // max 3
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== id));
+    }, durationMs);
+    return id;
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  return { toasts, showToast, dismissToast };
+}
+
+// Recovery toast — shown when schema version mismatch detected
+// Returns a promise that resolves after the toast duration
+interface RecoveryToastProps {
+  t: T;
+  message?: string;
+}
+
+export function RecoveryToast({ t, message = "// cache cleared — fresh start" }: RecoveryToastProps) {
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setVisible(false), 2500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (!visible) return null;
+
+  return (
+    <>
+      <style>{`
+        @keyframes recoverySlideUp {
+          from { opacity: 0; transform: translate(-50%, 16px); }
+          to   { opacity: 1; transform: translate(-50%, 0); }
+        }
+      `}</style>
+      <div
+        style={{
+          position: "fixed",
+          bottom: 28,
+          left: "50%",
+          transform: "translateX(-50%)",
+          zIndex: 9999,
+          background: t.bgCard,
+          border: `1px solid ${t.amber}44`,
+          borderRadius: 10,
+          padding: "9px 16px",
+          fontSize: 11,
+          fontFamily: "var(--font-dm-mono), monospace",
+          color: t.amber,
+          boxShadow: `0 4px 24px rgba(0,0,0,0.45), 0 0 12px ${t.amber}22`,
+          animation: "recoverySlideUp 0.25s ease-out",
+          whiteSpace: "nowrap",
+          pointerEvents: "none",
+        }}
+      >
+        {message}
+      </div>
+    </>
+  );
+}

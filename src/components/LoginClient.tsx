@@ -4,12 +4,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { mkTheme } from "@/lib/themes";
+import { SCHEMA_VERSION } from "@/lib/version";
 
 // Use warroom dark by default — user hasn't picked theme yet
 const t = mkTheme("warroom", true);
-
-// SCHEMA_VERSION for footer — will be defined in stage 2; hardcoded v1 for now
-const SCHEMA_VERSION = "v1";
 const YEAR = new Date().getFullYear();
 
 // Official Google G icon SVG (multicolor — do NOT tint)
@@ -59,6 +57,7 @@ export default function LoginClient() {
   const [password, setPassword] = useState("");
   const [authState, setAuthState] = useState<AuthState>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [isSignupError, setIsSignupError] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
 
   const emailInputRef = useRef<HTMLInputElement>(null);
@@ -79,7 +78,7 @@ export default function LoginClient() {
 
   const isInFlight = authState !== "idle";
 
-  const clearError = useCallback(() => setError(null), []);
+  const clearError = useCallback(() => { setError(null); setIsSignupError(false); }, []);
 
   function getErrorMessage(err: string): string {
     if (err.startsWith("NOT_WHITELISTED:")) {
@@ -89,7 +88,7 @@ export default function LoginClient() {
     if (err === "NOT_WHITELISTED") {
       return email ? `NOT_WHITELISTED:${email}` : "// this email isn't on the access list. ping prajeesh.";
     }
-    if (err === "NO_ACCOUNT") return "// no account found. use 'first time? set a password →' below.";
+    if (err === "NO_ACCOUNT") return "NO_ACCOUNT";
     if (err === "WRONG_PASSWORD") return "WRONG_PASSWORD";
     if (err === "OAuthSignin" || err === "OAuthCallback" || err === "OAuthCreateAccount") return "OAUTH_ERROR";
     if (err === "CredentialsSignin") return "WRONG_PASSWORD";
@@ -120,6 +119,7 @@ export default function LoginClient() {
   async function handleSignIn() {
     setAuthState("loading_credentials");
     clearError();
+    setIsSignupError(false);
     const result = await signIn("credentials", {
       email: email.trim().toLowerCase(),
       password,
@@ -145,6 +145,7 @@ export default function LoginClient() {
   async function handleSignup() {
     setAuthState("loading_signup");
     clearError();
+    setIsSignupError(true);
     try {
       const res = await fetch("/api/auth/signup", {
         method: "POST",
@@ -157,6 +158,7 @@ export default function LoginClient() {
         if (data.error === "NOT_WHITELISTED") {
           setError(`NOT_WHITELISTED:${data.email ?? email}`);
         } else {
+          setIsSignupError(false);
           setError(data.error ?? "NETWORK_ERROR");
         }
         return;
@@ -212,9 +214,26 @@ export default function LoginClient() {
           <span style={{ color: t.red }}>access denied — wrong email or password</span>
         </>
       );
+    } else if (error === "NO_ACCOUNT") {
+      // Explicit case — no double // prefix
+      line = (
+        <>
+          <span style={{ color: t.textDim }}>//</span>
+          {" "}
+          <span style={{ color: t.red }}>no account found. use &apos;first time? set a password →&apos; below.</span>
+        </>
+      );
     } else if (error.startsWith("NOT_WHITELISTED:")) {
       const addr = error.replace("NOT_WHITELISTED:", "");
-      line = (
+      line = isSignupError ? (
+        <>
+          <span style={{ color: t.textDim }}>//</span>
+          {" "}
+          <span style={{ color: t.text }}>{addr}</span>
+          {" "}
+          <span style={{ color: t.red }}>isn&apos;t on the access list — signups are invite-only.</span>
+        </>
+      ) : (
         <>
           <span style={{ color: t.textDim }}>//</span>
           {" "}
@@ -241,11 +260,13 @@ export default function LoginClient() {
       );
     } else {
       // Fallback for any other error string (e.g. from signup endpoint)
+      // Strip leading "//" if present to avoid double prefix
+      const displayError = error.startsWith("//") ? error.slice(2).trim() : error;
       line = (
         <>
           <span style={{ color: t.textDim }}>//</span>
           {" "}
-          <span style={{ color: t.red }}>{error}</span>
+          <span style={{ color: t.red }}>{displayError}</span>
         </>
       );
     }
