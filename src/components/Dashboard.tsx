@@ -170,7 +170,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Per-pipeline ⋮ menu open state for mobile header
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Left sidebar nav — desktop only; persisted so user returns to where they left off
-  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "pipelines") as NavItem);
+  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "now") as NavItem);
   // Active pipeline in sidebar sub-list — remembers last selected pipeline
   const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
   // Mobile documents sheet
@@ -1143,8 +1143,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </ErrorBoundary>
         )}
 
-        {/* Desktop: Tasks view when activeNavItem === 'tasks' */}
-        {!isMobile && activeNavItem === "tasks" && (
+        {/* Desktop: Tasks view when activeNavItem === 'now' */}
+        {!isMobile && activeNavItem === "now" && (
           <ErrorBoundary onError={() => showToast("// tasks failed to load — refresh to retry", t.red)}>
             <Suspense fallback={null}>
               <TasksView
