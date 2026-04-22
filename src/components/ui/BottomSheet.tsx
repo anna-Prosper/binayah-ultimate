@@ -33,6 +33,9 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
+      // Wait for slide-out transition (300ms) before unmounting the overlay
+      const timer = setTimeout(() => setVisible(false), 300);
+      return () => clearTimeout(timer);
     }
     return () => { document.body.style.overflow = ""; };
   }, [open]);
@@ -116,7 +119,7 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
           flexDirection: "column",
           transform: open ? `translateY(${dragDelta}px)` : "translateY(100%)",
           transition: dragDelta > 0 ? "none" : "transform 0.3s ease",
-          boxShadow: `0 -8px 40px rgba(0,0,0,0.5)`,
+          boxShadow: t.shadowLg,
           willChange: "transform",
         }}
       >
