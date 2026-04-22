@@ -58,6 +58,9 @@ export async function PATCH(
   }
 
   if ("content" in body) {
+    if (typeof body.content !== "object" || body.content === null || Array.isArray(body.content)) {
+      return NextResponse.json({ error: "content must be a TipTap JSON object" }, { status: 400 });
+    }
     update.content = body.content;
   }
 

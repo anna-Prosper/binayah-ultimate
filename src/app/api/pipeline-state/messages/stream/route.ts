@@ -34,22 +34,42 @@ export async function GET(req: NextRequest) {
         }
       };
 
+      // Subscribe to live bus BEFORE the DB flush to eliminate the race window
+      // where a message is emitted between the query completing and the subscription.
+      // Messages that arrive during the flush are buffered and deduped below.
+      const liveBuffer: ChatMsg[] = [];
+      const onMessage = (msg: ChatMsg) => {
+        if (flushed) {
+          send(msg);
+        } else {
+          liveBuffer.push(msg);
+        }
+      };
+      let flushed = false;
+      chatBus.on("message", onMessage);
+
       // Flush missed messages since last known id
+      const seenIds = new Set<number>();
       try {
         await connectMongo();
         const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { chatMessages?: ChatMsg[] } } | null;
         const historical = doc?.state?.chatMessages ?? [];
         const missed = historical.filter((m) => m.id > since);
         for (const m of missed) {
+          seenIds.add(m.id);
           send(m);
         }
       } catch {
         // MongoDB unavailable in local dev — continue without historical messages
       }
 
-      // Subscribe to live bus
-      const onMessage = (msg: ChatMsg) => send(msg);
-      chatBus.on("message", onMessage);
+      // Replay live messages buffered during flush, deduped
+      flushed = true;
+      for (const m of liveBuffer) {
+        if (!seenIds.has(m.id)) {
+          send(m);
+        }
+      }
 
       // Keep-alive ping every 30 seconds
       const pingInterval = setInterval(() => {
