@@ -25,25 +25,25 @@ async function ensureDoc() {
 }
 
 /** Given a patch and the current locked pipeline IDs, check if the patch mutates a locked pipeline.
- *  Strategy: if _pipelineId is provided in the patch, check it directly.
- *  Otherwise, for stageStatusOverrides/claims/subtasks/reactions/stageDescOverrides,
- *  try to resolve the stage key to a pipeline and check if it's locked.
+ *  Strategy: if _pipelineId is provided in the patch and it IS locked, return it immediately.
+ *  If _pipelineId is present but NOT locked, fall through to the stage-key scan (don't trust
+ *  the client hint as an exemption — always verify against the full stage map).
+ *  stageToP must include both static stages and any custom stages from the DB.
  */
-function findLockedConflict(patch: Record<string, unknown>, lockedPipelines: string[]): string | null {
+function findLockedConflict(
+  patch: Record<string, unknown>,
+  lockedPipelines: string[],
+  stageToP: Map<string, string>
+): string | null {
   if (!lockedPipelines.length) return null;
 
-  // Explicit pipeline ID hint from client
+  // Fast path: explicit pipeline ID is locked — no need to scan stages
   if (patch._pipelineId && typeof patch._pipelineId === "string") {
     if (lockedPipelines.includes(patch._pipelineId)) {
       return patch._pipelineId;
     }
-    return null; // client told us the pipeline, it's not locked
-  }
-
-  // Build stage->pipeline map from static data
-  const stageToP = new Map<string, string>();
-  for (const p of pipelineData) {
-    for (const s of p.stages) stageToP.set(s, p.id);
+    // _pipelineId is present but not locked — fall through to stage-key scan
+    // (the hint does NOT exempt the patch from further checks)
   }
 
   for (const [key, value] of Object.entries(patch)) {
@@ -131,8 +131,20 @@ export async function PATCH(req: NextRequest) {
   if (hasPipelineScopedKeys) {
     const currentDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
     const lockedPipelines = (currentDoc?.state?.lockedPipelines as string[] | undefined) || [];
+
+    // Build stage->pipeline map from static data
+    const stageToP = new Map<string, string>();
+    for (const p of pipelineData) {
+      for (const s of p.stages) stageToP.set(s, p.id);
+    }
+    // Extend with custom stages persisted in the DB (so locked custom stages are also protected)
+    const dbCustomStages = (currentDoc?.state?.customStages as Record<string, string[]> | undefined) ?? {};
+    for (const [pid, stages] of Object.entries(dbCustomStages)) {
+      for (const stageName of stages) stageToP.set(stageName, pid);
+    }
+
     const patchForLockCheck = _pipelineId ? { ...cleanPatch, _pipelineId } : cleanPatch;
-    const conflictPipelineId = findLockedConflict(patchForLockCheck as Record<string, unknown>, lockedPipelines);
+    const conflictPipelineId = findLockedConflict(patchForLockCheck as Record<string, unknown>, lockedPipelines, stageToP);
     if (conflictPipelineId) {
       logApi(ROUTE, "pipeline_locked", { pipelineId: conflictPipelineId });
       return NextResponse.json(
