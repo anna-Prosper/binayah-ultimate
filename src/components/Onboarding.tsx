@@ -360,15 +360,10 @@ export function AvatarStep6({
 
   return (
     <div onClick={() => onClose ? onClose() : setOnboardStep(5)} style={{ position: "fixed", inset: 0, background: t.bg + "ee", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
-      <style>{`
-        @keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
-        @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-        @keyframes popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
-        @media(min-width:600px){.av-grid{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.av-card{max-height:88vh;overflow-y:hidden!important}}
-      `}</style>
+      <style>{css}</style>
       <AnimBg />
       <div onClick={e => e.stopPropagation()} className="av-card" style={{ maxHeight: "90vh", overflowY: "auto" }}>
-        <NB color={user.color} style={{ background: t.bgCard, padding: "22px 20px", maxWidth: 460, width: "94vw", textAlign: "center", animation: "scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
+        <NB color={user.color} style={{ background: t.bgCard, padding: "22px 20px", maxWidth: 460, width: "94vw", textAlign: "center", animation: "ob-scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: user.color }}>choose your pfp</div>
           <p style={{ fontSize: 10, color: t.textMuted, margin: "4px 0 16px", fontFamily: "var(--font-dm-mono), monospace" }}>// {user.name.toLowerCase()}, pick your persona</p>
           <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 3, marginBottom: 18 }}>
@@ -394,7 +389,7 @@ export function AvatarStep6({
                     cursor: "pointer", transition: "all 0.2s", position: "relative",
                     boxShadow: active ? `0 0 20px ${user.color}44` : "none",
                     transform: active ? "scale(1.07)" : "scale(1)",
-                    animation: `scaleIn 0.3s ease ${idx * 0.02}s both`, background: "#111",
+                    animation: `ob-scaleIn 0.3s ease ${idx * 0.02}s both`, background: "#111",
                   }}>
                     {!loadedImgs.has(av.id) && (<div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", background: `${user.color}18`, fontSize: 18, fontWeight: 800, color: user.color, fontFamily: "var(--font-dm-sans), sans-serif" }}>{av.name[0]}</div>)}
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -406,14 +401,14 @@ export function AvatarStep6({
             </div>
           )}
           {tab === "ai" && (
-            <div style={{ animation: "fadeIn 0.3s ease" }}>
+            <div style={{ animation: "ob-fadeIn 0.3s ease" }}>
               <div style={{ position: "relative", marginBottom: 10 }}>
                 <input ref={inputRef} value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} onKeyDown={e => e.key === "Enter" && generate()} placeholder="describe your vibe..."
                   style={{ width: "100%", boxSizing: "border-box", background: t.surface, border: `1.5px solid ${t.border}`, borderRadius: 12, padding: "12px 52px 12px 14px", color: t.text, fontSize: 13, fontFamily: "var(--font-dm-mono), monospace", outline: "none", transition: "border-color 0.2s" }}
                   onFocus={e => (e.target.style.borderColor = user.color)} onBlur={e => (e.target.style.borderColor = t.border)}
                 />
                 <button onClick={generate} disabled={aiLoading || !aiPrompt.trim()} style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: `linear-gradient(135deg,${user.color},${user.color}bb)`, border: "none", borderRadius: 8, width: 36, height: 30, color: "#fff", fontSize: 14, cursor: aiLoading || !aiPrompt.trim() ? "not-allowed" : "pointer", opacity: aiLoading || !aiPrompt.trim() ? 0.5 : 1, transition: "opacity 0.2s", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  {aiLoading ? <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #fff4", borderTopColor: "#fff", borderRadius: "50%", animation: "spin 0.7s linear infinite" }} /> : "→"}
+                  {aiLoading ? <span style={{ display: "inline-block", width: 14, height: 14, border: "2px solid #fff4", borderTopColor: "#fff", borderRadius: "50%", animation: "ob-spin 0.7s linear infinite" }} /> : "→"}
                 </button>
               </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
@@ -424,10 +419,10 @@ export function AvatarStep6({
                   >{h}</button>
                 ))}
               </div>
-              {aiLoading && (<div style={{ marginBottom: 16, textAlign: "center" }}><div style={{ width: 140, height: 140, borderRadius: 20, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "shimmer 1.4s ease-in-out infinite" }} /><div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>// generating your vibe...</div></div>)}
+              {aiLoading && (<div style={{ marginBottom: 16, textAlign: "center" }}><div style={{ width: 140, height: 140, borderRadius: 20, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "ob-shimmer 1.4s ease-in-out infinite" }} /><div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>// generating your vibe...</div></div>)}
               {aiError && <div style={{ color: "#ff5f5f", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>⚠ {aiError}</div>}
               {aiImage && !aiLoading && (
-                <div style={{ marginBottom: 16, textAlign: "center", animation: "popIn 0.4s ease" }}>
+                <div style={{ marginBottom: 16, textAlign: "center", animation: "ob-popIn 0.4s ease" }}>
                   <div style={{ position: "relative", display: "inline-block" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={aiImage} alt="ai pfp" style={{ width: 140, height: 140, borderRadius: 20, objectFit: "cover", border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44` }} />
@@ -439,9 +434,9 @@ export function AvatarStep6({
               {!aiImage && !aiLoading && !aiError && (<div style={{ padding: "24px 0", color: t.textDim, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>// type a vibe above and hit enter</div>)}
             </div>
           )}
-          <div style={{ marginBottom: 20, animation: "fadeIn 0.4s ease" }}>
+          <div style={{ marginBottom: 20, animation: "ob-fadeIn 0.4s ease" }}>
             <div style={{ display: "inline-block", position: "relative" }}>
-              <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `2px solid ${user.color}22`, animation: "ringExpand 2.5s ease-out infinite" }} />
+              <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `2px solid ${user.color}22`, animation: "ob-ringExpand 2.5s ease-out infinite" }} />
               {aiUserAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={aiUserAvatar} alt="selected ai avatar" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${user.color}` }} />
@@ -456,9 +451,133 @@ export function AvatarStep6({
           </div>
           <button onClick={confirm} style={{ background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 14, padding: "12px 40px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`, textTransform: "lowercase", position: "relative", overflow: "hidden" }}>
             <span style={{ position: "relative", zIndex: 1 }}>{onConfirm ? "save avatar →" : "let’s build →"}</span>
-            <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "scanline 2.5s ease-in-out infinite" }} />
+            <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
           </button>
         </NB>
+      </div>
+    </div>
+  );
+}
+
+// ─── TypedTitle — module-level component (must NOT be defined inside render) ──
+
+function TypedTitle({ title, accentColor, textColor }: { title: string; accentColor: string; textColor: string }) {
+  const { displayed, done } = useTypewriter(title, 50, 300);
+  return (
+    <div style={{ fontSize: 26, fontWeight: 900, color: textColor, textShadow: `0 0 12px ${accentColor}33`, minHeight: 36 }}>
+      {displayed}
+      <span style={{ color: accentColor, animation: done ? "none" : "ob-typeGlow 0.8s ease infinite", marginLeft: 1 }}>
+        {done ? "" : "_"}
+      </span>
+    </div>
+  );
+}
+
+// ─── CelebStep — module-level component (must NOT be defined inside render) ───
+
+function CelebStep({
+  t, sessionUser, selAvatar, selAiAvatar, totalStages, onComplete, AnimBg,
+}: {
+  t: T;
+  sessionUser: UserType;
+  selAvatar: string | null;
+  selAiAvatar: string | null;
+  totalStages: number;
+  onComplete: (opts: { avatar: string | null; aiAvatar: string | null }) => void;
+  AnimBg: () => React.ReactElement;
+}) {
+  const [ready, setReady] = useState(false);
+  useEffect(() => { const timer = setTimeout(() => setReady(true), 100); return () => clearTimeout(timer); }, []);
+
+  const firstName = sessionUser.name.split(" ")[0];
+  const confettiColors = [sessionUser.color, t.accent, t.green, t.amber, t.cyan];
+  const confettiPieces = [...Array(12)].map((_, i) => ({
+    color: confettiColors[i % confettiColors.length],
+    x: 10 + i * 8,
+    delay: i * 0.08,
+    size: 6 + (i % 3) * 3,
+    rot: i * 30,
+  }));
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+      <AnimBg />
+      {/* Floating confetti */}
+      {ready && confettiPieces.map((p, i) => (
+        <div key={i} style={{
+          position: "absolute", width: p.size, height: p.size,
+          background: p.color, borderRadius: i % 3 === 0 ? "50%" : 2,
+          left: `${p.x}%`, top: "30%",
+          animation: `ob-celebFloat ${2.5 + (i % 3) * 0.4}s ease-in-out infinite`,
+          animationDelay: `${p.delay}s`,
+          opacity: 0.6, transform: `rotate(${p.rot}deg)`,
+        }} />
+      ))}
+
+      <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 420, width: "90%", animation: ready ? "ob-celebPop 0.6s cubic-bezier(0.2,0.8,0.3,1.2) both" : "none" }}>
+        {/* Avatar */}
+        <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
+          <div style={{ position: "absolute", inset: -12, borderRadius: "50%", border: `2px solid ${sessionUser.color}33`, animation: "ob-ringExpand 2s ease-out infinite" }} />
+          <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `1px solid ${sessionUser.color}22`, animation: "ob-ringExpand 2s ease-out 0.7s infinite" }} />
+          {selAiAvatar
+            ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={selAiAvatar} alt="avatar" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: `2px solid ${sessionUser.color}` }} />
+            )
+            : <AvatarC user={{ ...sessionUser, avatar: selAvatar || sessionUser.avatar || "" }} size={80} />
+          }
+        </div>
+
+        {/* Headline */}
+        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.1, color: t.text, marginBottom: 6 }}>
+          gm, {firstName}.
+        </div>
+        <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.1, color: sessionUser.color, textShadow: `0 0 30px ${sessionUser.color}44`, marginBottom: 16 }}>
+          the deck is yours.
+        </div>
+
+        {/* Role tag */}
+        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 28, letterSpacing: "0.3px" }}>
+          // {sessionUser.role} · session live · {totalStages} stages on the board
+        </div>
+
+        {/* Stat chips */}
+        <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 32, flexWrap: "wrap" }}>
+          {[
+            { label: "pipelines", value: pipelineData.length },
+            { label: "stages", value: totalStages },
+            { label: "AI tools", value: 45 },
+          ].map(chip => (
+            <div key={chip.label} style={{
+              background: sessionUser.color + "12", border: `1px solid ${sessionUser.color}25`,
+              borderRadius: 20, padding: "6px 14px", textAlign: "center",
+            }}>
+              <div style={{ fontSize: 18, fontWeight: 900, color: sessionUser.color, fontFamily: "var(--font-dm-mono), monospace" }}>{chip.value}</div>
+              <div style={{ fontSize: 8, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase" }}>{chip.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* CTA */}
+        <button onClick={() => onComplete({ avatar: selAvatar, aiAvatar: selAiAvatar })} style={{
+          width: "100%", height: 52, borderRadius: 14, border: "none",
+          background: `linear-gradient(135deg, ${sessionUser.color}, ${sessionUser.color}cc)`,
+          color: "#fff", fontSize: 15, fontWeight: 800,
+          letterSpacing: "0.3px", textTransform: "lowercase",
+          cursor: "pointer", boxShadow: `0 4px 24px ${sessionUser.color}33`,
+          position: "relative", overflow: "hidden", transition: "transform 0.15s, box-shadow 0.15s",
+          fontFamily: "var(--font-dm-sans), sans-serif",
+        }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 32px ${sessionUser.color}55`; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 24px ${sessionUser.color}33`; }}
+        >
+          <span style={{ position: "relative", zIndex: 1 }}>
+            {t.themeId === "warroom" ? "enter the war room →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "engine" ? "start the engine →" : "enter the nerve center →"}
+          </span>
+          <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
+        </button>
+
+        <div style={{ marginTop: 12, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1 }}>esc · skip</div>
       </div>
     </div>
   );
@@ -562,24 +681,24 @@ export default function Onboarding({
 
     // Phase 1: pick theme style
     return (
-      <div style={{ position: "fixed", inset: 0, background: "#030308", overflowY: "auto", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+      <div style={{ position: "fixed", inset: 0, background: t.bg, overflowY: "auto", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
         <style>{css}</style>
         <FloatingBg colors={[sel.color, sel.color + "88", "#ffffff08", sel.color + "44"]} themeStyle={themeId} />
         <div style={{ minHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", padding: "40px 0" }}>
           <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 520, width: "92%", animation: "ob-slideUp 0.6s ease" }}>
             <div style={{ fontSize: 11, letterSpacing: 6, color: sel.color + "66", textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>binayah.ai</div>
-            <div style={{ fontSize: 36, fontWeight: 900, color: "#f0f0f0", letterSpacing: -1.5, lineHeight: 1.1 }}>
+            <div style={{ fontSize: 36, fontWeight: 900, color: t.text, letterSpacing: -1.5, lineHeight: 1.1 }}>
               gm, {firstName.toLowerCase()}.<br />
               <span style={{ color: sel.color, textShadow: `0 0 30px ${sel.color}44, 0 0 60px ${sel.color}22`, transition: "color 0.3s, text-shadow 0.3s" }}>pick your command center</span>
             </div>
-            <p style={{ fontSize: 11, color: "#555", margin: "8px 0 30px", fontFamily: "var(--font-dm-mono), monospace" }}>// {sel.desc.toLowerCase()}</p>
+            <p style={{ fontSize: 11, color: t.textMuted, margin: "8px 0 30px", fontFamily: "var(--font-dm-mono), monospace" }}>// {sel.desc.toLowerCase()}</p>
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {THEME_OPTIONS.map((th, idx) => {
                 const active = themeId === th.id;
                 return (
                   <button key={th.id} onClick={() => setThemeId(th.id)} style={{
-                    background: active ? th.bg : "#0a0a10", border: `2px solid ${active ? th.color : "#1a1a22"}`,
+                    background: active ? th.bg : t.bgCard, border: `2px solid ${active ? th.color : t.border}`,
                     borderRadius: 18, padding: "18px 12px", cursor: "pointer", textAlign: "center",
                     transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
                     boxShadow: active ? `0 0 40px ${th.color}15, inset 0 0 40px ${th.color}08` : "0 2px 8px rgba(0,0,0,0.3)",
@@ -591,7 +710,7 @@ export default function Onboarding({
                     </>}
                     <div style={{ position: "relative", zIndex: 1 }}>
                       <div style={{ fontSize: 32, marginBottom: 6, filter: active ? `drop-shadow(0 0 8px ${th.color}44)` : "none", transition: "filter 0.3s" }}>{th.icon}</div>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: active ? th.color : "#666", transition: "color 0.3s", letterSpacing: -0.3 }}>{th.name}</div>
+                      <div style={{ fontSize: 13, fontWeight: 900, color: active ? th.color : t.textMuted, transition: "color 0.3s", letterSpacing: -0.3 }}>{th.name}</div>
                     </div>
                   </button>
                 );
@@ -602,7 +721,7 @@ export default function Onboarding({
               {[{ l: "pipelines", v: pipelineData.length }, { l: "stages", v: totalStages }, { l: "AI tools", v: "45" }].map((s, i) => (
                 <div key={s.l} style={{ textAlign: "center", animation: `ob-countUp 0.5s ease ${0.3 + i * 0.1}s both` }}>
                   <div style={{ fontSize: 20, fontWeight: 900, color: sel.color, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</div>
-                  <div style={{ fontSize: 8, color: "#555", letterSpacing: 2, textTransform: "uppercase" }}>{s.l}</div>
+                  <div style={{ fontSize: 8, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase" }}>{s.l}</div>
                 </div>
               ))}
             </div>
@@ -626,18 +745,6 @@ export default function Onboarding({
   // === STEPS 1-4: ONBOARDING INTRO CARDS ===
   if (step >= 1 && step <= 4) {
     const card = ONBOARDING[step - 1];
-
-    const TypedTitle = () => {
-      const { displayed, done } = useTypewriter(card.title, 50, 300);
-      return (
-        <div style={{ fontSize: 26, fontWeight: 900, color: t.text, textShadow: `0 0 12px ${t.accent}33`, minHeight: 36 }}>
-          {displayed}
-          <span style={{ color: t.accent, animation: done ? "none" : "ob-typeGlow 0.8s ease infinite", marginLeft: 1 }}>
-            {done ? "" : "_"}
-          </span>
-        </div>
-      );
-    };
 
     return (
       <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
@@ -664,7 +771,7 @@ export default function Onboarding({
             <div style={{ fontSize: 56, position: "relative", filter: `drop-shadow(0 0 20px ${t.accent}33)` }}>{card.icon}</div>
           </div>
 
-          <TypedTitle />
+          <TypedTitle title={card.title} accentColor={t.accent} textColor={t.text} />
           <p style={{ fontSize: 13, color: t.textSec, lineHeight: 1.7, margin: "14px 0 6px", animation: "ob-fadeIn 0.6s ease 0.5s both" }}>{card.desc}</p>
           <p style={{ fontSize: 10, color: t.accent + "77", fontFamily: "var(--font-dm-mono), monospace", margin: "0 0 28px", animation: "ob-fadeIn 0.6s ease 0.7s both" }}>{card.sub}</p>
 
@@ -717,107 +824,18 @@ export default function Onboarding({
 
   // === STEP 6: CELEBRATION / "YOU'RE IN" ===
   if (step === 6) {
-    const CelebStep = () => {
-      const [ready, setReady] = useState(false);
-      useEffect(() => { const t = setTimeout(() => setReady(true), 100); return () => clearTimeout(t); }, []);
-
-      const confettiColors = [sessionUser.color, t.accent, t.green, t.amber, t.cyan];
-      const confettiPieces = [...Array(12)].map((_, i) => ({
-        color: confettiColors[i % confettiColors.length],
-        x: 10 + i * 8,
-        delay: i * 0.08,
-        size: 6 + (i % 3) * 3,
-        rot: i * 30,
-      }));
-
-      return (
-        <div style={{ position: "fixed", inset: 0, background: t.bg, display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
-          <AnimBg />
-          {/* Floating confetti */}
-          {ready && confettiPieces.map((p, i) => (
-            <div key={i} style={{
-              position: "absolute", width: p.size, height: p.size,
-              background: p.color, borderRadius: i % 3 === 0 ? "50%" : 2,
-              left: `${p.x}%`, top: "30%",
-              animation: `ob-celebFloat ${2.5 + (i % 3) * 0.4}s ease-in-out infinite`,
-              animationDelay: `${p.delay}s`,
-              opacity: 0.6, transform: `rotate(${p.rot}deg)`,
-            }} />
-          ))}
-
-          <div style={{ position: "relative", zIndex: 1, textAlign: "center", maxWidth: 420, width: "90%", animation: ready ? "ob-celebPop 0.6s cubic-bezier(0.2,0.8,0.3,1.2) both" : "none" }}>
-            {/* Avatar */}
-            <div style={{ position: "relative", display: "inline-block", marginBottom: 20 }}>
-              <div style={{ position: "absolute", inset: -12, borderRadius: "50%", border: `2px solid ${sessionUser.color}33`, animation: "ob-ringExpand 2s ease-out infinite" }} />
-              <div style={{ position: "absolute", inset: -6, borderRadius: "50%", border: `1px solid ${sessionUser.color}22`, animation: "ob-ringExpand 2s ease-out 0.7s infinite" }} />
-              {selAiAvatar
-                ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={selAiAvatar} alt="avatar" style={{ width: 80, height: 80, borderRadius: "50%", objectFit: "cover", border: `2px solid ${sessionUser.color}` }} />
-                )
-                : <AvatarC user={{ ...sessionUser, avatar: selAvatar || sessionUser.avatar || "" }} size={80} />
-              }
-            </div>
-
-            {/* Headline */}
-            <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.1, color: t.text, marginBottom: 6 }}>
-              gm, {firstName}.
-            </div>
-            <div style={{ fontSize: 36, fontWeight: 900, letterSpacing: -1.5, lineHeight: 1.1, color: sessionUser.color, textShadow: `0 0 30px ${sessionUser.color}44`, marginBottom: 16 }}>
-              the deck is yours.
-            </div>
-
-            {/* Role tag */}
-            <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 28, letterSpacing: "0.3px" }}>
-              // {sessionUser.role} · session live · {totalStages} stages on the board
-            </div>
-
-            {/* Stat chips */}
-            <div style={{ display: "flex", gap: 8, justifyContent: "center", marginBottom: 32, flexWrap: "wrap" }}>
-              {[
-                { label: "pipelines", value: pipelineData.length },
-                { label: "stages", value: totalStages },
-                { label: "AI tools", value: 45 },
-              ].map(chip => (
-                <div key={chip.label} style={{
-                  background: sessionUser.color + "12", border: `1px solid ${sessionUser.color}25`,
-                  borderRadius: 20, padding: "6px 14px", textAlign: "center",
-                }}>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: sessionUser.color, fontFamily: "var(--font-dm-mono), monospace" }}>{chip.value}</div>
-                  <div style={{ fontSize: 8, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase" }}>{chip.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* CTA */}
-            <button onClick={() => onComplete({ avatar: selAvatar, aiAvatar: selAiAvatar })} style={{
-              width: "100%", height: 52, borderRadius: 14, border: "none",
-              background: `linear-gradient(135deg, ${sessionUser.color}, ${sessionUser.color}cc)`,
-              color: "#fff", fontSize: 15, fontWeight: 800,
-              letterSpacing: "0.3px", textTransform: "lowercase",
-              cursor: "pointer", boxShadow: `0 4px 24px ${sessionUser.color}33`,
-              position: "relative", overflow: "hidden", transition: "transform 0.15s, box-shadow 0.15s",
-              fontFamily: "var(--font-dm-sans), sans-serif",
-            }}
-              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "translateY(-1px)"; (e.currentTarget as HTMLElement).style.boxShadow = `0 6px 32px ${sessionUser.color}55`; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 24px ${sessionUser.color}33`; }}
-            >
-              <span style={{ position: "relative", zIndex: 1 }}>
-                {t.themeId === "warroom" ? "enter the war room →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "engine" ? "start the engine →" : "enter the nerve center →"}
-              </span>
-              <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
-            </button>
-
-            <div style={{ marginTop: 12, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1 }}>esc · skip</div>
-          </div>
-        </div>
-      );
-    };
-
     return (
       <>
         <style>{css}</style>
-        <CelebStep />
+        <CelebStep
+          t={t}
+          sessionUser={sessionUser}
+          selAvatar={selAvatar}
+          selAiAvatar={selAiAvatar}
+          totalStages={totalStages}
+          onComplete={onComplete}
+          AnimBg={AnimBg}
+        />
       </>
     );
   }
