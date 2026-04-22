@@ -153,6 +153,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "ai">("ai");
   const [view, setView] = useState<"list" | "kanban" | "overview">("list");
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
@@ -864,14 +865,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:768px){.bu-pipe-left{width:100%!important}.bu-pipe-actions{flex-wrap:wrap!important;gap:4px!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
       {/* Top section: header + team bar — max-width constrained */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px 12px 0" : "24px 20px 0", overflowX: "hidden" }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px 12px 0" : "24px 20px 0" }}>
 
         {/* HEADER */}
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
-              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines \u00B7 {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
+              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines {"\u00B7"} {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
             </div>
             <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 2 }}>
@@ -1478,7 +1479,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         )}
 
         <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI \u00B7 {total} STAGES \u00B7 SHIP IT \u00B7 2026</p>
+          <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
         </div>
         </div>{/* end main content area */}
       </div>{/* end sidebar+content flex row */}
@@ -1515,7 +1516,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         <BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}>
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<ChatSkeleton t={t} />}>
-          <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+          <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
@@ -1551,7 +1552,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </ErrorBoundary>
           </BottomSheet>
       ) : showChat ? (
-        <div style={{ position: "fixed", bottom: 88, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ position: "fixed", bottom: 160, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}>
           <div style={{ position: "relative" }}>
             <button
               onClick={() => setShowChat(false)}
@@ -1562,7 +1563,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </button>
             <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
               <Suspense fallback={<ChatSkeleton t={t} />}>
-            <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab="ai" buildAiContext={() => {
+            <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
@@ -1600,29 +1601,50 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         </div>
       ) : null}
 
+            {/* FAB — Team chat trigger */}
+      <button
+        onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); }}
+        title="Team chat"
+        aria-label="Open team chat"
+        style={{
+          position: "fixed", bottom: 88, right: 24, zIndex: 600,
+          width: 48, height: 48, borderRadius: "50%",
+          background: t.bgCard,
+          border: `1px solid ${t.border}`,
+          boxShadow: `0 2px 12px rgba(0,0,0,0.25)`,
+          cursor: "pointer",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          fontSize: 20,
+          transition: "all 0.2s",
+        } as React.CSSProperties}
+      >
+        💬
+        {chatNotif && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}` }} />}
+      </button>
+
             {/* FAB — AI chat trigger */}
       <button
-        onClick={e => { e.stopPropagation(); setShowChat(prev => !prev); }}
-        title={showChat ? "Close" : "Ask Binayah AI"}
+        onClick={e => { e.stopPropagation(); setChatDefaultTab("ai"); setShowChat(prev => !prev); }}
+        title={showChat && chatDefaultTab === "ai" ? "Close" : "Ask Binayah AI"}
         style={{
           position: "fixed", bottom: 24, right: 24, zIndex: 600,
           width: 54, height: 54, borderRadius: "50%",
-          background: showChat
+          background: (showChat && chatDefaultTab === "ai")
             ? t.surface
             : `linear-gradient(135deg, ${t.accent}, ${t.purple || t.accent})`,
-          border: `1px solid ${showChat ? t.border : "transparent"}`,
-          boxShadow: showChat
+          border: `1px solid ${(showChat && chatDefaultTab === "ai") ? t.border : "transparent"}`,
+          boxShadow: (showChat && chatDefaultTab === "ai")
             ? "none"
             : `0 4px 24px ${t.accent}55, 0 2px 8px rgba(0,0,0,0.3)`,
           cursor: "pointer",
           display: "flex", alignItems: "center", justifyContent: "center",
-          fontSize: showChat ? 20 : 22,
+          fontSize: (showChat && chatDefaultTab === "ai") ? 20 : 22,
           transition: "all 0.25s cubic-bezier(0.34,1.56,0.64,1)",
-          transform: showChat ? "scale(0.9) rotate(90deg)" : "scale(1) rotate(0deg)",
-          animation: showChat ? "none" : "fabPulse 3s ease-in-out infinite",
+          transform: (showChat && chatDefaultTab === "ai") ? "scale(0.9) rotate(90deg)" : "scale(1) rotate(0deg)",
+          animation: (showChat && chatDefaultTab === "ai") ? "none" : "fabPulse 3s ease-in-out infinite",
         }}
       >
-        {showChat ? "×" : "🤖"}
+        {(showChat && chatDefaultTab === "ai") ? "×" : "🤖"}
       </button>
 
       <style>{`
