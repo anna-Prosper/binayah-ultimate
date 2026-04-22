@@ -38,6 +38,7 @@ export default function LeftSidebar({
   return (
     <div style={{
       width: 220,
+      height: "100%",
       flexShrink: 0,
       background: t.bgSoft,
       borderRight: `1px solid ${t.border}`,
