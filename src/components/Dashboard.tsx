@@ -79,7 +79,17 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (typeof window === "undefined") return false;
     return !checkSchemaVersion();
   });
-  const [isDark, setIsDark] = useState(() => lsGet("isDark", true));
+  const [isDark, setIsDark] = useState(() => {
+    if (typeof window === "undefined") return true;
+    // One-time migration: old default was `false` (light); new default is dark.
+    // If user hasn't touched their theme since we set this flag, force dark once.
+    if (!localStorage.getItem("binayah_themeV2")) {
+      localStorage.setItem("binayah_themeV2", "1");
+      lsSet("isDark", true);
+      return true;
+    }
+    return lsGet("isDark", true);
+  });
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
