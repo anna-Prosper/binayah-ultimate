@@ -93,7 +93,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
               width: 14,
               height: 14,
               borderRadius: "50%",
-              background: "#fff",
+              background: t.bg,
               transform: enabled ? "translateX(16px)" : "translateX(0)",
               transition: "transform 0.2s",
               flexShrink: 0,

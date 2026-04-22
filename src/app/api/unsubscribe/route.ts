@@ -10,7 +10,8 @@ export const dynamic = "force-dynamic";
  * Uses NEXTAUTH_SECRET (already required for auth).
  */
 function hmacSign(payload: string): string {
-  const secret = process.env.NEXTAUTH_SECRET ?? "fallback-unsub-secret";
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) throw new Error("[hmac] NEXTAUTH_SECRET not set");
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
@@ -48,8 +49,13 @@ export async function GET(req: Request): Promise<Response> {
     return htmlResponse(errorPage("// invalid token format."), 400);
   }
 
-  // Timing-safe HMAC comparison
-  const expectedSig = hmacSign(fixedUserId);
+  // Timing-safe HMAC comparison — if NEXTAUTH_SECRET is unset, refuse gracefully
+  let expectedSig: string;
+  try {
+    expectedSig = hmacSign(fixedUserId);
+  } catch {
+    return htmlResponse(errorPage("// service misconfigured — please contact admin."), 503);
+  }
   let valid = false;
   try {
     valid = timingSafeEqual(
