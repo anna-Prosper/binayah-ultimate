@@ -1520,12 +1520,15 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         }
       `}</style>
 
-      {/* WELCOME MODAL — first login only */}
+      {/* WELCOME MODAL — first login only (hosts the full multi-step onboarding) */}
       {showWelcome && initialUserId && me && (
         <WelcomeModal
           user={me}
           t={t}
-          totalStages={total}
+          themeId={themeId}
+          setThemeId={setThemeId}
+          isDark={isDark}
+          setIsDark={setIsDark}
           onDismiss={handleWelcomeDismiss}
         />
       )}
