@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { signOut } from "next-auth/react";
 import { lsGet, lsSet } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
@@ -37,23 +38,37 @@ const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
 const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orange", "lime", "slate"] as const;
 const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
 
-export default function Dashboard() {
+export default function Dashboard({ initialUserId }: { initialUserId?: string }) {
   const [isDark, setIsDark] = useState(() => lsGet("isDark", false));
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
   const [showThemePicker, setShowThemePicker] = useState(false);
-  const [currentUser, setCurrentUser] = useState<string | null>(() => lsGet("currentUser", null));
+  const [currentUser, setCurrentUser] = useState<string | null>(() => {
+    // Session always wins — enforce match on init
+    if (initialUserId) return initialUserId;
+    return lsGet("currentUser", null);
+  });
   const [users, setUsers] = useState(() => {
     // Always hydrate from USERS_DEFAULT so name/role/avatar changes take effect
     // without clearing cache. Only preserve aiAvatar (user-generated custom pfp).
     return hydrateUsers(lsGet("users", []) as UserType[]);
   });
   const [onboardStep, setOnboardStep] = useState(() => {
+    // If session provides a fixedUserId, skip ALL onboarding (user is authenticated)
+    if (initialUserId) return 7;
     const step = lsGet("onboardStep", 0);
     // If they have a currentUser saved, they completed onboarding — skip to dashboard
     const savedUser = lsGet("currentUser", null);
     if (savedUser && step < 7) return 7;
     return step;
   });
+
+  // Sync session fixedUserId with localStorage on mount — session is authoritative
+  useEffect(() => {
+    if (initialUserId) {
+      lsSet("currentUser", initialUserId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -586,8 +601,8 @@ export default function Dashboard() {
               )}
             </div>
 
-            {/* Switch user */}
-            <button onClick={() => { setOnboardStep(5); setCurrentUser(null); }} style={{ ...hBtn }}>switch</button>
+            {/* Sign out — when session-authenticated, signs out via next-auth */}
+            <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn }} title="Sign out">sign out</button>
           </div>
         </div>
 

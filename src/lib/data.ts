@@ -29,10 +29,11 @@ export const AVATARS: Array<{ id: string; img: string; name: string; zoom?: numb
 
 export const USERS_DEFAULT = [
   {id:"usama",name:"Usama",role:"The Visionary",avatar:"",color:"#bf5af2"},
-  {id:"anna",name:"Anna",role:"The PM",avatar:"",color:"#ff6b35"},
+  {id:"anna",name:"Anna",role:"The Architect",avatar:"",color:"#ff6b35"},
   {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"",color:"#00ff88"},
   {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"",color:"#00d4ff"},
   {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#ffcc00"},
+  {id:"prajeesh",name:"Prajeesh",role:"The PM",avatar:"",color:"#22d3ee"},
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
