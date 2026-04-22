@@ -47,7 +47,7 @@ export async function PATCH(
   const { id } = await params;
   const body = (await req.json()) as Record<string, unknown>;
 
-  // Whitelist: only title, content, pipelineId
+  // Whitelist: only title, content, pipelineId — updatedBy is always set server-side below
   const update: Record<string, unknown> = {};
 
   if ("title" in body) {
@@ -71,6 +71,9 @@ export async function PATCH(
     }
     update.pipelineId = pid;
   }
+
+  // Always set updatedBy server-side from session — never accept from client body
+  update.updatedBy = session.user.fixedUserId;
 
   await connectMongo();
   const doc = await BinayahDocument.findByIdAndUpdate(

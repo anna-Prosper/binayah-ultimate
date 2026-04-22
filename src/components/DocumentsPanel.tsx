@@ -5,6 +5,7 @@ import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
+import { useToasts, ToastContainer } from "@/components/ui/Toast";
 import { pipelineData, USERS_DEFAULT } from "@/lib/data";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { invalidateDocCache } from "@/components/SearchPalette";
@@ -32,6 +33,7 @@ interface DocListItem {
   _id: string;
   title: string;
   createdBy: string;
+  updatedBy: string | null;
   pipelineId: string | null;
   updatedAt: string;
 }
@@ -88,10 +90,12 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   const [activeDoc, setActiveDoc] = useState<DocFull | null>(null);
   const [loadingList, setLoadingList] = useState(true);
   const [loadingDoc, setLoadingDoc] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved">("idle");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [filterPipeline, setFilterPipeline] = useState<string | null>(null);
   // Mobile: show list or editor
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
+
+  const { toasts, showToast, dismissToast } = useToasts();
 
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -155,7 +159,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
     } catch { /* toast not available here, silently fail */ }
   }, [filterPipeline, openDoc]);
 
-  // Debounced PATCH helper
+  // PATCH helper — sets saveStatus, updates list + activeDoc, surfaces toast on error
   const patchDoc = useCallback(async (id: string, fields: Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>) => {
     try {
       setSaveStatus("saving");
@@ -165,19 +169,27 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
         body: JSON.stringify(fields),
       });
       if (res.ok) {
-        const data = await res.json() as { doc: DocListItem };
+        const data = await res.json() as { doc: DocFull };
         // Update list item
         setDocs(prev => prev.map(d => d._id === id ? { ...d, ...data.doc } : d));
+        // Update activeDoc to pick up server-assigned updatedBy + updatedAt
+        setActiveDoc(prev => prev && prev._id === id ? { ...prev, ...data.doc } : prev);
         setSaveStatus("saved");
         // Bust the search palette's doc-content cache so saved content is searchable
         invalidateDocCache();
         if (savedIndicatorTimer.current) clearTimeout(savedIndicatorTimer.current);
         savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
+      } else {
+        setSaveStatus("error");
+        showToast("// save failed — check connection", t.red, 4000);
+        savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
       }
     } catch {
-      setSaveStatus("idle");
+      setSaveStatus("error");
+      showToast("// save failed — check connection", t.red, 4000);
+      savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
     }
-  }, []);
+  }, [showToast, t.red]);
 
   // Delete document
   const deleteDoc = useCallback(async (id: string) => {
@@ -194,16 +206,26 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
     } catch { /* silently fail */ }
   }, [activeId, isMobile]);
 
-  // TipTap editor
+  // TipTap editor — debounce-save 3s after last keystroke; blur-save cancels debounce
   const editor = useEditor({
     extensions: [StarterKit],
     content: activeDoc?.content ?? "",
     onUpdate: ({ editor }) => {
       if (!activeId) return;
+      // Cancel any pending debounce and restart 3s timer
       if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current);
       contentSaveTimer.current = setTimeout(() => {
         patchDoc(activeId, { content: editor.getJSON() as Record<string, unknown> });
-      }, 1500);
+      }, 3000);
+    },
+    onBlur: ({ editor }) => {
+      if (!activeId) return;
+      // Blur is authoritative — cancel debounce and save immediately
+      if (contentSaveTimer.current) {
+        clearTimeout(contentSaveTimer.current);
+        contentSaveTimer.current = null;
+      }
+      patchDoc(activeId, { content: editor.getJSON() as Record<string, unknown> });
     },
   });
 
@@ -218,7 +240,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDoc?._id]);
 
-  // Title change
+  // Title change — debounce 800ms; blur save handled by input onBlur
   const handleTitleChange = (val: string) => {
     if (!activeDoc || !activeId) return;
     setActiveDoc(prev => prev ? { ...prev, title: val } : prev);
@@ -226,6 +248,16 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
     titleSaveTimer.current = setTimeout(() => {
       patchDoc(activeId, { title: val });
     }, 800);
+  };
+
+  // Title blur — cancel debounce and save immediately (mirrors content blur pattern)
+  const handleTitleBlur = (val: string) => {
+    if (!activeDoc || !activeId) return;
+    if (titleSaveTimer.current) {
+      clearTimeout(titleSaveTimer.current);
+      titleSaveTimer.current = null;
+    }
+    patchDoc(activeId, { title: val });
   };
 
   // Pipeline tag change
@@ -246,6 +278,11 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       <div style={{ height: 9, width: "40%", background: t.bgHover, borderRadius: 4, opacity: 0.6 }} />
     </div>
   );
+
+  // Attribution strip — renders below title when updatedBy is set
+  const updatedByUser = activeDoc?.updatedBy
+    ? USERS_DEFAULT.find(u => u.id === activeDoc.updatedBy)
+    : null;
 
   const listPanel = (
     <div style={{
@@ -410,8 +447,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       ) : activeDoc ? (
         <>
           {/* Editor header */}
-          <div style={{ padding: "12px 20px 0", borderBottom: `1px solid ${t.border}`, display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ padding: "12px 20px 0", borderBottom: `1px solid ${t.border}`, display: "flex", flexDirection: "column", gap: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 4 }}>
               {/* Back button on mobile */}
               {isMobile && (
                 <button
@@ -425,6 +462,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               <input
                 value={activeDoc.title}
                 onChange={e => handleTitleChange(e.target.value)}
+                onBlur={e => handleTitleBlur(e.target.value)}
                 placeholder="untitled"
                 style={{
                   flex: 1,
@@ -437,16 +475,16 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                   fontFamily: "var(--font-geist-sans, sans-serif)",
                 }}
               />
-              {/* Save indicator */}
+              {/* Syncing indicator — pulse hairline when saving, text when saved/error */}
               <span style={{
                 fontSize: 8,
                 fontFamily: "var(--font-geist-mono, monospace)",
-                color: saveStatus === "saved" ? t.green : t.textMuted,
+                color: saveStatus === "saved" ? t.green : saveStatus === "error" ? t.red : t.textMuted,
                 transition: "color 0.3s",
                 whiteSpace: "nowrap",
                 flexShrink: 0,
               }}>
-                {saveStatus === "saving" ? "// saving..." : saveStatus === "saved" ? "// saved" : ""}
+                {saveStatus === "saving" ? "" : saveStatus === "saved" ? "// saved" : saveStatus === "error" ? "// save failed" : ""}
               </span>
               {/* Delete button */}
               <button
@@ -457,6 +495,48 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 🗑
               </button>
             </div>
+
+            {/* Syncing pulse hairline — visible only while saving */}
+            {saveStatus === "saving" && (
+              <div style={{
+                height: 2,
+                borderRadius: 1,
+                background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`,
+                animation: "syncPulse 1.2s ease-in-out infinite",
+                marginBottom: 2,
+              }} />
+            )}
+
+            {/* Attribution strip — shown when updatedBy is set */}
+            {activeDoc.updatedBy ? (
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 6,
+                paddingBottom: 6,
+                paddingTop: 2,
+              }}>
+                {updatedByUser && <AvatarC user={updatedByUser} size={16} />}
+                <span style={{
+                  fontSize: 9,
+                  color: t.textMuted,
+                  fontFamily: "var(--font-geist-mono, monospace)",
+                }}>
+                  last saved by {updatedByUser?.name ?? activeDoc.updatedBy},{" "}
+                  {relativeTime(activeDoc.updatedAt)}
+                </span>
+              </div>
+            ) : (
+              <div style={{ paddingBottom: 6, paddingTop: 2 }}>
+                <span style={{
+                  fontSize: 9,
+                  color: t.textDim,
+                  fontFamily: "var(--font-geist-mono, monospace)",
+                }}>
+                  // unsaved
+                </span>
+              </div>
+            )}
 
             {/* Pipeline tag dropdown */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 8 }}>
@@ -540,31 +620,44 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   );
 
   return (
-    <div style={{
-      display: "flex",
-      flexDirection: isMobile ? "column" : "row",
-      height: "100%",
-      flex: 1,
-      background: t.bgCard,
-      border: `1px solid ${t.border}`,
-      borderRadius: 16,
-      overflow: "hidden",
-      animation: "fadeIn 0.2s ease",
-    }}>
-      <style>{`@keyframes spin { to { transform: rotate(360deg); } } @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }`}</style>
+    <>
+      <div style={{
+        display: "flex",
+        flexDirection: isMobile ? "column" : "row",
+        height: "100%",
+        flex: 1,
+        background: t.bgCard,
+        border: `1px solid ${t.border}`,
+        borderRadius: 16,
+        overflow: "hidden",
+        animation: "fadeIn 0.2s ease",
+      }}>
+        <style>{`
+          @keyframes spin { to { transform: rotate(360deg); } }
+          @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+          @keyframes syncPulse {
+            0%   { opacity: 0.3; transform: scaleX(0.4); }
+            50%  { opacity: 1;   transform: scaleX(1); }
+            100% { opacity: 0.3; transform: scaleX(0.4); }
+          }
+        `}</style>
 
-      {/* Mobile: show list OR editor */}
-      {isMobile ? (
-        <>
-          {mobileView === "list" && listPanel}
-          {mobileView === "editor" && editorPanel}
-        </>
-      ) : (
-        <>
-          {listPanel}
-          {editorPanel}
-        </>
-      )}
-    </div>
+        {/* Mobile: show list OR editor */}
+        {isMobile ? (
+          <>
+            {mobileView === "list" && listPanel}
+            {mobileView === "editor" && editorPanel}
+          </>
+        ) : (
+          <>
+            {listPanel}
+            {editorPanel}
+          </>
+        )}
+      </div>
+
+      {/* Toast container — rendered outside the panel so it's not clipped */}
+      <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
+    </>
   );
 }

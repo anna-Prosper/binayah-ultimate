@@ -5,6 +5,7 @@ export interface IBinayahDocument {
   title: string;
   content: Record<string, unknown> | null;
   createdBy: string;
+  updatedBy: string | null;
   pipelineId: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -15,6 +16,7 @@ const BinayahDocumentSchema = new Schema<IBinayahDocument>(
     title: { type: String, default: "untitled" },
     content: { type: Schema.Types.Mixed, default: null },
     createdBy: { type: String, required: true },
+    updatedBy: { type: String, default: null },
     pipelineId: { type: String, default: null },
   },
   { timestamps: true }
