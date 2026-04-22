@@ -7,7 +7,6 @@ import AuthUser from "@/lib/AuthUser";
 
 // ─── Admin email → fixedUserId whitelist ──────────────────────────────────────
 // Hardcoded (not solely env-var driven) per spec — multiple emails map to same user.
-// TODO abdallah: no confirmed email yet — add here when provided.
 export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "anna@prosper-fi.com": "anna",
   "dev@prosper-fi.com": "anna",
@@ -16,6 +15,7 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "uk@prosper-fi.com": "usama",
   "mamr@binayah.com": "ahsan",
   "pm@binayah.com": "prajeesh",
+  "ak@binayah.com": "abdallah",
 };
 
 // Reverse map: fixedUserId → primary email for notifications
@@ -25,6 +25,7 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   usama: "uk@prosper-fi.com",
   ahsan: "mamr@binayah.com",
   prajeesh: "pm@binayah.com",
+  abdallah: "ak@binayah.com",
 };
 
 export function getEmailForUser(fixedUserId: string): string | undefined {
