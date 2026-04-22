@@ -28,6 +28,7 @@ import dynamic from "next/dynamic";
 import { Suspense } from "react";
 import NotificationPrefs from "@/components/NotificationPrefs";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
+import SearchPalette from "@/components/SearchPalette";
 
 // Lazy-loaded heavy panels — each becomes its own JS chunk
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
@@ -159,6 +160,10 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
   // Mobile documents sheet
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false);
+  // Cmd+K search palette
+  const [showPalette, setShowPalette] = useState(false);
+  // Doc to open in DocumentsPanel (from palette routing)
+  const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
 
   // Schema version recovery — clear stale cache and reload
   useEffect(() => {
@@ -169,6 +174,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     }, 2500);
     return () => clearTimeout(timer);
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── Cmd+K / Ctrl+K global search palette trigger ──────────────────────────
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setShowPalette(prev => !prev);
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, []);
 
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
@@ -743,6 +760,44 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Shared button style for all header buttons — ensures uniform height
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5 };
 
+  // ── Cmd+K palette navigation callbacks ──────────────────────────────────────
+  const handlePaletteOpenStage = useCallback((pipelineId: string, stageName: string) => {
+    // Switch to pipelines view, expand the pipeline, expand the stage card
+    setActiveNavItem("pipelines");
+    setView("list");
+    setExpanded(prev => prev.includes(pipelineId) ? prev : [...prev, pipelineId]);
+    const p = allPipelines.find(pl => pl.id === pipelineId);
+    if (p) {
+      const stages = [...p.stages, ...(customStages[pipelineId] || [])];
+      const idx = stages.indexOf(stageName);
+      if (idx >= 0) setExpS(`${pipelineId}-${idx}`);
+      setTimeout(() => {
+        const el = document.getElementById(`stage-${CSS.escape(stageName)}`);
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 300);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allPipelines, customStages]);
+
+  const handlePaletteOpenDocument = useCallback((docId: string) => {
+    // Navigate to documents panel and open the doc
+    setActiveNavItem("documents");
+    if (isMobile) { setShowDocumentsMobile(true); }
+    setPaletteDocId(docId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMobile]);
+
+  const handlePaletteOpenPerson = useCallback((userId: string) => {
+    // Open the user stats popup (viewingUser controls this in the team bar)
+    setViewingUser(userId);
+    // Scroll team bar into view
+    setTimeout(() => {
+      const el = document.querySelector("[data-user-id='" + userId + "']") as HTMLElement | null;
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // WelcomeModal dismiss handler — persists avatar choice and marks user as welcomed
   const handleWelcomeDismiss = useCallback(({ avatar, aiAvatar }: { avatar: string | null; aiAvatar: string | null }) => {
     if (initialUserId) {
@@ -1019,7 +1074,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           <ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}>
             <Suspense fallback={null}>
               <div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}>
-                <DocumentsPanel t={t} />
+                <DocumentsPanel t={t} initialDocId={paletteDocId} />
               </div>
             </Suspense>
           </ErrorBoundary>
@@ -1401,7 +1456,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         <BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}>
           <ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}>
             <Suspense fallback={null}>
-              <DocumentsPanel t={t} />
+              <DocumentsPanel t={t} initialDocId={paletteDocId} />
             </Suspense>
           </ErrorBoundary>
         </BottomSheet>
@@ -1528,6 +1583,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           50% { box-shadow: 0 4px 32px ${t.accent}88, 0 2px 12px rgba(0,0,0,0.4); }
         }
       `}</style>
+
+      {/* Cmd+K Search Palette — global overlay */}
+      <SearchPalette
+        t={t}
+        open={showPalette}
+        onClose={() => setShowPalette(false)}
+        onOpenStage={handlePaletteOpenStage}
+        onOpenDocument={handlePaletteOpenDocument}
+        onOpenPerson={handlePaletteOpenPerson}
+      />
 
       {/* WELCOME MODAL — first login only (hosts the full multi-step onboarding) */}
       {showWelcome && initialUserId && me && (

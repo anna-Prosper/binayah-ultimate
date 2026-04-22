@@ -7,6 +7,7 @@ import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
 import { pipelineData, USERS_DEFAULT } from "@/lib/data";
 import { useIsMobile } from "@/hooks/useIsMobile";
+import { invalidateDocCache } from "@/components/SearchPalette";
 
 // Color key → theme token helper (matching existing ck pattern in Dashboard)
 function colorFromKey(colorKey: string, t: T): string {
@@ -41,6 +42,8 @@ interface DocFull extends DocListItem {
 
 interface Props {
   t: T;
+  /** When set, immediately opens this doc on mount/change (used by Cmd+K palette routing) */
+  initialDocId?: string | null;
 }
 
 // Toolbar button component
@@ -77,7 +80,7 @@ function ToolbarBtn({
   );
 }
 
-export default function DocumentsPanel({ t }: Props) {
+export default function DocumentsPanel({ t, initialDocId }: Props) {
   const isMobile = useIsMobile(768);
 
   const [docs, setDocs] = useState<DocListItem[]>([]);
@@ -112,6 +115,14 @@ export default function DocumentsPanel({ t }: Props) {
   useEffect(() => {
     fetchList(filterPipeline);
   }, [fetchList, filterPipeline]);
+
+  // Open a document externally when initialDocId prop changes (from Cmd+K routing)
+  useEffect(() => {
+    if (initialDocId) {
+      openDoc(initialDocId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialDocId]);
 
   // Open a document
   const openDoc = useCallback(async (id: string) => {
@@ -158,6 +169,8 @@ export default function DocumentsPanel({ t }: Props) {
         // Update list item
         setDocs(prev => prev.map(d => d._id === id ? { ...d, ...data.doc } : d));
         setSaveStatus("saved");
+        // Bust the search palette's doc-content cache so saved content is searchable
+        invalidateDocCache();
         if (savedIndicatorTimer.current) clearTimeout(savedIndicatorTimer.current);
         savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 2500);
       }

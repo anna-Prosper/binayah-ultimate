@@ -10,18 +10,54 @@ export const dynamic = "force-dynamic";
 
 const ROUTE = "/api/documents";
 
+// ── TipTap JSON → plaintext extractor ─────────────────────────────────────────
+// Recursively walks TipTap's doc JSON and collects all text node values.
+function tiptapToPlaintext(node: Record<string, unknown> | null | undefined): string {
+  if (!node || typeof node !== "object") return "";
+  const parts: string[] = [];
+  if (node.type === "text" && typeof node.text === "string") {
+    parts.push(node.text);
+  }
+  const content = node.content;
+  if (Array.isArray(content)) {
+    for (const child of content) {
+      parts.push(tiptapToPlaintext(child as Record<string, unknown>));
+    }
+  }
+  return parts.join(" ");
+}
+
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const pipelineId = req.nextUrl.searchParams.get("pipelineId");
+  const includeContent = req.nextUrl.searchParams.get("includeContent") === "true";
 
   await connectMongo();
 
   const query = pipelineId ? { pipelineId } : {};
+
+  if (includeContent) {
+    // Include the content field so we can extract plaintext server-side
+    const docs = await BinayahDocument.find(query)
+      .sort({ updatedAt: -1 })
+      .lean();
+
+    const docsWithPlaintext = docs.map(d => ({
+      _id: (d._id as { toString(): string }).toString(),
+      title: d.title ?? "",
+      pipelineId: d.pipelineId ?? null,
+      plaintext: tiptapToPlaintext(d.content as Record<string, unknown> | null),
+    }));
+
+    return NextResponse.json({ docs: docsWithPlaintext });
+  }
+
+  // Default: exclude content from list for payload efficiency
   const docs = await BinayahDocument.find(query)
     .sort({ updatedAt: -1 })
-    .select("-content") // exclude content from list for payload efficiency
+    .select("-content")
     .lean();
 
   return NextResponse.json({ docs });
