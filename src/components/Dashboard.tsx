@@ -627,12 +627,25 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     return p;
   };
 
-  const isAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
+  const isCaptainOfCurrent = !!currentUser && !!currentWorkspace && currentWorkspace.captains.includes(currentUser);
+  const isFirstMateOfCurrent = !!currentUser && !!currentWorkspace && currentWorkspace.firstMates.includes(currentUser);
+  const isOfficerOfCurrent = isCaptainOfCurrent || isFirstMateOfCurrent;
+  // Legacy alias — kept for minimal refactor in downstream code. Treat as "can approve in current workspace".
+  const isAdmin = isOfficerOfCurrent;
   const approveStage = (name: string) => {
-    if (!isAdmin) { showToast("// only captain can approve", t.amber); return; }
+    if (!isOfficerOfCurrent) { showToast("// only captain or first mate can approve", t.amber); return; }
     if (approvedStages.includes(name)) return;
     setApprovedStages(prev => [...prev, name]);
     logActivity("status", name, "→ approved");
+  };
+
+  // Per-user rank in current workspace — used for badges
+  const userRankInCurrent = (uid: string): "captain" | "firstMate" | "crew" | null => {
+    if (!currentWorkspace) return null;
+    if (currentWorkspace.captains.includes(uid)) return "captain";
+    if (currentWorkspace.firstMates.includes(uid)) return "firstMate";
+    if (currentWorkspace.members.includes(uid)) return "crew";
+    return null;
   };
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1056,14 +1069,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               >
                 <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                   <AvatarC user={u} size={26} />
-                  {ADMIN_IDS.includes(u.id) && (
-                    <span title="Captain — approves completions" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
+                  {userRankInCurrent(u.id) === "captain" && (
+                    <span title={`Captain of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
+                  )}
+                  {userRankInCurrent(u.id) === "firstMate" && (
+                    <span title={`First Mate of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>⚓</span>
                   )}
                 </div>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text, display: "flex", alignItems: "center", gap: 4 }}>
                     {u.name}
-                    {ADMIN_IDS.includes(u.id) && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>CAPTAIN</span>}
+                    {userRankInCurrent(u.id) === "captain" && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>CAPTAIN</span>}
+                    {userRankInCurrent(u.id) === "firstMate" && <span style={{ fontSize: 7, color: t.cyan || t.accent, background: (t.cyan || t.accent) + "22", border: `1px solid ${(t.cyan || t.accent)}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>FIRST MATE</span>}
                   </div>
                   <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
