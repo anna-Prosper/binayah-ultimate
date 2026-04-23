@@ -30,6 +30,9 @@ interface Props {
   copied: string | null;
   isLocked: (pipelineId: string) => boolean;
   setStageStatus: (name: string, status: string) => void;
+  approvedStages: string[];
+  approveStage: (name: string) => void;
+  isAdmin: boolean;
   ck: Record<string, string>;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
@@ -38,13 +41,13 @@ interface Props {
 const ACTIONABLE = new Set(["active", "in-progress", "planned"]);
 const STATUS_ORDER: Record<string, number> = { active: 0, "in-progress": 1, planned: 2 };
 const COLS = [
-  { status: "active",      label: "live" },
+  { status: "active",      label: "live · pending approval" },
   { status: "in-progress", label: "building" },
   { status: "planned",     label: "planned" },
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, sc, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, ck } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, sc, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, ck } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -59,22 +62,28 @@ export default function TasksView(props: Props) {
     locked: isLocked(p.id),
   }));
 
+  // Stages that are actionable AND not yet approved (approved = fully done, leaves the now tab)
   const stageTasks = pipelines.flatMap(p =>
-    p.allStages.filter(s => ACTIONABLE.has(getStatus(s))).map(s => ({
-      kind: "stage" as const, id: s, label: s, sub: `${p.icon} ${p.displayName}`,
-      status: getStatus(s), claimers: claims[s] || [], pipelineId: p.id,
-      pipelineColor: p.color, locked: p.locked,
-    }))
+    p.allStages
+      .filter(s => ACTIONABLE.has(getStatus(s)) && !approvedStages.includes(s))
+      .map(s => ({
+        kind: "stage" as const, id: s, label: s, sub: `${p.icon} ${p.displayName}`,
+        status: getStatus(s), claimers: claims[s] || [], pipelineId: p.id,
+        pipelineColor: p.color, locked: p.locked,
+      }))
   ).sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
+  // Subtasks that aren't done AND whose parent stage is NOT live (live stages = done, all their subtasks are implicitly done)
   const openSubtasks = pipelines.flatMap(p =>
-    p.allStages.flatMap(s =>
-      (subtasks[s] || []).filter(sub => !sub.done).map(sub => ({
-        kind: "subtask" as const, id: `${s}::${sub.id}`, label: sub.text,
-        sub: `${p.icon} ${p.displayName} → ${s}`, stageId: s, taskId: sub.id,
-        pipelineColor: p.color,
-      }))
-    )
+    p.allStages
+      .filter(s => getStatus(s) !== "active") // parent not live
+      .flatMap(s =>
+        (subtasks[s] || []).filter(sub => !sub.done).map(sub => ({
+          kind: "subtask" as const, id: `${s}::${sub.id}`, label: sub.text,
+          sub: `${p.icon} ${p.displayName} → ${s}`, stageId: s, taskId: sub.id,
+          pipelineColor: p.color,
+        }))
+      )
   );
 
   const isMine = (stageId: string) => currentUser ? (claims[stageId] || []).includes(currentUser) : false;
@@ -98,13 +107,23 @@ export default function TasksView(props: Props) {
     t, users, currentUser, reactions, comments,
     reactOpen, setReactOpen, commentOpen, setCommentOpen,
     handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+    isAdmin, approveStage,
   };
+
+  const pendingCount = stageTasks.filter(s => s.status === "active").length;
 
   return (
     <div style={{ padding: "20px 0" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1 }}>🔥 now</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
+            🔥 now
+            {pendingCount > 0 && isAdmin && (
+              <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 5, padding: "2px 6px", fontWeight: 700, letterSpacing: 1 }}>
+                {pendingCount} AWAITING APPROVAL
+              </span>
+            )}
+          </div>
           <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>
             {stageTasks.length} stages in flight {"·"} {openSubtasks.length} open subtasks
           </div>
@@ -199,6 +218,8 @@ interface CardProps {
   onClaim: () => void;
   claimLabel?: string;
   draggable?: boolean;
+  isAdmin: boolean;
+  approveStage: (name: string) => void;
 }
 
 function NowCard({
@@ -206,13 +227,15 @@ function NowCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isMine, onClaim, claimLabel, draggable: isDraggable,
+  isAdmin, approveStage,
 }: CardProps) {
   const isStage = item.kind === "stage";
-  const actionId = isStage ? item.id : item.id; // subtasks don't get reactions, but id is unique
-  const rxs = isStage ? (reactions[item.id] || {}) : {};
-  const cmts = isStage ? (comments[item.id] || []) : [];
-  const showReactPicker = reactOpen === actionId;
-  const showCommentPopover = commentOpen === actionId;
+  const isPending = isStage && item.status === "active"; // live = pending approval (un-approved ones are filtered in)
+  // Use item.id as the key for reactions/comments — works for both stages (stage name) and subtasks (composite "stage::id")
+  const rxs = reactions[item.id] || {};
+  const cmts = comments[item.id] || [];
+  const showReactPicker = reactOpen === item.id;
+  const showCommentPopover = commentOpen === item.id;
 
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7,
@@ -226,6 +249,8 @@ function NowCard({
     shareStage(item.id, text);
   };
 
+  const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
+
   return (
     <div
       draggable={isDraggable}
@@ -233,7 +258,7 @@ function NowCard({
       onClick={e => e.stopPropagation()}
       style={{
         background: t.bgCard,
-        border: `1px solid ${isMine ? item.pipelineColor + "55" : t.border}`,
+        border: `1px solid ${isPending ? t.amber + "55" : isMine ? item.pipelineColor + "55" : t.border}`,
         borderRadius: 12,
         padding: "14px 16px",
         display: "flex", flexDirection: "column", gap: 8,
@@ -257,7 +282,24 @@ function NowCard({
             })}
           </div>
         )}
-        {currentUser && (
+        {/* Admin approve button — shown on live/pending stages for admins */}
+        {isStage && isPending && isAdmin && (
+          <button
+            onClick={e => { e.stopPropagation(); approveStage(item.id); }}
+            style={{ background: t.green + "22", border: `1px solid ${t.green}88`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0 }}
+            title="Approve this completion — awards points to claimers"
+          >
+            ✓ approve
+          </button>
+        )}
+        {/* Pending approval badge — shown to non-admins on live stages */}
+        {isStage && isPending && !isAdmin && (
+          <span style={{ fontSize: 8, color: t.amber, background: t.amber + "18", border: `1px solid ${t.amber}44`, borderRadius: 6, padding: "4px 8px", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
+            ⏳ pending
+          </span>
+        )}
+        {/* Claim button (stages) / done button (subtasks) — not shown if stage is pending for admin (admin has approve instead) */}
+        {currentUser && !(isStage && isPending && isAdmin) && (
           <button
             onClick={e => { e.stopPropagation(); onClaim(); }}
             style={{ background: isMine ? t.green + "18" : item.pipelineColor + "15", border: `1px solid ${isMine ? t.green + "55" : item.pipelineColor + "55"}`, borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 9, color: isMine ? t.green : item.pipelineColor, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0 }}
@@ -267,10 +309,10 @@ function NowCard({
         )}
       </div>
 
-      {/* Reactions row (stage only, if any) */}
-      {isStage && Object.keys(rxs).filter(r => (rxs[r] || []).length > 0).length > 0 && (
+      {/* Reactions row */}
+      {visibleReactions.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {Object.entries(rxs).filter(([, us]) => us.length > 0).map(([emoji, us]) => {
+          {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
             return (
               <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(item.id, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
@@ -282,34 +324,29 @@ function NowCard({
         </div>
       )}
 
-      {/* Actions row */}
+      {/* Actions row — same for stages and subtasks */}
       <div style={{ display: "flex", gap: 6, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: 8, marginTop: 2 }}>
-        {isStage && (
-          <>
-            <div style={{ position: "relative" }}>
-              <button onClick={e => { e.stopPropagation(); setReactOpen(showReactPicker ? null : actionId); setCommentOpen(null); }} style={iconBtn} title="Add reaction">
-                😀 <span style={{ fontSize: 8 }}>+</span>
-              </button>
-              {showReactPicker && (
-                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
-                  {REACTIONS.map(emoji => (
-                    <button key={emoji} onClick={() => { handleReact(item.id, emoji); setReactOpen(null); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 6 }}>{emoji}</button>
-                  ))}
-                </div>
-              )}
+        <div style={{ position: "relative" }}>
+          <button onClick={e => { e.stopPropagation(); setReactOpen(showReactPicker ? null : item.id); setCommentOpen(null); }} style={iconBtn} title="Add reaction">
+            😀 <span style={{ fontSize: 8 }}>+</span>
+          </button>
+          {showReactPicker && (
+            <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+              {REACTIONS.map(emoji => (
+                <button key={emoji} onClick={() => { handleReact(item.id, emoji); setReactOpen(null); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 6 }}>{emoji}</button>
+              ))}
             </div>
-            <button onClick={e => { e.stopPropagation(); setCommentOpen(showCommentPopover ? null : actionId); setReactOpen(null); }} style={iconBtn} title="Comments">
-              💬 <span style={{ fontSize: 8 }}>{cmts.length}</span>
-            </button>
-          </>
-        )}
+          )}
+        </div>
+        <button onClick={e => { e.stopPropagation(); setCommentOpen(showCommentPopover ? null : item.id); setReactOpen(null); }} style={iconBtn} title="Comments">
+          💬 <span style={{ fontSize: 8 }}>{cmts.length}</span>
+        </button>
         <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title="Copy">
           {copied === item.id ? "✓ copied" : "📋 copy"}
         </button>
       </div>
 
-      {/* Comment popover — inline beneath card, not expanding the card */}
-      {isStage && showCommentPopover && (
+      {showCommentPopover && (
         <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 10, marginTop: 2 }}>
           {cmts.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>

@@ -6,7 +6,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
+import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, ADMIN_IDS, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
 import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
@@ -137,6 +137,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
+  const [approvedStages, setApprovedStages] = useState<string[]>(() => lsGet("approvedStages", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
@@ -234,6 +235,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
+  useEffect(() => { lsSet("approvedStages", approvedStages) }, [approvedStages]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("lockedPipelines", lockedPipelines) }, [lockedPipelines]);
 
@@ -289,25 +291,25 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stageStatusOverrides, claims]);
 
-  // Points celebration — fires when a stage transitions TO "active" while currentUser is a claimer
+  // Points celebration — fires when a stage is ADMIN-APPROVED while currentUser is a claimer
+  const prevApprovedRef = useRef<string[]>([]);
   useEffect(() => {
-    if (!currentUser || !isInitializedRef.current) { prevStatusRef.current = { ...stageStatusOverrides }; return; }
-    Object.entries(stageStatusOverrides).forEach(([stage, newStatus]) => {
-      const prevStatus = prevStatusRef.current[stage];
-      if (newStatus === "active" && prevStatus !== "active") {
+    if (!currentUser || !isInitializedRef.current) { prevApprovedRef.current = [...approvedStages]; return; }
+    approvedStages.forEach(stage => {
+      if (!prevApprovedRef.current.includes(stage)) {
         const claimers = claims[stage] || [];
         if (claimers.includes(currentUser)) {
           const pts = stageDefaults[stage]?.points || 10;
-          setToast({ text: `🔥 ${stage} is live!`, pts: `+${pts}pts earned`, color: t.green });
+          setToast({ text: `🎉 ${stage} approved!`, pts: `+${pts}pts earned`, color: t.green });
           setClaimAnim({ stage, pts });
           setTimeout(() => setClaimAnim(null), 1400);
           setTimeout(() => setToast(null), 3500);
         }
       }
     });
-    prevStatusRef.current = { ...stageStatusOverrides };
+    prevApprovedRef.current = [...approvedStages];
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageStatusOverrides]);
+  }, [approvedStages]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
   useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
@@ -580,14 +582,22 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const total = allStages.length;
   const bySt = (s: string) => allStages.filter(n => getStatus(n) === s).length;
 
-  // Points only earned when stage is LIVE (status === "active")
+  // Points only earned when stage is LIVE and admin-approved
   const getPoints = (uid: string) => {
     let p = 0;
     Object.entries(claims).forEach(([s, claimers]) => {
-      if (claimers.includes(uid) && getStatus(s) === "active") p += stageDefaults[s]?.points || 10;
+      if (claimers.includes(uid) && approvedStages.includes(s)) p += stageDefaults[s]?.points || 10;
     });
     Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
     return p;
+  };
+
+  const isAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
+  const approveStage = (name: string) => {
+    if (!isAdmin) { showToast("// only admin can approve", t.amber); return; }
+    if (approvedStages.includes(name)) return;
+    setApprovedStages(prev => [...prev, name]);
+    logActivity("status", name, "→ approved");
   };
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -991,11 +1001,17 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
-                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                   <AvatarC user={u} size={26} />
+                  {ADMIN_IDS.includes(u.id) && (
+                    <span title="Admin — approves completions" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
+                  )}
                 </div>
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text }}>{u.name}</div>
+                  <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text, display: "flex", alignItems: "center", gap: 4 }}>
+                    {u.name}
+                    {ADMIN_IDS.includes(u.id) && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>ADMIN</span>}
+                  </div>
                   <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
               </div>
@@ -1158,6 +1174,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 isMobile={isMobile}
                 ck={ck}
                 setStageStatus={setStageStatusDirect}
+                approvedStages={approvedStages}
+                approveStage={approveStage}
+                isAdmin={isAdmin}
                 {...stageProps}
               />
             </Suspense>

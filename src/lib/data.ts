@@ -37,6 +37,7 @@ export const USERS_DEFAULT = [
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
+export const ADMIN_IDS = ["anna"]; // users who can approve completions
 
 export const ONBOARDING = [
   {title:"gm legend",desc:"welcome to the command center. every AI tool, every pipeline, every initiative — mapped and tracked.",icon:"🏴‍☠️",sub:"// the ecosystem starts here"},
