@@ -47,6 +47,8 @@ const TasksView = dynamic(() => import("@/components/TasksView"), {
 const HomeView = dynamic(() => import("@/components/HomeView"), {
   ssr: false,
 });
+const CreateWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.CreateWorkspaceModal), { ssr: false });
+const ManageWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.ManageWorkspaceModal), { ssr: false });
 const KanbanView = dynamic(() => import("@/components/KanbanView"), {
   ssr: false, // drag-and-drop is browser-only
 });
@@ -150,6 +152,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Workspaces: multi-tenant layer above pipelines. Each workspace owns its own pipelines, members, captains.
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>(() => lsGet("currentWorkspaceId", DEFAULT_WORKSPACE_ID));
+  const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
   const [editingPipeName, setEditingPipeName] = useState<string | null>(null);
   const [newStageInput, setNewStageInput] = useState<Record<string, string>>({});
@@ -649,6 +652,79 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (currentWorkspace.firstMates.includes(uid)) return "firstMate";
     if (currentWorkspace.members.includes(uid)) return "crew";
     return null;
+  };
+
+  // ─── Workspace admin handlers ────────────────────────────────────────────
+  const createWorkspace = (name: string, icon: string, colorKey: string) => {
+    if (!currentUser) return;
+    if (!workspaces.some(w => w.captains.includes(currentUser))) { showToast("// only a captain can create a workspace", t.amber); return; }
+    const trimmed = name.trim();
+    if (!trimmed) { showToast("// workspace needs a name", t.amber); return; }
+    const id = `ws-${Date.now()}`;
+    const newWs: Workspace = {
+      id, name: trimmed, icon: icon || "🏴", colorKey: colorKey || "purple",
+      members: [currentUser], captains: [currentUser], firstMates: [], pipelineIds: [],
+    };
+    setWorkspaces(prev => [...prev, newWs]);
+    setCurrentWorkspaceId(id);
+    setActiveSidebarPipeline(null);
+    showToast(`// workspace "${trimmed}" created`, t.green);
+    logActivity("claim", id, `created workspace ${trimmed}`);
+  };
+
+  const addMemberToWorkspace = (workspaceId: string, userId: string) => {
+    if (!currentUser) return;
+    const ws = workspaces.find(w => w.id === workspaceId);
+    if (!ws) return;
+    const canManage = ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
+    if (!canManage) { showToast("// only captain/first mate can manage members", t.amber); return; }
+    if (ws.members.includes(userId)) return;
+    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: [...w.members, userId] } : w));
+  };
+
+  const removeMemberFromWorkspace = (workspaceId: string, userId: string) => {
+    if (!currentUser) return;
+    const ws = workspaces.find(w => w.id === workspaceId);
+    if (!ws) return;
+    const canManage = ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
+    if (!canManage) { showToast("// only captain/first mate can manage members", t.amber); return; }
+    if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only captain", t.red); return; }
+    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? {
+      ...w,
+      members: w.members.filter(id => id !== userId),
+      captains: w.captains.filter(id => id !== userId),
+      firstMates: w.firstMates.filter(id => id !== userId),
+    } : w));
+  };
+
+  const setMemberRank = (workspaceId: string, userId: string, rank: "captain" | "firstMate" | "crew") => {
+    if (!currentUser) return;
+    const ws = workspaces.find(w => w.id === workspaceId);
+    if (!ws) return;
+    if (!ws.captains.includes(currentUser)) { showToast("// only a captain can change ranks", t.amber); return; }
+    if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "captain") { showToast("// can't demote the only captain", t.red); return; }
+    setWorkspaces(prev => prev.map(w => {
+      if (w.id !== workspaceId) return w;
+      const captains = w.captains.filter(id => id !== userId);
+      const firstMates = w.firstMates.filter(id => id !== userId);
+      if (rank === "captain") captains.push(userId);
+      if (rank === "firstMate") firstMates.push(userId);
+      return { ...w, captains, firstMates, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
+    }));
+  };
+
+  const deleteWorkspace = (workspaceId: string) => {
+    if (!currentUser) return;
+    const ws = workspaces.find(w => w.id === workspaceId);
+    if (!ws) return;
+    if (!ws.captains.includes(currentUser)) { showToast("// only a captain can delete", t.amber); return; }
+    if (workspaces.length === 1) { showToast("// can't delete your last workspace", t.red); return; }
+    setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
+    if (currentWorkspaceId === workspaceId) {
+      const fallback = workspaces.find(w => w.id !== workspaceId && (currentUser ? w.members.includes(currentUser) : true));
+      setCurrentWorkspaceId(fallback?.id || DEFAULT_WORKSPACE_ID);
+    }
+    showToast(`// workspace "${ws.name}" deleted`, t.amber);
   };
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -1199,7 +1275,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               currentWorkspaceId={currentWorkspaceId}
               onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
               canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
-              onCreateWorkspace={() => { showToast("// workspace creation — coming in next step", t.amber); }}
+              onCreateWorkspace={() => setWorkspaceModal("create")}
+              canManageCurrentWorkspace={isOfficerOfCurrent}
+              onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
             />
           </div>
         )}
@@ -1635,6 +1713,35 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         </div>
         </div>{/* end main content area */}
       </div>{/* end sidebar+content flex row */}
+
+      {/* WORKSPACE MODALS */}
+      {workspaceModal === "create" && (
+        <Suspense fallback={null}>
+          <CreateWorkspaceModal
+            t={t}
+            users={users}
+            ck={ck}
+            onClose={() => setWorkspaceModal(null)}
+            onCreate={(name, icon, colorKey) => createWorkspace(name, icon, colorKey)}
+          />
+        </Suspense>
+      )}
+      {workspaceModal === "manage" && currentWorkspace && currentUser && (
+        <Suspense fallback={null}>
+          <ManageWorkspaceModal
+            t={t}
+            users={users}
+            ck={ck}
+            workspace={currentWorkspace}
+            currentUser={currentUser}
+            onClose={() => setWorkspaceModal(null)}
+            onAddMember={(uid) => addMemberToWorkspace(currentWorkspace.id, uid)}
+            onRemoveMember={(uid) => removeMemberFromWorkspace(currentWorkspace.id, uid)}
+            onSetRank={(uid, rank) => setMemberRank(currentWorkspace.id, uid, rank)}
+            onDelete={() => deleteWorkspace(currentWorkspace.id)}
+          />
+        </Suspense>
+      )}
 
       {/* AVATAR PICKER MODAL */}
       {showAvatarPicker && selUser && (() => {

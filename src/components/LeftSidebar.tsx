@@ -31,6 +31,8 @@ interface Props {
   onWorkspaceChange: (id: string) => void;
   canCreateWorkspace: boolean;
   onCreateWorkspace: () => void;
+  canManageCurrentWorkspace: boolean;
+  onManageCurrentWorkspace: () => void;
 }
 
 const NAV_ITEMS: { id: NavItem; label: string; icon: string }[] = [
@@ -54,6 +56,8 @@ export default function LeftSidebar({
   onWorkspaceChange,
   canCreateWorkspace,
   onCreateWorkspace,
+  canManageCurrentWorkspace,
+  onManageCurrentWorkspace,
 }: Props) {
   const [wsOpen, setWsOpen] = useState(false);
   const current = workspaces.find(w => w.id === currentWorkspaceId);
@@ -96,6 +100,14 @@ export default function LeftSidebar({
                 </button>
               );
             })}
+            {canManageCurrentWorkspace && (
+              <button
+                onClick={() => { setWsOpen(false); onManageCurrentWorkspace(); }}
+                style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 700, textAlign: "left" }}
+              >
+                ⚙ manage workspace
+              </button>
+            )}
             {canCreateWorkspace && (
               <button
                 onClick={() => { setWsOpen(false); onCreateWorkspace(); }}
