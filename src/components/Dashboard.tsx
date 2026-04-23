@@ -84,13 +84,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   });
   const [isDark, setIsDark] = useState(() => {
     if (typeof window === "undefined") return true;
-    // One-time migration: old default was `false` (light); new default is dark.
-    // If user hasn't touched their theme since we set this flag, force dark once.
-    if (!localStorage.getItem("binayah_themeV2")) {
-      localStorage.setItem("binayah_themeV2", "1");
-      lsSet("isDark", true);
-      return true;
-    }
+    if (!localStorage.getItem("binayah_themeV2")) return true;
     return lsGet("isDark", true);
   });
   const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
@@ -221,6 +215,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     return () => document.removeEventListener("mousedown", handler);
   }, [viewingUser]);
 
+  // One-time migration: pre-themeV2 users default to dark going forward
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!localStorage.getItem("binayah_themeV2")) {
+      localStorage.setItem("binayah_themeV2", "1");
+    }
+  }, []);
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
   // Sync body background to match theme — fixes body bleeding through in areas outside Dashboard div
