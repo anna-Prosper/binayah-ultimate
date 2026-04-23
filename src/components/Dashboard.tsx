@@ -1156,6 +1156,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 isLocked={isLocked}
                 isMobile={isMobile}
                 ck={ck}
+                setStageStatus={setStageStatusDirect}
                 {...stageProps}
               />
             </Suspense>

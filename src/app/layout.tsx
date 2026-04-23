@@ -58,6 +58,8 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
       <body style={{ margin: 0, padding: 0 }}>
+        {/* Sync theme synchronously before React paints to prevent background flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=JSON.parse(localStorage.getItem('isDark'));if(d===null||d===undefined)d=true;var id=JSON.parse(localStorage.getItem('themeId'))||'warroom';var m={warroom:d?'#08050f':'#f8f6f2',lab:d?'#050a0a':'#f4f8f6',engine:d?'#0a0808':'#f8f4f0',nerve:d?'#06060c':'#f4f6fa'};document.body.style.background=m[id]||'#08050f';}catch(e){}})()`}} />
         <SessionProviderWrapper>{children}</SessionProviderWrapper>
       </body>
     </html>
