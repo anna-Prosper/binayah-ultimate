@@ -225,16 +225,19 @@ function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...sh
   const showSubs = task.status !== "active";
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <TaskCard task={task} isMine={isMine} onClaim={onClaim} draggable={isDraggable} {...shared} />
       {showSubs && taskSubs.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 14, borderLeft: `2px solid ${task.pipelineColor}22`, marginLeft: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 16, borderLeft: `2px solid ${task.pipelineColor}33`, marginLeft: 6 }}>
           {taskSubs.map(sub => (
             <SubtaskCard
               key={sub.id}
               taskSub={sub}
               stageId={task.stageId}
+              parentStageName={task.stageId}
               pipelineColor={task.pipelineColor}
+              pipelineIcon={task.pipelineIcon}
+              pipelineName={task.pipelineName}
               onToggle={() => toggleSubtask(task.stageId, sub.id)}
               {...shared}
             />
@@ -352,12 +355,14 @@ function TaskCard({
 // ─── Subtask card (smaller, no description/preview) ──────────────────────────
 
 function SubtaskCard({
-  taskSub, stageId, pipelineColor, onToggle,
+  taskSub, stageId, parentStageName, pipelineColor, pipelineIcon, pipelineName, onToggle,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
 }: {
-  taskSub: SubtaskItem; stageId: string; pipelineColor: string; onToggle: () => void;
+  taskSub: SubtaskItem; stageId: string; parentStageName: string;
+  pipelineColor: string; pipelineIcon: string; pipelineName: string;
+  onToggle: () => void;
 } & SharedCardProps) {
   const key = `${stageId}::${taskSub.id}`;
   const rxs = reactions[key] || {};
@@ -365,29 +370,38 @@ function SubtaskCard({
   const showReactPicker = reactOpen === key;
   const showCommentPopover = commentOpen === key;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
+  const creator = users.find(u => u.id === taskSub.by);
 
   return (
-    <CardShell t={t} borderColor={t.border} compact>
-      {/* Top row — just title + done button, no claimers/description */}
+    <CardShell t={t} borderColor={t.border}>
+      {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</div>
+          <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", alignItems: "center", gap: 8 }}>
+            <span>↳ subtask of {pipelineIcon} {parentStageName}</span>
+          </div>
         </div>
+        {creator && (
+          <div style={{ display: "flex", gap: -4 }} title={`added by ${creator.name}`}>
+            <AvatarC user={creator} size={22} />
+          </div>
+        )}
         {currentUser && (
-          <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55", true)}>
+          <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55")}>
             done →
           </button>
         )}
       </div>
 
       {visibleReactions.length > 0 && (
-        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
             return (
-              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "1px 6px", cursor: "pointer", fontSize: 9, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}>
+              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
-                <span style={{ fontSize: 7, fontWeight: 700 }}>{us.length}</span>
+                <span style={{ fontSize: 8, fontWeight: 700 }}>{us.length}</span>
               </button>
             );
           })}
@@ -402,9 +416,8 @@ function SubtaskCard({
         onReactToggle={() => { setReactOpen(showReactPicker ? null : key); setCommentOpen(null); }}
         onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : key); setReactOpen(null); }}
         onEmoji={emoji => { handleReact(key, emoji); setReactOpen(null); }}
-        onCopy={() => shareStage(key, taskSub.text)}
+        onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
-        compact
       />
 
       {showCommentPopover && (
