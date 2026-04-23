@@ -120,6 +120,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [expS, setExpS] = useState<string | null>(null);
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
   const [claims, setClaims] = useState<Record<string, string[]>>(() => lsGet("claims", {}));
+  const [assignments, setAssignments] = useState<Record<string, string>>(() => lsGet("assignments", {}));
   const [subtasks, setSubtasks] = useState<Record<string, SubtaskItem[]>>(() => lsGet("subtasks", {}));
   const [comments, setComments] = useState<Record<string, CommentItem[]>>(() => lsGet("comments", {}));
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
@@ -232,6 +233,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // onboardStep is no longer dynamic — removed LS sync
   useEffect(() => { lsSet("reactions", reactions) }, [reactions]);
   useEffect(() => { lsSet("claims", claims) }, [claims]);
+  useEffect(() => { lsSet("assignments", assignments) }, [assignments]);
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
@@ -594,7 +596,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
   const isAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
   const approveStage = (name: string) => {
-    if (!isAdmin) { showToast("// only admin can approve", t.amber); return; }
+    if (!isAdmin) { showToast("// only captain can approve", t.amber); return; }
     if (approvedStages.includes(name)) return;
     setApprovedStages(prev => [...prev, name]);
     logActivity("status", name, "→ approved");
@@ -676,6 +678,21 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       setTimeout(() => setToast(null), 2500);
     }
   };
+  const assignTask = (sid: string, userId: string | null) => {
+    if (!currentUser) return;
+    setAssignments(prev => {
+      const copy = { ...prev };
+      if (!userId) { delete copy[sid]; return copy; }
+      return { ...copy, [sid]: userId };
+    });
+    if (userId) {
+      const assignee = users.find((u: typeof USERS_DEFAULT[number]) => u.id === userId);
+      logActivity("assign", sid, `→ ${assignee?.name || userId}`);
+    } else {
+      logActivity("assign", sid, "unassigned");
+    }
+  };
+
   const handleReact = (sid: string, emoji: string) => {
     if (!currentUser) return;
     // Check lock for both stage reactions (sid = stage name) and pipeline reactions (sid = _pipe_<id>)
@@ -1004,13 +1021,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                   <AvatarC user={u} size={26} />
                   {ADMIN_IDS.includes(u.id) && (
-                    <span title="Admin — approves completions" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
+                    <span title="Captain — approves completions" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
                   )}
                 </div>
                 <div>
                   <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text, display: "flex", alignItems: "center", gap: 4 }}>
                     {u.name}
-                    {ADMIN_IDS.includes(u.id) && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>ADMIN</span>}
+                    {ADMIN_IDS.includes(u.id) && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 4, padding: "1px 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>CAPTAIN</span>}
                   </div>
                   <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
@@ -1177,6 +1194,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 approvedStages={approvedStages}
                 approveStage={approveStage}
                 isAdmin={isAdmin}
+                assignments={assignments}
+                assignTask={assignTask}
                 {...stageProps}
               />
             </Suspense>
