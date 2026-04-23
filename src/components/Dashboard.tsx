@@ -6,7 +6,7 @@ import BottomSheet from "@/components/ui/BottomSheet";
 import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, ADMIN_IDS, type UserType, type SubtaskItem, type CommentItem, type ActivityItem } from "@/lib/data";
+import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, ADMIN_IDS, DEFAULT_WORKSPACE_ID, type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev, NB } from "@/components/ui/primitives";
 import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
@@ -144,6 +144,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
   const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
   const [customPipelines, setCustomPipelines] = useState<CustomPipeline[]>(() => lsGet("customPipelines", []));
+  // Workspaces: multi-tenant layer above pipelines. Each workspace owns its own pipelines, members, captains.
+  const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
+  const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>(() => lsGet("currentWorkspaceId", DEFAULT_WORKSPACE_ID));
   const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
   const [editingPipeName, setEditingPipeName] = useState<string | null>(null);
   const [newStageInput, setNewStageInput] = useState<Record<string, string>>({});
@@ -317,6 +320,29 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
   useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
   useEffect(() => { lsSet("customPipelines", customPipelines) }, [customPipelines]);
+  useEffect(() => { lsSet("workspaces", workspaces) }, [workspaces]);
+  useEffect(() => { lsSet("currentWorkspaceId", currentWorkspaceId) }, [currentWorkspaceId]);
+
+  // One-time workspace migration: seed "War Room" with all existing pipelines,
+  // all users as members, Anna (ADMIN_IDS[0]) as captain.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (workspaces.length > 0) return;
+    const allIds = [...pipelineData.map(p => p.id), ...customPipelines.map(p => p.id)];
+    const warRoom: Workspace = {
+      id: DEFAULT_WORKSPACE_ID,
+      name: "War Room",
+      icon: "🏴‍☠️",
+      colorKey: "purple",
+      members: USERS_DEFAULT.map(u => u.id),
+      captains: [...ADMIN_IDS],
+      firstMates: [],
+      pipelineIds: allIds,
+    };
+    setWorkspaces([warRoom]);
+    if (!currentWorkspaceId) setCurrentWorkspaceId(DEFAULT_WORKSPACE_ID);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
@@ -563,7 +589,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const pr: Record<string, { c: string }> = { NOW: { c: t.red }, HIGH: { c: t.amber }, MEDIUM: { c: t.accent }, LOW: { c: t.textMuted } };
   const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
 
-  const allPipelines = [...pipelineData, ...customPipelines];
+  const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
+  // All pipelines that exist in the app (unscoped)
+  const allPipelinesGlobal = [...pipelineData, ...customPipelines];
+  // Pipelines scoped to the current workspace (fall back to all if workspaces haven't migrated yet)
+  const allPipelines = currentWorkspace
+    ? allPipelinesGlobal.filter(p => currentWorkspace.pipelineIds.includes(p.id))
+    : allPipelinesGlobal;
+  const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser) : true);
   // Map stage name -> pipeline ID for lock checks
   const getPipelineForStage = (stageName: string): string | undefined => {
     for (const p of allPipelines) {
@@ -619,6 +652,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (!newPipeForm.name.trim()) return;
     const id = `custom-${Date.now()}`;
     setCustomPipelines(prev => [...prev, { ...newPipeForm, id, totalHours: "?h", points: 0, stages: [] }]);
+    if (currentWorkspaceId) {
+      setWorkspaces(prev => prev.map(w => w.id === currentWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
+    }
     setNewPipeForm({ name: "", desc: "", icon: "\uD83D\uDD27", colorKey: "blue", priority: "MEDIUM" });
     setAddingPipeline(false);
     setExpanded(prev => [...prev, id]);
@@ -1139,6 +1175,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setActiveSidebarPipeline(id);
                 setExpanded(prev => prev.includes(id) ? prev : [...prev, id]);
               }}
+              workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
+              currentWorkspaceId={currentWorkspaceId}
+              onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
+              canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
+              onCreateWorkspace={() => { showToast("// workspace creation — coming in next step", t.amber); }}
             />
           </div>
         )}

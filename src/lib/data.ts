@@ -37,7 +37,20 @@ export const USERS_DEFAULT = [
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
-export const ADMIN_IDS = ["anna"]; // users who can approve completions
+export const ADMIN_IDS = ["anna"]; // seed captain for migration; runtime ranks live in workspaces
+
+export interface Workspace {
+  id: string;
+  name: string;
+  icon: string;
+  colorKey: string;
+  members: string[];    // user IDs who belong here (includes captains + first mates)
+  captains: string[];   // can create workspaces, add/remove members, promote, approve
+  firstMates: string[]; // can add/remove members and approve in this workspace
+  pipelineIds: string[]; // which pipelines live in this workspace
+}
+
+export const DEFAULT_WORKSPACE_ID = "war-room";
 
 export const ONBOARDING = [
   {title:"gm legend",desc:"welcome to the command center. every AI tool, every pipeline, every initiative — mapped and tracked.",icon:"🏴‍☠️",sub:"// the ecosystem starts here"},
