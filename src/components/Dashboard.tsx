@@ -44,6 +44,9 @@ const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), {
 const TasksView = dynamic(() => import("@/components/TasksView"), {
   ssr: false,
 });
+const HomeView = dynamic(() => import("@/components/HomeView"), {
+  ssr: false,
+});
 const KanbanView = dynamic(() => import("@/components/KanbanView"), {
   ssr: false, // drag-and-drop is browser-only
 });
@@ -169,7 +172,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Per-pipeline ⋮ menu open state for mobile header
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Left sidebar nav — desktop only; persisted so user returns to where they left off
-  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "now") as NavItem);
+  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "home") as NavItem);
   // Active pipeline in sidebar sub-list — remembers last selected pipeline
   const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
   // Mobile documents sheet
@@ -1233,6 +1236,35 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               <div style={{ marginTop: 16 }}>
                 <ActivityFeed activityLog={activityLog} users={users} t={t} />
               </div>
+            </Suspense>
+          </ErrorBoundary>
+        )}
+
+        {/* Desktop: Home view — personal dashboard across workspaces */}
+        {!isMobile && activeNavItem === "home" && me && (
+          <ErrorBoundary onError={() => showToast("// home failed to load — refresh to retry", t.red)}>
+            <Suspense fallback={null}>
+              <HomeView
+                t={t}
+                me={me}
+                users={users}
+                workspaces={workspaces}
+                myWorkspaces={myWorkspaces}
+                allPipelinesGlobal={allPipelinesGlobal}
+                customStages={customStages}
+                claims={claims}
+                assignments={assignments}
+                subtasks={subtasks}
+                getStatus={getStatus}
+                sc={sc}
+                approvedStages={approvedStages}
+                currentUser={currentUser!}
+                isCaptainOfAny={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
+                currentWorkspaceId={currentWorkspaceId}
+                onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
+                onNavigateToNow={() => setActiveNavItem("now")}
+                ck={ck}
+              />
             </Suspense>
           </ErrorBoundary>
         )}

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "now" | "pipelines" | "documents" | "activity" | "chat";
+export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat";
 
 export interface SidebarPipeline {
   id: string;
@@ -34,6 +34,7 @@ interface Props {
 }
 
 const NAV_ITEMS: { id: NavItem; label: string; icon: string }[] = [
+  { id: "home",      label: "home",      icon: "🏠" },
   { id: "now",       label: "now",       icon: "🔥" },
   { id: "pipelines", label: "pipelines", icon: "⚡" },
   { id: "documents", label: "documents", icon: "📄" },
