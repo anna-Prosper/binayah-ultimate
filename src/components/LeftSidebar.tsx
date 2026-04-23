@@ -21,7 +21,7 @@ interface Props {
 }
 
 const NAV_ITEMS: { id: NavItem; label: string; icon: string }[] = [
-  { id: "now",       label: "now",       icon: "◉" },
+  { id: "now",       label: "now",       icon: "🔥" },
   { id: "pipelines", label: "pipelines", icon: "⚡" },
   { id: "documents", label: "documents", icon: "📄" },
   { id: "activity",  label: "activity",  icon: "🔔" },

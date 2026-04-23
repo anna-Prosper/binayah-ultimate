@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
+import dynamic from "next/dynamic";
 import { T } from "@/lib/themes";
-import { type SubtaskItem, type UserType } from "@/lib/data";
-import { AvatarC } from "@/components/ui/Avatar";
+import { type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+
+const Stage = dynamic(() => import("@/components/Stage"), { ssr: false });
 
 interface Pipeline {
   id: string;
@@ -13,39 +15,70 @@ interface Pipeline {
   stages: string[];
 }
 
-interface Props {
+// Mirrors stageProps shape from Dashboard
+interface StageProps {
   t: T;
+  expS: string | null;
+  setExpS: (v: string | null) => void;
+  getStatus: (name: string) => string;
+  sc: Record<string, { l: string; c: string }>;
+  claims: Record<string, string[]>;
+  reactions: Record<string, Record<string, string[]>>;
+  subtasks: Record<string, SubtaskItem[]>;
+  comments: Record<string, CommentItem[]>;
+  users: UserType[];
+  currentUser: string | null;
+  me: UserType;
+  reactOpen: string | null;
+  setReactOpen: (v: string | null) => void;
+  showMockup: Record<string, boolean>;
+  setShowMockup: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  copied: string | null;
+  claimAnim: { stage: string; pts: number } | null;
+  handleClaim: (sid: string) => void;
+  handleReact: (sid: string, emoji: string) => void;
+  cycleStatus: (name: string) => void;
+  shareStage: (name: string, text: string) => void;
+  subtaskInput: Record<string, string>;
+  setSubtaskInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  commentInput: Record<string, string>;
+  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  addSubtask: (sid: string) => void;
+  toggleSubtask: (sid: string, taskId: number) => void;
+  lockSubtask: (sid: string, taskId: number) => void;
+  removeSubtask: (sid: string, taskId: number) => void;
+  addComment: (sid: string) => void;
+  stageDescOverrides: Record<string, string>;
+  setStageDescOverride: (name: string, val: string) => void;
+  liveNotifs: Record<string, { comment?: string; reaction?: string }>;
+  stageImages: Record<string, string[]>;
+  addStageImage: (name: string, dataUrl: string) => void;
+  removeStageImage: (name: string, idx: number) => void;
+}
+
+interface Props extends StageProps {
   allPipelines: Pipeline[];
   customStages: Record<string, string[]>;
   pipeMetaOverrides: Record<string, { name?: string; priority?: string }>;
-  subtasks: Record<string, SubtaskItem[]>;
-  claims: Record<string, string[]>;
-  getStatus: (stageId: string) => string;
-  sc: Record<string, { l: string; c: string }>;
-  users: UserType[];
-  currentUser: string | null;
-  onClaim: (stageId: string) => void;
-  onSubtaskToggle: (stageId: string, taskId: number) => void;
+  isLocked: (pipelineId: string) => boolean;
+  isMobile: boolean;
+  ck: Record<string, string>;
 }
 
 const ACTIONABLE = new Set(["active", "in-progress", "planned"]);
 const STATUS_ORDER: Record<string, number> = { active: 0, "in-progress": 1, planned: 2 };
 const COLS = [
-  { status: "active",     label: "live" },
+  { status: "active",      label: "live" },
   { status: "in-progress", label: "building" },
-  { status: "planned",    label: "planned" },
+  { status: "planned",     label: "planned" },
 ];
 
 export default function TasksView({
-  t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims,
-  getStatus, sc, users, currentUser, onClaim, onSubtaskToggle,
+  allPipelines, customStages, pipeMetaOverrides, isLocked, isMobile, ck,
+  ...sp
 }: Props) {
-  const [view, setView] = useState<"list" | "kanban">("list");
-
-  const ck: Record<string, string> = {
-    blue: t.accent, purple: t.purple, green: t.green, amber: t.amber,
-    cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate,
-  };
+  const { t, getStatus, sc, subtasks } = sp;
+  const [view, setView] = useState<"list" | "kanban">("kanban");
 
   const pipelines = allPipelines.map(p => ({
     ...p,
@@ -54,30 +87,32 @@ export default function TasksView({
     color: ck[p.colorKey] || t.accent,
   }));
 
+  // Enriched stage task list: (pipelineId, pipelineColor, stageId, status)
   const stageTasks = pipelines.flatMap(p =>
     p.allStages
       .filter(s => ACTIONABLE.has(getStatus(s)))
-      .map(s => ({
+      .map((s, i) => ({
         stageId: s,
-        pipelineName: p.displayName,
-        pipelineIcon: p.icon,
-        pipelineColor: p.color,
+        idx: i,
+        tot: p.allStages.filter(x => ACTIONABLE.has(getStatus(x))).length,
+        pId: p.id,
+        pC: p.color,
         status: getStatus(s),
-        claimers: claims[s] || [],
-        subtaskDone: (subtasks[s] || []).filter(x => x.done).length,
-        subtaskTotal: (subtasks[s] || []).length,
+        locked: isLocked(p.id),
       }))
   ).sort((a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9));
 
+  // Open subtasks across all stages (quick-check without expanding)
   const openSubtasks = pipelines.flatMap(p =>
     p.allStages.flatMap(s =>
       (subtasks[s] || [])
         .filter(sub => !sub.done)
-        .map(sub => ({ taskId: sub.id, text: sub.text, stageId: s, pipelineName: p.displayName, pipelineIcon: p.icon, pipelineColor: p.color }))
+        .map(sub => ({ taskId: sub.id, text: sub.text, stageId: s, pipelineName: p.displayName, pipelineIcon: p.icon }))
     )
   );
 
-  const isMyClaim = (stageId: string) => currentUser ? (claims[stageId] || []).includes(currentUser) : false;
+  const total = stageTasks.length;
+  const totalSubs = openSubtasks.length;
 
   const viewBtnStyle = (active: boolean): React.CSSProperties => ({
     background: active ? t.accent + "22" : "transparent",
@@ -89,12 +124,12 @@ export default function TasksView({
 
   return (
     <div style={{ padding: "20px 0" }}>
-      {/* Header row */}
+      {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1 }}>// now</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1 }}>🔥 now</div>
           <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>
-            {stageTasks.length} stages in flight {"·"} {openSubtasks.length} open subtasks
+            {total} stages in flight {"·"} {totalSubs} open subtasks
           </div>
         </div>
         <div style={{ display: "flex", gap: 4 }}>
@@ -103,69 +138,45 @@ export default function TasksView({
         </div>
       </div>
 
-      {stageTasks.length === 0 && openSubtasks.length === 0 ? (
+      {total === 0 && totalSubs === 0 ? (
         <div style={{ padding: "60px 0", textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
           <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// all clear — nothing in flight</div>
         </div>
       ) : view === "list" ? (
-        <ListView stageTasks={stageTasks} openSubtasks={openSubtasks} t={t} sc={sc} users={users} currentUser={currentUser} isMyClaim={isMyClaim} onClaim={onClaim} onSubtaskToggle={onSubtaskToggle} />
+        <ListView stageTasks={stageTasks} openSubtasks={openSubtasks} sp={sp} isMobile={isMobile} t={t} sc={sc} onSubtaskToggle={sp.toggleSubtask} />
       ) : (
-        <KanbanView stageTasks={stageTasks} openSubtasks={openSubtasks} t={t} sc={sc} users={users} currentUser={currentUser} isMyClaim={isMyClaim} onClaim={onClaim} onSubtaskToggle={onSubtaskToggle} />
+        <KanbanView stageTasks={stageTasks} openSubtasks={openSubtasks} sp={sp} isMobile={isMobile} t={t} sc={sc} onSubtaskToggle={sp.toggleSubtask} />
       )}
     </div>
   );
 }
 
-// ─── Shared card props ────────────────────────────────────────────────────────
+// ─── Shared types ─────────────────────────────────────────────────────────────
 
-interface StageTask { stageId: string; pipelineName: string; pipelineIcon: string; pipelineColor: string; status: string; claimers: string[]; subtaskDone: number; subtaskTotal: number; }
-interface OpenSubtask { taskId: number; text: string; stageId: string; pipelineName: string; pipelineIcon: string; pipelineColor: string; }
-interface SharedProps {
-  t: T; sc: Record<string, { l: string; c: string }>;
-  users: UserType[]; currentUser: string | null;
-  isMyClaim: (id: string) => boolean;
-  onClaim: (id: string) => void;
-  onSubtaskToggle: (stageId: string, taskId: number) => void;
+interface StageTask { stageId: string; idx: number; tot: number; pId: string; pC: string; status: string; locked: boolean; }
+interface OpenSub { taskId: number; text: string; stageId: string; pipelineName: string; pipelineIcon: string; }
+interface ViewProps {
   stageTasks: StageTask[];
-  openSubtasks: OpenSubtask[];
+  openSubtasks: OpenSub[];
+  sp: StageProps;
+  isMobile: boolean;
+  t: T;
+  sc: Record<string, { l: string; c: string }>;
+  onSubtaskToggle: (stageId: string, taskId: number) => void;
 }
 
-// ─── Stage card ───────────────────────────────────────────────────────────────
-
-function StageCard({ task, t, sc, users, currentUser, isMyClaim, onClaim, compact = false }: { task: StageTask; compact?: boolean } & Omit<SharedProps, "stageTasks" | "openSubtasks" | "onSubtaskToggle">) {
-  const mine = isMyClaim(task.stageId);
-  const st = sc[task.status];
+function StageSlot({ task, sp, isMobile }: { task: StageTask; sp: StageProps; isMobile: boolean }) {
   return (
-    <div style={{ background: t.bgCard, border: `1px solid ${mine ? task.pipelineColor + "44" : t.border}`, borderRadius: 12, padding: compact ? "8px 10px" : "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
-      <span style={{ fontSize: 7, fontWeight: 700, color: st?.c || t.textDim, background: (st?.c || t.textDim) + "18", border: `1px solid ${(st?.c || t.textDim)}33`, borderRadius: 6, padding: "2px 6px", whiteSpace: "nowrap", fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
-        {st?.l || task.status}
-      </span>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: compact ? 9 : 11, fontWeight: 600, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{task.stageId}</div>
-        <div style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 1 }}>
-          {task.pipelineIcon} {task.pipelineName}
-          {task.subtaskTotal > 0 && <span style={{ marginLeft: 6, color: task.subtaskDone === task.subtaskTotal ? t.green : t.textDim }}>{task.subtaskDone}/{task.subtaskTotal}</span>}
-        </div>
-      </div>
-      {task.claimers.slice(0, 2).map(id => {
-        const u = users.find(u => u.id === id);
-        return u ? <AvatarC key={id} user={u} size={18} /> : null;
-      })}
-      {currentUser && (
-        <button onClick={() => onClaim(task.stageId)} style={{ background: mine ? t.green + "18" : "transparent", border: `1px solid ${mine ? t.green + "44" : t.border}`, borderRadius: 7, padding: "2px 8px", cursor: "pointer", fontSize: 7, color: mine ? t.green : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0 }}>
-          {mine ? "✓" : "claim"}
-        </button>
-      )}
-    </div>
+    <Suspense fallback={null}>
+      <Stage name={task.stageId} idx={task.idx} tot={task.tot} pC={task.pC} pId={task.pId} isLocked={task.locked} isMobile={isMobile} {...sp} />
+    </Suspense>
   );
 }
 
-// ─── Subtask row ──────────────────────────────────────────────────────────────
-
-function SubtaskRow({ sub, t, onSubtaskToggle, compact = false }: { sub: OpenSubtask; t: T; onSubtaskToggle: (s: string, id: number) => void; compact?: boolean }) {
+function SubRow({ sub, t, onSubtaskToggle }: { sub: OpenSub; t: T; onSubtaskToggle: (s: string, id: number) => void }) {
   return (
-    <div onClick={() => onSubtaskToggle(sub.stageId, sub.taskId)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: compact ? "6px 10px" : "8px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+    <div onClick={() => onSubtaskToggle(sub.stageId, sub.taskId)} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "7px 12px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
       <div style={{ width: 13, height: 13, borderRadius: 4, border: `1.5px solid ${t.border}`, flexShrink: 0 }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 9, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.text}</div>
@@ -177,15 +188,14 @@ function SubtaskRow({ sub, t, onSubtaskToggle, compact = false }: { sub: OpenSub
 
 // ─── List view ────────────────────────────────────────────────────────────────
 
-function ListView(props: SharedProps) {
-  const { stageTasks, openSubtasks, t } = props;
+function ListView({ stageTasks, openSubtasks, sp, isMobile, t, onSubtaskToggle }: ViewProps) {
   return (
     <>
       {stageTasks.length > 0 && (
         <section style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 8 }}>stages in flight</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {stageTasks.map(task => <StageCard key={task.stageId} task={task} {...props} />)}
+          <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 10 }}>stages in flight</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {stageTasks.map(task => <StageSlot key={task.stageId} task={task} sp={sp} isMobile={isMobile} />)}
           </div>
         </section>
       )}
@@ -193,7 +203,7 @@ function ListView(props: SharedProps) {
         <section>
           <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 8 }}>open subtasks</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {openSubtasks.map(sub => <SubtaskRow key={`${sub.stageId}-${sub.taskId}`} sub={sub} t={t} onSubtaskToggle={props.onSubtaskToggle} />)}
+            {openSubtasks.map(sub => <SubRow key={`${sub.stageId}-${sub.taskId}`} sub={sub} t={t} onSubtaskToggle={onSubtaskToggle} />)}
           </div>
         </section>
       )}
@@ -201,47 +211,43 @@ function ListView(props: SharedProps) {
   );
 }
 
-// ─── Kanban view ─────────────────────────────────────────────────────────────
+// ─── Kanban view ──────────────────────────────────────────────────────────────
 
-function KanbanView(props: SharedProps) {
-  const { stageTasks, openSubtasks, t, sc } = props;
-
+function KanbanView({ stageTasks, openSubtasks, sp, isMobile, t, sc, onSubtaskToggle }: ViewProps) {
   return (
-    <div style={{ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto", paddingBottom: 12 }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
       {COLS.map(col => {
         const colTasks = stageTasks.filter(s => s.status === col.status);
         const stColor = sc[col.status]?.c || t.textDim;
         return (
-          <div key={col.status} style={{ flex: "1 1 220px", minWidth: 200 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor, flexShrink: 0 }} />
+          <div key={col.status} style={{ flex: "1 1 300px", minWidth: 260 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${stColor}33` }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
               <span style={{ fontSize: 8, fontWeight: 700, color: stColor, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
               <span style={{ fontSize: 7, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({colTasks.length})</span>
             </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {colTasks.length === 0 ? (
-                <div style={{ background: t.bgCard, border: `1px dashed ${t.border}`, borderRadius: 12, padding: "14px 10px", textAlign: "center", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// empty</div>
-              ) : (
-                colTasks.map(task => <StageCard key={task.stageId} task={task} compact {...props} />)
-              )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {colTasks.length === 0
+                ? <div style={{ background: t.bgCard, border: `1px dashed ${t.border}`, borderRadius: 12, padding: "16px 12px", textAlign: "center", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// empty</div>
+                : colTasks.map(task => <StageSlot key={task.stageId} task={task} sp={sp} isMobile={isMobile} />)
+              }
             </div>
           </div>
         );
       })}
 
       {/* Subtasks column */}
-      <div style={{ flex: "1 1 220px", minWidth: 200 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-          <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.accent, flexShrink: 0 }} />
+      <div style={{ flex: "1 1 240px", minWidth: 220 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, paddingBottom: 8, borderBottom: `1px solid ${t.accent}33` }}>
+          <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.accent }} />
           <span style={{ fontSize: 8, fontWeight: 700, color: t.accent, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>subtasks</span>
           <span style={{ fontSize: 7, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({openSubtasks.length})</span>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {openSubtasks.length === 0 ? (
-            <div style={{ background: t.bgCard, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "14px 10px", textAlign: "center", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// all done ✓</div>
-          ) : (
-            openSubtasks.map(sub => <SubtaskRow key={`${sub.stageId}-${sub.taskId}`} sub={sub} t={t} onSubtaskToggle={props.onSubtaskToggle} compact />)
-          )}
+          {openSubtasks.length === 0
+            ? <div style={{ background: t.bgCard, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "16px 12px", textAlign: "center", fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// all done ✓</div>
+            : openSubtasks.map(sub => <SubRow key={`${sub.stageId}-${sub.taskId}`} sub={sub} t={t} onSubtaskToggle={onSubtaskToggle} />)
+          }
         </div>
       </div>
     </div>

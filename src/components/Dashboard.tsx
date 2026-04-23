@@ -223,6 +223,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
   useEffect(() => { lsSet("isDark", isDark) }, [isDark]);
   useEffect(() => { lsSet("themeId", themeId) }, [themeId]);
+  // Sync body background to match theme — fixes body bleeding through in areas outside Dashboard div
+  useEffect(() => { document.body.style.background = mkTheme(themeId, isDark).bg; }, [isDark, themeId]);
   useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
   useEffect(() => { lsSet("users", users) }, [users]);
   // onboardStep is no longer dynamic — removed LS sync
@@ -1143,23 +1145,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </ErrorBoundary>
         )}
 
-        {/* Desktop: Tasks view when activeNavItem === 'now' */}
-        {!isMobile && activeNavItem === "now" && (
-          <ErrorBoundary onError={() => showToast("// tasks failed to load — refresh to retry", t.red)}>
+        {/* Desktop: Now view when activeNavItem === 'now' */}
+        {!isMobile && activeNavItem === "now" && me && (
+          <ErrorBoundary onError={() => showToast("// now failed to load — refresh to retry", t.red)}>
             <Suspense fallback={null}>
               <TasksView
-                t={t}
                 allPipelines={allPipelines}
                 customStages={customStages}
                 pipeMetaOverrides={pipeMetaOverrides}
-                subtasks={subtasks}
-                claims={claims}
-                getStatus={getStatus}
-                sc={sc}
-                users={users}
-                currentUser={currentUser}
-                onClaim={handleClaim}
-                onSubtaskToggle={toggleSubtask}
+                isLocked={isLocked}
+                isMobile={isMobile}
+                ck={ck}
+                {...stageProps}
               />
             </Suspense>
           </ErrorBoundary>
