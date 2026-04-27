@@ -864,10 +864,27 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
   const assignTask = (sid: string, userId: string | null) => {
     if (!currentUser) return;
+    const isSubtask = sid.includes("::");
     setAssignments(prev => {
       const copy = { ...prev };
-      if (!userId) { delete copy[sid]; return copy; }
-      return { ...copy, [sid]: userId };
+      const prevTaskAssignee = copy[sid] || null;
+      if (!userId) { delete copy[sid]; } else { copy[sid] = userId; }
+
+      // Smart inheritance: when assigning a parent task (not a subtask), propagate to subtasks
+      // that are unassigned or still assigned to the previous task assignee (not explicitly overridden)
+      if (!isSubtask && !sid.startsWith("_")) {
+        const taskSubtasks = subtasks[sid] || [];
+        for (const sub of taskSubtasks) {
+          const subKey = `${sid}::${sub.id}`;
+          const subAssignee = copy[subKey] || null;
+          // Inherit if: subtask has no own assignment, or it matches the previous task assignee
+          if (!subAssignee || subAssignee === prevTaskAssignee) {
+            if (!userId) { delete copy[subKey]; } else { copy[subKey] = userId; }
+          }
+          // If subtask has a DIFFERENT explicit assignment → leave it alone
+        }
+      }
+      return copy;
     });
     if (userId) {
       const assignee = users.find((u: typeof USERS_DEFAULT[number]) => u.id === userId);
@@ -1445,6 +1462,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setSubtaskStage={setSubtaskStage}
                 editMode={editMode}
                 archivedStages={archivedStages}
+                onPipelineClick={(pid) => { setActiveNavItem("pipelines"); setActiveSidebarPipeline(pid); }}
+                onUserClick={(uid) => setViewingUser(viewingUser === uid ? null : uid)}
                 navbarSlot={me ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 10px", cursor: "pointer" }}

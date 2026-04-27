@@ -182,6 +182,8 @@ export default function Stage({
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
+  const [stageEditMode, setStageEditMode] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const k = `${pId}-${idx}`;
@@ -228,14 +230,14 @@ export default function Stage({
           }
         };
         return (
-      <div onClick={handleCardClick} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
+      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? pC + "66" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow, position: "relative" }}>
 
         {/* Header row — on mobile: name+status on first line, meta on second */}
         <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
           {/* Line 1: chevron + name + status */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, flex: 1, width: "100%" }}>
             <Chev open={isMobile ? mobileSheetOpen : isE} color={pC} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, border: stageEditMode ? `2px dashed ${pC}55` : "none", borderRadius: stageEditMode ? 4 : 0, padding: stageEditMode ? "0 4px" : 0, background: stageEditMode ? pC + "08" : "transparent" }}>{name}</span>
             <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 10, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
           </div>
 
@@ -295,14 +297,39 @@ export default function Stage({
             />
           ) : (
             <p
-              onClick={() => { if (!isLocked) setEditingShortDesc(true); }}
-              title="Click to edit"
+              onClick={e => { e.stopPropagation(); if (!isLocked && stageEditMode) setEditingShortDesc(true); }}
+              title={stageEditMode ? "Click to edit" : ""}
               style={{ margin: 0, fontSize: 11, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: "text" }}
             >
               {currentDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add description...</span>}
             </p>
           )}
         </div>
+
+        {/* Edit mode pencil button — bottom-right, appears on hover */}
+        {(isHovered || stageEditMode) && !isMobile && (
+          <button
+            onClick={e => { e.stopPropagation(); setStageEditMode(v => !v); }}
+            title={stageEditMode ? "Exit edit mode" : "Edit this stage"}
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 8,
+              width: 26,
+              height: 26,
+              borderRadius: 8,
+              background: stageEditMode ? pC + "22" : t.bgCard,
+              border: `1px solid ${stageEditMode ? pC + "88" : t.border}`,
+              cursor: "pointer",
+              fontSize: 12,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: stageEditMode ? pC : t.textMuted,
+              transition: "all 0.15s",
+            }}
+          >✏️</button>
+        )}
 
         {/* Expanded content */}
         {isE && (

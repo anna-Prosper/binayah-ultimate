@@ -45,6 +45,7 @@ interface Props {
   setStageNameOverride?: (name: string, val: string) => void;
   editMode?: boolean;
   archivedStages?: string[];
+  onPipelineClick?: (pipelineId: string) => void;
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,7 +61,7 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages, onPipelineClick } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -90,6 +91,7 @@ export default function TasksView(props: Props) {
         pipelineName: p.displayName,
         pipelineIcon: p.icon,
         pipelineColor: p.color,
+        pipelineId: p.id,
         status: getStatus(s),
         claimers: claims[s] || [],
         locked: p.locked,
@@ -160,6 +162,12 @@ export default function TasksView(props: Props) {
       setStageStatus(stageId, targetStatus);
     } else if (subtaskKey && setSubtaskStage) {
       setSubtaskStage(subtaskKey, targetStatus);
+      // Auto-mark subtask as done when dragged to done column
+      if (targetStatus === "active") {
+        const [parentStageId, subtaskIdStr] = subtaskKey.split("::");
+        const subtaskId = parseInt(subtaskIdStr);
+        if (!isNaN(subtaskId)) toggleSubtask(parentStageId, subtaskId);
+      }
     }
   };
 
@@ -190,7 +198,7 @@ export default function TasksView(props: Props) {
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
-    editMode,
+    editMode, onPipelineClick,
     handleClaim, claims,
   };
 
@@ -290,6 +298,7 @@ export default function TasksView(props: Props) {
 
 interface StageTask {
   stageId: string; displayName: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
+  pipelineId: string;
   status: string; claimers: string[]; locked: boolean;
   workspaceIcon?: string; workspaceName?: string;
 }
@@ -312,6 +321,7 @@ interface SharedCardProps {
   t: T;
   users: UserType[];
   editMode?: boolean;
+  onPipelineClick?: (pipelineId: string) => void;
   currentUser: string | null;
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
@@ -375,7 +385,7 @@ function TaskCard({
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode,
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -447,11 +457,17 @@ function TaskCard({
               style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
             >{task.displayName}</div>
           )}
-          <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px solid ${t.accent}33` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 4px" : 0, marginLeft: editOpen ? -2 : 0, marginRight: editOpen ? -2 : 0 }}>
-            {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
-            {task.pipelineIcon} {task.pipelineName}
-            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim, marginLeft: 4 }}>{subDone}/{subCount}</span>}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
+          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+            {task.workspaceIcon && task.workspaceName && <span>{task.workspaceIcon} {task.workspaceName} · </span>}
+            <span
+              onClick={onPipelineClick ? e => { e.stopPropagation(); onPipelineClick(task.pipelineId); } : undefined}
+              style={{ cursor: onPipelineClick ? "pointer" : "default", color: onPipelineClick ? t.accent : t.textDim, display: "flex", alignItems: "center", gap: 3 }}
+              title={onPipelineClick ? `Go to ${task.pipelineName}` : task.pipelineName}
+            >
+              {task.pipelineIcon} {task.pipelineName}
+            </span>
+            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -601,11 +617,7 @@ function SubtaskCard({
               {isClaimed ? "✓ claimed" : "claim"}
             </button>
           )}
-          {currentUser && (
-            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(t.green, t.green + "15", t.green + "44")} title="Mark done">
-              ✓ done
-            </button>
-          )}
+
         </div>
       </div>
 

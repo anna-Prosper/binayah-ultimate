@@ -52,6 +52,8 @@ interface Props {
   setSubtaskStage?: (key: string, status: string) => void;
   editMode?: boolean;
   archivedStages?: string[];
+  onPipelineClick?: (pipelineId: string) => void;
+  onUserClick?: (userId: string) => void;
 }
 
 export default function HomeView({
@@ -61,7 +63,7 @@ export default function HomeView({
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   handleClaim, handleReact, toggleSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
-  editMode, archivedStages, navbarSlot,
+  editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
   // All pipelines visible to this user across their workspaces
   const visiblePipelines = useMemo(() => {
@@ -196,7 +198,7 @@ export default function HomeView({
                           const isMe = u.id === currentUser;
                           const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
                           return (
-                            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}` }}>
+                            <div key={u.id} onClick={() => onUserClick?.(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: onUserClick ? "pointer" : "default" }}>
                               <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
                                 <AvatarC user={u} size={24} />
                               </div>
@@ -259,6 +261,7 @@ export default function HomeView({
         setSubtaskStage={setSubtaskStage}
         editMode={editMode}
         archivedStages={archivedStages}
+        onPipelineClick={onPipelineClick}
       />
     </div>
   );
