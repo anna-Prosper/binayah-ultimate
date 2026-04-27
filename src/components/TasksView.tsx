@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "@/lib/themes";
 import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -297,6 +297,21 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps) {
   const [editOpen, setEditOpen] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        setReactOpen(null);
+        setCommentOpen(null);
+        setAssignOpen(null);
+        setEditOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setReactOpen, setCommentOpen, setAssignOpen]);
+
   const isDone = task.status === "active";
   const isApproved = approvedStages.includes(task.stageId);
   const isPending = isDone && !isApproved;
@@ -312,12 +327,13 @@ function TaskCard({
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
 
   return (
-    <CardShell
-      t={t}
-      borderColor={isPending ? t.amber + "55" : isMine ? task.pipelineColor + "55" : t.border}
-      draggable={isDraggable}
-      onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
-    >
+    <div ref={cardRef}>
+      <CardShell
+        t={t}
+        borderColor={isPending ? t.amber + "55" : isMine ? task.pipelineColor + "55" : t.border}
+        draggable={isDraggable}
+        onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
+      >
       {/* Top row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -397,6 +413,7 @@ function TaskCard({
         />
       )}
     </CardShell>
+    </div>
   );
 }
 
@@ -413,6 +430,20 @@ function SubtaskCard({
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
   onToggle: () => void;
 } & SharedCardProps) {
+  const subtaskRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (subtaskRef.current && !subtaskRef.current.contains(e.target as Node)) {
+        setReactOpen(null);
+        setCommentOpen(null);
+        setAssignOpen(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [setReactOpen, setCommentOpen, setAssignOpen]);
+
   const key = `${stageId}::${taskSub.id}`;
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
@@ -425,7 +456,8 @@ function SubtaskCard({
   const creator = users.find(u => u.id === taskSub.by);
 
   return (
-    <CardShell t={t} borderColor={t.border}>
+    <div ref={subtaskRef}>
+      <CardShell t={t} borderColor={t.border}>
       {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -491,6 +523,7 @@ function SubtaskCard({
         />
       )}
     </CardShell>
+    </div>
   );
 }
 
