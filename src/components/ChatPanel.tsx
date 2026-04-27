@@ -23,9 +23,64 @@ interface Props {
   mobileMode?: boolean;
 }
 
+// Render chat text with @mentions styled in user color
+function renderMentions(text: string, users: UserType[], textColor: string): React.ReactNode {
+  const parts: React.ReactNode[] = [];
+  const re = /@([a-z0-9_-]+)/gi;
+  let last = 0;
+  let i = 0;
+  for (const match of text.matchAll(re)) {
+    const idx = match.index ?? 0;
+    if (idx > last) parts.push(<span key={`t-${i++}`}>{text.slice(last, idx)}</span>);
+    const handle = match[1].toLowerCase();
+    const user = users.find(u => u.id === handle || u.name.toLowerCase() === handle);
+    if (user) {
+      parts.push(<span key={`m-${i++}`} style={{ color: user.color, fontWeight: 700, background: user.color + "14", padding: "0 4px", borderRadius: 4 }}>@{user.name}</span>);
+    } else {
+      parts.push(<span key={`u-${i++}`} style={{ color: textColor }}>{match[0]}</span>);
+    }
+    last = idx + match[0].length;
+  }
+  if (last < text.length) parts.push(<span key={`t-${i++}`}>{text.slice(last)}</span>);
+  return parts.length ? parts : text;
+}
+
 export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
+  const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Filter users by mention query
+  const mentionMatches = mentionState.open
+    ? users.filter(u => u.id !== currentUser && (u.id.includes(mentionState.query.toLowerCase()) || u.name.toLowerCase().includes(mentionState.query.toLowerCase()))).slice(0, 6)
+    : [];
+
+  const detectMention = (value: string, caretPos: number) => {
+    // Find the @ before the caret without a space in between
+    const beforeCaret = value.slice(0, caretPos);
+    const atIdx = beforeCaret.lastIndexOf("@");
+    if (atIdx === -1) { setMentionState(s => ({ ...s, open: false })); return; }
+    // Must be at start, or preceded by whitespace
+    if (atIdx > 0 && !/\s/.test(beforeCaret[atIdx - 1])) { setMentionState(s => ({ ...s, open: false })); return; }
+    const between = beforeCaret.slice(atIdx + 1);
+    if (/\s/.test(between)) { setMentionState(s => ({ ...s, open: false })); return; }
+    setMentionState({ open: true, query: between, selectedIdx: 0, startPos: atIdx });
+  };
+
+  const insertMention = (userId: string) => {
+    if (!mentionState.open) return;
+    const before = input.slice(0, mentionState.startPos);
+    const after = input.slice((inputRef.current?.selectionStart ?? input.length));
+    const newValue = `${before}@${userId} ${after}`;
+    setInput(newValue);
+    setMentionState(s => ({ ...s, open: false }));
+    setTimeout(() => {
+      const caret = (before + "@" + userId + " ").length;
+      inputRef.current?.focus();
+      inputRef.current?.setSelectionRange(caret, caret);
+    }, 0);
+  };
   const [aiInput, setAiInput] = useState("");
   const [aiMessages, setAiMessages] = useState<AiMsg[]>([]);
   const [aiLoading, setAiLoading] = useState(false);
@@ -197,8 +252,8 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isMe && <div style={{ fontSize: 7, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 3, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
-                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "7px 11px", fontSize: 11, color: t.text, lineHeight: 1.5 }}>
-                      {msg.text}
+                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "7px 11px", fontSize: 11, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+                      {renderMentions(msg.text, users, t.text)}
                     </div>
                     <div style={{ fontSize: 7, color: t.textDim, marginTop: 3, textAlign: isMe ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
                   </div>
@@ -207,13 +262,49 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             })}
             <div ref={bottomRef} />
           </div>
-          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}` }}>
+          <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}`, position: "relative" }}>
+            {/* Mention autocomplete picker */}
+            {mentionState.open && mentionMatches.length > 0 && (
+              <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(100% - 4px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: "0 -8px 24px rgba(0,0,0,0.3)", overflow: "hidden", zIndex: 50 }}>
+                {mentionMatches.map((u, idx) => (
+                  <button
+                    key={u.id}
+                    onClick={() => insertMention(u.id)}
+                    onMouseEnter={() => setMentionState(s => ({ ...s, selectedIdx: idx }))}
+                    style={{ width: "100%", background: idx === mentionState.selectedIdx ? u.color + "22" : "transparent", border: "none", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, textAlign: "left", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}
+                  >
+                    <AvatarC user={u} size={20} />
+                    <span style={{ color: u.color, fontWeight: 700 }}>@{u.id}</span>
+                    <span style={{ color: t.textDim, fontSize: 9 }}>{u.name} · {u.role}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div style={{ display: "flex", gap: 6 }}>
               <input
+                ref={inputRef}
                 value={input}
-                onChange={e => setInput(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="message the team..."
+                onChange={e => {
+                  const v = e.target.value;
+                  setInput(v);
+                  detectMention(v, e.target.selectionStart ?? v.length);
+                }}
+                onKeyUp={e => {
+                  // Update mention detection on caret movement
+                  const caret = (e.target as HTMLInputElement).selectionStart ?? input.length;
+                  detectMention(input, caret);
+                }}
+                onClick={e => detectMention(input, (e.target as HTMLInputElement).selectionStart ?? input.length)}
+                onKeyDown={e => {
+                  if (mentionState.open && mentionMatches.length > 0) {
+                    if (e.key === "ArrowDown") { e.preventDefault(); setMentionState(s => ({ ...s, selectedIdx: (s.selectedIdx + 1) % mentionMatches.length })); return; }
+                    if (e.key === "ArrowUp") { e.preventDefault(); setMentionState(s => ({ ...s, selectedIdx: (s.selectedIdx - 1 + mentionMatches.length) % mentionMatches.length })); return; }
+                    if (e.key === "Enter" || e.key === "Tab") { e.preventDefault(); insertMention(mentionMatches[mentionState.selectedIdx].id); return; }
+                    if (e.key === "Escape") { e.preventDefault(); setMentionState(s => ({ ...s, open: false })); return; }
+                  }
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+                }}
+                placeholder="message the team... use @ to mention"
                 maxLength={MAX_MSG_LEN + 50} /* allow overage to show counter */
                 style={{
                   flex: 1,
