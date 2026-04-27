@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { Users, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
@@ -65,12 +65,16 @@ export default function HomeView({
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
   editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
-  // All pipelines visible to this user across their workspaces
+  // null = show all workspaces; string = filter to specific workspace
+  const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
+
+  // null homeWsFilter = show all workspaces; set = show only that workspace
   const visiblePipelines = useMemo(() => {
+    const ws = homeWsFilter ? myWorkspaces.filter(w => w.id === homeWsFilter) : myWorkspaces;
     const ids = new Set<string>();
-    for (const w of myWorkspaces) for (const pid of w.pipelineIds) ids.add(pid);
+    for (const w of ws) for (const pid of w.pipelineIds) ids.add(pid);
     return allPipelinesGlobal.filter(p => ids.has(p.id));
-  }, [myWorkspaces, allPipelinesGlobal]);
+  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter]);
 
   // Map: pipelineId → workspace info for breadcrumb
   const pipelineWorkspaceMap = useMemo(() => {
@@ -124,11 +128,11 @@ export default function HomeView({
           {/* Workspace switcher row — only shown when there are 2+ workspaces */}
           <div style={{ display: myWorkspaces.length > 1 ? "flex" : "none", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
             {myWorkspaces.map(w => {
-              const isActive = w.id === currentWorkspaceId;
+              const isActive = w.id === homeWsFilter;
               return (
                 <button
                   key={w.id}
-                  onClick={() => onSwitchWorkspace(w.id)}
+                  onClick={() => setHomeWsFilter(homeWsFilter === w.id ? null : w.id)}
                   style={{
                     display: "flex",
                     alignItems: "center",
