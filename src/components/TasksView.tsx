@@ -567,54 +567,33 @@ function SubtaskCard({
 
   return (
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-      <CardShell t={t} borderColor={pipelineColor + "33"} compact={false}>
-      {/* Header with visual indicator */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 4, borderBottom: `1px solid ${pipelineColor}22` }}>
-        <div style={{ fontSize: 14, color: pipelineColor, fontWeight: 700 }}>⤷</div>
+      <CardShell t={t} borderColor={isClaimed ? pipelineColor + "55" : t.border}>
+      {/* Top row — identical structure to TaskCard */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div title={taskSub.text} style={{ fontSize: 14, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{taskSub.text}</div>
-          <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", gap: 8, alignItems: "center" }}>
-            <span>{pipelineIcon} {parentStageName}</span>
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+            <span style={{ color: pipelineColor, marginRight: 4 }}>⤷</span>{taskSub.text}
+          </div>
+          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {pipelineIcon} {parentStageName}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
           </div>
         </div>
-      </div>
-
-      {/* Bottom row: creator + claim/assign actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "space-between", paddingTop: 6, flexWrap: "wrap" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
-          {creator && (
-            <AvatarC user={creator} size={18} />
-          )}
+        {/* Right side: claimer avatars + claim button — same as TaskCard */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {claimers.length > 0 && (
-            <div style={{ display: "flex", gap: -4 }}>
-              {claimers.slice(0, 2).map(id => {
-                const u = users.find(u => u.id === id);
-                return u ? <AvatarC key={id} user={u} size={16} /> : null;
-              })}
+            <div style={{ display: "flex" }}>
+              {claimers.slice(0, 3).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={20} /> : null; })}
             </div>
           )}
-          {visibleReactions.length > 0 && (
-            <div style={{ display: "flex", gap: 2 }}>
-              {visibleReactions.slice(0, 2).map(([emoji]) => (
-                <span key={emoji} style={{ fontSize: 11 }}>{emoji}</span>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
           {currentUser && handleClaim && (
-            <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={btn(isClaimed ? pipelineColor : pipelineColor, isClaimed ? pipelineColor + "18" : pipelineColor + "15", isClaimed ? pipelineColor + "55" : pipelineColor + "55", true)}>
-              {isClaimed ? "✓" : "+"}
+            <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={btn(isClaimed ? pipelineColor : pipelineColor, isClaimed ? pipelineColor + "18" : pipelineColor + "15", isClaimed ? pipelineColor + "55" : pipelineColor + "55")}>
+              {isClaimed ? "✓ claimed" : "claim"}
             </button>
           )}
-          <button onClick={e => { e.stopPropagation(); setAssignOpen(showAssignPicker ? null : key); }} style={btn(assignee ? assignee.color : pipelineColor, assignee ? assignee.color + "18" : pipelineColor + "15", assignee ? assignee.color + "55" : pipelineColor + "55", true)} title={assignee ? `Assigned to ${assignee.name}` : "Assign"}>
-            👤
-          </button>
           {currentUser && (
-            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55", true)} title="Mark done">
-              ✓
+            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(t.green, t.green + "15", t.green + "44")} title="Mark done">
+              ✓ done
             </button>
           )}
         </div>
