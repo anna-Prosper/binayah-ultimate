@@ -3,7 +3,8 @@
 import { useModel } from "@/lib/contexts/ModelContext";
 
 export default function ArchiveView() {
-  const { archivedStages, archivedPipelines, stageNameOverrides, pipeMetaOverrides, allPipelinesGlobal, restoreStage, restorePipeline, t } = useModel();
+  const { archived, stageNameOverrides, pipeMetaOverrides, allPipelinesGlobal, restoreStage, restorePipeline, t } = useModel();
+  const { stages: archivedStages, pipelines: archivedPipelines } = archived;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

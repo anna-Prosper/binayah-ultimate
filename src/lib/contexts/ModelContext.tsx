@@ -65,6 +65,7 @@ interface ModelContextValue {
   archivedStages: string[];
   archivedPipelines: string[];
   archivedSubtasks: string[];
+  archived: { stages: string[]; pipelines: string[]; subtasks: string[] };
   stageImages: Record<string, string[]>;
 
   // Chat state
@@ -418,6 +419,12 @@ export function ModelProvider({
     return map;
   }, [claims, assignments]);
 
+  const archived = useMemo(() => ({
+    stages: archivedStages,
+    pipelines: archivedPipelines,
+    subtasks: archivedSubtasks,
+  }), [archivedStages, archivedPipelines, archivedSubtasks]);
+
   const me = users.find(u => u.id === currentUser);
   const allPipelinesGlobal = [...pipelineData, ...customPipelines];
 
@@ -685,7 +692,7 @@ export function ModelProvider({
     stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
-    archivedStages, archivedPipelines, archivedSubtasks, stageImages,
+    archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
     syncStatus,
     getStatus, getPoints, sc, ck, pr,
