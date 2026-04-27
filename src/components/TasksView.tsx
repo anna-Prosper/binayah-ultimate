@@ -107,18 +107,25 @@ export default function TasksView(props: Props) {
     if (stageId && getStatus(stageId) !== targetStatus) setStageStatus(stageId, targetStatus);
   };
 
-  const segBtn = (active: boolean): React.CSSProperties => ({
-    background: active ? t.accent + "22" : "transparent",
-    border: `1px solid ${active ? t.accent + "44" : "transparent"}`,
-    borderRadius: 7,
-    padding: "5px 14px",
+  const pillBtn = (active: boolean): React.CSSProperties => ({
+    flex: 1,
+    background: active ? t.bgCard : "transparent",
+    border: "none",
+    borderRadius: 9,
+    padding: "7px 18px",
     cursor: "pointer",
-    fontSize: 8,
-    color: active ? t.accent : t.textMuted,
+    fontSize: 9,
     fontWeight: active ? 700 : 500,
+    color: active ? t.text : t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace",
-    transition: "all 0.15s",
+    letterSpacing: 0.3,
+    boxShadow: active ? "0 1px 4px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.04)" : "none",
+    transition: "all 0.18s ease",
     whiteSpace: "nowrap" as const,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 5,
   });
 
   const pendingCount = stageTasks.filter(s => s.status === "active" && !approvedStages.includes(s.stageId)).length;
@@ -147,17 +154,32 @@ export default function TasksView(props: Props) {
             {stageTasks.length} tasks {"·"} drag between columns to change status
           </div>
         </div>
-        {/* Right-side controls: scope filter + view toggle, stacked in two rows */}
-        <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
+        {/* Right-side controls: one unified card, two segmented rows */}
+        <div style={{
+          background: t.bgSoft,
+          border: `1px solid ${t.border}`,
+          borderRadius: 14,
+          overflow: "hidden",
+          boxShadow: `0 1px 3px rgba(0,0,0,0.06)`,
+          minWidth: 200,
+        }}>
           {showMyAllFilter && (
-            <div style={{ display: "flex", background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 2, gap: 2 }}>
-              <button style={segBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 my tasks</button>
-              <button style={segBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all tasks</button>
+            <div style={{ display: "flex", padding: "3px 3px", borderBottom: `1px solid ${t.border}` }}>
+              <button style={pillBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>
+                <span>🐱</span><span>mine</span>
+              </button>
+              <button style={pillBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>
+                <span>🌍</span><span>all</span>
+              </button>
             </div>
           )}
-          <div style={{ display: "flex", background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 2, gap: 2 }}>
-            <button style={segBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
-            <button style={segBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
+          <div style={{ display: "flex", padding: "3px 3px" }}>
+            <button style={pillBtn(view === "kanban")} onClick={() => setView("kanban")}>
+              <span>⊞</span><span>kanban</span>
+            </button>
+            <button style={pillBtn(view === "list")} onClick={() => setView("list")}>
+              <span>≡</span><span>list</span>
+            </button>
           </div>
         </div>
       </div>
