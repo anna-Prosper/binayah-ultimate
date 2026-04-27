@@ -142,7 +142,11 @@ export default function HomeView({
               return (
                 <button
                   key={w.id}
-                  onClick={() => setHomeWsFilter(homeWsFilter === w.id ? null : w.id)}
+                  onClick={() => {
+                    const next = homeWsFilter === w.id ? null : w.id;
+                    setHomeWsFilter(next);
+                    if (next) onSwitchWorkspace(next);
+                  }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -174,13 +178,17 @@ export default function HomeView({
             })}
           </div>
 
-          {/* Active workspace header with stats and team */}
-          {myWorkspaces.find(w => w.id === currentWorkspaceId) && (
+          {/* Active workspace header — reflects the selected tab (homeWsFilter), falls back to current workspace */}
+          {(() => {
+            const displayWsId = homeWsFilter || currentWorkspaceId;
+            return myWorkspaces.find(w => w.id === displayWsId);
+          })() && (
             <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
               {(() => {
-                const activeWs = myWorkspaces.find(w => w.id === currentWorkspaceId);
+                const displayWsId = homeWsFilter || currentWorkspaceId;
+                const activeWs = myWorkspaces.find(w => w.id === displayWsId);
                 if (!activeWs) return null;
-                const activePipelines = visiblePipelines.filter(p => activeWs.pipelineIds.includes(p.id));
+                const activePipelines = allPipelinesGlobal.filter(p => activeWs.pipelineIds.includes(p.id));
                 const totalStages = activePipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
                 const wsMembers = activeWs.members;
                 const wsTeamMembers = users.filter(u => wsMembers.includes(u.id));
