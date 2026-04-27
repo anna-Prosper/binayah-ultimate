@@ -1,5 +1,16 @@
 import mongoose, { Schema, Model } from "mongoose";
 
+export interface IDocAttachment {
+  id: string;            // local id (timestamp + suffix)
+  key: string;           // S3 object key (used for delete)
+  url: string;           // public S3 URL
+  name: string;          // original filename
+  contentType: string;
+  size: number;
+  uploadedBy: string;    // fixedUserId
+  uploadedAt: Date;
+}
+
 export interface IBinayahDocument {
   _id: string;
   title: string;
@@ -7,9 +18,24 @@ export interface IBinayahDocument {
   createdBy: string;
   updatedBy: string | null;
   pipelineId: string | null;
+  attachments: IDocAttachment[];
   createdAt: Date;
   updatedAt: Date;
 }
+
+const AttachmentSchema = new Schema<IDocAttachment>(
+  {
+    id: { type: String, required: true },
+    key: { type: String, required: true },
+    url: { type: String, required: true },
+    name: { type: String, required: true },
+    contentType: { type: String, required: true },
+    size: { type: Number, required: true },
+    uploadedBy: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
 
 const BinayahDocumentSchema = new Schema<IBinayahDocument>(
   {
@@ -18,6 +44,7 @@ const BinayahDocumentSchema = new Schema<IBinayahDocument>(
     createdBy: { type: String, required: true },
     updatedBy: { type: String, default: null },
     pipelineId: { type: String, default: null },
+    attachments: { type: [AttachmentSchema], default: [] },
   },
   { timestamps: true }
 );

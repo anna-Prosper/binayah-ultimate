@@ -38,8 +38,20 @@ interface DocListItem {
   updatedAt: string;
 }
 
+interface DocAttachment {
+  id: string;
+  key: string;
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+  uploadedBy: string;
+  uploadedAt: string;
+}
+
 interface DocFull extends DocListItem {
   content: Record<string, unknown> | null;
+  attachments?: DocAttachment[];
 }
 
 interface Props {
@@ -94,6 +106,9 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   const [filterPipeline, setFilterPipeline] = useState<string | null>(null);
   // Mobile: show list or editor
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
+  // Attachment upload
+  const [uploadingFile, setUploadingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toasts, showToast, dismissToast } = useToasts();
 
@@ -233,6 +248,47 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       patchDoc(activeId, { content: editor.getJSON() as Record<string, unknown> });
     },
   });
+
+  // Attachment upload + delete handlers
+  const uploadAttachment = useCallback(async (file: File) => {
+    if (!activeId) return;
+    setUploadingFile(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`/api/documents/${activeId}/attachments`, { method: "POST", body: fd });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || "// upload failed", t.red);
+        return;
+      }
+      const data = await res.json();
+      setActiveDoc(prev => prev ? { ...prev, attachments: [...(prev.attachments || []), data.attachment] } : prev);
+      showToast(`// uploaded ${file.name}`, t.green);
+    } catch (e) {
+      console.error("upload failed", e);
+      showToast("// upload failed", t.red);
+    } finally {
+      setUploadingFile(false);
+    }
+  }, [activeId, showToast, t.red, t.green]);
+
+  const deleteAttachment = useCallback(async (attachmentId: string) => {
+    if (!activeId) return;
+    if (!confirm("Delete this attachment?")) return;
+    try {
+      const res = await fetch(`/api/documents/${activeId}/attachments/${attachmentId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        showToast(err.error || "// delete failed", t.red);
+        return;
+      }
+      setActiveDoc(prev => prev ? { ...prev, attachments: (prev.attachments || []).filter(a => a.id !== attachmentId) } : prev);
+    } catch (e) {
+      console.error("delete failed", e);
+      showToast("// delete failed", t.red);
+    }
+  }, [activeId, showToast, t.red]);
 
   // Update editor content when doc changes
   useEffect(() => {
@@ -617,6 +673,58 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               } as React.CSSProperties}
             >
               <EditorContent editor={editor} />
+
+              {/* Attachments */}
+              <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                  <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", fontWeight: 700 }}>
+                    attachments {activeDoc?.attachments && activeDoc.attachments.length > 0 ? `(${activeDoc.attachments.length})` : ""}
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    style={{ display: "none" }}
+                    onChange={e => {
+                      const file = e.target.files?.[0];
+                      if (file) { uploadAttachment(file); e.target.value = ""; }
+                    }}
+                  />
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingFile}
+                    style={{ background: uploadingFile ? t.surface : t.accent + "18", border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "5px 12px", cursor: uploadingFile ? "wait" : "pointer", fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", display: "flex", alignItems: "center", gap: 5 }}
+                  >
+                    {uploadingFile ? "↑ uploading..." : "📎 attach file"}
+                  </button>
+                </div>
+                {activeDoc?.attachments && activeDoc.attachments.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {activeDoc.attachments.map(a => {
+                      const uploader = USERS_DEFAULT.find(u => u.id === a.uploadedBy);
+                      const isImage = a.contentType.startsWith("image/");
+                      return (
+                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10 }}>
+                          <span style={{ fontSize: 18 }}>{isImage ? "🖼" : a.contentType.includes("pdf") ? "📄" : a.contentType.includes("zip") ? "🗜" : "📎"}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 600, color: t.text, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{a.name}</a>
+                            <div style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 2 }}>
+                              {(a.size / 1024).toFixed(1)} kB
+                              {uploader && ` · by ${uploader.name}`}
+                              {a.uploadedAt && ` · ${relativeTime(a.uploadedAt)}`}
+                            </div>
+                          </div>
+                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
+                          <button onClick={() => deleteAttachment(a.id)} title="Remove" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", fontStyle: "italic" }}>
+                    // no files attached — drop one above
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </>
