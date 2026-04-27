@@ -311,42 +311,38 @@ function TaskCard({
       onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
     >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{task.stageId}</div>
-          <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {task.workspaceIcon && task.workspaceName && <span>{task.workspaceIcon} {task.workspaceName} ·</span>}
-            <span>{task.pipelineIcon} {task.pipelineName}</span>
-            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>{subDone}/{subCount}</span>}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
+          <div title={task.stageId} style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{task.stageId}</div>
+          <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+            {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
+            {task.pipelineIcon} {task.pipelineName}
+            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim, marginLeft: 6 }}>{subDone}/{subCount}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 6 }}>→ {assignee.name}</span>}
           </div>
         </div>
-        {task.claimers.length > 0 && (
-          <div style={{ display: "flex", gap: -4 }}>
-            {task.claimers.slice(0, 3).map(id => {
-              const u = users.find(u => u.id === id);
-              return u ? <AvatarC key={id} user={u} size={22} /> : null;
-            })}
-          </div>
-        )}
-        {/* Admin approve on pending done */}
-        {isPending && isAdmin && (
-          <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
-            ✓ approve
-          </button>
-        )}
-        {isPending && !isAdmin && (
-          <span style={badge(t.amber)}>⏳ pending</span>
-        )}
-        {isDone && isApproved && (
-          <span style={badge(t.green)}>✓ approved</span>
-        )}
-        {/* Claim button — not shown when admin is viewing pending */}
-        {currentUser && !(isPending && isAdmin) && !isApproved && (
-          <button onClick={e => { e.stopPropagation(); onClaim(); }} style={btn(isMine ? t.green : task.pipelineColor, isMine ? t.green + "18" : task.pipelineColor + "15", isMine ? t.green + "55" : task.pipelineColor + "55")}>
-            {isMine ? "✓ claimed" : "claim"}
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {task.claimers.length > 0 && (
+            <div style={{ display: "flex", gap: -4 }}>
+              {task.claimers.slice(0, 3).map(id => {
+                const u = users.find(u => u.id === id);
+                return u ? <AvatarC key={id} user={u} size={20} /> : null;
+              })}
+            </div>
+          )}
+          {isPending && isAdmin && (
+            <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
+              ✓ approve
+            </button>
+          )}
+          {isPending && !isAdmin && <span style={badge(t.amber)}>⏳ pending</span>}
+          {isDone && isApproved && <span style={badge(t.green)}>✓ approved</span>}
+          {currentUser && !(isPending && isAdmin) && !isApproved && (
+            <button onClick={e => { e.stopPropagation(); onClaim(); }} style={btn(isMine ? t.green : task.pipelineColor, isMine ? t.green + "18" : task.pipelineColor + "15", isMine ? t.green + "55" : task.pipelineColor + "55")}>
+              {isMine ? "✓ claimed" : "claim"}
+            </button>
+          )}
+        </div>
       </div>
 
       {visibleReactions.length > 0 && (
@@ -421,24 +417,26 @@ function SubtaskCard({
   return (
     <CardShell t={t} borderColor={t.border}>
       {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</div>
-          <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span>↳ subtask of {pipelineIcon} {parentStageName}</span>
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
+          <div title={taskSub.text} style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{taskSub.text}</div>
+          <div title={`subtask of ${parentStageName}`} style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+            ↳ subtask of {pipelineIcon} {parentStageName}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 6 }}>→ {assignee.name}</span>}
           </div>
         </div>
-        {creator && (
-          <div style={{ display: "flex", gap: -4 }} title={`added by ${creator.name}`}>
-            <AvatarC user={creator} size={22} />
-          </div>
-        )}
-        {currentUser && (
-          <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55")}>
-            done →
-          </button>
-        )}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+          {creator && (
+            <div title={`added by ${creator.name}`}>
+              <AvatarC user={creator} size={20} />
+            </div>
+          )}
+          {currentUser && (
+            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55")}>
+              done →
+            </button>
+          )}
+        </div>
       </div>
 
       {visibleReactions.length > 0 && (
@@ -524,13 +522,14 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
 }) {
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6,
-    padding: compact ? "3px 7px" : "4px 8px", cursor: "pointer",
+    padding: compact ? "3px 6px" : "3px 7px", cursor: "pointer",
     fontSize: compact ? 9 : 10, color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3,
+    whiteSpace: "nowrap" as const,
   };
 
   return (
-    <div style={{ display: "flex", gap: 5, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 2, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 2, flexWrap: "wrap" }}>
       <div style={{ position: "relative" }}>
         <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={iconBtn} title="Add reaction">
           😀 <span style={{ fontSize: 7 }}>+</span>
