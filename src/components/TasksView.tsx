@@ -127,7 +127,7 @@ export default function TasksView(props: Props) {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 18, gap: 20, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {headerLabel || "🔥 now"}
@@ -144,7 +144,7 @@ export default function TasksView(props: Props) {
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           {showMyAllFilter && (
             <div style={{ display: "flex", gap: 4 }}>
-              <button style={viewBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🧑 my tasks</button>
+              <button style={viewBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 my tasks</button>
               <button style={viewBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all tasks</button>
             </div>
           )}

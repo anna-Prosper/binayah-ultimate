@@ -21,6 +21,8 @@ interface Props {
   buildAiContext?: () => string;
   /** When true: renders flat (no outer card border/radius) for embedding in a BottomSheet */
   mobileMode?: boolean;
+  /** When true: occupies full viewport height (Telegram-style) — no border/radius, messages area fills remaining height */
+  fullScreen?: boolean;
 }
 
 // Render chat text with @mentions styled in user color
@@ -45,7 +47,7 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
   return parts.length ? parts : text;
 }
 
-export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false }: Props) {
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
@@ -201,10 +203,13 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const isInputTooLong = inputCharCount > MAX_MSG_LEN;
 
   // In mobile mode, the BottomSheet provides the container; render flat with taller message areas
+  // In fullScreen mode, the messages area should flex to fill remaining height (no fixed height)
   const msgAreaHeight = mobileMode ? "calc(50vh - 80px)" : 220;
 
   return (
-    <div style={mobileMode
+    <div style={fullScreen
+      ? { display: "flex", flexDirection: "column", height: "100vh", background: t.bgCard, overflow: "hidden" }
+      : mobileMode
       ? { background: t.bgCard, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }
       : { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, marginBottom: 16, overflow: "hidden", animation: "fadeIn 0.2s ease" }
     }>
@@ -237,7 +242,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {/* Team chat */}
       {tab === "team" && (
         <>
-          <div style={{ height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
@@ -353,7 +358,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {/* AI chat */}
       {tab === "ai" && (
         <>
-          <div style={{ height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
             {aiMessages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6 }}>
                 <span style={{ fontSize: 28 }}>🤖</span>

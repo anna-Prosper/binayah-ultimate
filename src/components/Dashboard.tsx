@@ -1043,7 +1043,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             onNavChange={(item) => {
               setActiveNavItem(item);
               if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); }
-              else if (item === "chat") setShowChat(true);
+              else if (item === "chat") { setShowChat(false); setChatNotif(null); }
               else { setShowActivity(false); setShowChat(false); }
             }}
             pipelines={allPipelines as SidebarPipeline[]}
@@ -1051,6 +1051,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             onPipelineSelect={(id) => {
               setActiveSidebarPipeline(id);
               setExpanded(prev => prev.includes(id) ? prev : [...prev, id]);
+              setActiveNavItem("pipelines");
             }}
             workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
             currentWorkspaceId={currentWorkspaceId}
@@ -1064,7 +1065,57 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       )}
 
       {/* Right section: header + content, fills remaining width */}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowX: "hidden" }}>
+
+      {activeNavItem === "chat" && !isMobile ? (
+        <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+          <Suspense fallback={<ChatSkeleton t={t} />}>
+            <ChatPanel
+              fullScreen
+              messages={chatMessages}
+              onSend={sendChat}
+              onRemoteMessage={handleRemoteMessage}
+              users={users}
+              currentUser={currentUser!}
+              t={t}
+              defaultTab="team"
+              buildAiContext={() => {
+                const me = users.find(u => u.id === currentUser);
+                const lines: string[] = [];
+                lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
+                lines.push(`Team: ${users.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
+                lines.push("");
+                lines.push(`Pipelines (${allPipelines.length}):`);
+                allPipelines.forEach((p, pi) => {
+                  const pName = pipeMetaOverrides[p.id]?.name || p.name;
+                  const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
+                  const pDesc = pipeDescOverrides[p.id] || p.desc;
+                  const locked = isLocked(p.id) ? " [LOCKED]" : "";
+                  const stages = [...p.stages, ...(customStages[p.id] || [])];
+                  lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                  stages.forEach((s, si) => {
+                    const st = getStatus(s);
+                    const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
+                    const subN = (subtasks[s] || []).length;
+                    const subDone = (subtasks[s] || []).filter(t => t.done).length;
+                    const comN = (comments[s] || []).length;
+                    const sDesc = stageDescOverrides[s] || "";
+                    lines.push(`   ${pi + 1}.${si + 1} ${s} [${st}] — claimed by ${claimers}${subN ? ` — subtasks ${subDone}/${subN}` : ""}${comN ? ` — ${comN} comments` : ""}${sDesc ? ` — ${sDesc}` : ""}`);
+                  });
+                });
+                const recent = activityLog.slice(0, 8);
+                if (recent.length) {
+                  lines.push("");
+                  lines.push("Recent activity:");
+                  recent.forEach(a => lines.push(`- ${a.user} ${a.type} ${a.target}${a.detail ? ` (${a.detail})` : ""}`));
+                }
+                return lines.join("\n");
+              }}
+            />
+          </Suspense>
+        </ErrorBoundary>
+      ) : (
+        <>
 
       {/* Top section: header + team bar */}
       <div style={{ padding: isMobile ? "16px 12px 0" : "24px 20px 0" }}>
@@ -1105,9 +1156,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             )}
 
             {/* Chat */}
-            <button onClick={e => { e.stopPropagation(); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat" aria-label="Open team chat">
+            <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat" aria-label="Open team chat">
               {"\uD83D\uDCAC"}
-              {chatNotif && !showChat && (
+              {chatNotif && activeNavItem !== "chat" && (
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
               )}
             </button>
@@ -1363,30 +1414,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </ErrorBoundary>
         )}
 
-        {/* Desktop: Chat inline when activeNavItem === 'chat' */}
-        {!isMobile && activeNavItem === "chat" && (
-          <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
-            <Suspense fallback={<ChatSkeleton t={t} />}>
-              <div style={{ marginTop: 16 }}>
-                <ChatPanel
-                  messages={chatMessages}
-                  onSend={sendChat}
-                  onRemoteMessage={handleRemoteMessage}
-                  users={users}
-                  currentUser={currentUser!}
-                  t={t}
-                  defaultTab="team"
-                  buildAiContext={() => {
-                    const me = users.find(u => u.id === currentUser);
-                    const lines: string[] = [];
-                    lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
-                    return lines.join("\n");
-                  }}
-                />
-              </div>
-            </Suspense>
-          </ErrorBoundary>
-        )}
+
 
         {/* PIPELINES VIEW — shown when pipelines nav is active (or on mobile where sidebar is hidden) */}
         {(isMobile || activeNavItem === "pipelines") && (<div style={{ marginTop: 16 }}>
@@ -1661,6 +1689,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
         </div>
         </div>{/* end main content area */}
+        </>
+      )}{/* end chat/normal conditional */}
       </div>{/* end right-section */}
 
       {/* WORKSPACE MODALS */}
