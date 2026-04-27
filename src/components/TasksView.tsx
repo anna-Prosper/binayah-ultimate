@@ -412,7 +412,7 @@ function TaskCard({
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
       >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, border: editOpen ? `2px solid ${t.accent}55` : "none", borderRadius: editOpen ? 8 : 0, padding: editOpen ? 6 : 0, marginLeft: editOpen ? -6 : 0, marginRight: editOpen ? -6 : 0, marginTop: editOpen ? -6 : 0 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingStage === task.stageId ? (
             <input
@@ -433,17 +433,12 @@ function TaskCard({
                 }
                 setEditingStage?.(null);
               }}
-              style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `1px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
+              style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `2px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
             />
           ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div title={task.stageId} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{task.displayName}</div>
-              {isHovered && setEditingStage && (
-                <button onClick={() => { setEditingStage(task.stageId); setEditingVal?.(task.displayName || task.stageId); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: t.textMuted, flexShrink: 0 }} title="Edit">✏️</button>
-              )}
-            </div>
+            <div title={task.stageId} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px solid ${t.accent}33` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 4px" : 0, marginLeft: editOpen ? -2 : 0, marginRight: editOpen ? -2 : 0 }}>{task.displayName}</div>
           )}
-          <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+          <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px solid ${t.accent}33` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 4px" : 0, marginLeft: editOpen ? -2 : 0, marginRight: editOpen ? -2 : 0 }}>
             {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
             {task.pipelineIcon} {task.pipelineName}
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim, marginLeft: 4 }}>{subDone}/{subCount}</span>}
@@ -503,9 +498,9 @@ function TaskCard({
         onEmoji={emoji => { handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); }}
+        onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); setEditingStage?.(null); }}
+        showEditButton={true}
         showEditInput={editOpen}
-        showEditButton={isHovered}
       />
 
       {showCommentPopover && (
@@ -833,7 +828,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         {copied ? "✓ copied" : "📋 copy"}
       </button>
       {onEditToggle && showEditButton && (
-        <button onClick={e => { e.stopPropagation(); onEditToggle(); }} style={iconBtn} title="Edit">
+        <button onClick={e => { e.stopPropagation(); onEditToggle(); }} style={{ ...iconBtn, background: showEditInput ? t.accent + "18" : "transparent", borderColor: showEditInput ? t.accent + "55" : t.border, color: showEditInput ? t.accent : t.textMuted, fontWeight: showEditInput ? 700 : 500 }} title="Edit mode">
           ✏️ edit
         </button>
       )}
