@@ -55,3 +55,13 @@ export const THEME_OPTIONS = [
   {id:"engine",name:"Engine Room",icon:"⚙️",desc:"Industrial heat. Orange sparks. Raw power.",color:"#ff6b35",bg:"#0a0808"},
   {id:"nerve",name:"Nerve Center",icon:"🧠",desc:"Deep navy. Neural calm. Everything connected.",color:"#5b8cf8",bg:"#06060c"},
 ];
+
+// === DESIGN TOKENS — see .claude/DESIGN_AUDIT.md ===
+export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 } as const;
+export const radii = { sm: 8, md: 12, lg: 16 } as const;
+export const type = { micro: 10, label: 11, body: 13, heading: 15, display: 28 } as const;
+// Text tier rules:
+//   t.text     — primary content (stage names, message body)
+//   t.textSec  — secondary content (descriptions, claimer names)
+//   t.textMuted — labels & meta ("3 stages", "+10pts", section headers)
+//   t.textDim  — dividers, ghost placeholders, micro-counts
