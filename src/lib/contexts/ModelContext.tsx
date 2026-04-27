@@ -47,6 +47,7 @@ interface ModelContextValue {
   comments: Record<string, CommentItem[]>;
   subtasks: Record<string, SubtaskItem[]>;
   assignments: Record<string, string>;
+  ownership: Record<string, { claimedBy: string[]; assignedTo?: string }>;
   stageStatusOverrides: Record<string, string>;
   approvedStages: string[];
   stageDescOverrides: Record<string, string>;
@@ -407,6 +408,16 @@ export function ModelProvider({
   const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
   const pr: Record<string, { c: string }> = { NOW: { c: t.orange }, HIGH: { c: t.textMuted }, MEDIUM: { c: t.cyan || t.accent }, LOW: { c: t.textDim } };
 
+  const ownership = useMemo(() => {
+    const map: Record<string, { claimedBy: string[]; assignedTo?: string }> = {};
+    for (const [k, v] of Object.entries(claims)) map[k] = { claimedBy: v };
+    for (const [k, v] of Object.entries(assignments)) {
+      if (!map[k]) map[k] = { claimedBy: [] };
+      map[k].assignedTo = v;
+    }
+    return map;
+  }, [claims, assignments]);
+
   const me = users.find(u => u.id === currentUser);
   const allPipelinesGlobal = [...pipelineData, ...customPipelines];
 
@@ -670,7 +681,7 @@ export function ModelProvider({
 
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
-    claims, reactions, comments, subtasks, assignments,
+    claims, reactions, comments, subtasks, assignments, ownership,
     stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
@@ -721,13 +732,16 @@ export function usePipeline(pipelineId: string) {
 }
 
 export function useOwnership(stageId: string) {
-  const { claims, assignments, currentUser } = useModel();
-  return useMemo(() => ({
-    claimers: claims[stageId] || [],
-    isMine: currentUser ? (claims[stageId] || []).includes(currentUser) : false,
-    assignedTo: assignments[stageId] || null,
-    isAssignedToMe: currentUser ? assignments[stageId] === currentUser : false,
-  }), [claims, assignments, currentUser, stageId]);
+  const { ownership, currentUser } = useModel();
+  return useMemo(() => {
+    const entry = ownership[stageId] || { claimedBy: [] };
+    return {
+      claimedBy: entry.claimedBy,
+      isMine: currentUser ? entry.claimedBy.includes(currentUser) : false,
+      assignedTo: entry.assignedTo || null,
+      isAssignedToMe: currentUser ? entry.assignedTo === currentUser : false,
+    };
+  }, [ownership, currentUser, stageId]);
 }
 
 export function useModel() {
