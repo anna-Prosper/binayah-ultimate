@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": ["Bash(*)", "Write(*)", "Edit(*)", "Read(*)", "MultiEdit(*)"]
+  },
+  "skipDangerousModePermissionPrompt": true
+}

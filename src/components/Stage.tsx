@@ -351,7 +351,7 @@ export default function Stage({
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
                           {hasMock && (
                             <div style={{ gridColumn: "1 / -1", borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
-                              <div style={{ fontSize: 10, color: pC, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
+                              
                               <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
                                 <ErrorBoundary>
                                   {MockupComp && <MockupComp t={t} />}
@@ -460,7 +460,7 @@ export default function Stage({
             {/* Mockup (if available) — lazy-loaded component */}
             {MockupComp && (
               <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: 10, color: pC, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 700, padding: "8px 0 8px", opacity: 0.8 }}>▸ live preview</div>
+                
                 <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
                   <ErrorBoundary>
                     <MockupComp t={t} />

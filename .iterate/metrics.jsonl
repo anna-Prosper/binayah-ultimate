@@ -1,0 +1,54 @@
+{"ts":"2026-04-22T10:20:25Z","stage":1,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T10:27:01Z","stage":1,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-22T10:33:21Z","stage":1,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}
+{"ts":"2026-04-22T10:34:46Z","stage":2,"iter":1,"fromPhase":"pm_replan","toPhase":"dev","role":"pm_lite","passed":null}
+{"ts":"2026-04-22T10:46:04Z","stage":2,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T10:48:58Z","stage":2,"iter":1,"fromPhase":"review","toPhase":"dev_review_fix","role":"reviewer","passed":false}
+{"ts":"2026-04-22T10:53:17Z","stage":2,"iter":1,"fromPhase":"dev_review_fix","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T10:54:04Z","stage":2,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-22T11:04:12Z","stage":2,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}
+{"ts":"2026-04-22T11:06:32Z","stage":3,"iter":1,"fromPhase":"pm_replan","toPhase":"dev","role":"pm_lite","passed":null}
+{"ts":"2026-04-22T11:18:14Z","stage":3,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T11:20:16Z","stage":3,"iter":1,"fromPhase":"review","toPhase":"dev_review_fix","role":"reviewer","passed":false}
+{"ts":"2026-04-22T11:21:51Z","stage":3,"iter":1,"fromPhase":"dev_review_fix","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T11:22:27Z","stage":3,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-22T11:26:32Z","stage":3,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}
+{"ts":"2026-04-22T11:28:27Z","stage":4,"iter":1,"fromPhase":"pm_replan","toPhase":"dev","role":"pm_lite","passed":null}
+{"ts":"2026-04-22T11:40:19Z","stage":4,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T11:43:32Z","stage":4,"iter":1,"fromPhase":"review","toPhase":"dev_review_fix","role":"reviewer","passed":false}
+{"ts":"2026-04-22T11:45:04Z","stage":4,"iter":1,"fromPhase":"dev_review_fix","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T11:45:28Z","stage":4,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-22T11:50:20Z","stage":4,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}
+{"ts":"2026-04-22T11:52:53Z","stage":5,"iter":1,"fromPhase":"pm_replan","toPhase":"dev","role":"pm_lite","passed":null}
+{"ts":"2026-04-22T12:07:27Z","stage":5,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-22T12:13:49Z","stage":5,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-22T12:16:47Z","stage":5,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}
+{"ts":"2026-04-22T12:19:30Z","stage":6,"iter":1,"fromPhase":"pm_replan","toPhase":"dev","role":"pm_lite","passed":null}
+{"ts": "2026-04-22T12:31:06Z", "stage": 6, "iter": 1, "fromPhase": "dev", "toPhase": "review", "role": "dev", "passed": null}
+{"ts": "2026-04-22T12:32:57Z", "stage": 6, "iter": 1, "fromPhase": "review", "toPhase": "qa", "role": "reviewer", "passed": true}
+{"ts": "2026-04-22T12:38:18Z", "stage": 6, "iter": 1, "fromPhase": "qa", "toPhase": "dev_fix", "role": "qa", "passed": false, "bugs": ["unsubscribe blocked by middleware"]}
+{"ts": "2026-04-22T12:38:48Z", "stage": 6, "iter": 2, "fromPhase": "qa", "toPhase": "push", "role": "qa", "passed": true}
+{"ts": "2026-04-22T12:41:41Z", "stage": 6, "iter": 2, "fromPhase": "qa_live", "toPhase": "done", "role": "qa_live", "passed": true, "confidence": 96}
+{"ts": "2026-04-22T13:53:45Z", "stage": 1, "iter": 1, "fromPhase": "pm", "toPhase": "dev", "role": "pm", "passed": null}
+{"ts": "2026-04-22T14:08:46Z", "stage": 1, "iter": 1, "fromPhase": "dev", "toPhase": "review", "role": "dev", "passed": null}
+{"ts": "2026-04-22T14:10:12Z", "stage": 1, "iter": 1, "fromPhase": "review", "toPhase": "dev_review_fix", "role": "reviewer", "passed": false}
+{"ts": "2026-04-22T14:11:52Z", "stage": 1, "iter": 1, "fromPhase": "dev_review_fix", "toPhase": "qa", "role": "reviewer", "passed": true}
+{"ts": "2026-04-22T14:16:02Z", "stage": 1, "iter": 1, "fromPhase": "qa", "toPhase": "dev_fix", "role": "qa", "passed": false}
+{"ts": "2026-04-22T14:16:27Z", "stage": 1, "iter": 2, "fromPhase": "qa", "toPhase": "push", "role": "qa", "passed": true}
+{"ts": "2026-04-22T14:17:19Z", "stage": 1, "iter": 2, "fromPhase": "push", "toPhase": "qa_live", "role": "push", "passed": true}
+{"ts": "2026-04-22T14:18:42Z", "stage": 1, "iter": 2, "fromPhase": "qa_live", "toPhase": "done", "role": "qa_live", "passed": true, "confidence": 90}
+{"ts": "2026-04-22T14:53:00Z", "stage": 1, "iter": 1, "fromPhase": "pm", "toPhase": "design", "role": "pm", "passed": null}
+{"ts": "2026-04-22T14:55:59Z", "stage": 1, "iter": 1, "fromPhase": "design", "toPhase": "dev", "role": "designer", "passed": null}
+{"ts": "2026-04-22T15:04:31Z", "stage": 1, "iter": 1, "fromPhase": "dev", "toPhase": "dev_fix", "role": "user_feedback", "passed": false}
+{"ts": "2026-04-22T15:12:49Z", "stage": 1, "iter": 2, "fromPhase": "dev_fix", "toPhase": "review", "role": "dev", "passed": null}
+{"ts": "2026-04-22T15:14:14Z", "stage": 1, "iter": 2, "fromPhase": "review", "toPhase": "dev_review_fix", "role": "reviewer", "passed": false}
+{"ts": "2026-04-22T15:19:46Z", "stage": 1, "iter": 2, "fromPhase": "dev_review_fix", "toPhase": "review", "role": "dev", "passed": null}
+{"ts": "2026-04-22T15:20:23Z", "stage": 1, "iter": 2, "fromPhase": "review", "toPhase": "qa", "role": "reviewer", "passed": true}
+{"ts": "2026-04-22T15:24:09Z", "stage": 1, "iter": 2, "fromPhase": "qa", "toPhase": "pm_replan", "role": "qa", "passed": true}
+{"ts": "2026-04-22T15:25:40Z", "stage": 2, "iter": 1, "fromPhase": "pm_replan", "toPhase": "dev", "role": "pm_lite", "passed": null}
+{"ts": "2026-04-22T15:30:57Z", "stage": 2, "iter": 1, "fromPhase": "dev", "toPhase": "review", "role": "dev", "passed": null}
+{"ts": "2026-04-22T15:32:08Z", "stage": 2, "iter": 1, "fromPhase": "review", "toPhase": "qa", "role": "reviewer", "passed": true}
+{"ts":"2026-04-22T17:05:34Z","stage":1,"iter":1,"fromPhase":"planner","toPhase":"pm","role":"orchestrator","passed":null}
+{"ts":"2026-04-22T17:55:12Z","stage":1,"iter":1,"fromPhase":"dev","toPhase":"review","role":"feature-dev","passed":null}
+{"ts":"2026-04-22T17:58:15Z","stage":1,"iter":1,"fromPhase":"review","toPhase":"qa","role":"feature-reviewer","passed":true}
+{"ts":"2026-04-22T17:58:36Z","stage":1,"iter":1,"fromPhase":"qa","toPhase":"push","role":"orchestrator","passed":true}

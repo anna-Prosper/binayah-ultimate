@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { T } from "@/lib/themes";
 import { Home, Zap, FileText, Activity, MessageSquare, Settings } from "lucide-react";
+import { T } from "@/lib/themes";
 
 export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat";
 

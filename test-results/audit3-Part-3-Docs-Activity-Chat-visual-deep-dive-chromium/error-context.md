@@ -1,0 +1,555 @@
+# Instructions
+
+- Following Playwright test failed.
+- Explain why, be concise, respect Playwright best practices.
+- Provide a snippet of code with the fix, if possible.
+
+# Test info
+
+- Name: audit3.test.js >> Part 3: Docs/Activity/Chat + visual deep dive
+- Location: tests/e2e/audit3.test.js:52:1
+
+# Error details
+
+```
+Test timeout of 120000ms exceeded.
+```
+
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - generic [ref=e3]:
+      - generic [ref=e4]:
+        - generic [ref=e5]:
+          - generic [ref=e6]:
+            - 'generic "sync: live" [ref=e7]'
+            - generic [ref=e8]: 9 pipelines \u00B7 60 stages
+          - generic [ref=e9]: 🏴‍☠️ War Room
+          - generic [ref=e11]: // where strategies are forged
+        - generic [ref=e12]:
+          - generic "Change avatar" [ref=e13] [cursor=pointer]:
+            - generic "Anna" [ref=e14]:
+              - img "Anna" [ref=e15]
+            - generic [ref=e16]:
+              - generic [ref=e17]: Anna
+              - generic [ref=e18]: 36pts
+          - button "💬" [ref=e19] [cursor=pointer]
+          - button "Notifications, 1 unread" [ref=e21] [cursor=pointer]:
+            - img [ref=e22]
+            - generic [ref=e25]: "1"
+          - button "🔔" [ref=e26] [cursor=pointer]
+          - button "📄" [ref=e27] [cursor=pointer]
+          - button "📄 PDF" [ref=e28] [cursor=pointer]
+          - button "🏴‍☠️ ▾" [ref=e30] [cursor=pointer]:
+            - text: 🏴‍☠️
+            - generic [ref=e31]: ▾
+          - button "sign out" [ref=e32] [cursor=pointer]
+      - generic [ref=e33]:
+        - generic [ref=e35] [cursor=pointer]:
+          - generic "Usama" [ref=e37]:
+            - img "Usama" [ref=e38]
+          - generic [ref=e39]:
+            - generic [ref=e40]: Usama
+            - generic [ref=e41]: 0pts
+        - generic [ref=e43] [cursor=pointer]:
+          - generic "Anna" [ref=e45]:
+            - img "Anna" [ref=e46]
+          - generic [ref=e47]:
+            - generic [ref=e48]: Anna
+            - generic [ref=e49]: 36pts
+        - generic [ref=e51] [cursor=pointer]:
+          - generic [ref=e53]: A
+          - generic [ref=e54]:
+            - generic [ref=e55]: Aakarshit
+            - generic [ref=e56]: 0pts
+        - generic [ref=e58] [cursor=pointer]:
+          - generic [ref=e60]: A
+          - generic [ref=e61]:
+            - generic [ref=e62]: Ahsan
+            - generic [ref=e63]: 0pts
+        - generic [ref=e65] [cursor=pointer]:
+          - generic [ref=e67]: A
+          - generic [ref=e68]:
+            - generic [ref=e69]: Abdallah
+            - generic [ref=e70]: 0pts
+        - generic [ref=e72] [cursor=pointer]:
+          - generic [ref=e74]: P
+          - generic [ref=e75]:
+            - generic [ref=e76]: Prajeesh
+            - generic [ref=e77]: 0pts
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]: "60"
+            - generic [ref=e81]: total
+          - generic [ref=e82]:
+            - generic [ref=e83]: "3"
+            - generic [ref=e84]: live
+          - generic [ref=e85]:
+            - generic [ref=e86]: "3"
+            - generic [ref=e87]: build
+          - generic [ref=e88]:
+            - generic [ref=e89]: "21"
+            - generic [ref=e90]: plan
+          - generic [ref=e91]:
+            - generic [ref=e92]: "33"
+            - generic [ref=e93]: idea
+          - generic [ref=e95]: 3/60 owned
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - generic [ref=e99]:
+          - generic [ref=e101]:
+            - generic [ref=e102]:
+              - textbox "Search stages..." [ref=e103]
+              - generic [ref=e104]: 🔍
+            - generic [ref=e105]:
+              - button "all" [ref=e106] [cursor=pointer]
+              - button "live" [ref=e107] [cursor=pointer]
+              - button "building" [ref=e108] [cursor=pointer]
+              - button "planned" [ref=e109] [cursor=pointer]
+              - button "concept" [ref=e110] [cursor=pointer]
+              - button "my claims" [ref=e111] [cursor=pointer]
+          - generic [ref=e112]:
+            - button "☰" [ref=e113] [cursor=pointer]
+            - button "▦" [ref=e114] [cursor=pointer]
+            - button "□" [ref=e115] [cursor=pointer]
+        - generic [ref=e116]:
+          - generic [ref=e117]:
+            - generic [ref=e121] [cursor=pointer]:
+              - generic [ref=e122]:
+                - img [ref=e123]
+                - generic [ref=e125]:
+                  - generic [ref=e126]:
+                    - generic [ref=e127]: 🔬
+                    - generic "Click to rename" [ref=e128]: Research & Foundation ✎
+                    - generic [ref=e129]: "5"
+                    - generic "Click to cycle" [ref=e130]: NOW
+                    - generic [ref=e131]: 12%
+                  - paragraph [ref=e132]:
+                    - generic [ref=e133]: Framework, models, infra. Every other pipeline depends on these decisions.
+                    - generic [ref=e134]: ✎
+                  - generic [ref=e135]:
+                    - button "📋 copy" [ref=e136]
+                    - button "+ react" [ref=e138]
+                    - button "▾ collapse" [ref=e139]
+                    - button "💀 claim all" [ref=e140]
+                    - generic "Anna" [ref=e143]:
+                      - img "Anna" [ref=e144]
+              - generic [ref=e145]:
+                - button "🔓" [ref=e146]
+                - button "⋮" [ref=e148]
+            - generic [ref=e149]:
+              - generic [ref=e150]:
+                - generic [ref=e156] [cursor=pointer]:
+                  - generic [ref=e157]:
+                    - generic [ref=e158]:
+                      - img [ref=e159]
+                      - generic [ref=e161]: OpenClaw Research
+                      - generic "Click to cycle status" [ref=e162]: building
+                    - generic [ref=e163]:
+                      - button "😀" [ref=e164]
+                      - generic [ref=e165]: ▸
+                      - generic "Anna" [ref=e168]:
+                        - img "Anna" [ref=e169]
+                      - generic [ref=e170]: "+20"
+                  - paragraph [ref=e172]: Compare Qwen 3.6+, Ollama, Claude proxy, and Claude API. This decision sets the cost structure for every agent.
+                - generic [ref=e178] [cursor=pointer]:
+                  - generic [ref=e179]:
+                    - generic [ref=e180]:
+                      - img [ref=e181]
+                      - generic [ref=e183]: Dev Pipeline Research
+                      - generic "Click to cycle status" [ref=e184]: concept
+                    - generic [ref=e185]:
+                      - button "🧠 1" [ref=e186]:
+                        - generic [ref=e187]: 🧠
+                        - generic [ref=e188]: "1"
+                      - button "⚡ 1" [ref=e189]:
+                        - generic [ref=e190]: ⚡
+                        - generic [ref=e191]: "1"
+                      - button "🚀 1" [ref=e192]:
+                        - generic [ref=e193]: 🚀
+                        - generic [ref=e194]: "1"
+                      - button "😀" [ref=e195]
+                      - generic [ref=e196]: ▸
+                      - generic "Anna" [ref=e199]:
+                        - img "Anna" [ref=e200]
+                      - generic [ref=e201]: 💬1
+                      - generic [ref=e202]: "+20"
+                  - paragraph [ref=e204]: Test the PM → Dev → QA loop using Claude Code + API. Does it actually ship without humans?
+                - generic [ref=e210] [cursor=pointer]:
+                  - generic [ref=e211]:
+                    - generic [ref=e212]:
+                      - img [ref=e213]
+                      - generic [ref=e215]: Qdrant Research
+                      - generic "Click to cycle status" [ref=e216]: concept
+                    - generic [ref=e217]:
+                      - button "😀" [ref=e218]
+                      - generic [ref=e219]: ▸
+                      - generic [ref=e220]: 1/1
+                      - generic [ref=e221]: "+20"
+                  - paragraph [ref=e223]: Pick our vector DB. Qdrant local vs cloud, chunking strategy, doc indexing approach. Feeds directly into Knowledge Base.
+                - generic [ref=e229] [cursor=pointer]:
+                  - generic [ref=e230]:
+                    - generic [ref=e231]:
+                      - img [ref=e232]
+                      - generic [ref=e234]: Hosting Strategy
+                      - generic "Click to cycle status" [ref=e235]: concept
+                    - generic [ref=e236]:
+                      - button "😀" [ref=e237]
+                      - generic [ref=e238]: ▸
+                      - generic [ref=e239]: "+20"
+                  - paragraph [ref=e241]: Docker on DigitalOcean vs AWS ECS. One decision affects deployment speed for every agent we build.
+                - generic [ref=e246] [cursor=pointer]:
+                  - generic [ref=e247]:
+                    - generic [ref=e248]:
+                      - img [ref=e249]
+                      - generic [ref=e251]: Infra Setup
+                      - generic "Click to cycle status" [ref=e252]: concept
+                    - generic [ref=e253]:
+                      - button "😀" [ref=e254]
+                      - generic [ref=e255]: ▸
+                      - generic [ref=e256]: "+20"
+                  - paragraph [ref=e258]: VPS live, Docker running, OpenClaw deployed, WhatsApp Business API connected. The ground floor.
+              - generic [ref=e259]:
+                - textbox "+ add stage..." [ref=e260]
+                - button "add" [ref=e261] [cursor=pointer]
+          - generic [ref=e265] [cursor=pointer]:
+            - generic [ref=e266]:
+              - generic [ref=e267]:
+                - img [ref=e268]
+                - generic [ref=e270]:
+                  - generic [ref=e271]:
+                    - generic [ref=e272]: ⚡
+                    - generic "Click to rename" [ref=e273]: Dev Agent Pipeline ✎
+                    - generic [ref=e274]: "5"
+                    - generic "Click to cycle" [ref=e275]: NOW
+                    - generic [ref=e276]: 70%
+                  - paragraph [ref=e277]:
+                    - generic [ref=e278]: The pipeline that builds all other pipelines. 5-person team ships like 20.
+                    - generic [ref=e279]: ✎
+                  - generic [ref=e280]:
+                    - button "📋 copy" [ref=e281]
+                    - button "+ react" [ref=e283]
+                    - button "▸ details" [ref=e284]
+                    - button "💀 claim all" [ref=e285]
+                    - generic "Anna" [ref=e288]:
+                      - img "Anna" [ref=e289]
+              - generic [ref=e290]:
+                - button "🔓" [ref=e291]
+                - button "⋮" [ref=e293]
+            - generic [ref=e294]:
+              - generic [ref=e295]:
+                - generic [ref=e296]: PM Agent
+                - generic [ref=e297]: →
+              - generic [ref=e298]:
+                - generic [ref=e299]: Dev Agent
+                - generic [ref=e300]: →
+              - generic [ref=e301]:
+                - generic [ref=e302]: QA Agent
+                - generic [ref=e303]: →
+              - generic [ref=e304]:
+                - generic [ref=e305]: Code Review
+                - generic [ref=e306]: →
+              - generic [ref=e308]: Content Factory
+          - generic [ref=e312] [cursor=pointer]:
+            - generic [ref=e313]:
+              - generic [ref=e314]:
+                - img [ref=e315]
+                - generic [ref=e317]:
+                  - generic [ref=e318]:
+                    - generic [ref=e319]: 🏗️
+                    - generic "Click to rename" [ref=e320]: Core Platform ✎
+                    - generic [ref=e321]: "6"
+                    - generic "Click to cycle" [ref=e322]: HIGH
+                    - generic [ref=e323]: 13%
+                  - paragraph [ref=e324]:
+                    - generic [ref=e325]: The foundation every other pipeline plugs into. One API, one CRM, one brain.
+                    - generic [ref=e326]: ✎
+                  - generic [ref=e327]:
+                    - button "📋 copy" [ref=e328]
+                    - button "+ react" [ref=e330]
+                    - button "▸ details" [ref=e331]
+                    - button "💀 claim all" [ref=e332]
+              - generic [ref=e333]:
+                - button "🔓" [ref=e334]
+                - button "⋮" [ref=e336]
+            - generic [ref=e337]:
+              - generic [ref=e338]:
+                - generic [ref=e339]: Property API
+                - generic [ref=e340]: →
+              - generic [ref=e341]:
+                - generic [ref=e342]: CRM Integration
+                - generic [ref=e343]: →
+              - generic [ref=e344]:
+                - generic [ref=e345]: Approval Hub
+                - generic [ref=e346]: →
+              - generic [ref=e347]:
+                - generic [ref=e348]: Knowledge Base
+                - generic [ref=e349]: →
+              - generic [ref=e350]:
+                - generic [ref=e351]: KPI Dashboard
+                - generic [ref=e352]: →
+              - generic [ref=e354]: Translation Memory
+          - generic [ref=e358] [cursor=pointer]:
+            - generic [ref=e359]:
+              - generic [ref=e360]:
+                - img [ref=e361]
+                - generic [ref=e363]:
+                  - generic [ref=e364]:
+                    - generic [ref=e365]: 💬
+                    - generic "Click to rename" [ref=e366]: Comms Hub ✎
+                    - generic [ref=e367]: "4"
+                    - generic "Click to cycle" [ref=e368]: HIGH
+                    - generic [ref=e369]: 19%
+                  - paragraph [ref=e370]:
+                    - generic [ref=e371]: AI translation + multilingual sales agent. Kills the 30-40% language barrier.
+                    - generic [ref=e372]: ✎
+                  - generic [ref=e373]:
+                    - button "📋 copy" [ref=e374]
+                    - button "+ react" [ref=e376]
+                    - button "▸ details" [ref=e377]
+                    - button "💀 claim all" [ref=e378]
+              - generic [ref=e379]:
+                - button "🔓" [ref=e380]
+                - button "⋮" [ref=e382]
+            - generic [ref=e383]:
+              - generic [ref=e384]:
+                - generic [ref=e385]: WA Translation
+                - generic [ref=e386]: →
+              - generic [ref=e387]:
+                - generic [ref=e388]: AI Sales Agent
+                - generic [ref=e389]: →
+              - generic [ref=e390]:
+                - generic [ref=e391]: Timezone Drips
+                - generic [ref=e392]: →
+              - generic [ref=e394]: WA Compliance
+          - generic [ref=e398] [cursor=pointer]:
+            - generic [ref=e399]:
+              - generic [ref=e400]:
+                - img [ref=e401]
+                - generic [ref=e403]:
+                  - generic [ref=e404]:
+                    - generic [ref=e405]: 🌍
+                    - generic "Click to rename" [ref=e406]: Multilingual Engine ✎
+                    - generic [ref=e407]: "6"
+                    - generic "Click to cycle" [ref=e408]: HIGH
+                    - generic [ref=e409]: 18%
+                  - paragraph [ref=e410]:
+                    - generic [ref=e411]: 8 languages, regional SEO, behavior tracking, dynamic personalization.
+                    - generic [ref=e412]: ✎
+                  - generic [ref=e413]:
+                    - button "📋 copy" [ref=e414]
+                    - button "+ react" [ref=e416]
+                    - button "▸ details" [ref=e417]
+                    - button "💀 claim all" [ref=e418]
+              - generic [ref=e419]:
+                - button "🔓" [ref=e420]
+                - button "⋮" [ref=e422]
+            - generic [ref=e423]:
+              - generic [ref=e424]:
+                - generic [ref=e425]: Multilingual Dirs
+                - generic [ref=e426]: →
+              - generic [ref=e427]:
+                - generic [ref=e428]: Regional SEO
+                - generic [ref=e429]: →
+              - generic [ref=e430]:
+                - generic [ref=e431]: Data Collection
+                - generic [ref=e432]: →
+              - generic [ref=e433]:
+                - generic [ref=e434]: Dynamic Homepage
+                - generic [ref=e435]: →
+              - generic [ref=e436]:
+                - generic [ref=e437]: Newsletters
+                - generic [ref=e438]: →
+              - generic [ref=e440]: Geo Campaigns
+          - generic [ref=e444] [cursor=pointer]:
+            - generic [ref=e445]:
+              - generic [ref=e446]:
+                - img [ref=e447]
+                - generic [ref=e449]:
+                  - generic [ref=e450]:
+                    - generic [ref=e451]: 🎯
+                    - generic "Click to rename" [ref=e452]: Lead Lifecycle ✎
+                    - generic [ref=e453]: "10"
+                    - generic "Click to cycle" [ref=e454]: HIGH
+                    - generic [ref=e455]: 10%
+                  - paragraph [ref=e456]:
+                    - generic [ref=e457]: Capture → score → predict → recover → schedule → nurture → retain. Zero leads lost.
+                    - generic [ref=e458]: ✎
+                  - generic [ref=e459]:
+                    - button "📋 copy" [ref=e460]
+                    - button "+ react" [ref=e462]
+                    - button "▸ details" [ref=e463]
+                    - button "💀 claim all" [ref=e464]
+              - generic [ref=e465]:
+                - button "🔓" [ref=e466]
+                - button "⋮" [ref=e468]
+            - generic [ref=e469]:
+              - generic [ref=e470]:
+                - generic [ref=e471]: Lead Responder
+                - generic [ref=e472]: →
+              - generic [ref=e473]:
+                - generic [ref=e474]: Behavior Scoring
+                - generic [ref=e475]: →
+              - generic [ref=e476]:
+                - generic [ref=e477]: Lead Prediction
+                - generic [ref=e478]: →
+              - generic [ref=e479]:
+                - generic [ref=e480]: Leak Detector
+                - generic [ref=e481]: →
+              - generic [ref=e482]:
+                - generic [ref=e483]: Viewing Scheduler
+                - generic [ref=e484]: →
+              - generic [ref=e485]:
+                - generic [ref=e486]: Deal Broadcaster
+                - generic [ref=e487]: →
+              - generic [ref=e488]:
+                - generic [ref=e489]: Post-Sale Nurture
+                - generic [ref=e490]: →
+              - generic [ref=e491]:
+                - generic [ref=e492]: WA Communities
+                - generic [ref=e493]: →
+              - generic [ref=e494]:
+                - generic [ref=e495]: CRM Leaderboard
+                - generic [ref=e496]: →
+              - generic [ref=e498]: Investor Portal
+          - generic [ref=e502] [cursor=pointer]:
+            - generic [ref=e503]:
+              - generic [ref=e504]:
+                - img [ref=e505]
+                - generic [ref=e507]:
+                  - generic [ref=e508]:
+                    - generic [ref=e509]: 📊
+                    - generic "Click to rename" [ref=e510]: Content & Intel ✎
+                    - generic [ref=e511]: "14"
+                    - generic "Click to cycle" [ref=e512]: MEDIUM
+                    - generic [ref=e513]: 15%
+                  - paragraph [ref=e514]:
+                    - generic [ref=e515]: Market intelligence, AI content, anti-pitch trust plays, viral lead tools.
+                    - generic [ref=e516]: ✎
+                  - generic [ref=e517]:
+                    - button "📋 copy" [ref=e518]
+                    - button "+ react" [ref=e520]
+                    - button "▸ details" [ref=e521]
+                    - button "💀 claim all" [ref=e522]
+              - generic [ref=e523]:
+                - button "🔓" [ref=e524]
+                - button "⋮" [ref=e526]
+            - generic [ref=e527]:
+              - generic [ref=e528]:
+                - generic [ref=e529]: Price Monitor
+                - generic [ref=e530]: →
+              - generic [ref=e531]:
+                - generic [ref=e532]: Morning Brief
+                - generic [ref=e533]: →
+              - generic [ref=e534]:
+                - generic [ref=e535]: Market Reports
+                - generic [ref=e536]: →
+              - generic [ref=e537]:
+                - generic [ref=e538]: Dev Reports
+                - generic [ref=e539]: →
+              - generic [ref=e540]:
+                - generic [ref=e541]: Off-Plan Eval
+                - generic [ref=e542]: →
+              - generic [ref=e543]:
+                - generic [ref=e544]: Viral Agent
+                - generic [ref=e545]: →
+              - generic [ref=e546]:
+                - generic [ref=e547]: Video Agent
+                - generic [ref=e548]: →
+              - generic [ref=e549]:
+                - generic [ref=e550]: Signal Detection
+                - generic [ref=e551]: →
+              - generic [ref=e552]:
+                - generic [ref=e553]: ROI Calculator
+                - generic [ref=e554]: →
+              - generic [ref=e555]:
+                - generic [ref=e556]: Crypto Buyer Page
+                - generic [ref=e557]: →
+              - generic [ref=e558]:
+                - generic [ref=e559]: Area Guides
+                - generic [ref=e560]: →
+              - generic [ref=e561]:
+                - generic [ref=e562]: Market Dashboard
+                - generic [ref=e563]: →
+              - generic [ref=e564]:
+                - generic [ref=e565]: Social Agent
+                - generic [ref=e566]: →
+              - generic [ref=e568]: Newsletter
+          - generic [ref=e572] [cursor=pointer]:
+            - generic [ref=e573]:
+              - generic [ref=e574]:
+                - img [ref=e575]
+                - generic [ref=e577]:
+                  - generic [ref=e578]:
+                    - generic [ref=e579]: 🛠
+                    - generic "Click to rename" [ref=e580]: Web Tools ✎
+                    - generic [ref=e581]: "7"
+                    - generic "Click to cycle" [ref=e582]: MEDIUM
+                    - generic [ref=e583]: 4%
+                  - paragraph [ref=e584]:
+                    - generic [ref=e585]: Interactive tools people actually share. Every result requires contact info.
+                    - generic [ref=e586]: ✎
+                  - generic [ref=e587]:
+                    - button "📋 copy" [ref=e588]
+                    - button "+ react" [ref=e590]
+                    - button "▸ details" [ref=e591]
+                    - button "💀 claim all" [ref=e592]
+              - generic [ref=e593]:
+                - button "🔓" [ref=e594]
+                - button "⋮" [ref=e596]
+            - generic [ref=e597]:
+              - generic [ref=e598]:
+                - generic [ref=e599]: Login & My List
+                - generic [ref=e600]: →
+              - generic [ref=e601]:
+                - generic [ref=e602]: Property Map
+                - generic [ref=e603]: →
+              - generic [ref=e604]:
+                - generic [ref=e605]: Property Compare
+                - generic [ref=e606]: →
+              - generic [ref=e607]:
+                - generic [ref=e608]: Neighbourhood Quiz
+                - generic [ref=e609]: →
+              - generic [ref=e610]:
+                - generic [ref=e611]: City Calculator
+                - generic [ref=e612]: →
+              - generic [ref=e613]:
+                - generic [ref=e614]: Scam Checker
+                - generic [ref=e615]: →
+              - generic [ref=e617]: Area Future Map
+          - generic [ref=e621] [cursor=pointer]:
+            - generic [ref=e622]:
+              - generic [ref=e623]:
+                - img [ref=e624]
+                - generic [ref=e626]:
+                  - generic [ref=e627]:
+                    - generic [ref=e628]: 🚀
+                    - generic "Click to rename" [ref=e629]: Outbound ✎
+                    - generic [ref=e630]: "3"
+                    - generic "Click to cycle" [ref=e631]: LOW
+                  - paragraph [ref=e632]:
+                    - generic [ref=e633]: LinkedIn + Reddit → cold email system. Q4 2026 — inbound ROI is higher right now.
+                    - generic [ref=e634]: ✎
+                  - generic [ref=e635]:
+                    - button "📋 copy" [ref=e636]
+                    - button "+ react" [ref=e638]
+                    - button "▸ details" [ref=e639]
+                    - button "💀 claim all" [ref=e640]
+              - generic [ref=e641]:
+                - button "🔓" [ref=e642]
+                - button "⋮" [ref=e644]
+            - generic [ref=e645]:
+              - generic [ref=e646]:
+                - generic [ref=e647]: LinkedIn Scrape
+                - generic [ref=e648]: →
+              - generic [ref=e649]:
+                - generic [ref=e650]: Forum Listener
+                - generic [ref=e651]: →
+              - generic [ref=e653]: Cold Outreach System
+          - button "+ new pipeline" [ref=e654] [cursor=pointer]
+      - paragraph [ref=e656]: BINAYAH.AI \u00B7 60 STAGES \u00B7 SHIP IT \u00B7 2026
+    - button "🤖" [ref=e657] [cursor=pointer]
+  - alert [ref=e658]
+```

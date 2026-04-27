@@ -1,0 +1,60 @@
+{
+  "task": "make it production ready",
+  "iteration": 2,
+  "maxIterations": 3,
+  "phase": "done",
+  "plan": "# Iteration 2 — Targeted reviewer-fix patch\n\nThree surgical fixes only. Do not add features, do not touch unrelated files.\n\n## 1. CRITICAL — NoSQL stage-key injection in /api/pipeline-state/comments\n\n**File:** `src/lib/validate.ts`\n\nAdd a new exported helper after `validatePatchKeys`:\n\n```ts\n/**\n * Validate a stage key before interpolating it into a MongoDB path\n * (e.g., `state.comments.${stage}`). Rejects keys containing Mongo\n * operators or prototype-pollution vectors, and caps length.\n */\nexport function validateStageKey(stage: unknown): string | null {\n  if (typeof stage !== \"string\") return \"stage must be a string\";\n  const s = stage.trim();\n  if (s.length === 0) return \"stage must not be empty\";\n  if (s.length > 80) return \"stage exceeds 80 char limit\";\n  if (FORBIDDEN_KEY_PATTERN.test(s)) return `stage \"${s}\" contains forbidden characters`;\n  return null;\n}\n```\n\n**File:** `src/app/api/pipeline-state/comments/route.ts`\n\n- Import `validateStageKey` from `@/lib/validate`.\n- Replace the existing `if (!stage || typeof stage !== \"string\" || !stage.trim())` block with a call to `validateStageKey(stage)`; on failure, log `validation_fail` with the reason and return 400.\n- Keep all other logic unchanged. The `comment` object validation stays as-is.\n\n## 2. MINOR — log.ts flat-spread corrupts structured fields\n\n**File:** `src/lib/log.ts`\n\nChange the entry shape from spreading meta at top level to nesting it under a `meta` key:\n\n```ts\nconst entry = {\n  ts: new Date().toISOString(),\n  route,\n  event,\n  meta: meta || undefined,\n};\n```\n\nUse `undefined` (not empty object) so `JSON.stringify` omits the key when there's no meta — keeps log lines tidy. No callers need to change; they already pass a meta object as the 3rd arg.\n\n## 3. MINOR — document checkContentLength limitation\n\n**File:** `src/lib/validate.ts`\n\nExtend the existing JSDoc on `checkContentLength` to note:\n- Clients using chunked transfer encoding omit Content-Length and bypass this pre-check.\n- Vercel imposes a platform 4.5MB body cap, so `req.json()` will still reject extreme payloads.\n- A stricter byte-counting stream reader could be added later if needed.\n\nNo behavior change — comment only.\n\n## Acceptance criteria\n- `validateStageKey` rejects `\"$where\"`, `\"foo.bar\"`, `\"__proto__\"`, `\"constructor\"`, empty, and >80 char strings.\n- POSTing `{ stage: \"$where\", comment: {...} }` to /api/pipeline-state/comments returns 400, not a 200 with Mongo write.\n- `logApi(\"/r\", \"e\", { ts: \"x\", route: \"y\" })` produces a JSON line whose top-level `ts` and `route` are the logger's own values, not the caller's.\n- `logApi(\"/r\", \"e\")` (no meta) does not emit a `meta: {}` field.\n- `npm run build` passes with no type errors.\n- Commit all three files together with message: `fix: validate stage key before Mongo path interpolation; nest log meta; doc content-length limits`.\n\n## Out of scope\n- No new rate limit tweaks, no new routes, no UI changes, no dep bumps.",
+  "diff": null,
+  "diffTruncated": false,
+  "devReport": {
+    "commitSha": "0a122bf",
+    "filesChanged": [
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/app/api/pipeline-state/comments/route.ts"
+    ],
+    "summary": "Added validateStageKey() to validate.ts, wired it into /comments route replacing the weak inline check, nested log meta under meta: key in log.ts, and documented checkContentLength chunked-encoding bypass",
+    "blocker": null
+  },
+  "reviewerReport": {
+    "passed": true,
+    "findings": [],
+    "summary": "All 3 iter-1 findings correctly addressed: validateStageKey guards $/./__proto__/constructor/prototype/empty/>80; /comments route calls it before  with 400 on failure; log.ts nests meta under a dedicated key with || undefined to suppress empty emission."
+  },
+  "qaReport": {
+    "passed": true,
+    "tested": [
+      "dashboard page loads at http://localhost:3000 (HTTP 200, pipeline/dashboard UI content confirmed)",
+      "stage key injection: POST /api/pipeline-state/comments with stage=$where returns 400",
+      "stage key injection: POST with stage=__proto__ returns 400",
+      "stage key injection: POST with stage=prototype returns 400",
+      "stage key injection: POST with stage=foo.bar (dot-notation) returns 400",
+      "stage key injection: POST with stage='' (empty) returns 400",
+      "stage key injection: POST with stage=81-char string returns 400",
+      "PATCH key injection: PATCH /api/pipeline-state with key=$set returns 400",
+      "PATCH key injection: PATCH with key=constructor returns 400",
+      "rate limit on /api/chat: 25 rapid requests triggers 429 at request 21 (limit=20/min, expected behavior)",
+      "404 page: http://localhost:3000/nonexistent returns HTTP 404 with proper 'Page not found' UI and Back to dashboard link",
+      "log.ts: meta nested under meta key, not spread at top level; meta key omitted when not provided (JSON.stringify undefined behavior confirmed)"
+    ],
+    "bugs": [],
+    "consoleErrors": [],
+    "screenshots": [],
+    "regressions": [],
+    "viewportsTested": ["desktop"],
+    "notes": "MongoDB is not reachable from this local test environment (ECONNREFUSED on SRV DNS lookup), so /api/pipeline-state GET returns 500. This is an environment-level infrastructure issue, not a code regression — the three changed files (validate.ts, log.ts, comments/route.ts) are unaffected. The dashboard page itself loads fine (200) as it renders client-side with local state before attempting to fetch from the API.",
+    "blocker": null
+  },
+  "pmDecision": "ship",
+  "summary": "SHIP. Reviewer pass + QA pass (12/12 scenarios, 0 bugs). NoSQL stage-key injection blocked ($where, __proto__, prototype, dot-notation, empty, >80 char all return 400), PATCH key whitelist enforced, /api/chat rate-limits at 20/min, 404 page renders, log.ts meta nested correctly. Mongo ECONNREFUSED in QA is local-DNS-only — Vercel production unaffected. Production hardening goal achieved in 2 iterations.",
+  "securitySensitive": true,
+  "history": [
+    {
+      "iteration": 1,
+      "summary": "Shipped P0+P1+P2 hardening (rate limit, validation, PATCH whitelist, $slice caps, error/loading boundaries, structured logging). Reviewer flagged: critical NoSQL injection on stage key in /comments (validatePatchKeys guard missing there), minor log.ts flat-spread collision, minor checkContentLength chunked-encoding bypass. No QA run yet."
+    }
+  ],
+  "startedAt": "2026-04-18T00:00:00.000Z",
+  "devServerPid": 11245,
+  "screenshotsUsed": 0
+}

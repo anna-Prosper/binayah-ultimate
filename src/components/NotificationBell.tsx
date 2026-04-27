@@ -1,5 +1,7 @@
 "use client";
 
+import { Bell } from "lucide-react";
+
 import { useEffect, useRef, useState, useCallback } from "react";
 import { T } from "@/lib/themes";
 import { type ActivityItem, type UserType } from "@/lib/data";

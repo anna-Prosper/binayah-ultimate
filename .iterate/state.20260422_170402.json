@@ -1,0 +1,374 @@
+{
+  "task": "Five production upgrades for binayah-ultimate: (1) Redesign onboarding \u2014 remove dead 7-step flow, replace with a cool first-login welcome experience for whitelisted users that still feels premium/command-center; identity is now from auth session not user selection. (2) In-app notification bell \u2014 header badge + dropdown showing recent activity events (claimed, active, comments) \u2014 real-time via existing SSE/chatBus or polling. (3) Cmd+K global search palette \u2014 keyboard-triggered modal over all stages, documents, team members; Linear-style. (4) Document collaboration \u2014 real-time co-editing in DocumentsPanel; show who is editing, presence cursors or at minimum live content sync without conflicts. (5) Pipeline timeline/burndown \u2014 in OverviewPanel or dedicated view, show status-change history per pipeline over time using existing activity log data.",
+  "baseSha": "5714172d4a2eb8a33fd2e2a60411148d535ef28c",
+  "stages": [
+    {
+      "id": 1,
+      "status": "passed",
+      "spec": "## Stage 1 \u2014 Onboarding redesign\n\n### Why this will be good\nThe existing 7-step onboarding is vestigial \u2014 identity comes from the auth session, not a user picker. Ripping it out removes confusion. Replacing it with a single-screen 'gm legend'-style welcome gives first-time users a command-center moment instead of bureaucratic steps. Production-ready: empty-state (fresh user) has the modal; returning user never sees it again; skippable via Escape/outside-click so we don't block the app; avatar choice persists. Benchmark: Linear's first-run welcome \u2014 one screen, warm copy, a single choice, then you're in.\n\n### Scope\n**Remove:** the 7-step flow inside `src/components/Onboarding.tsx` \u2014 user-selection steps, theme/pipeline steps, everything except the reusable bits called out below.\n\n**Keep and reuse:** `AvatarStep6` logic (emoji picker + AI generation via `/api/generate-pfp`) and `FloatingBg` (or equivalent animated background). If they're too tangled to export cleanly, extract their core into the new component \u2014 do not ship two copies.\n\n**Add:** `src/components/WelcomeModal.tsx`. A single-screen, first-login welcome for whitelisted users. Wired into `Dashboard.tsx` replacing the current `onboardStep < 7` gate with a `!welcomeSeen` check against `localStorage['binayah_welcomed_<fixedUserId>']`.\n\n### Intent & quality bar\n- **Copy is the culture.** Follow DESIGN_PRINCIPLES \u00a7Copy \u2014 tactical, confident, a little irreverent. 'gm legend', 'where strategies are forged' register. Greet by name (looked up from session `fixedUserId` \u2192 `USERS_DEFAULT`). Do NOT write enterprise-neutral copy.\n- **Command center, not a form.** Animated background. Dark-first. Theme tokens (`t.bgCard`, `t.accent`, `t.shadowLg`) \u2014 never hardcoded hex. Works in all four themes.\n- **One single CTA** \u2014 'Enter the war room' or the theme-appropriate variant. No multi-step. Avatar selection and CTA live together on one surface; avatar is the only in-screen choice.\n- **Dismissible.** Escape key and outside-click dismiss and mark as welcomed. Avatar still persists if chosen.\n- **Motion has meaning** (DESIGN_PRINCIPLES \u00a7Motion). Entry animation should feel like a door opening, not a pop-up. Respect the 150/300ms timing guidance.\n\n### Files to touch\n- `src/components/WelcomeModal.tsx` (new)\n- `src/components/Dashboard.tsx` (swap gate logic; remove Onboarding import if fully superseded)\n- `src/components/Onboarding.tsx` (delete or reduce to the shared primitives it still contributes)\n\n### Contract & state\n- Session: `session.fixedUserId` from next-auth v4 (see `src/types/next-auth.d.ts`).\n- User display data: look up `fixedUserId` in `USERS_DEFAULT` for name/color.\n- Persistence: `localStorage['binayah_welcomed_<fixedUserId>']` = ISO timestamp string. Additive \u2014 no `SCHEMA_VERSION` bump.\n- Avatar storage: follow the existing `hydrateUsers` pattern (avatar + aiAvatar live in localStorage, merged over `USERS_DEFAULT`).\n\n### Forbidden\n- Do NOT ship new steps or multi-screen flows \u2014 this is explicitly a single-screen welcome.\n- Do NOT hardcode hex colors. All color via `t.*` tokens.\n- Do NOT use CSS custom properties for theme colors \u2014 inline style from `t` (per `DESIGN_SYSTEM.md`).\n- Do NOT reintroduce user-selection logic \u2014 identity is session-derived now.\n\n### Acceptance criteria\n- Fresh localStorage \u2192 welcome modal appears once on first mount.\n- Second mount \u2192 modal does not appear; no flash.\n- Avatar chosen in modal persists after reload (via existing avatar hydration).\n- Escape and outside-click both dismiss cleanly and set the welcomed flag.\n- Works visually in all four themes (warroom / lab / engine / nerve).\n- TypeScript strict passes. No `any` on props.\n\n### QA bypass\nSet `localStorage['binayah_welcomed_<fixedUserId>']` to any string before navigating to skip the modal for later-stage QA.\n\n### Demo path\n1. Clear localStorage. 2. Log in as a whitelisted user. 3. Welcome modal animates in, greets by name, offers avatar picker + single CTA. 4. Choose an avatar and click CTA (or press Escape). 5. Land in the dashboard. 6. Reload \u2014 no modal."
+    },
+    {
+      "id": 2,
+      "status": "passed",
+      "spec": "## Stage 2 \u2014 In-app notification bell (SSE-driven)\n\n### Why this will be good\nOwnership is visible (DESIGN_PRINCIPLES \u00a7Philosophy). Right now if a teammate claims a stage, marks it active, or drops a comment, nobody knows until they refresh. A real-time bell in the header turns the command center into a living room \u2014 you feel the team around you. Production-ready: badge count reflects unread state, clicking clears it, dropdown shows recent events with avatars and relative time, gap-fills on reconnect so transient disconnects don't lose notifications. Benchmark: Linear's activity indicator \u2014 quiet when idle, alive when something happens, satisfying to clear.\n\n### Dependency\nStage 2 MUST complete before Stage 3. Stage 3's palette design assumes the header cluster (bell + any other header icons) is finalized.\n\n### Scope\n**New component:** `src/components/NotificationBell.tsx` \u2014 rendered in the Dashboard header cluster. Badge + dropdown.\n\n**Event source:** extend the existing SSE stream at `/api/pipeline-state/messages/stream/route.ts` to also emit `activity` events. The `chatBus` EventEmitter (`src/lib/chatBus.ts`, `setMaxListeners(200)`) becomes the fan-out point. Activity writes (via `/api/pipeline-state/activity/route.ts`) emit to chatBus after the MongoDB write; the stream route subscribes to both `\"message\"` and `\"activity\"` and forwards activity as `event: activity` SSE frames.\n\n**Gap-fill on connect:** on mount, `NotificationBell` fetches `/api/pipeline-state` once and seeds its list from `state.activityLog` filtered to the three event types.\n\n**Event filter shown in bell:** `claimed`, `active`, `comment` only. Lock/unlock, system events, and status_change (added in Stage 5) are excluded.\n\n### Intent & quality bar\n- **Feels alive.** The badge should pulse briefly when a new event arrives \u2014 motion has meaning (DESIGN_PRINCIPLES \u00a7Motion). Sub-200ms micro-interaction.\n- **Signal density is a virtue** (DESIGN_PRINCIPLES \u00a7Philosophy). The dropdown row packs avatar + action verb + stage name + relative time in one compact line. Don't over-whitespace.\n- **Identity is always present.** Every row shows the actor's avatar \u2014 reuse `AvatarC` from `src/components/ui/Avatar.tsx` and `USERS_DEFAULT` for name lookup.\n- **Dropdown is a command-center surface, not a toast stack.** Dark, `t.bgCard`, `t.border`, `t.shadowLg`. Scrollable at 20 entries. Empty state ('all quiet on the front') in the product's voice.\n- **Click-outside closes.** Escape closes. Opening the dropdown marks all as seen.\n- **Status and action verbs** use the canonical status color semantics (DESIGN_SYSTEM \u00a7Status\u2192color mapping). A `claimed` event hints `t.accent`; `active` hints `t.green`; `comment` hints `t.textSec`.\n\n### Files to touch\n- `src/components/NotificationBell.tsx` (new)\n- `src/components/Dashboard.tsx` (render bell in header cluster)\n- `src/lib/chatBus.ts` (confirm it supports multiple event names; adjust typing if needed)\n- `src/app/api/pipeline-state/activity/route.ts` (emit to chatBus after MongoDB write)\n- `src/app/api/pipeline-state/messages/stream/route.ts` (subscribe to `activity` in addition to `message`; forward as `event: activity`)\n\n### Contract & state\n- Stream route runtime: `\"nodejs\"` \u2014 do NOT change this (chatBus is module-scoped and requires Node runtime).\n- Subscription order: register `chatBus.on` BEFORE any MongoDB gap-fill query in the stream route (established pattern, don't break it).\n- Keep-alive ping (30s) already present \u2014 leave it.\n- `setMaxListeners(200)` on chatBus supports multiple simultaneous EventSource subscribers (ChatPanel + NotificationBell is fine).\n- Seen state: `localStorage['binayah_notif_seen_at']` = timestamp. Unseen count = entries with `ts > seenAt`. Badge hidden when count is zero.\n\n### Forbidden\n- Do NOT switch the stream to polling. SSE is confirmed.\n- Do NOT change the stream route's runtime or the keep-alive cadence.\n- Do NOT ship a second SSE endpoint. Reuse the existing one.\n- Do NOT hardcode hex colors. Use `t.*` tokens only.\n- Do NOT show status_change events in the bell (those belong to the Stage 5 timeline).\n\n### Acceptance criteria\n- With two browser windows open, an action in window A (claim / mark active / comment) updates the bell in window B in real time via SSE, no reload.\n- Badge count increments on unseen events; clicking the bell opens dropdown and clears the badge.\n- Dropdown rows render correct avatars and relative timestamps.\n- Reconnect after disconnection gap-fills without duplicating entries.\n- All four themes look correct.\n- TypeScript strict passes.\n\n### Demo path\n1. Open the app in two browsers as two different whitelisted users. 2. In browser A, claim a stage. 3. In browser B, the header bell badge increments and pulses within ~1s. 4. Click the bell in browser B \u2014 dropdown shows the claim event with user A's avatar, stage name, and relative time. 5. Badge clears. 6. Post a comment from A, mark a stage active \u2014 both appear.",
+      "commitSha": "6aeb3b8"
+    },
+    {
+      "id": 3,
+      "status": "passed",
+      "spec": "## Stage 3 \u2014 Cmd+K global search palette\n\n### Why this will be good\nA command center lives and dies by keyboard velocity (DESIGN_PRINCIPLES \u00a7Philosophy). Right now users navigate by clicking through the left rail. Cmd+K collapses every surface (stages, documents including their full content, people) into one typing-first interface. Production-ready: opens instantly, searches content not just titles, groups results Linear-style, arrow-key navigable, Enter routes correctly, Escape closes, handles the loading state of async document-content fetch gracefully, works on all four themes. Benchmark: Linear and Raycast \u2014 subject to sub-50ms input latency and keyboard purity.\n\n### Dependency\nRequires Stage 2 to be merged so the header cluster is final.\n\n### Scope\n**New component:** `src/components/SearchPalette.tsx` \u2014 full-screen dimmed overlay, centered modal input, grouped results below.\n\n**Trigger:** global `keydown` listener in `Dashboard.tsx` \u2014 Cmd+K on Mac, Ctrl+K elsewhere. Prevent the browser default. The palette is global; it should open regardless of which panel is active.\n\n**Search scope (client-side fuzzy, in memory):**\n- **Stages** \u2014 from `pipelineData`, all stages across all pipelines; display pipeline name as context.\n- **Documents** \u2014 title AND full TipTap content body text. The list endpoint `GET /api/documents` does NOT currently return content. DEV chooses the most efficient path: either add a `?includeContent=true` query param (server strips to plain text from TipTap JSON) or batch-fetch per doc. Prefer adding `?includeContent=true` since it's one round trip; cache the result in a module-scope ref with ~5 min TTL and invalidate on document save.\n- **People** \u2014 `USERS_DEFAULT` (six users), by name and role.\n\n**Fetch strategy:** on first palette open, kick off the documents-with-content fetch (async). Show a subtle loading indicator for the Documents group while it's pending \u2014 other groups (stages, people) are instant from in-memory data and stay interactive. On subsequent opens, reuse the cache until stale or invalidated.\n\n### Intent & quality bar\n- **Typing-first, keyboard-complete.** Every result must be reachable with arrow keys + Enter. No mouse required for any path. Escape closes.\n- **Grouped results, Linear-style.** Three sections (Stages / Documents / People) with quiet section headers in `t.textMuted`. Highlight the matched substring in each result using `t.accent`.\n- **Loading is activity, not waiting** (DESIGN_PRINCIPLES \u00a7States). A pulse or skeleton in the Documents group while content fetches \u2014 not a blank or spinner stranded in the middle.\n- **Palette itself** is a command-center surface: `t.bgCard` inside, `t.border`, `t.shadowLg`, Escape-to-close, click-outside-to-close. Backdrop slightly dimmed, not opaque. Entry animation on the 150\u2013300ms window.\n- **Routing on Enter:**\n  - Stage result \u2192 navigate to that pipeline and scroll/expand that stage.\n  - Document result \u2192 open DocumentsPanel with that doc active (via callback passed from Dashboard down to SearchPalette, since Documents state is isolated in DocumentsPanel).\n  - Person result \u2192 open the user's profile/stats popup or highlight their claims. DEV chooses the most useful surface given what exists.\n\n### Files to touch\n- `src/components/SearchPalette.tsx` (new)\n- `src/components/Dashboard.tsx` (keydown listener, render palette, pass `onOpenDocument` and nav callbacks)\n- `src/app/api/documents/route.ts` (add optional `?includeContent=true` query param returning plaintext-extracted content \u2014 keep list response shape otherwise unchanged)\n- `src/components/DocumentsPanel.tsx` (expose or accept an 'open this doc' imperative handle via callback; do not leak internal state upward)\n\n### Contract & state\n- Auth-gated: existing session middleware applies. No new auth work.\n- Cache key for docs-with-content: module-scope ref; invalidate on any successful PATCH to `/api/documents/[id]` triggered from SearchPalette-adjacent code. DocumentsPanel already handles saves \u2014 emit a small cache-bust signal (simple event or shared ref) so stale content doesn't persist.\n- TipTap \u2192 plaintext extraction happens server-side inside the `?includeContent=true` branch to keep palette client lean.\n\n### Forbidden\n- Do NOT add a MongoDB text index or any server-side search.\n- Do NOT fetch documents per-keystroke. One fetch on open, cached.\n- Do NOT let the palette become mouse-only \u2014 keyboard must cover every action.\n- Do NOT hardcode Cmd+K as the only trigger \u2014 support Ctrl+K on non-Mac.\n- Do NOT hardcode hex colors. All styling via `t.*` tokens.\n\n### Acceptance criteria\n- Cmd+K (or Ctrl+K) opens the palette from anywhere in the app, preventing browser default.\n- Typing filters stages, documents (by title AND body content), and people instantly.\n- Arrow keys move selection; Enter routes correctly per result type; Escape closes.\n- First-open latency is perceptibly instant for Stages and People; Documents shows a loading state until content hydrates and then becomes searchable.\n- No TypeScript errors; no `any` on new props.\n- Visually correct in all four themes.\n\n### Demo path\n1. From any panel, press Cmd+K (Ctrl+K on Windows). 2. Palette opens centered, input focused. 3. Type a few characters of a stage name \u2192 stage result appears; Enter navigates to it. 4. Open palette again; type a phrase you know exists inside a document body \u2192 document result surfaces after the content fetch completes. 5. Enter opens the document. 6. Escape closes cleanly from any state.",
+      "commitSha": "0c49a68"
+    },
+    {
+      "id": 4,
+      "status": "passed",
+      "spec": "## Stage 4 \u2014 Document collaboration (last-write-wins + attribution)\n\n### Why this will be good\nRight now if two people edit the same doc, the last blur wins silently and you never know whose words survived. Even without real-time co-editing (Vercel serverless forbids a persistent Yjs/Hocuspocus server), we can close the accountability gap: auto-save on debounce, stamp every save with the editor's identity, and surface 'last saved by [name] at [time]' so the team has visibility. Production-ready: server-side attribution (never trust client body), debounce so we don't hammer the API, handles the blur-save + debounce-save overlap cleanly, empty state for never-saved docs, error path if save fails. Benchmark: Notion's 'Edited by X, N min ago' subtitle \u2014 quiet but always there.\n\n### Scope\n**Approach:** last-write-wins with last-saved-by attribution. NO Yjs. NO Hocuspocus. NO presence heartbeats. NO cursor presence.\n\n**DocumentsPanel changes (`src/components/DocumentsPanel.tsx`):**\n- Existing blur-save stays. Add a debounce-save (~3s after last keystroke) that's idempotent with the blur save.\n- Under the editor title, show a quiet attribution strip: avatar of last editor + 'Last saved by [name], [relative time]' \u2014 style in `t.textMuted` with avatar from `AvatarC`.\n- While a save is in flight, show a subtle syncing indicator (DESIGN_PRINCIPLES \u00a7Loading is activity). On save error, surface a non-blocking error toast in the product's voice.\n\n**Model + API changes:**\n- Add `updatedBy: String` to `BinayahDocument` schema at `src/lib/BinayahDocument.ts`. Additive field, no migration needed.\n- In `PATCH /api/documents/[id]`, set `updatedBy = session.user.fixedUserId` server-side. Do NOT accept `updatedBy` from client body \u2014 ignore it if sent. This is a security contract: attribution cannot be spoofed.\n- `GET /api/documents/[id]` returns `updatedBy` + `updatedAt` so the panel can render attribution.\n\n### Intent & quality bar\n- **Identity is visible** (DESIGN_PRINCIPLES \u00a7Philosophy). Attribution line is always present once a doc has been saved, quiet but never absent.\n- **Avatar must render crisply at small sizes** \u2014 use `AvatarC` sized down, not a scaled-up icon.\n- **Syncing feedback** is a pulse or a hairline indicator, not a spinner in the editor. The editor must never feel frozen.\n- **Empty state:** for a brand-new doc with no `updatedBy` yet, show nothing (or 'unsaved' in `t.textDim`) \u2014 don't fabricate attribution.\n- **Name lookup:** `updatedBy` is a `fixedUserId` string. Look up name + avatar in `USERS_DEFAULT` (merged with localStorage hydration per the established pattern).\n- **Theme tokens throughout.** No hardcoded hex. Works in all four themes.\n\n### Files to touch\n- `src/lib/BinayahDocument.ts` (add `updatedBy: String` field)\n- `src/app/api/documents/[id]/route.ts` (set `updatedBy` server-side from session in PATCH; include in GET response)\n- `src/components/DocumentsPanel.tsx` (debounce-save, attribution strip, syncing indicator, error toast)\n\n### Contract & state\n- Debounce: ~3s after last keystroke; cancel on blur (blur save is authoritative).\n- `updatedBy` is always set server-side \u2014 client body value is discarded.\n- Documents PATCH whitelist is inline in the route (NOT `validatePatchKeys`) \u2014 leave that pattern intact; just set `updatedBy` after whitelist application.\n- Do NOT add TipTap extensions (PROJECT_CONTEXT constraint) without corresponding theme overrides. This stage shouldn't need any new extensions.\n\n### Forbidden\n- Do NOT add presence heartbeats, cursor presence, or any 'who is editing now' live indicator.\n- Do NOT use a WebSocket or persistent SSE channel for document state.\n- Do NOT accept `updatedBy` from the client \u2014 always derive from session.\n- Do NOT change the existing blur-save semantics; only add debounce on top.\n- Do NOT hardcode hex colors.\n\n### Acceptance criteria\n- After typing then pausing ~3s, a save fires and the attribution strip updates to the current user with a fresh timestamp.\n- Blur also triggers save (unchanged behavior); no double-save on blur-after-debounce.\n- `updatedBy` in MongoDB matches `session.user.fixedUserId` after every edit.\n- Client attempts to send `updatedBy` in the PATCH body are ignored server-side.\n- A different user editing the same doc in a second window sees their name become the last-saved-by after their save (on refresh \u2014 this is LWW, not live).\n- Save error surfaces a user-visible toast; editor never freezes.\n- TypeScript strict passes.\n\n### Demo path\n1. Open a document. 2. Type a few words; wait 3s \u2014 attribution line updates to you with 'just now'. 3. Edit more; click away (blur) \u2014 immediate save, attribution refreshes. 4. In a second browser as another user, edit the same document; after save, refresh the first window \u2014 attribution now shows the other user's name and avatar. 5. Attempt to POST `updatedBy: 'someone_else'` via devtools \u2192 server ignores it, attribution stays honest.",
+      "commitSha": "292973c"
+    },
+    {
+      "id": 5,
+      "status": "passed",
+      "spec": "## Stage 5 \u2014 Pipeline timeline (status-change history)\n\n### Why this will be good\nThe activity log already captures most of the story \u2014 but status transitions (`concept \u2192 planned \u2192 in-progress \u2192 active`) are the heartbeat of the pipeline, and right now they're not being logged. Adding `status_change` events to the activity log, then rendering them as a per-pipeline vertical timeline, turns the overview panel from a 'metrics dashboard' into a 'what's actually happening' view. Production-ready: writes the log on every override change, renders newest-first, honors canonical status colors, degrades gracefully when a pipeline has no history, lazy-loaded like the rest of OverviewPanel, works in all four themes. Burndown chart is a stretch \u2014 ship timeline first. Benchmark: Linear's issue history / Stripe dashboard event log \u2014 compact, color-coded transitions, timestamps always present.\n\n### Scope\n**Prerequisite (critical, DO NOT skip):** server-side emission of `status_change` activity entries.\n- In `PATCH /api/pipeline-state/route.ts`, when `stageStatusOverrides` keys are added/changed, emit one activity entry per change with shape: `{ type: 'status_change', user, stage, pipeline, from, to, ts }`.\n- Use the existing `POST /api/pipeline-state/activity` pattern OR write directly after persisting the PATCH \u2014 whichever keeps the existing locking / 423 semantics intact.\n- Also emit to chatBus (per Stage 2's extension) so the stream carries status_change. NotificationBell filter already excludes status_change so the bell does not display these \u2014 correct by design.\n\n**Timeline UI in `OverviewPanel.tsx`:**\n- Add a toggle (tabs or segmented control) between existing metrics view and new timeline view. Both should feel equally native to the panel \u2014 not 'new tab bolted on'.\n- Timeline is per-pipeline (use the currently selected pipeline context). Each entry: stage name + old status \u2192 new status (with canonical status color swatches) + actor avatar + relative time.\n- Ordered newest-first. Vertical rail with hairline connector between entries (command center, not a bullet list).\n- Empty state for pipelines with no status-change history \u2014 framed as opportunity per DESIGN_PRINCIPLES \u00a7States ('no moves yet \u2014 stake something'), in the product's voice.\n\n**Stretch (only if cheap):** a simple SVG line chart of `active`-stage count over calendar days, derived from the same `status_change` stream. Skip if data is thin or it balloons the diff \u2014 ship timeline first.\n\n### Intent & quality bar\n- **Status colors are canon** (DESIGN_SYSTEM \u00a7Status\u2192color mapping and DESIGN_PRINCIPLES \u00a7Visual):\n  - `concept` \u2192 `t.textMuted` \u00b7 `planned` \u2192 `t.amber` \u00b7 `in-progress` \u2192 `t.cyan` \u00b7 `active` \u2192 `t.green`.\n  - The 'from \u2192 to' transition visualization must use these tokens precisely. Breaking this breaks the language.\n- **Signal density is a virtue.** Pack stage name, transition arrow with two color swatches, avatar, relative time into one compact row. Don't over-whitespace.\n- **Avatar stack patterns** in DESIGN_SYSTEM apply \u2014 reuse `AvatarC`.\n- **Ownership is visible** \u2014 every timeline row names and pictures the actor.\n- **Hierarchy is earned** \u2014 pipeline name/context sits at the top; timeline rows are secondary; meta (timestamp) is tertiary.\n\n### Files to touch\n- `src/app/api/pipeline-state/route.ts` (emit `status_change` activity on `stageStatusOverrides` changes)\n- `src/components/OverviewPanel.tsx` (add timeline view + toggle; consume `state.activityLog`)\n- (If status_change emission needs a helper) `src/lib/chatBus.ts` or an activity-emit utility \u2014 DEV chooses.\n\n### Contract & state\n- Data source: `state.activityLog` (already fetched with pipeline state on mount). Filter to `type === 'status_change'` and to the selected pipeline.\n- `activityLog` is MongoDB-$sliced to 200 entries (prepended). The timeline shows what's in that window \u2014 do NOT add a separate paginated history endpoint in this stage.\n- The `pipeline` field must be included in the emitted entry so the timeline can group by selected pipeline (existing activity entries may lack this field \u2014 that's fine, old entries won't appear in the timeline and that's acceptable).\n- PATCH key whitelist already allows `stageStatusOverrides` (`validate.ts`). No changes there.\n- OverviewPanel stays lazy-loaded via `next/dynamic({ ssr: false })`. Do NOT convert to a server component.\n- `STATUS_ORDER = [\"concept\", \"planned\", \"in-progress\", \"active\"]` \u2014 use these exact strings.\n\n### Forbidden\n- Do NOT add a new API route for timeline data \u2014 consume `state.activityLog`.\n- Do NOT rename status values or add variants.\n- Do NOT convert OverviewPanel to SSR.\n- Do NOT show status_change events in the NotificationBell (Stage 2 filter excludes them \u2014 keep it that way).\n- Do NOT hardcode hex colors. Status color tokens only.\n- Do NOT ship the burndown chart if it pushes the diff past reasonable review size \u2014 timeline is the priority.\n\n### Acceptance criteria\n- After toggling a stage's status in any pipeline, a `status_change` entry appears in the new timeline view for that pipeline, newest-first.\n- From/to status color swatches match the canonical mapping exactly.\n- Actor avatar + relative time render on every row.\n- Pipelines with no status-change history show a themed empty state, not a blank panel.\n- Toggle between metrics and timeline is smooth; state preserved on switch.\n- TypeScript strict passes.\n- All four themes render correctly.\n\n### Demo path\n1. Open OverviewPanel for any pipeline. 2. Toggle to Timeline view \u2014 see existing status_change entries (or a framed empty state if none). 3. In another panel, change a stage's status from `planned` to `in-progress`. 4. Return to OverviewPanel timeline \u2014 the new transition appears at the top with amber \u2192 cyan swatches, your avatar, 'just now'. 5. Change status again, see it stack. 6. Switch pipelines \u2014 timeline rebuilds for the new context.",
+      "commitSha": "eae7433"
+    }
+  ],
+  "currentStage": 5,
+  "totalStages": 5,
+  "stageIteration": 1,
+  "maxIterationsPerStage": 3,
+  "phase": "done",
+  "plannerOutput": "## Feature brief \u2014 Binayah Ultimate production upgrades (5 stages)\n\n### Overall approach\nAll 5 features are additive \u2014 no existing functionality is removed except the dead 7-step Onboarding flow. Each stage maps to one feature and ships independently. Auth is next-auth v4 with `fixedUserId` on session. All components use inline `t.*` theme tokens (no CSS vars). Lazy-load new heavy panels with `next/dynamic({ ssr: false })`.\n\n---\n\n### Stage 1 \u2014 Onboarding redesign\n\n**Remove:** The 7-step `Onboarding.tsx` flow including user-selection steps (steps 1\u20135), theme/pipeline selection steps. The auth session already identifies the user.\n\n**Add:** A one-time welcome modal (`WelcomeModal.tsx`) that fires on first login (tracked in localStorage key `binayah_welcomed_<fixedUserId>`). The modal is a single-screen experience:\n- Greets the user by name (from session / USERS_DEFAULT lookup by fixedUserId)\n- Offers inline avatar selection (emoji picker + AI generation \u2014 reuse `AvatarStep6` logic stripped from Onboarding.tsx)\n- A single CTA: \"Enter the war room\" (or equivalent per theme)\n- Animated background (reuse `FloatingBg` or equivalent)\n- Skippable \u2014 clicking outside or pressing Escape dismisses and sets the localStorage flag\n\n**Keep:** `AvatarStep6` export (used elsewhere potentially), `FloatingBg` if reused.\n\n**Dashboard changes:** Replace `onboardStep < 7` gate with `!welcomeSeen` check. After modal closes, set `binayah_welcomed_<fixedUserId>` in localStorage.\n\n**PROJECT_CONTEXT notes:**\n- Auth session provides `fixedUserId` via next-auth v4 (src/types/next-auth.d.ts). `USERS_DEFAULT` is source of truth for user display data (name, role, color) \u2014 only avatar/aiAvatar come from localStorage (hydrateUsers pattern).\n- QA bypass: set `binayah_welcomed_<fixedUserId>` in localStorage before navigating to skip modal.\n- No `SCHEMA_VERSION` bump needed \u2014 new key is additive.\n\n**QA bar:** Modal appears on fresh localStorage, does not appear on second load. Avatar selection persists. TypeScript strict passes. No flash of onboarding on return visits.\n\n---\n\n### Stage 2 \u2014 In-app notification bell\n\n**New component:** `NotificationBell.tsx` \u2014 renders in Dashboard header (right side, near user stats).\n\n**Bell badge:** Shows count of unseen notifications. Badge is hidden when count = 0.\n\n**Dropdown:** Opens on click, shows last 20 activity entries of type `claimed`, `active`, `comment`. Each row shows: user avatar, action text, stage name, relative timestamp.\n\n**Data source (CONFIRMED: SSE via chatBus \u2014 NOT polling):**\n- Extend `src/lib/chatBus.ts` to also emit activity events (alongside chat messages). The chatBus EventEmitter already has `setMaxListeners(200)`.\n- In `/api/pipeline-state/activity/route.ts`, after writing to MongoDB, emit to chatBus: `chatBus.emit(\"activity\", { type, user, stage, ts, ... })`.\n- In `/api/pipeline-state/messages/stream/route.ts` (Node.js runtime, the existing SSE stream), subscribe to both `\"message\"` and `\"activity\"` events on chatBus. Send activity events as SSE events with `event: activity` type.\n- `NotificationBell.tsx` subscribes to the existing `/api/pipeline-state/messages/stream` SSE endpoint. On receiving `event: activity` events, append to local notification list.\n- Gap-fill on connect: fetch `/api/pipeline-state` once on mount to hydrate recent activityLog entries (filtered to claimed + active + comment types).\n\n**Event types shown:** `claimed`, `active`, `comment` only. Lock/unlock and system events are excluded from the bell.\n\n**Seen state:** Clicking the bell marks all as seen (updates `binayah_notif_seen_at` timestamp in localStorage to `Date.now()`). Badge count is derived from entries with `ts > binayah_notif_seen_at`.\n\n**PROJECT_CONTEXT notes:**\n- chatBus runtime is `\"nodejs\"` \u2014 stream route already exports `runtime = \"nodejs\"`. Do NOT change this.\n- Subscribe-before-flush order must be maintained \u2014 register `chatBus.on` BEFORE the MongoDB gap-fill query (already established pattern in stream route).\n- Keep-alive ping is already present (30s). No changes needed there.\n- The existing SSE connection is already open in ChatPanel when team-chat tab is active \u2014 NotificationBell creates its own separate EventSource subscription to the same endpoint (two subscribers is fine with setMaxListeners(200)).\n\n**QA bar:** Badge count reflects new activity events in real time via SSE. Clicking bell clears badge. Dropdown items render with correct user avatars and relative timestamps. Theming consistent with rest of header.\n\n---\n\n### Stage 3 \u2014 Cmd+K global search palette\n\n**New component:** `SearchPalette.tsx` \u2014 full-screen dimmed overlay with centered modal input.\n\n**Trigger:** `Cmd+K` (Mac) / `Ctrl+K` (Windows/Linux). Global `keydown` listener in Dashboard.tsx.\n\n**Search scope (CONFIRMED: full content search, all client-side):**\n- Stage names (from `pipelineData` \u2014 all stages across all pipelines, with pipeline name as context)\n- Document titles AND full document content (TipTap JSON body text) \u2014 fetch all docs with content on Cmd+K open (`GET /api/documents` does NOT return content in list view, so a fresh `GET /api/documents/[id]` per doc may be needed, or a new `?includeContent=true` query param \u2014 DEV to choose most efficient approach)\n- Team members (from `USERS_DEFAULT` \u2014 6 users, name + role)\n- Client-side fuzzy search in memory. No MongoDB text index.\n\n**Document content fetch strategy:** On palette open, fetch all docs list (`GET /api/documents`), then batch-fetch content for each. Cache results in module-scope ref so re-opens don't refetch until stale (5 min TTL or on doc save). This is an async operation \u2014 show a loading state in the palette while docs are fetching.\n\n**Results format (Linear-style):**\n- Grouped sections: Stages / Documents / People\n- Keyboard navigation (arrow keys + Enter)\n- Clicking/entering a stage result navigates to that pipeline and expands the stage\n- Clicking a document result opens DocumentsPanel with that doc active\n- Clicking a person result opens a user profile or highlights their claims\n\n**Design:** Dark modal, `t.bgCard` surface, `t.border` outline, `t.accent` highlighted match text. `t.shadowLg` drop shadow. Escape closes.\n\n**PROJECT_CONTEXT notes:**\n- Documents state is isolated in `DocumentsPanel.tsx` \u2014 SearchPalette cannot read it directly. Pass an `onOpenDocument(id)` callback from Dashboard down to SearchPalette, which triggers nav to documents panel and sets active doc.\n- `/api/documents` list endpoint does NOT include `content` field in list response (only title, pipelineId, timestamps) \u2014 confirm in route before assuming content is available.\n- Auth-gated endpoint \u2014 SSE connection already means user is logged in; no special handling needed.\n\n**QA bar:** Cmd+K opens palette. Typing filters results including document content. Arrow keys navigate. Enter on a stage result scrolls to/highlights the stage. Escape closes. No TypeScript errors.\n\n---\n\n### Stage 4 \u2014 Document collaboration (presence + last-write-wins)\n\n**Approach:** Last-write-wins with last-saved-by attribution only. No Yjs/Hocuspocus (Vercel serverless constraint). No live presence polling.\n\n**Changes to `DocumentsPanel.tsx`:**\n- Auto-save on debounce (3s after last keystroke) \u2014 already saves on blur; change to also save on debounce\n- Show 'Last saved by [name] at [time]' below the editor title, sourced from document `updatedAt` + `updatedBy` fields\n- Add `updatedBy` field to `BinayahDocument` schema \u2014 set on every PATCH to `session.fixedUserId`\n- Show an avatar of the last editor next to the save status line (use `AvatarC` from `src/components/ui/Avatar.tsx`)\n\n**No new SSE endpoint.** No presence heartbeat. No conflict resolution UI.\n\n**API change:** PATCH `/api/documents/[id]` sets `updatedBy = session.user.fixedUserId` server-side (NOT from client body \u2014 security). Add `updatedBy` to `BinayahDocument` schema as `String` field.\n\n**PROJECT_CONTEXT notes:**\n- Documents API has its own inline whitelist (NOT subject to `validatePatchKeys`). The route already reads session \u2014 set `updatedBy` server-side from session.\n- `BinayahDocument` model is in `src/lib/BinayahDocument.ts`. Currently: title, content (Mixed), createdBy, pipelineId, timestamps. Add `updatedBy: String`.\n- `USERS_DEFAULT` is source of truth for name display \u2014 look up `updatedBy` (a fixedUserId) in USERS_DEFAULT to display the name.\n- Do NOT add TipTap extensions without also adding theme overrides (PROJECT_CONTEXT constraint).\n\n**QA bar:** After saving a document, 'Last saved by [name]' appears with correct user avatar. Auto-save fires after 3s of inactivity. `updatedBy` stored in MongoDB. TypeScript strict passes.\n\n---\n\n### Stage 5 \u2014 Pipeline timeline / burndown\n\n**Location:** New tab/section inside `OverviewPanel.tsx` \u2014 toggle between existing metrics view and new timeline view.\n\n**Data source:** `state.activityLog` (fetched with the rest of pipeline state on mount). Filter to `type === 'status_change'` events.\n\n**Prerequisite (CONFIRMED: add status_change logging):** Stage 5 DEV must also patch `PATCH /api/pipeline-state` handler to emit a `status_change` activity entry when `stageStatusOverrides` keys are updated. Entry shape: `{ type: 'status_change', user, stage, from, to, ts }`. Use the existing `POST /api/pipeline-state/activity` pattern (or emit directly in the PATCH handler after persisting). Note: this also means chatBus should emit the activity event (per Stage 2 changes) so the notification bell shows status changes \u2014 but status_change is NOT in the bell's filter list (claimed + active + comment only), so no bell display change needed.\n\n**Timeline UI:** Per-pipeline vertical timeline of status changes, ordered by `ts` descending. Each entry shows: stage name, old status \u2192 new status (with status color tokens), user avatar, relative time.\n\n**Burndown chart (stretch):** If time permits, a simple SVG/canvas line chart showing count of `active` stages over calendar days. Use only if the activityLog data is rich enough \u2014 otherwise skip and ship timeline only.\n\n**PROJECT_CONTEXT notes:**\n- `STATUS_ORDER = [\"concept\", \"planned\", \"in-progress\", \"active\"]` \u2014 use these exact strings for status color mapping.\n- `activityLog` is capped at 200 entries ($slice: 200, prepended). Pipeline field on each activity entry may not exist \u2014 DEV should include `pipeline` in the `status_change` event shape for timeline grouping: `{ type: 'status_change', user, stage, pipeline, from, to, ts }`.\n- OverviewPanel is lazy-loaded with `next/dynamic`. Keep this pattern \u2014 do not turn it into a server component.\n- PATCH key whitelist in `validate.ts` \u2014 `stageStatusOverrides` is already whitelisted. No changes needed there.\n\n**QA bar:** Timeline tab shows entries for any pipeline that has had status changes. Status color tokens match the canonical status\u2192color mapping. Entries ordered newest-first. TypeScript strict passes.\n\n---\n\n### Out of scope (explicitly excluded)\n\n- DLD API integration (legal hold \u2014 do not enable)\n- New team member additions (no ADMIN_EMAIL_MAP changes)\n- Yjs/Hocuspocus/WebSocket server (serverless constraint)\n- MongoDB text index for search\n- Polling-based notifications (superseded by SSE approach)\n- Burndown chart (stretch only \u2014 ship timeline first)\n- Any changes to email notification system\n- Pipeline locking changes\n\n### Confirmed constraints\n\n- Vercel serverless: no persistent WebSocket servers, SSE max 60s timeout (30s ping keeps alive)\n- MongoDB Atlas SRV DNS fails in local dev (QA marks as severity: \"env\", not a failure)\n- All theme styling via `t.*` tokens \u2014 no CSS vars, no hardcoded hex\n- `next/dynamic({ ssr: false })` for all new heavy panels\n- TypeScript strict mode throughout \u2014 no `any` on new props\n- `validateStageKey()` required before any user-supplied stage key in MongoDB paths\n- Node.js runtime required for SSE stream route (chatBus is module-scoped)",
+  "plan": "## Stage 5 \u2014 Pipeline timeline (status-change history)\n\n### Why this will be good\nThe activity log already captures most of the story \u2014 but status transitions (`concept \u2192 planned \u2192 in-progress \u2192 active`) are the heartbeat of the pipeline, and right now they're not being logged. Adding `status_change` events to the activity log, then rendering them as a per-pipeline vertical timeline, turns the overview panel from a 'metrics dashboard' into a 'what's actually happening' view. Production-ready: writes the log on every override change, renders newest-first, honors canonical status colors, degrades gracefully when a pipeline has no history, lazy-loaded like the rest of OverviewPanel, works in all four themes. Burndown chart is a stretch \u2014 ship timeline first. Benchmark: Linear's issue history / Stripe dashboard event log \u2014 compact, color-coded transitions, timestamps always present.\n\n### Scope\n**Prerequisite (critical, DO NOT skip):** server-side emission of `status_change` activity entries.\n- In `PATCH /api/pipeline-state/route.ts`, when `stageStatusOverrides` keys are added/changed, emit one activity entry per change with shape: `{ type: 'status_change', user, stage, pipeline, from, to, ts }`.\n- Use the existing `POST /api/pipeline-state/activity` pattern OR write directly after persisting the PATCH \u2014 whichever keeps the existing locking / 423 semantics intact.\n- Also emit to chatBus (per Stage 2's extension) so the stream carries status_change. NotificationBell filter already excludes status_change so the bell does not display these \u2014 correct by design.\n\n**Timeline UI in `OverviewPanel.tsx`:**\n- Add a toggle (tabs or segmented control) between existing metrics view and new timeline view. Both should feel equally native to the panel \u2014 not 'new tab bolted on'.\n- Timeline is per-pipeline (use the currently selected pipeline context). Each entry: stage name + old status \u2192 new status (with canonical status color swatches) + actor avatar + relative time.\n- Ordered newest-first. Vertical rail with hairline connector between entries (command center, not a bullet list).\n- Empty state for pipelines with no status-change history \u2014 framed as opportunity per DESIGN_PRINCIPLES \u00a7States ('no moves yet \u2014 stake something'), in the product's voice.\n\n**Stretch (only if cheap):** a simple SVG line chart of `active`-stage count over calendar days, derived from the same `status_change` stream. Skip if data is thin or it balloons the diff \u2014 ship timeline first.\n\n### Intent & quality bar\n- **Status colors are canon** (DESIGN_SYSTEM \u00a7Status\u2192color mapping and DESIGN_PRINCIPLES \u00a7Visual):\n  - `concept` \u2192 `t.textMuted` \u00b7 `planned` \u2192 `t.amber` \u00b7 `in-progress` \u2192 `t.cyan` \u00b7 `active` \u2192 `t.green`.\n  - The 'from \u2192 to' transition visualization must use these tokens precisely. Breaking this breaks the language.\n- **Signal density is a virtue.** Pack stage name, transition arrow with two color swatches, avatar, relative time into one compact row. Don't over-whitespace.\n- **Avatar stack patterns** in DESIGN_SYSTEM apply \u2014 reuse `AvatarC`.\n- **Ownership is visible** \u2014 every timeline row names and pictures the actor.\n- **Hierarchy is earned** \u2014 pipeline name/context sits at the top; timeline rows are secondary; meta (timestamp) is tertiary.\n\n### Files to touch\n- `src/app/api/pipeline-state/route.ts` (emit `status_change` activity on `stageStatusOverrides` changes)\n- `src/components/OverviewPanel.tsx` (add timeline view + toggle; consume `state.activityLog`)\n- (If status_change emission needs a helper) `src/lib/chatBus.ts` or an activity-emit utility \u2014 DEV chooses.\n\n### Contract & state\n- Data source: `state.activityLog` (already fetched with pipeline state on mount). Filter to `type === 'status_change'` and to the selected pipeline.\n- `activityLog` is MongoDB-$sliced to 200 entries (prepended). The timeline shows what's in that window \u2014 do NOT add a separate paginated history endpoint in this stage.\n- The `pipeline` field must be included in the emitted entry so the timeline can group by selected pipeline (existing activity entries may lack this field \u2014 that's fine, old entries won't appear in the timeline and that's acceptable).\n- PATCH key whitelist already allows `stageStatusOverrides` (`validate.ts`). No changes there.\n- OverviewPanel stays lazy-loaded via `next/dynamic({ ssr: false })`. Do NOT convert to a server component.\n- `STATUS_ORDER = [\"concept\", \"planned\", \"in-progress\", \"active\"]` \u2014 use these exact strings.\n\n### Forbidden\n- Do NOT add a new API route for timeline data \u2014 consume `state.activityLog`.\n- Do NOT rename status values or add variants.\n- Do NOT convert OverviewPanel to SSR.\n- Do NOT show status_change events in the NotificationBell (Stage 2 filter excludes them \u2014 keep it that way).\n- Do NOT hardcode hex colors. Status color tokens only.\n- Do NOT ship the burndown chart if it pushes the diff past reasonable review size \u2014 timeline is the priority.\n\n### Acceptance criteria\n- After toggling a stage's status in any pipeline, a `status_change` entry appears in the new timeline view for that pipeline, newest-first.\n- From/to status color swatches match the canonical mapping exactly.\n- Actor avatar + relative time render on every row.\n- Pipelines with no status-change history show a themed empty state, not a blank panel.\n- Toggle between metrics and timeline is smooth; state preserved on switch.\n- TypeScript strict passes.\n- All four themes render correctly.\n\n### Demo path\n1. Open OverviewPanel for any pipeline. 2. Toggle to Timeline view \u2014 see existing status_change entries (or a framed empty state if none). 3. In another panel, change a stage's status from `planned` to `in-progress`. 4. Return to OverviewPanel timeline \u2014 the new transition appears at the top with amber \u2192 cyan swatches, your avatar, 'just now'. 5. Change status again, see it stack. 6. Switch pipelines \u2014 timeline rebuilds for the new context.",
+  "diff": "",
+  "devReport": null,
+  "reviewerReport": null,
+  "qaReport": null,
+  "liveTestReport": {
+    "passed": true,
+    "stagingUrl": "https://dashboard-gamification.vercel.app",
+    "deployState": "READY",
+    "deployCommit": "ce1b2cf198df7d67a18e097742ed60cb871f0090",
+    "deployMessage": "fix: React error #310 in NotificationBell + require signup secret",
+    "pagesChecked": ["/", "/login", "/api/auth/providers", "/api/auth/session", "/api/auth/signup"],
+    "consoleErrors": [],
+    "bugs": [],
+    "screenshots": ["/tmp/ultimate-login.png"],
+    "blocker": null,
+    "notes": "React error #310 is NOT present on the live deploy. Fix confirmed shipped: NotificationBell now uses openRef to read open state in SSE handler instead of calling setState inside a setState updater. Login page renders cleanly (0 console errors, 0 network failures). Root / correctly redirects 307 to /login. Auth-gated API routes return 200. SIGNUP_SECRET env var confirmed set on Vercel. Signup route returns 403 (not 500) with wrong secret."
+  },
+  "pmDecision": "continue",
+  "designBrief": {
+    "direction": "Command-deck cold-open \u2014 a single dark modal that feels like booting up mission control, not opening a settings dialog. The user is already in; this is their handshake with the system.",
+    "directionReasoning": "Stage 1 removes a 7-step form and replaces it with a moment. The bar is Linear's first-run splash and Superhuman's welcome: one screen, warm copy, one choice, then you're in. Because identity is session-derived, the screen can drop all the bureaucracy and lean into atmosphere \u2014 animated background, named greeting, avatar as the only knob, single CTA. Every theme (warroom/lab/engine/nerve) has to land; the vocabulary must be token-driven, never hex-driven.",
+    "benchmark": {
+      "product": "Linear's 'Welcome to Linear' first-run screen + Superhuman's onboarding splash (the dark centered card with a name, one sentence of welcome, one primary action). Raycast's Quick Start modal for the density and keyboard-first restraint.",
+      "whatToMatch": "The way Linear uses a generous dark canvas with one focal card, restrained copy, and a single gradient CTA that's obviously the next action. The way Superhuman makes you feel greeted by name before you feel prompted. We emulate the *calm authority* of these screens \u2014 not busy, not empty, not decorative \u2014 then layer in the product's tactical voice ('gm legend', '// where strategies are forged') so it doesn't read corporate."
+    },
+    "surfaces": [
+      {
+        "name": "Backdrop (full-viewport overlay)",
+        "decisions": [
+          "position: fixed inset: 0; z-index 1000; background: t.bg with ~92% opacity so the dashboard ghosts behind it (not pure black \u2014 the command center is still there, you just haven't crossed the threshold)",
+          "FloatingBg mounted at the backdrop layer (reuse the existing export with colors=[t.accent, t.purple||t.accent, t.green, t.amber] and themeStyle=themeId) \u2014 it already produces the grid/scanline/rings/particles per theme; do not replace it",
+          "Click anywhere on the backdrop dismisses and writes binayah_welcomed_<fixedUserId>=Date.now().toString()",
+          "Escape key dismisses with the same write",
+          "No backdropFilter blur \u2014 FloatingBg is the atmosphere; blur on top of it muddies the particles"
+        ],
+        "whyThisWay": "Principle \u00a7Philosophy 'command center, not a dashboard' \u2014 the user sees the war room *through* the welcome, reinforcing they're already inside. Principle \u00a7Motion 'motion has meaning' \u2014 FloatingBg's orbit/scanline says 'the system is live and running,' not decoration. Principle \u00a7States 'loading is activity' \u2014 even this idle moment should breathe."
+      },
+      {
+        "name": "Welcome card (centered, single surface)",
+        "decisions": [
+          "Container: NB primitive (reuse from components/ui/primitives) with color={userColor from USERS_DEFAULT lookup}, background: t.bgCard, padding: 40px 36px (desktop) / 28px 22px (mobile), maxWidth: 480, width: 92vw, borderRadius follows NB default, boxShadow: t.shadowLg",
+          "Entry animation: scaleIn 400ms ease (opacity 0\u21921, scale 0.92\u21921). Not a pop-up bounce. A door opening.",
+          "Top eyebrow: Geist Mono, 10px, letter-spacing 6px, uppercase, color t.accent at 66% alpha \u2014 reads 'BINAYAH // COMMAND DECK' (or the theme's t.sub tagline if shorter) \u2014 sets register before the greeting lands",
+          "Headline: 32px desktop / 26px mobile, font-weight 900, color t.text, letter-spacing -1px, line-height 1.1. Two-line structure: line 1 greets by name ('gm, {firstName}.'), line 2 carries the product voice ('the deck is yours.') with the verb in t.accent + textShadow `0 0 24px ${t.accent}33`",
+          "Subline (one line, Geist Mono, 11px, t.textMuted): '// {userRole} \u00b7 session live \u00b7 {totalStages} stages on the board' \u2014 grounds the greeting in real data, not marketing copy",
+          "Identity chip: 48px avatar (AvatarC sized 48, or the radial-gradient fallback already in Onboarding step 5) + name + role stacked centered. Avatar has the existing ringExpand pulse (2px solid userColor at 22% alpha, animation ringExpand 2.5s infinite) \u2014 the pulse is the heartbeat; keep it",
+          "Avatar picker: collapsed by default behind a quiet link-button \u2014 'change avatar' in Geist Mono, 10px, t.textMuted with a 1px t.border underline on hover. Click expands the AvatarStep6 primitive inline (extract its body into AvatarPicker so it can render without the wrapper div). When expanded, the emoji/AI tab switcher appears in place; when collapsed, only the big avatar shows. Default collapsed = one-click dismiss path is unobstructed",
+          "Primary CTA: full-width at narrow viewports, 44px tall, borderRadius 14, background: linear-gradient(135deg, ${userColor}, ${userColor}cc), color white, font-weight 800, fontSize 14, letter-spacing 0.3, textTransform lowercase, boxShadow `0 4px 24px ${userColor}33`. Label: 'enter the war room \u2192' on warroom theme, 'enter the lab \u2192' on lab, 'start the engine \u2192' on engine, 'enter the nerve center \u2192' on nerve \u2014 pick via t.themeId",
+          "CTA has the existing scanline shimmer (reuse from AvatarStep6's confirm button \u2014 50%-wide white-gradient sweep, animation scanline 2.5s infinite) \u2014 this is the 'gamification feels earned' cue on first contact",
+          "Dismiss affordance: small 'esc \u00b7 skip' hint in Geist Mono 9px t.textDim, bottom-right of card, 16px margin \u2014 teaches the keyboard path without begging for attention"
+        ],
+        "whyThisWay": "Principle \u00a7Philosophy 'ownership is visible' \u2014 the user's name, color, and avatar are the hero, not a generic 'Welcome!' Principle \u00a7Copy 'copy is the culture' \u2014 'gm, {name}.' + theme-variant CTA verb is the register the existing codebase already speaks ('gm legend', 'where strategies are forged', 'who dis?'). Principle \u00a7Visual 'hierarchy is earned' \u2014 eyebrow \u2192 headline \u2192 subline \u2192 identity \u2192 action is a strict top-down read; the avatar picker is deliberately demoted behind a link because it's not the point. Principle \u00a7Interaction 'every surface responds' \u2014 the CTA shimmer and avatar ring-pulse are the two live elements; everything else is still."
+      },
+      {
+        "name": "Avatar picker (expanded state, reused primitive)",
+        "decisions": [
+          "Extract the body of AvatarStep6 (the tab switcher + emoji grid + AI tab + preview block) into a new AvatarPicker component in the same file or as src/components/ui/AvatarPicker.tsx \u2014 DEV chooses based on coupling. The standalone Onboarding.tsx usage and the new WelcomeModal usage import the same primitive. No duplication.",
+          "When expanded inline inside the welcome card, drop the outer fixed-position wrapper (that wrapper only makes sense when AvatarStep6 is the whole screen). Render the picker as a subsection of the welcome card with a 1px t.border hairline above it.",
+          "Preview avatar (the 64px ringed avatar that AvatarStep6 shows) is REDUNDANT here \u2014 the welcome card's identity chip already shows the avatar. Hide the internal preview block when rendered inside WelcomeModal (pass a showPreview=false prop). The identity chip at the top of the welcome card re-renders with the selection live.",
+          "The picker's own 'save avatar \u2192' button is REMOVED in this context \u2014 the welcome modal's primary CTA is the single commit. Selection updates user state in real time; CTA commits."
+        ],
+        "whyThisWay": "Principle \u00a7Philosophy 'signal density is a virtue' \u2014 no double avatars, no double CTAs; the welcome card owns the final action. Principle \u00a7Visual 'every pixel is intentional' \u2014 the existing AvatarStep6 was designed as a full screen; reshape it for inline use rather than stack it with its own chrome. Do not ship two copies (Stage 1 spec: 'do not ship two copies')."
+      }
+    ],
+    "vocabulary": {
+      "colors": "All via t.* tokens. Primary accent is the signed-in user's color (from USERS_DEFAULT), NOT t.accent \u2014 the greeting is personal. t.accent is reserved for the eyebrow tagline and as the theme-variant backdrop tint. Status colors (t.green/amber/cyan) do not appear in this surface \u2014 they're reserved for pipeline state. FloatingBg colors stay [t.accent, t.purple||t.accent, t.green, t.amber] per theme.",
+      "type": "Geist Sans for headline + identity + CTA. Geist Mono for eyebrow, subline, skip hint, role \u2014 anything metadata or tactical voice. Weights: 900 for headline, 800 for CTA, 700 for avatar-picker tab labels, 400 for body. letter-spacing -1px on headline, 6px on eyebrow.",
+      "spacing": "Card padding 40px 36px desktop / 28px 22px mobile. Inter-element vertical rhythm 14px between headline and subline, 24px between subline and identity chip, 28px between identity chip and CTA. Avatar picker section (when expanded) separated by 20px + hairline divider.",
+      "shadows": "Card: t.shadowLg. CTA: `0 4px 24px ${userColor}33`. No other shadows \u2014 over-shadowing cheapens the modal.",
+      "radii": "Card: NB default. CTA: 14. Avatar picker controls: inherit from AvatarStep6 primitive (14/12/20/9 already calibrated there).",
+      "copy": {
+        "eyebrow": "BINAYAH // COMMAND DECK (or map to t.sub per theme if that reads better \u2014 e.g., '// where strategies are forged' for warroom)",
+        "headline_line1": "gm, {firstName}.",
+        "headline_line2": "the deck is yours.",
+        "subline": "// {userRole} \u00b7 session live \u00b7 {totalStages} stages on the board",
+        "avatarToggle_collapsed": "change avatar",
+        "avatarToggle_expanded": "hide avatar picker",
+        "cta_by_theme": {
+          "warroom": "enter the war room \u2192",
+          "lab": "enter the lab \u2192",
+          "engine": "start the engine \u2192",
+          "nerve": "enter the nerve center \u2192"
+        },
+        "skipHint": "esc \u00b7 skip",
+        "forbidden": [
+          "Welcome to Binayah",
+          "Get started",
+          "Complete your profile",
+          "Hello!",
+          "Let's begin",
+          "Sign in successful",
+          "Submit",
+          "Continue",
+          "Finish setup",
+          "Your account is ready"
+        ]
+      }
+    },
+    "motion": {
+      "entry": "Card scales from 0.92 \u2192 1 with opacity 0 \u2192 1 over 400ms ease (reuse existing scaleIn keyframe). FloatingBg renders behind, its own orbit/float/scanline loops are ambient (20\u201330s periods) \u2014 they were already there and keep running.",
+      "avatar_pulse": "ringExpand on identity chip, 2.5s ease-out infinite (reuse). This is the heartbeat of the welcome \u2014 the 'system is breathing' cue.",
+      "cta_shimmer": "scanline sweep across CTA, 2.5s infinite ease-in-out (reuse from AvatarStep6). Draws the eye without demanding.",
+      "cta_hover": "Transform: translateY(-1px); box-shadow intensifies from `0 4px 24px ${userColor}33` \u2192 `0 6px 32px ${userColor}55`. 150ms ease-out (\u00a7Motion timing).",
+      "avatar_toggle": "Expand/collapse 300ms ease-out \u2014 opacity + max-height transition, not a jolt.",
+      "exit": "On dismiss (CTA click, Escape, or outside-click): scale 1 \u2192 0.96, opacity 1 \u2192 0 over 200ms ease-in, then unmount. Do not hold the user mid-animation \u2014 the dashboard behind should already be interactive.",
+      "principle": "Every motion has meaning: entry = 'the deck is opening,' pulse = 'you're live,' shimmer = 'this is the way forward,' exit = 'step in.' Nothing moves for decoration."
+    },
+    "layoutSketch": "\n  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n  \u2502  [FloatingBg: grid + orbit rings + particles]   \u2502\n  \u2502                                                 \u2502\n  \u2502         \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510            \u2502\n  \u2502         \u2502 BINAYAH // COMMAND DECK  \u2502 \u2190 eyebrow  \u2502\n  \u2502         \u2502                          \u2502            \u2502\n  \u2502         \u2502   gm, Anna.              \u2502 \u2190 headline \u2502\n  \u2502         \u2502   the deck is yours.     \u2502   (accent) \u2502\n  \u2502         \u2502                          \u2502            \u2502\n  \u2502         \u2502 // founder \u00b7 session     \u2502 \u2190 subline  \u2502\n  \u2502         \u2502    live \u00b7 32 stages      \u2502            \u2502\n  \u2502         \u2502                          \u2502            \u2502\n  \u2502         \u2502       (  AVATAR  )       \u2502 \u2190 identity \u2502\n  \u2502         \u2502        Anna                          \u2502\n  \u2502         \u2502        founder                        \u2502\n  \u2502         \u2502                          \u2502            \u2502\n  \u2502         \u2502     change avatar        \u2502 \u2190 quiet    \u2502\n  \u2502         \u2502                          \u2502            \u2502\n  \u2502         \u2502  \u250c\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510    \u2502            \u2502\n  \u2502         \u2502  \u2502 enter the war    \u2502    \u2502 \u2190 CTA      \u2502\n  \u2502         \u2502  \u2502 room \u2192           \u2502    \u2502   (shimmer)\u2502\n  \u2502         \u2502  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518    \u2502            \u2502\n  \u2502         \u2502                 esc\u00b7skip\u2502            \u2502\n  \u2502         \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518            \u2502\n  \u2502                                                 \u2502\n  \u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n",
+    "doNot": [
+      "Do NOT reintroduce multi-step progression (no dots, no 01/04 counter, no 'next \u2192' button). This is one screen.",
+      "Do NOT use t.accent as the CTA color \u2014 use the signed-in user's userColor from USERS_DEFAULT. The welcome is personal; t.accent is structural.",
+      "Do NOT hardcode hex. Every color is t.* or userColor (which itself is a theme-agnostic color on UserType). FloatingBg's internal neutrals (#ffffff08 etc.) are fine \u2014 they're in the primitive already.",
+      "Do NOT render the avatar picker expanded by default. Collapsed = dismiss path stays one click. Power users skip; new users opt in.",
+      "Do NOT ship a second avatar preview inside the expanded picker when used in WelcomeModal \u2014 the identity chip at the top already shows it live.",
+      "Do NOT add a close 'X' button in the corner. Escape + outside-click + CTA are the three exits; an X is clutter.",
+      "Do NOT use backdropFilter blur \u2014 FloatingBg needs to render cleanly behind the card, not through a smear.",
+      "Do NOT write enterprise copy. 'Welcome to Binayah' is banned. If it could appear in a Salesforce product, it's wrong here.",
+      "Do NOT animate the headline with a typewriter effect. That was onboarding-step pacing; this is a greeting, not a reveal. Snappy entry, then steady.",
+      "Do NOT block the dashboard if the welcome errors. If AvatarStep6 fails to load, the CTA still dismisses and writes the flag \u2014 the user gets into the product no matter what."
+    ],
+    "colorExtensions": "None. Uses existing t.* palette per theme plus UserType.color (already canonical). FloatingBg extensions already in the primitive (cornerGlow map per theme) remain unchanged."
+  },
+  "summary": "Shipped 5 features: (1) personalised onboarding WelcomeModal, (2) SSE notification bell, (3) Cmd+K search palette, (4) document attribution/debounce-save, (5) pipeline timeline with status_change logging.",
+  "securitySensitive": false,
+  "history": [
+    {
+      "time": "2026-04-22T15:38:06.513668",
+      "entry": "[stage 2/5 iter 1] qa \u2192 passed (clean pass, 0 TS errors)"
+    },
+    {
+      "time": "2026-04-22T16:00:00.000000",
+      "entry": "[pm_lite stage 3/5] reviewed stage 2 diff (4 files, 577 lines): NotificationBell.tsx in header, activity route emits to chatBus, stream route forwards event:activity. Stage 3 header-cluster dependency satisfied. Stages 3/4/5 specs unchanged \u2014 no overlaps, no broken references."
+    },
+    {
+      "time": "2026-04-22T15:50:22.024665+00:00",
+      "entry": "[stage 3/5 iter 1] qa \u2192 passed (clean pass, 0 TS errors)"
+    },
+    {
+      "time": "2026-04-22T15:50:50.114052+00:00",
+      "entry": "[pm_lite stage 4/5] stage 3 diff: SearchPalette.tsx (new, 537 lines), DocumentsPanel.tsx (+15 lines, initialDocId prop), documents/route.ts (+38 lines, ?includeContent=true), Dashboard.tsx (+71 lines). Stage 4 files (BinayahDocument.ts, documents/[id]/route.ts, DocumentsPanel debounce+attribution) untouched by stage 3 \u2014 no overlap. Stage 5 files (pipeline-state/route.ts, OverviewPanel.tsx) also untouched. Specs 4 and 5 valid as-is."
+    },
+    {
+      "time": "2026-04-22T15:59:52.135944+00:00",
+      "entry": "[stage 4/5 iter 1] qa \u2192 passed (clean pass, 0 TS errors)"
+    },
+    {
+      "time": "2026-04-22T16:00:28.620829Z",
+      "entry": "[pm_lite stage 5/5] verified: chatBus.emit('activity') wired in activity route; stream route forwards event:activity; BELL_TYPES=Set(['claimed','active','comment']) confirmed \u2014 status_change excluded by design. Stage 5 spec valid as-is, no edits needed."
+    },
+    {
+      "time": "2026-04-22T16:11:25.727205+00:00",
+      "entry": "[stage 5/5 iter 1] qa \u2192 passed (clean pass, 0 TS errors). All 5 stages complete. Pushed."
+    },
+    {
+      "time": "2026-04-22T16:13:27.732660+00:00",
+      "entry": "qa_live \u2192 PASS (conf 93) \u2192 done. All 5 stages shipped."
+    }
+  ],
+  "stageHistory": [
+    {
+      "stage": 1,
+      "summary": "Personalised 6-step onboarding \u2014 user-picker removed, identity from auth, FloatingBg/AvatarPicker preserved, Rules-of-Hooks fixed",
+      "passedAt": "2026-04-22T15:24:09Z",
+      "commitSha": "5ce36181520e941b3f926aa4438acb50a0655af5"
+    },
+    {
+      "stage": 2,
+      "commitSha": "6aeb3b8",
+      "qaReport": {
+        "passed": true,
+        "bugs": [],
+        "summary": "Clean pass \u2014 0 TS errors, all checks pass"
+      },
+      "reviewerReport": {
+        "passed": true,
+        "findings": [
+          {
+            "severity": "minor",
+            "issue": "ActivityItem type duplicated in stream route \u2014 no drift risk"
+          }
+        ],
+        "summary": "Clean pass"
+      }
+    },
+    {
+      "stage": 3,
+      "commitSha": "0c49a68",
+      "qaReport": {
+        "passed": true,
+        "bugs": [],
+        "summary": "Clean pass"
+      },
+      "reviewerReport": {
+        "passed": true,
+        "findings": [
+          {
+            "severity": "minor",
+            "issue": "CSS selector userId not escaped \u2014 low risk, static values"
+          },
+          {
+            "severity": "minor",
+            "issue": "paletteDocId never reset \u2014 same-doc second open silently no-ops"
+          },
+          {
+            "severity": "minor",
+            "issue": "r.ok not checked before r.json() \u2014 TypeError on error response"
+          }
+        ],
+        "summary": "Clean pass. Two minor fixes applied (r.ok guard, paletteDocId reset)."
+      }
+    },
+    {
+      "stage": 4,
+      "commitSha": "292973c",
+      "qaReport": {
+        "passed": true,
+        "bugs": [],
+        "summary": "Clean pass, 0 errors"
+      },
+      "reviewerReport": {
+        "passed": true,
+        "findings": [
+          {
+            "severity": "minor",
+            "issue": "saveInFlight guard missing \u2014 double-PATCH on debounce+blur overlap. Fixed."
+          }
+        ],
+        "summary": "Clean pass. In-flight guard fix applied."
+      }
+    },
+    {
+      "stage": 5,
+      "commitSha": "eae7433",
+      "qaReport": {
+        "passed": true,
+        "bugs": [],
+        "summary": "Clean pass"
+      },
+      "reviewerReport": {
+        "passed": true,
+        "findings": [
+          {
+            "severity": "minor",
+            "issue": "PATCH unauthenticated by design (pre-existing) \u2014 attribution falls back to unknown"
+          },
+          {
+            "severity": "minor",
+            "issue": "ActivityEntry type duplicates ActivityItem \u2014 consolidation opportunity, no drift risk"
+          }
+        ],
+        "summary": "Clean pass. No action needed."
+      }
+    }
+  ],
+  "regressionSweepDone": false,
+  "startedAt": "2026-04-22T14:27:24Z",
+  "devServerPid": 72998,
+  "screenshotsUsed": 0,
+  "pushedSha": "eae7433",
+  "vercelDeployUrl": "https://dashboard-gamification.vercel.app",
+  "testFixture": null,
+  "metricsLog": ".iterate/metrics.jsonl",
+  "flags": {
+    "stages": 5
+  },
+  "plannerQuestions": null,
+  "plannerDraftBrief": null,
+  "plannerAnswers": "Q1: default (one-time per user, localStorage). Q2: default (keep avatar picker single step). Q3: SSE \u2014 reuse chatBus stream for activity events, real-time push. Q4: default (claimed + active + comment only). Q5: full content search \u2014 fetch all docs with content on Cmd+K open, client-side fuzzy search in memory. Q6: default (last-saved-by only, no live presence polling). Q7: default (yes, add status_change logging).",
+  "loopContext": {
+    "designRoute": "design",
+    "designRouteReason": "4 of 5 stages (1, 2, 3, 5) introduce new user-visible UI surfaces that must feel command-center, not CRUD. Onboarding welcome, notification bell, Cmd+K palette, and timeline all need an aesthetic brief before DEV \u2014 the $1\u20132 designer cost is cheap insurance against shipping generic."
+  },
+  "contextGaps": [
+    {
+      "section": "\u00a71 \u2014 API contracts",
+      "missing": "Whether `GET /api/documents` supports or should support a `?includeContent=true` query param returning plaintext-extracted TipTap content. Stage 3 introduces this; confirm at ship time and document the extraction shape."
+    },
+    {
+      "section": "\u00a71 \u2014 API contracts",
+      "missing": "`PATCH /api/documents/[id]` sets `updatedBy` server-side from session and ignores client-supplied values \u2014 document this as a security contract so future work doesn't reintroduce the client field."
+    },
+    {
+      "section": "\u00a72 \u2014 Model fields",
+      "missing": "`BinayahDocument.updatedBy: String` added in Stage 4 \u2014 additive, no migration. Document alongside createdBy/pipelineId."
+    },
+    {
+      "section": "\u00a73 \u2014 chatBus events",
+      "missing": "chatBus now carries both `message` and `activity` events. Stream route at `/api/pipeline-state/messages/stream` forwards activity as `event: activity` SSE frames. NotificationBell filters to `claimed|active|comment`; status_change is emitted but excluded from the bell by design (Stage 5 timeline consumes it instead)."
+    },
+    {
+      "section": "\u00a74 \u2014 Activity log shape",
+      "missing": "New activity type `status_change` with shape `{ type, user, stage, pipeline, from, to, ts }`. `pipeline` field is required on this type for timeline grouping (older activity entries may lack it \u2014 acceptable)."
+    },
+    {
+      "section": "\u00a75 \u2014 localStorage keys",
+      "missing": "`binayah_welcomed_<fixedUserId>` (Stage 1) and `binayah_notif_seen_at` (Stage 2) \u2014 both additive, no schema version bump."
+    },
+    {
+      "section": "\u00a71 \u2014 gotchas",
+      "missing": "fetch() calls to internal API routes should always check r.ok before r.json() \u2014 a 401/500 response body still parses as valid JSON but the shape is {error: string}, not {docs: [...]}. Silent type mismatch causes downstream TypeError. Pattern: if (!r.ok) throw new Error(r.statusText); before .then(r => r.json())."
+    },
+    {
+      "section": "\u00a71 \u2014 gotchas",
+      "missing": "patchDoc in DocumentsPanel has no in-flight guard \u2014 concurrent PATCH calls are possible if debounce and blur fire simultaneously. Pattern to document: use a saveInFlight ref or AbortController to deduplicate saves."
+    }
+  ],
+  "diffTruncated": false,
+  "phases": [],
+  "testManifest": {
+    "/documents": {
+      "testedInStage": 4,
+      "testedInIter": 1,
+      "testedAfterSha": "292973c",
+      "diffFiles": [
+        "src/lib/BinayahDocument.ts",
+        "src/app/api/documents/[id]/route.ts",
+        "src/components/DocumentsPanel.tsx"
+      ],
+      "passedAt": "2026-04-22T15:59:19.042251Z"
+    },
+    "/overview-panel-timeline": {
+      "testedInStage": 5,
+      "testedInIter": 1,
+      "testedAfterSha": "eae7433",
+      "diffFiles": [
+        "src/app/api/pipeline-state/route.ts",
+        "src/components/OverviewPanel.tsx",
+        "src/components/Dashboard.tsx"
+      ],
+      "passedAt": "2026-04-22T16:10:54.572241Z"
+    }
+  }
+}

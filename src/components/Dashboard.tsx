@@ -1162,7 +1162,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
             {/* Chat */}
             <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat" aria-label="Open team chat">
-              {"\uD83D\uDCAC"}
+              <MessageSquare size={16} strokeWidth={1.8} />
               {chatNotif && activeNavItem !== "chat" && (
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
               )}
@@ -1170,7 +1170,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
             {/* Activity bell */}
             <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications" aria-label="View notifications">
-              {"\uD83D\uDD14"}
+              <Bell size={16} strokeWidth={1.8} />
               {unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
 
@@ -1396,6 +1396,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 approveStage={approveStage}
                 assignTask={assignTask}
                 isLocked={isLocked}
+                currentWorkspaceId={currentWorkspaceId}
+                onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
               />
             </Suspense>
           </ErrorBoundary>
