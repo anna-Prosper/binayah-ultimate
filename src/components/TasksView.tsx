@@ -5,6 +5,7 @@ import { T } from "@/lib/themes";
 import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
+import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -27,7 +28,6 @@ interface Props {
   addComment: (sid: string) => void;
   commentInput: Record<string, string>;
   setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  copied: string | null;
   setStageStatus: (name: string, status: string) => void;
   approvedStages: string[];
   approveStage: (name: string) => void;
@@ -64,7 +64,8 @@ const ALL_COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, hideConcept } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, hideConcept } = props;
+  const { copied } = useEphemeral();
 
   const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 

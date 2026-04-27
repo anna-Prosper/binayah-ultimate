@@ -5,6 +5,7 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
+import { EphemeralProvider, useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, stageDefaults, USERS_DEFAULT, REACTIONS, STATUS_ORDER, ADMIN_IDS, DEFAULT_WORKSPACE_ID, type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -78,6 +79,15 @@ const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orang
 const ICON_OPTIONS = ["\uD83D\uDD27", "\uD83D\uDE80", "\uD83D\uDCA1", "\uD83C\uDFAF", "\u26A1", "\uD83D\uDD25", "\uD83E\uDD16", "\uD83D\uDCA5", "\u2728", "\uD83D\uDCCA"];
 
 export default function Dashboard({ initialUserId }: { initialUserId?: string }) {
+  return (
+    <EphemeralProvider>
+      <DashboardContent initialUserId={initialUserId} />
+    </EphemeralProvider>
+  );
+}
+
+function DashboardContent({ initialUserId }: { initialUserId?: string }) {
+  const { reactOpen, setReactOpen, copied, setCopied } = useEphemeral();
   // Schema version recovery — runs synchronously before any state reads
   const [isRecovering, setIsRecovering] = useState(() => {
     if (typeof window === "undefined") return false;
@@ -127,7 +137,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [commentInput, setCommentInput] = useState<Record<string, string>>({});
   const [subtaskInput, setSubtaskInput] = useState<Record<string, string>>({});
   const [showMockup, setShowMockup] = useState<Record<string, boolean>>({});
-  const [copied, setCopied] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
@@ -140,7 +149,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const viewingUserPopupRef = useRef<HTMLDivElement>(null);
   const [ptsFlash, setPtsFlash] = useState(false);
   const prevMyPtsRef = useRef(0);
-  const [reactOpen, setReactOpen] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
@@ -1066,7 +1074,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     return null;
   })();
 
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs, stageImages, addStageImage, removeStageImage, archiveStage };
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, showMockup, setShowMockup, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs, stageImages, addStageImage, removeStageImage, archiveStage };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
@@ -1412,7 +1420,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 subtasks={subtasks}
                 assignments={assignments}
                 approvedStages={approvedStages}
-                copied={copied}
                 commentInput={commentInput}
                 setCommentInput={setCommentInput}
                 getStatus={getStatus}
@@ -1525,7 +1532,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 addComment={addComment}
                 commentInput={commentInput}
                 setCommentInput={setCommentInput}
-                copied={copied}
                 setStageStatus={setStageStatusDirect}
                 approvedStages={approvedStages}
                 approveStage={approveStage}

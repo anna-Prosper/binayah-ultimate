@@ -8,6 +8,7 @@ import { Chev } from "@/components/ui/primitives";
 import ClaimChip from "@/components/ui/ClaimChip";
 import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import BottomSheet from "@/components/ui/BottomSheet";
 
 // ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
@@ -140,11 +141,8 @@ interface StageProps {
   users: UserType[];
   currentUser: string | null;
   me: UserType;
-  reactOpen: string | null;
-  setReactOpen: (v: string | null) => void;
   showMockup: Record<string, boolean>;
   setShowMockup: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  copied: string | null;
   claimAnim: { stage: string; pts: number } | null;
   handleClaim: (sid: string) => void;
   handleReact: (sid: string, emoji: string) => void;
@@ -174,7 +172,7 @@ interface StageProps {
 export default function Stage({
   name, idx, tot, pC, pId, t, expS, setExpS, getStatus, sc,
   claims, reactions: rxns, subtasks, comments, users, currentUser, me,
-  reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim,
+  showMockup, setShowMockup, claimAnim,
   handleClaim, handleReact, cycleStatus, shareStage,
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
@@ -183,6 +181,7 @@ export default function Stage({
   isMobile = false,
   isTopClaim = false,
 }: StageProps) {
+  const { reactOpen, setReactOpen, copied } = useEphemeral();
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
   const [stageEditMode, setStageEditMode] = useState(false);

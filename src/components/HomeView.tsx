@@ -6,6 +6,7 @@ import { Users, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace, type SubtaskItem, type CommentItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 
@@ -26,7 +27,6 @@ interface Props {
   subtasks: Record<string, SubtaskItem[]>;
   assignments: Record<string, string>;
   approvedStages: string[];
-  copied: string | null;
   commentInput: Record<string, string>;
   setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   getStatus: (name: string) => string;
@@ -58,13 +58,14 @@ interface Props {
 
 export default function HomeView({
   t, me, users, myWorkspaces, allPipelinesGlobal, customStages, pipeMetaOverrides,
-  claims, reactions, comments, subtasks, assignments, approvedStages, copied,
+  claims, reactions, comments, subtasks, assignments, approvedStages,
   commentInput, setCommentInput, getStatus, sc, ck,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   handleClaim, handleReact, toggleSubtask, renameSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
   editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
+  const { copied } = useEphemeral();
   // null = show all workspaces; string = filter to specific workspace
   const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
 
@@ -264,7 +265,6 @@ export default function HomeView({
         addComment={addComment}
         commentInput={commentInput}
         setCommentInput={setCommentInput}
-        copied={copied}
         setStageStatus={setStageStatus}
         approvedStages={approvedStages}
         approveStage={approveStage}
