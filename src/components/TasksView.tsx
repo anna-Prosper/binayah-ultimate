@@ -457,8 +457,10 @@ function TaskCard({
                 if (e.key === "Enter") {
                   if (editingVal) setStageNameOverride?.(task.stageId, editingVal);
                   setEditingStage?.(null);
+                  setEditOpen(false);
                 } else if (e.key === "Escape") {
                   setEditingStage?.(null);
+                  setEditOpen(false);
                 }
               }}
               onBlur={() => {
@@ -466,6 +468,7 @@ function TaskCard({
                   setStageNameOverride?.(task.stageId, editingVal);
                 }
                 setEditingStage?.(null);
+                setEditOpen(false);
               }}
               style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `2px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
             />
@@ -548,9 +551,19 @@ function TaskCard({
         onEmoji={emoji => { handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); setEditingStage?.(null); }}
-        showEditButton={isHovered || editOpen}
-        showEditInput={editOpen}
+        onEditToggle={() => {
+          const next = !editOpen;
+          setEditOpen(next);
+          setReactOpen(null); setCommentOpen(null); setAssignOpen(null);
+          if (next) {
+            setEditingStage?.(task.stageId);
+            setEditingVal?.(task.displayName || task.stageId);
+          } else {
+            setEditingStage?.(null);
+          }
+        }}
+        showEditButton={isHovered || editOpen || editingStage === task.stageId}
+        showEditInput={editOpen || editingStage === task.stageId}
       />
 
       {showCommentPopover && (
