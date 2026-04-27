@@ -64,6 +64,12 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: keyErr }, { status: 400 });
   }
 
+  // Recursive nested-key validation — runs before DB connection to avoid wasted round-trip
+  if (!validateNestedKeys(cleanPatch)) {
+    logApi(ROUTE, "key_injection_blocked", { reason: "nested key contains forbidden characters" });
+    return NextResponse.json({ error: "INVALID_KEY" }, { status: 400 });
+  }
+
   // Subtask bounds validation
   if ("subtasks" in cleanPatch) {
     const subtaskErr = validateSubtasks(cleanPatch.subtasks);
@@ -75,12 +81,6 @@ export async function PATCH(req: NextRequest) {
 
   await connectMongo();
   await ensureDoc();
-
-  // Recursive nested-key validation — rejects keys with $, ., __proto__, etc.
-  if (!validateNestedKeys(cleanPatch)) {
-    logApi(ROUTE, "key_injection_blocked", { reason: "nested key contains forbidden characters" });
-    return NextResponse.json({ error: "INVALID_KEY" }, { status: 400 });
-  }
 
   // Get session user for activity attribution (best-effort; not required for state write)
   const session = await getServerSession(authOptions);
