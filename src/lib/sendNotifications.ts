@@ -37,7 +37,7 @@ function resolveDisplayName(fixedUserId: string): string {
 
 export async function sendNotifications(opts: NotifyOpts): Promise<void> {
   const appUrl =
-    process.env.NEXTAUTH_URL ?? "https://dashboard-gamification.vercel.app";
+    process.env.NEXTAUTH_URL ?? "https://dashboard.binayahhub.com";
 
   // Best-effort actor name resolution
   const actorDisplay = opts.actorName

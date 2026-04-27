@@ -82,7 +82,7 @@ export async function GET(req: Request): Promise<Response> {
     return htmlResponse(errorPage("// something went wrong. try again later."), 500);
   }
 
-  const appUrl = process.env.NEXTAUTH_URL ?? "https://dashboard-gamification.vercel.app";
+  const appUrl = process.env.NEXTAUTH_URL ?? "https://dashboard.binayahhub.com";
   return htmlResponse(successPage(appUrl), 200);
 }
 
