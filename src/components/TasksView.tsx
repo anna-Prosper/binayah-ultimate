@@ -46,6 +46,7 @@ interface Props {
   editMode?: boolean;
   archivedStages?: string[];
   onPipelineClick?: (pipelineId: string) => void;
+  trashStage?: (sid: string) => void;
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -61,7 +62,7 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages, onPipelineClick } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages, onPipelineClick, trashStage } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -198,7 +199,7 @@ export default function TasksView(props: Props) {
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
-    editMode, onPipelineClick,
+    editMode, onPipelineClick, trashStage,
     handleClaim, claims,
   };
 
@@ -322,6 +323,7 @@ interface SharedCardProps {
   users: UserType[];
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
+  trashStage?: (sid: string) => void;
   currentUser: string | null;
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
@@ -385,10 +387,11 @@ function TaskCard({
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick, trashStage,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -543,6 +546,21 @@ function TaskCard({
           onInputChange={v => setCommentInput(prev => ({ ...prev, [task.stageId]: v }))}
           onSend={() => addComment(task.stageId)}
         />
+      )}
+
+      {/* Delete with confirmation — appears on hover bottom-left */}
+      {trashStage && (isHovered || confirmDelete) && (
+        <div style={{ position: "absolute", bottom: 10, left: 10 }}>
+          {confirmDelete ? (
+            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>move to trash?</span>
+              <button onClick={e => { e.stopPropagation(); trashStage(task.stageId); setConfirmDelete(false); }} style={{ background: t.red + "18", border: `1px solid ${t.red}55`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontWeight: 700 }}>yes</button>
+              <button onClick={e => { e.stopPropagation(); setConfirmDelete(false); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted }}>no</button>
+            </div>
+          ) : (
+            <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, opacity: 0.6 }} title="Move to trash">🗑</button>
+          )}
+        </div>
       )}
     </CardShell>
     </div>

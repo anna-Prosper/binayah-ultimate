@@ -133,6 +133,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
   const [showArchive, setShowArchive] = useState(false);
+  const [trashedStages, setTrashedStages] = useState<string[]>(() => lsGet("trashedStages", []));
+  const [trashedPipelines, setTrashedPipelines] = useState<string[]>(() => lsGet("trashedPipelines", []));
+  const [trashedSubtasks, setTrashedSubtasks] = useState<string[]>(() => lsGet("trashedSubtasks", []));
   const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
@@ -340,6 +343,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("archivedStages", archivedStages) }, [archivedStages]);
   useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
   useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
+  useEffect(() => { lsSet("trashedStages", trashedStages) }, [trashedStages]);
+  useEffect(() => { lsSet("trashedPipelines", trashedPipelines) }, [trashedPipelines]);
+  useEffect(() => { lsSet("trashedSubtasks", trashedSubtasks) }, [trashedSubtasks]);
   useEffect(() => { lsSet("currentWorkspaceId", currentWorkspaceId) }, [currentWorkspaceId]);
 
   // One-time workspace migration: seed "War Room" with all existing pipelines,
@@ -659,6 +665,28 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
 
   // ─── Workspace admin handlers ────────────────────────────────────────────
+  // Trash handlers (with confirmation before delete, restorable)
+  const trashStage = (sid: string) => {
+    setTrashedStages(prev => prev.includes(sid) ? prev : [...prev, sid]);
+    showToast(`moved to trash: ${stageNameOverrides[sid] || sid}`, t.red);
+  };
+  const restoreFromTrashStage = (sid: string) => setTrashedStages(prev => prev.filter(s => s !== sid));
+  const permanentDeleteStage = (sid: string) => {
+    setTrashedStages(prev => prev.filter(s => s !== sid));
+    // Clean up associated state
+    setClaims(prev => { const n = {...prev}; delete n[sid]; return n; });
+    setReactions(prev => { const n = {...prev}; delete n[sid]; return n; });
+    setComments(prev => { const n = {...prev}; delete n[sid]; return n; });
+    setSubtasks(prev => { const n = {...prev}; delete n[sid]; return n; });
+  };
+  const trashPipeline = (pid: string) => {
+    setTrashedPipelines(prev => prev.includes(pid) ? prev : [...prev, pid]);
+    showToast("pipeline moved to trash", t.red);
+  };
+  const restoreFromTrashPipeline = (pid: string) => setTrashedPipelines(prev => prev.filter(p => p !== pid));
+  const trashSubtask = (key: string) => setTrashedSubtasks(prev => prev.includes(key) ? prev : [...prev, key]);
+  const restoreFromTrashSubtask = (key: string) => setTrashedSubtasks(prev => prev.filter(k => k !== key));
+
   // Archive handlers
   const archiveStage = (sid: string) => {
     setArchivedStages(prev => prev.includes(sid) ? prev : [...prev, sid]);
@@ -1525,15 +1553,49 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </ErrorBoundary>
         )}
 
-        {/* KANBAN VIEW */}
+        {/* KANBAN VIEW — uses same TasksView as home, filtered to current workspace */}
         {view === "kanban" && (
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<KanbanSkeleton t={t} />}>
-              <KanbanView
-                t={t} getStatus={getStatus} setStageStatusDirect={setStageStatusDirect}
-                claims={claims} reactions={reactions} users={users} currentUser={currentUser}
-                sc={sc} ck={ck} customStages={customStages} customPipelines={customPipelines}
-                onCardClick={onKanbanCardClick} searchQ={searchQ} lockedPipelines={lockedPipelines}
+              <TasksView
+                t={t}
+                allPipelines={allPipelines}
+                customStages={customStages}
+                pipeMetaOverrides={pipeMetaOverrides}
+                subtasks={subtasks}
+                claims={claims}
+                reactions={reactions}
+                comments={comments}
+                getStatus={getStatus}
+                sc={sc}
+                users={users}
+                currentUser={currentUser}
+                handleClaim={handleClaim}
+                handleReact={handleReact}
+                toggleSubtask={toggleSubtask}
+                shareStage={shareStage}
+                addComment={addComment}
+                commentInput={commentInput}
+                setCommentInput={setCommentInput}
+                copied={copied}
+                isLocked={isLocked}
+                setStageStatus={setStageStatusDirect}
+                approvedStages={approvedStages}
+                approveStage={approveStage}
+                isAdmin={isAdmin}
+                assignments={assignments}
+                assignTask={assignTask}
+                ck={ck}
+                stageNameOverrides={stageNameOverrides}
+                setStageNameOverride={setStageNameOverride}
+                subtaskStages={subtaskStages}
+                setSubtaskStage={setSubtaskStage}
+                archivedStages={[...archivedStages, ...trashedStages]}
+                onPipelineClick={(pid) => setActiveSidebarPipeline(pid)}
+                trashStage={trashStage}
+                showMyAllFilter={true}
+                defaultMyAllFilter={isAdmin ? "all" : "my"}
+                pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))}
               />
             </Suspense>
           </ErrorBoundary>
@@ -1580,9 +1642,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                           {editingPipeName === p.id ? (
                             <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 15, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit" }} />
                           ) : (
-                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 15, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
-                              {pipeName} <span style={{ fontSize: 11, color: t.textDim, opacity: 0.4 }}>{"✎"}</span>
-                            </span>
+                            <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
                           )}
                           <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 8px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
                           <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 10, color: prC.c, background: prC.c + "12", padding: "0 8px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
@@ -2023,8 +2083,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       {/* Archive panel */}
       {showArchive && (
         <div style={{ position: "fixed", bottom: 132, right: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 4 }}>📦 archive</div>
-          {archivedStages.length === 0 && archivedPipelines.length === 0 ? (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>📦 archive & trash</div>
+            {trashedStages.length + trashedPipelines.length > 0 && <span style={{ fontSize: 10, background: t.red + "18", color: t.red, border: `1px solid ${t.red}44`, borderRadius: 8, padding: "0 6px", fontWeight: 700 }}>🗑 {trashedStages.length + trashedPipelines.length}</span>}
+          </div>
+          {archivedStages.length === 0 && archivedPipelines.length === 0 && trashedStages.length === 0 && trashedPipelines.length === 0 ? (
             <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>nothing archived yet</div>
           ) : (
             <>
@@ -2051,6 +2114,18 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       </div>
                     );
                   })}
+                </div>
+              )}
+              {trashedStages.length > 0 && (
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ fontSize: 10, color: t.red, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6 }}>🗑 trash ({trashedStages.length})</div>
+                  {trashedStages.map(sid => (
+                    <div key={sid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: t.red + "08", marginBottom: 4 }}>
+                      <span style={{ flex: 1, fontSize: 12, color: t.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "line-through" }}>{stageNameOverrides[sid] || sid}</span>
+                      <button onClick={() => restoreFromTrashStage(sid)} style={{ background: t.green + "18", border: `1px solid ${t.green}44`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.green, fontWeight: 700 }}>restore</button>
+                      <button onClick={() => permanentDeleteStage(sid)} style={{ background: t.red + "18", border: `1px solid ${t.red}44`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.red, fontWeight: 700 }}>delete</button>
+                    </div>
+                  ))}
                 </div>
               )}
             </>
