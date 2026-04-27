@@ -12,7 +12,7 @@ export const mkTheme = (id: string, isDark: boolean) => {
       bg: d?"#08050f":"#f8f6f2", bgCard: d?"#0d0a18":"#fff", bgHover: d?"#130f22":"#faf9f7", bgSoft: d?"#0a0814":"#f2f0ec",
       border: d?"#251e40":"#ccc4b8", text: d?"#f0ecff":"#1a1510", textSec: d?"#c8bef0":"#3a3028", textMuted: d?"#7a6ea0":"#5a5048", textDim: d?"#6858a8":"#8a8070", surface: d?"#0f0c1a":"#edeae4",
       accent: d?"#bf5af2":"#7c3aed", accent2: d?"#ff2d78":"#d4235e", green: d?"#00ff88":"#0a9956", amber: d?"#ffcc00":"#a67c00", red: d?"#ff2d78":"#d4235e", purple: d?"#bf5af2":"#7c3aed", cyan: d?"#00d4ff":"#0088bb", orange: d?"#ff6b35":"#c44d1a",
-      name: "War Room", icon: "🏴‍☠️", sub: "// where strategies are forged"
+      name: "Binayah AI", icon: "🤖", sub: "// command center"
     },
     lab: {
       bg: d?"#050a0a":"#f4f8f6", bgCard: d?"#0a1414":"#fff", bgHover: d?"#0e1a1a":"#f6faf8", bgSoft: d?"#081010":"#edf4f0",
@@ -50,7 +50,7 @@ export const mkTheme = (id: string, isDark: boolean) => {
 export type T = any;
 
 export const THEME_OPTIONS = [
-  {id:"warroom",name:"War Room",icon:"🏴‍☠️",desc:"Dark ops. Neon purple. Secret command center.",color:"#bf5af2",bg:"#08050f"},
+  {id:"warroom",name:"Binayah AI",icon:"🤖",desc:"Dark ops. Neon purple. Command center.",color:"#bf5af2",bg:"#08050f"},
   {id:"lab",name:"The Lab",icon:"🧪",desc:"Bio-tech greens. Clinical but alive.",color:"#00e5a0",bg:"#050a0a"},
   {id:"engine",name:"Engine Room",icon:"⚙️",desc:"Industrial heat. Orange sparks. Raw power.",color:"#ff6b35",bg:"#0a0808"},
   {id:"nerve",name:"Nerve Center",icon:"🧠",desc:"Deep navy. Neural calm. Everything connected.",color:"#5b8cf8",bg:"#06060c"},
