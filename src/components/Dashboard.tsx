@@ -1132,7 +1132,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
               <span style={{ fontSize: 11, letterSpacing: 0.5, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines {"\u00B7"} {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
             </div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>🤖 Binayah AI</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 0 }}>
               <div style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{t.sub}</div>
               {syncStatus === "offline" && (
