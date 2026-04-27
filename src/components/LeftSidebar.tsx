@@ -140,8 +140,11 @@ export default function LeftSidebar({
                 alignItems: "center",
                 gap: 8,
                 padding: "8px 12px",
-                background: isActive ? t.accent + "18" : "transparent",
+                marginLeft: isActive ? 4 : 0,
+                paddingLeft: isActive ? 8 : 12,
+                background: isActive ? t.accent + "22" : "transparent",
                 border: "none",
+                borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
                 cursor: "pointer",
                 color: isActive ? t.accent : t.textMuted,
                 fontSize: 13,
@@ -150,6 +153,7 @@ export default function LeftSidebar({
                 letterSpacing: 0.5,
                 textAlign: "left",
                 transition: "all 0.15s",
+                borderRadius: 6,
               }}
               onMouseEnter={e => {
                 if (!isActive) {
