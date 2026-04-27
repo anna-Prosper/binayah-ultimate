@@ -50,6 +50,8 @@ interface Props {
   setStageNameOverride?: (name: string, val: string) => void;
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
+  editMode?: boolean;
+  archivedStages?: string[];
 }
 
 export default function HomeView({
@@ -59,7 +61,7 @@ export default function HomeView({
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   handleClaim, handleReact, toggleSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
-  navbarSlot,
+  editMode, archivedStages, navbarSlot,
 }: Props) {
   // All pipelines visible to this user across their workspaces
   const visiblePipelines = useMemo(() => {
@@ -107,9 +109,9 @@ export default function HomeView({
   const totalMyTasks = visibleStages.filter(s => (claims[s.stageId] || []).includes(currentUser)).length;
 
   return (
-    <div style={{ paddingTop: 20 }}>
+    <div>
       {/* Greeting + navbar on same line */}
-      <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+      <div style={{ marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
         {navbarSlot && <div style={{ flexShrink: 0 }}>{navbarSlot}</div>}
       </div>
@@ -255,6 +257,8 @@ export default function HomeView({
         setStageNameOverride={setStageNameOverride}
         subtaskStages={subtaskStages}
         setSubtaskStage={setSubtaskStage}
+        editMode={editMode}
+        archivedStages={archivedStages}
       />
     </div>
   );

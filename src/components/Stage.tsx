@@ -164,6 +164,7 @@ interface StageProps {
   stageImages: Record<string, string[]>;
   addStageImage: (name: string, dataUrl: string) => void;
   removeStageImage: (name: string, idx: number) => void;
+  archiveStage?: (sid: string) => void;
   isLocked: boolean;
   isMobile?: boolean;
 }
@@ -176,7 +177,7 @@ export default function Stage({
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
   stageDescOverrides, setStageDescOverride, liveNotifs,
-  stageImages, addStageImage, removeStageImage,
+  stageImages, addStageImage, removeStageImage, archiveStage,
   isLocked, isMobile = false,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
@@ -351,6 +352,14 @@ export default function Stage({
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {copied === name ? "\u2713 copied" : "\uD83D\uDCCB copy"}
                 </button>
+                {archiveStage && (
+                  <button onClick={() => archiveStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.amber; (e.currentTarget as HTMLElement).style.color = t.amber; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
+                    title="Archive this task">
+                    📦 archive
+                  </button>
+                )}
               </div>
             </div>
 

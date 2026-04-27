@@ -128,6 +128,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [subtaskInput, setSubtaskInput] = useState<Record<string, string>>({});
   const [showMockup, setShowMockup] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState<string | null>(null);
+  const [editMode, setEditMode] = useState(false);
+  const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
+  const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
+  const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
+  const [showArchive, setShowArchive] = useState(false);
   const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
@@ -332,6 +337,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
   useEffect(() => { lsSet("customPipelines", customPipelines) }, [customPipelines]);
   useEffect(() => { lsSet("workspaces", workspaces) }, [workspaces]);
+  useEffect(() => { lsSet("archivedStages", archivedStages) }, [archivedStages]);
+  useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
+  useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
   useEffect(() => { lsSet("currentWorkspaceId", currentWorkspaceId) }, [currentWorkspaceId]);
 
   // One-time workspace migration: seed "War Room" with all existing pipelines,
@@ -420,6 +428,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
         if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
+        if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
+        if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
+        if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
@@ -546,7 +557,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, workspaces }).then(result => {
+      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, workspaces, archivedStages, archivedPipelines, archivedSubtasks }).then(result => {
         if (!result.ok) {
           if ((result as { status?: number }).status === 423) {
             showToast("// pipeline is locked \u2014 unlock to make changes", t.amber);
@@ -648,6 +659,31 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
 
   // ─── Workspace admin handlers ────────────────────────────────────────────
+  // Archive handlers
+  const archiveStage = (sid: string) => {
+    setArchivedStages(prev => prev.includes(sid) ? prev : [...prev, sid]);
+    showToast(`archived: ${stageNameOverrides[sid] || sid}`, t.textMuted);
+    logActivity("claim", sid, "archived");
+  };
+  const restoreStage = (sid: string) => {
+    setArchivedStages(prev => prev.filter(s => s !== sid));
+    showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green);
+  };
+  const archivePipeline = (pid: string) => {
+    setArchivedPipelines(prev => prev.includes(pid) ? prev : [...prev, pid]);
+    showToast("pipeline archived", t.textMuted);
+  };
+  const restorePipeline = (pid: string) => {
+    setArchivedPipelines(prev => prev.filter(p => p !== pid));
+    showToast("pipeline restored", t.green);
+  };
+  const archiveSubtask = (key: string) => {
+    setArchivedSubtasks(prev => prev.includes(key) ? prev : [...prev, key]);
+  };
+  const restoreSubtask = (key: string) => {
+    setArchivedSubtasks(prev => prev.filter(k => k !== key));
+  };
+
   const createWorkspace = (name: string, icon: string, colorKey: string) => {
     if (!currentUser) return;
     if (!workspaces.some(w => w.captains.includes(currentUser))) { showToast("// only a captain can create a workspace", t.amber); return; }
@@ -1037,7 +1073,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
   if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
 
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage };
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage, archiveStage };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
@@ -1133,24 +1169,17 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         <>
 
       {/* Top section: header + team bar */}
-      <div style={{ padding: isMobile ? "16px 12px 0" : "24px 20px 0" }}>
+      <div style={{ padding: isMobile ? "12px 12px 0" : (activeNavItem === "home" ? "12px 20px 0" : "24px 20px 0") }}>
 
         {/* HEADER */}
-        <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
+        <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
           {activeNavItem !== "home" && (
-          <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-              <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
-              <span style={{ fontSize: 11, letterSpacing: 0.5, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines {"\u00B7"} {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>🤖 Binayah AI</div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 0 }}>
-              <div style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{t.sub}</div>
-              {syncStatus === "offline" && (
-                <span style={{ fontSize: 10, color: t.amber, background: t.amber + "18", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "0 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
-                  // offline — changes saved locally
-                </span>
-              )}
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🤖</span>
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>Binayah AI</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
+              <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines · {total} stages{syncStatus === "offline" ? " · offline" : ""}</span>
             </div>
           </div>
           )}
@@ -1414,6 +1443,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setStageNameOverride={setStageNameOverride}
                 subtaskStages={subtaskStages}
                 setSubtaskStage={setSubtaskStage}
+                editMode={editMode}
+                archivedStages={archivedStages}
                 navbarSlot={me ? (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                     <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 10px", cursor: "pointer" }}
@@ -1940,6 +1971,102 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
       {/* Error / action toast stack */}
       <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
+
+      {/* Archive view toggle FAB */}
+      {!isMobile && (
+        <button
+          onClick={() => setShowArchive(v => !v)}
+          title={showArchive ? "Close archive" : "View archive"}
+          style={{
+            position: "fixed",
+            bottom: 80,
+            right: 28,
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: showArchive ? t.amber + "22" : t.bgCard,
+            border: `2px solid ${showArchive ? t.amber : t.border}`,
+            color: showArchive ? t.amber : t.textMuted,
+            fontSize: 18,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: "0 2px 12px rgba(0,0,0,0.15)",
+            transition: "all 0.2s",
+            zIndex: 500,
+          }}
+        >
+          📦
+        </button>
+      )}
+
+      {/* Archive panel */}
+      {showArchive && (
+        <div style={{ position: "fixed", bottom: 132, right: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 4 }}>📦 archive</div>
+          {archivedStages.length === 0 && archivedPipelines.length === 0 ? (
+            <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>nothing archived yet</div>
+          ) : (
+            <>
+              {archivedStages.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6 }}>tasks ({archivedStages.length})</div>
+                  {archivedStages.map(sid => (
+                    <div key={sid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: t.bgHover, marginBottom: 4 }}>
+                      <span style={{ flex: 1, fontSize: 12, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stageNameOverrides[sid] || sid}</span>
+                      <button onClick={() => restoreStage(sid)} style={{ background: t.green + "18", border: `1px solid ${t.green}44`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>restore</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {archivedPipelines.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 10, color: t.textMuted, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6 }}>pipelines ({archivedPipelines.length})</div>
+                  {archivedPipelines.map(pid => {
+                    const p = allPipelinesGlobal.find(p => p.id === pid);
+                    return (
+                      <div key={pid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: t.bgHover, marginBottom: 4 }}>
+                        <span style={{ flex: 1, fontSize: 12, color: t.text }}>{p?.icon} {pipeMetaOverrides[pid]?.name || p?.name || pid}</span>
+                        <button onClick={() => restorePipeline(pid)} style={{ background: t.green + "18", border: `1px solid ${t.green}44`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>restore</button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Floating edit mode FAB — fixed bottom-right, notion-style */}
+      {!isMobile && (
+        <button
+          onClick={() => setEditMode(v => !v)}
+          title={editMode ? "Exit edit mode" : "Enter edit mode"}
+          style={{
+            position: "fixed",
+            bottom: 28,
+            right: 28,
+            width: 44,
+            height: 44,
+            borderRadius: "50%",
+            background: editMode ? t.accent : t.bgCard,
+            border: `2px solid ${editMode ? t.accent : t.border}`,
+            color: editMode ? "#fff" : t.textMuted,
+            fontSize: 18,
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            boxShadow: editMode ? `0 4px 20px ${t.accent}55` : "0 2px 12px rgba(0,0,0,0.15)",
+            transition: "all 0.2s",
+            zIndex: 500,
+          }}
+        >
+          ✏️
+        </button>
+      )}
     </div>
   );
 }

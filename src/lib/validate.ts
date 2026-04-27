@@ -79,6 +79,9 @@ export const PATCH_KEY_WHITELIST = new Set([
   "lockedPipelines",
   "users",
   "workspaces",
+  "archivedStages",
+  "archivedPipelines",
+  "archivedSubtasks",
   "updatedAt",
 ]);
 

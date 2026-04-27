@@ -43,6 +43,8 @@ interface Props {
   // Optional name/stage editing props
   stageNameOverrides?: Record<string, string>;
   setStageNameOverride?: (name: string, val: string) => void;
+  editMode?: boolean;
+  archivedStages?: string[];
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -58,7 +60,7 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -81,7 +83,7 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => getStatus(s) !== "concept")
+      .filter(s => getStatus(s) !== "concept" && !(archivedStages || []).includes(s))
       .map(s => ({
         stageId: s,
         displayName: stageNameOverrides?.[s] || s,
@@ -188,6 +190,7 @@ export default function TasksView(props: Props) {
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
+    editMode,
     handleClaim, claims,
   };
 
@@ -308,6 +311,7 @@ interface SubtaskKanbanTask {
 interface SharedCardProps {
   t: T;
   users: UserType[];
+  editMode?: boolean;
   currentUser: string | null;
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
@@ -371,7 +375,7 @@ function TaskCard({
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride,
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -500,7 +504,7 @@ function TaskCard({
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
         onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); setEditingStage?.(null); }}
-        showEditButton={true}
+        showEditButton={!!editMode}
         showEditInput={editOpen}
       />
 
