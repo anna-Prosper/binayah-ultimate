@@ -130,69 +130,109 @@ export default function HomeView({
         </div>
       </div>
 
-      {/* Workspace preview cards — separate line below */}
-      <div style={{ marginBottom: 24, display: "flex", flexWrap: "wrap", gap: 12 }}>
-        {myWorkspaces.map(w => {
-          const isActive = w.id === currentWorkspaceId;
-          const role = w.captains.includes(currentUser) ? "captain" : w.firstMates.includes(currentUser) ? "first mate" : "crew";
-          const roleColor = role === "captain" ? t.amber : role === "first mate" ? (t.cyan || t.accent) : t.textMuted;
-          const wMyCount = visibleStages.filter(s => s.wsId === w.id && (claims[s.stageId] || []).includes(currentUser)).length;
-          return (
-            <button
-              key={w.id}
-              onClick={() => onSwitchWorkspace(w.id)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: 10,
-                background: isActive ? t.accent + "11" : t.bgCard,
-                border: isActive ? `2px solid ${t.accent}` : `1px solid ${t.border}`,
-                borderRadius: 14,
-                padding: "12px 14px",
-                cursor: "pointer",
-                transition: "all 0.2s",
-                minWidth: 160,
-                flex: "0 1 auto",
-                textAlign: "left",
-              }}
-              onMouseEnter={e => {
-                const el = e.currentTarget as HTMLElement;
-                if (!isActive) {
-                  el.style.background = t.bgHover || t.bgSoft;
-                  el.style.borderColor = t.accent + "44";
-                }
-              }}
-              onMouseLeave={e => {
-                const el = e.currentTarget as HTMLElement;
-                if (!isActive) {
-                  el.style.background = t.bgCard;
-                  el.style.borderColor = t.border;
-                }
-              }}
-            >
-              {/* Header: icon + name + role badge */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 18 }}>{w.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.name}</div>
-                  <div style={{ fontSize: 10, color: roleColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{role}</div>
-                </div>
-              </div>
+      {/* Optimized workspace header */}
+      {myWorkspaces.length > 0 && (
+        <div style={{ marginBottom: 28 }}>
+          {/* Workspace switcher row */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            {myWorkspaces.map(w => {
+              const isActive = w.id === currentWorkspaceId;
+              return (
+                <button
+                  key={w.id}
+                  onClick={() => onSwitchWorkspace(w.id)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    background: isActive ? t.accent + "18" : "transparent",
+                    border: isActive ? `2px solid ${t.accent}` : `1px solid ${t.border}`,
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    color: isActive ? t.accent : t.textMuted,
+                    fontSize: 12,
+                    fontWeight: isActive ? 700 : 600,
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    if (!isActive) el.style.color = t.text;
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    if (!isActive) el.style.color = t.textMuted;
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>{w.icon}</span>
+                  <span>{w.name}</span>
+                </button>
+              );
+            })}
+          </div>
 
-              {/* Stats row: members, pipelines, my tasks */}
-              <div style={{ display: "flex", gap: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <Users size={11} strokeWidth={2} /> {w.members.length}
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                  <Zap size={11} strokeWidth={2} /> {w.pipelineIds.length}
-                </div>
-                {wMyCount > 0 && <div style={{ color: t.accent, fontWeight: 700 }}>· {wMyCount}</div>}
-              </div>
-            </button>
-          );
-        })}
-      </div>
+          {/* Active workspace header with stats and team */}
+          {myWorkspaces.find(w => w.id === currentWorkspaceId) && (
+            <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+              {(() => {
+                const activeWs = myWorkspaces.find(w => w.id === currentWorkspaceId);
+                if (!activeWs) return null;
+                const activePipelines = visiblePipelines.filter(p => activeWs.pipelineIds.includes(p.id));
+                const totalStages = activePipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
+                const wsMembers = activeWs.members;
+                const wsTeamMembers = users.filter(u => wsMembers.includes(u.id));
+
+                return (
+                  <>
+                    {/* Header: icon, name, and stats */}
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 16, justifyContent: "space-between", flexWrap: "wrap" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ fontSize: 32, lineHeight: 1 }}>{activeWs.icon}</div>
+                        <div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, lineHeight: 1.2, marginBottom: 4 }}>{activeWs.name}</div>
+                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", display: "flex", gap: 12 }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.green }}>● {activePipelines.length} pipelines</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.cyan || t.accent }}>• {totalStages} stages</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Team members section */}
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
+                        team ({wsTeamMembers.length})
+                      </div>
+                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                        {wsTeamMembers.map((u) => {
+                          const uPts = getPoints(u.id);
+                          const isMe = u.id === currentUser;
+                          const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
+                          return (
+                            <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}` }}>
+                              <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                                <AvatarC user={u} size={24} />
+                              </div>
+                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
+                                  {u.name.split(" ")[0]}
+                                  {role && <span style={{ fontSize: 9, color: role === "captain" ? t.amber : t.cyan || t.accent, background: (role === "captain" ? t.amber : t.cyan || t.accent) + "22", border: `1px solid ${(role === "captain" ? t.amber : t.cyan || t.accent)}44`, borderRadius: 6, padding: "0 4px", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{role === "captain" ? "👑" : "⚓"}</span>}
+                                </div>
+                                <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          )}
+        </div>
+      )}
 
       <TasksView
         t={t}
