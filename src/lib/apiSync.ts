@@ -26,9 +26,12 @@ export type SharedState = {
 
 export type SyncResult = { ok: true } | { ok: false; error: string; status?: number };
 
-export async function fetchState(): Promise<SharedState | null> {
+export async function fetchState(since?: number): Promise<SharedState | null> {
   try {
-    const res = await fetch(API_BASE, { cache: "no-store" });
+    const url = since !== undefined ? `${API_BASE}?since=${since}` : API_BASE;
+    const res = await fetch(url, { cache: "no-store" });
+    // 304 = client is already up-to-date; return null to signal no update
+    if (res.status === 304) return null;
     if (!res.ok) return null;
     return await res.json();
   } catch {

@@ -23,12 +23,22 @@ async function ensureDoc() {
   );
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
+  const since = req.nextUrl.searchParams.get("since");
   await connectMongo();
   await ensureDoc();
-  const doc = await PipelineState.findOne(WORKSPACE).lean();
-  return NextResponse.json((doc as { state?: unknown } | null)?.state || {});
+  const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string,unknown>; updatedAt?: Date } | null;
+  const state = doc?.state || {};
+  // If client is up-to-date, return 304
+  if (since && doc?.updatedAt) {
+    const sinceMs = parseInt(since, 10);
+    const updatedMs = new Date(doc.updatedAt).getTime();
+    if (!isNaN(sinceMs) && updatedMs <= sinceMs) {
+      return new NextResponse(null, { status: 304 });
+    }
+  }
+  return NextResponse.json(state);
 }
 
 export async function PATCH(req: NextRequest) {
