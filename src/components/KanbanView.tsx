@@ -4,6 +4,7 @@ import { useState } from "react";
 import { T } from "@/lib/themes";
 import { pipelineData, stageDefaults, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import ClaimChip from "@/components/ui/ClaimChip";
 
 const COLS = [
   { id: "concept",     label: "CONCEPT",  emoji: "💡" },
@@ -20,6 +21,7 @@ interface Props {
   reactions: Record<string, Record<string, string[]>>;
   users: UserType[];
   currentUser: string | null;
+  handleClaim: (id: string) => void;
   sc: Record<string, { l: string; c: string }>;
   ck: Record<string, string>;
   customStages: Record<string, string[]>;
@@ -28,7 +30,7 @@ interface Props {
   searchQ: string;
 }
 
-export default function KanbanView({ t, getStatus, setStageStatusDirect, claims, reactions, users, currentUser, sc, ck, customStages, customPipelines, onCardClick, searchQ }: Props) {
+export default function KanbanView({ t, getStatus, setStageStatusDirect, claims, reactions, users, currentUser, handleClaim, sc, ck, customStages, customPipelines, onCardClick, searchQ }: Props) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -58,6 +60,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
         }
         .bu-kb-col { min-height: 420px; }
         .bu-kb-empty::after { content: "// empty waters"; }
+        .bu-kb-drag-over.bu-kb-empty::after { content: "// drop to move"; }
         @media (max-width: 768px) {
           .bu-kb-board {
             display: flex;
@@ -88,6 +91,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
           .bu-kb-card-desc { font-size: 10px !important; }
           .bu-kb-card-tag  { font-size: 9px !important; }
           .bu-kb-empty::after { content: "// empty waters"; }
+          .bu-kb-drag-over.bu-kb-empty::after { content: "// drop to move"; }
           .bu-kb-col-header { position: sticky; top: 0; background: inherit; z-index: 2; padding-top: 4px; padding-bottom: 8px; }
         }
       `}</style>
@@ -149,12 +153,22 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                         <span style={{ marginLeft: "auto", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", fontWeight: col.id === "active" ? 700 : 400, color: col.id === "active" ? t.amber : t.textDim }}>+{def.points}pts</span>
                         {rxTotal > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>· {rxTotal}</span>}
                       </div>
+                      {/* Claim */}
+                      <div style={{ marginTop: 6 }}>
+                        <ClaimChip
+                          claimed={currentUser ? (claims[s.name] || []).includes(currentUser) : false}
+                          pipelineColor={s.pipelineColor}
+                          t={t}
+                          onClaim={() => handleClaim(s.name)}
+                          small
+                        />
+                      </div>
                     </div>
                   );
                 })}
 
                 {stages.length === 0 && (
-                  <div className="bu-kb-empty" style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 12, border: `2px dashed ${t.border}` }} />
+                  <div className={`bu-kb-empty${dragOver === col.id ? " bu-kb-drag-over" : ""}`} style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 12, border: `2px dashed ${t.border}` }} />
                 )}
               </div>
             </div>
