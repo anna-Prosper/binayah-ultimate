@@ -158,10 +158,7 @@ export default function Stage({
               {"\uD83D\uDE00"}
             </button>}
 
-            {/* Preview badge — indicates stage has a mockup */}
-            {MockupComp && !(isMobile ? mobileSheetOpen : isE) && (
-              <span style={{ fontSize: 10, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 8, padding: "0 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
-            )}
+
 
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}

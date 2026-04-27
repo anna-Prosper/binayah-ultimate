@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { T } from "@/lib/themes";
+import { Home, Zap, FileText, Activity, MessageSquare, Settings } from "lucide-react";
 
 export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat";
 
@@ -35,13 +36,21 @@ interface Props {
   onManageCurrentWorkspace: () => void;
 }
 
-const NAV_ITEMS: { id: NavItem; label: string; icon: string }[] = [
-  { id: "home",      label: "home",      icon: "🏠" },
-  { id: "pipelines", label: "pipelines", icon: "⚡" },
-  { id: "documents", label: "documents", icon: "📄" },
-  { id: "activity",  label: "activity",  icon: "🔔" },
-  { id: "chat",      label: "chat",      icon: "💬" },
+const NAV_ITEMS: { id: NavItem; label: string }[] = [
+  { id: "home",      label: "home"      },
+  { id: "pipelines", label: "pipelines" },
+  { id: "documents", label: "documents" },
+  { id: "activity",  label: "activity"  },
+  { id: "chat",      label: "chat"      },
 ];
+
+const NAV_ICONS: Record<string, React.ReactNode> = {
+  home: <Home size={15} strokeWidth={1.8} />,
+  pipelines: <Zap size={15} strokeWidth={1.8} />,
+  documents: <FileText size={15} strokeWidth={1.8} />,
+  activity: <Activity size={15} strokeWidth={1.8} />,
+  chat: <MessageSquare size={15} strokeWidth={1.8} />,
+};
 
 export default function LeftSidebar({
   t,
@@ -74,7 +83,6 @@ export default function LeftSidebar({
     }}>
       {/* Workspace switcher */}
       <div style={{ padding: "8px 8px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
-        <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600, marginBottom: 4 }}>workspace</div>
         <button
           onClick={() => setWsOpen(v => !v)}
           style={{ width: "100%", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, textAlign: "left" }}
@@ -104,7 +112,7 @@ export default function LeftSidebar({
                 onClick={() => { setWsOpen(false); onManageCurrentWorkspace(); }}
                 style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 13, fontWeight: 700, textAlign: "left" }}
               >
-                ⚙ manage workspace
+                <Settings size={11} strokeWidth={2} style={{display:"inline",verticalAlign:"middle",marginRight:4}} /> manage workspace
               </button>
             )}
             {canCreateWorkspace && (
@@ -156,7 +164,7 @@ export default function LeftSidebar({
                 }
               }}
             >
-              <span style={{ fontSize: 15 }}>{item.icon}</span>
+              <span style={{ display: "flex", alignItems: "center" }}>{NAV_ICONS[item.id]}</span>
               <span>{item.label}</span>
             </button>
           );
@@ -171,9 +179,6 @@ export default function LeftSidebar({
           padding: "4px 0",
           borderTop: `1px solid ${t.border}`,
         }}>
-          <div style={{ padding: "4px 12px", fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600 }}>
-            workspaces
-          </div>
           {pipelines.map(p => {
             const isActive = activePipelineId === p.id;
             return (

@@ -53,7 +53,7 @@ export interface Workspace {
 export const DEFAULT_WORKSPACE_ID = "war-room";
 
 export const ONBOARDING = [
-  {title:"gm legend",desc:"welcome to the command center. every AI tool, every pipeline, every initiative — mapped and tracked.",icon:"🏴‍☠️",sub:"// the ecosystem starts here"},
+  {title:"gm legend",desc:"welcome to the command center. every AI tool, every pipeline, every initiative — mapped and tracked.",icon:"🏴‍☠️",sub:""},
   {title:"show your energy",desc:"smash reactions on stages you're excited about. the team sees your conviction in real-time.",icon:"🔥",sub:"// reactions = signal"},
   {title:"claim your territory",desc:"see something you want to own? claim it. your avatar shows up. you're accountable now.",icon:"💀",sub:"// ownership > opinions"},
   {title:"let's build",desc:"every pipeline feeds the next. every stage earns points. the one who ships the most, wins.",icon:"🚀",sub:"// talk is cheap. ship it."},

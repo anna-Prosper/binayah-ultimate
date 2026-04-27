@@ -151,7 +151,7 @@ export default function TasksView(props: Props) {
             )}
           </div>
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
-            {stageTasks.length} tasks {"·"} drag between columns to change status
+            {stageTasks.length} tasks
           </div>
         </div>
         {/* Right-side controls: one unified card, two segmented rows */}

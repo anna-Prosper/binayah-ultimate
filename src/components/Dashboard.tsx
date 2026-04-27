@@ -14,7 +14,6 @@ import WelcomeModal from "@/components/WelcomeModal";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { type ChatMsg } from "@/components/ChatPanel";
-import { generatePipelineReport } from "@/lib/generatePDF";
 import { fetchState, patchState, pushMessage, pushComment, pushActivity } from "@/lib/apiSync";
 import { ToastContainer, RecoveryToast, useToasts } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -29,6 +28,7 @@ import { Suspense } from "react";
 import NotificationPrefs from "@/components/NotificationPrefs";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
+import { MessageSquare, Bell } from "lucide-react";
 
 // Lazy-loaded heavy panels — each becomes its own JS chunk
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
@@ -1181,15 +1181,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               </button>
             )}
 
-            {/* PDF */}
-            <button onClick={() => {
-              const result = generatePipelineReport({ themeId, claims, users, getStatus, getPoints, currentUser: currentUser! });
-              if (!result.ok) {
-                showToast("// pdf export failed", t.red);
-              }
-            }} style={{ ...hBtn }} title="Export PDF">
-              {"\uD83D\uDCC4"} PDF
-            </button>
+
 
             {/* Theme picker */}
             <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
@@ -1329,17 +1321,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </div>
             );
           })}
-          {/* Stats — moved here from search row */}
-          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
-            {[{ l: "total", v: total, c: t.textMuted }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
-              <div key={s.l} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 36, padding: "0 4px", borderRadius: 8, background: s.c + "10" }}>
-                <span style={{ fontSize: 15, fontWeight: 900, color: s.c, lineHeight: 1.2, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</span>
-                <span style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{s.l}</span>
-              </div>
-            ))}
-            <div style={{ width: 1, height: 24, background: t.border, margin: "0 4px" }} />
-            <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</span>
-          </div>
+
         </div>
       </div>{/* end top-section maxWidth */}
 
@@ -1690,9 +1672,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </div>
         )}
 
-        <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
-        </div>
+
         </div>{/* end main content area */}
         </>
       )}{/* end chat/normal conditional */}

@@ -278,7 +278,6 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
-                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no messages yet — break the silence</span>
               </div>
             )}
             {messages.map(msg => {

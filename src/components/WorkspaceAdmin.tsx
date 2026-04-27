@@ -29,7 +29,7 @@ export function CreateWorkspaceModal({ t, onClose, onCreate, ck }: CreateProps) 
   return (
     <ModalShell t={t} onClose={onClose}>
       <div style={{ fontSize: 15, fontWeight: 800, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>+ new workspace</div>
-      <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>// you&apos;ll be the captain of this one</div>
+
 
       <div style={{ marginTop: 20 }}>
         <FieldLabel t={t}>name</FieldLabel>
