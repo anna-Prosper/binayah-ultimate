@@ -188,6 +188,7 @@ export default function TasksView(props: Props) {
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
+    handleClaim, claims,
   };
 
   return (
@@ -526,11 +527,12 @@ function SubtaskCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+  handleClaim, claims,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
   onToggle: () => void;
-} & SharedCardProps) {
+} & SharedCardProps & { handleClaim?: (sid: string) => void; claims?: Record<string, string[]> }) {
   const [isHovered, setIsHovered] = useState(false);
   const subtaskRef = useRef<HTMLDivElement>(null);
 
@@ -556,6 +558,8 @@ function SubtaskCard({
   const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
   const creator = users.find(u => u.id === taskSub.by);
+  const isClaimed = (claims?.[key] || []).includes(currentUser || "");
+  const claimers = claims?.[key] || [];
 
   return (
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
@@ -572,11 +576,19 @@ function SubtaskCard({
         </div>
       </div>
 
-      {/* Bottom row: creator + actions */}
-      <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "space-between", paddingTop: 6 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
+      {/* Bottom row: creator + claim/assign actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "space-between", paddingTop: 6, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, minWidth: 0 }}>
           {creator && (
             <AvatarC user={creator} size={18} />
+          )}
+          {claimers.length > 0 && (
+            <div style={{ display: "flex", gap: -4 }}>
+              {claimers.slice(0, 2).map(id => {
+                const u = users.find(u => u.id === id);
+                return u ? <AvatarC key={id} user={u} size={16} /> : null;
+              })}
+            </div>
           )}
           {visibleReactions.length > 0 && (
             <div style={{ display: "flex", gap: 2 }}>
@@ -585,15 +597,23 @@ function SubtaskCard({
               ))}
             </div>
           )}
-          {cmts.length > 0 && (
-            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>💬 {cmts.length}</span>
+        </div>
+
+        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          {currentUser && handleClaim && (
+            <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={btn(isClaimed ? pipelineColor : pipelineColor, isClaimed ? pipelineColor + "18" : pipelineColor + "15", isClaimed ? pipelineColor + "55" : pipelineColor + "55", true)}>
+              {isClaimed ? "✓" : "+"}
+            </button>
+          )}
+          <button onClick={e => { e.stopPropagation(); setAssignOpen(showAssignPicker ? null : key); }} style={btn(assignee ? assignee.color : pipelineColor, assignee ? assignee.color + "18" : pipelineColor + "15", assignee ? assignee.color + "55" : pipelineColor + "55", true)} title={assignee ? `Assigned to ${assignee.name}` : "Assign"}>
+            👤
+          </button>
+          {currentUser && (
+            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55", true)} title="Mark done">
+              ✓
+            </button>
           )}
         </div>
-        {currentUser && (
-          <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55", true)}>
-            ✓
-          </button>
-        )}
       </div>
 
       {visibleReactions.length > 0 && (
