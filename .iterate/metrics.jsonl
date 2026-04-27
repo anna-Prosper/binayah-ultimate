@@ -52,3 +52,7 @@
 {"ts":"2026-04-22T17:55:12Z","stage":1,"iter":1,"fromPhase":"dev","toPhase":"review","role":"feature-dev","passed":null}
 {"ts":"2026-04-22T17:58:15Z","stage":1,"iter":1,"fromPhase":"review","toPhase":"qa","role":"feature-reviewer","passed":true}
 {"ts":"2026-04-22T17:58:36Z","stage":1,"iter":1,"fromPhase":"qa","toPhase":"push","role":"orchestrator","passed":true}
+{"ts":"2026-04-27T16:33:56Z","stage":1,"iter":1,"fromPhase":"pm","toPhase":"dev","role":"pm","passed":null}
+{"ts":"2026-04-27T16:51:56Z","stage":1,"iter":1,"fromPhase":"dev","toPhase":"review","role":"dev","passed":null}
+{"ts":"2026-04-27T16:56:13Z","stage":1,"iter":1,"fromPhase":"review","toPhase":"qa","role":"reviewer","passed":true}
+{"ts":"2026-04-27T17:04:44Z","stage":1,"iter":1,"fromPhase":"qa","toPhase":"pm_replan","role":"qa","passed":true}

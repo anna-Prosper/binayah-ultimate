@@ -110,8 +110,6 @@ export async function PATCH(req: NextRequest) {
   // Emit status_change activity entries for any stageStatusOverrides changes
   if ("stageStatusOverrides" in cleanPatch) {
     const patchedStatuses = cleanPatch.stageStatusOverrides as Record<string, string>;
-
-    // Build stage→pipeline map for this emit (may differ from lock-check map above)
     const stageToP2 = new Map<string, string>();
     for (const p of pipelineData) {
       for (const s of p.stages) stageToP2.set(s, p.id);
