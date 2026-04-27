@@ -417,7 +417,7 @@ function TaskCard({
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
       >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, border: editOpen ? `2px solid ${t.accent}55` : "none", borderRadius: editOpen ? 8 : 0, padding: editOpen ? 6 : 0, marginLeft: editOpen ? -6 : 0, marginRight: editOpen ? -6 : 0, marginTop: editOpen ? -6 : 0 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingStage === task.stageId ? (
             <input
@@ -441,7 +441,11 @@ function TaskCard({
               style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `2px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
             />
           ) : (
-            <div title={task.stageId} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px solid ${t.accent}33` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 4px" : 0, marginLeft: editOpen ? -2 : 0, marginRight: editOpen ? -2 : 0 }}>{task.displayName}</div>
+            <div
+              title={editOpen ? "Click to rename" : task.stageId}
+              onClick={editOpen ? () => { setEditingStage?.(task.stageId); setEditingVal?.(task.displayName || task.stageId); } : undefined}
+              style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
+            >{task.displayName}</div>
           )}
           <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px solid ${t.accent}33` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 4px" : 0, marginLeft: editOpen ? -2 : 0, marginRight: editOpen ? -2 : 0 }}>
             {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
@@ -458,6 +462,12 @@ function TaskCard({
                 return u ? <AvatarC key={id} user={u} size={20} /> : null;
               })}
             </div>
+          )}
+          {/* Admin: always shows assign + approve when applicable */}
+          {isAdmin && (
+            <button onClick={e => { e.stopPropagation(); setAssignOpen(showAssignPicker ? null : task.stageId); }} style={btn(assignee ? assignee.color : t.textMuted, assignee ? assignee.color + "18" : "transparent", assignee ? assignee.color + "44" : t.border)} title={assignee ? `Assigned: ${assignee.name}` : "Assign to..."}>
+              {assignee ? `→ ${assignee.name.split(" ")[0]}` : "assign"}
+            </button>
           )}
           {isPending && isAdmin && (
             <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
@@ -504,7 +514,7 @@ function TaskCard({
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
         onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); setEditingStage?.(null); }}
-        showEditButton={!!editMode}
+        showEditButton={isHovered || editOpen}
         showEditInput={editOpen}
       />
 
@@ -849,8 +859,29 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         {copied ? "✓ copied" : "📋 copy"}
       </button>
       {onEditToggle && showEditButton && (
-        <button onClick={e => { e.stopPropagation(); onEditToggle(); }} style={{ ...iconBtn, background: showEditInput ? t.accent + "18" : "transparent", borderColor: showEditInput ? t.accent + "55" : t.border, color: showEditInput ? t.accent : t.textMuted, fontWeight: showEditInput ? 700 : 500 }} title="Edit mode">
-          ✏️ edit
+        <button
+          onClick={e => { e.stopPropagation(); onEditToggle(); }}
+          title={showEditInput ? "Exit edit mode" : "Edit"}
+          style={{
+            position: "absolute",
+            bottom: 10,
+            right: 10,
+            background: showEditInput ? t.accent + "22" : t.bgCard,
+            border: `1px solid ${showEditInput ? t.accent + "88" : t.border}`,
+            borderRadius: 8,
+            width: 28,
+            height: 28,
+            cursor: "pointer",
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            color: showEditInput ? t.accent : t.textMuted,
+            transition: "all 0.15s",
+            boxShadow: showEditInput ? `0 2px 8px ${t.accent}33` : "none",
+          }}
+        >
+          ✏️
         </button>
       )}
     </div>

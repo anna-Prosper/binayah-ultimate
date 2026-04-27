@@ -2039,34 +2039,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         </div>
       )}
 
-      {/* Floating edit mode FAB — fixed bottom-right, notion-style */}
-      {!isMobile && (
-        <button
-          onClick={() => setEditMode(v => !v)}
-          title={editMode ? "Exit edit mode" : "Enter edit mode"}
-          style={{
-            position: "fixed",
-            bottom: 28,
-            right: 28,
-            width: 44,
-            height: 44,
-            borderRadius: "50%",
-            background: editMode ? t.accent : t.bgCard,
-            border: `2px solid ${editMode ? t.accent : t.border}`,
-            color: editMode ? "#fff" : t.textMuted,
-            fontSize: 18,
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            boxShadow: editMode ? `0 4px 20px ${t.accent}55` : "0 2px 12px rgba(0,0,0,0.15)",
-            transition: "all 0.2s",
-            zIndex: 500,
-          }}
-        >
-          ✏️
-        </button>
-      )}
+
     </div>
   );
 }
