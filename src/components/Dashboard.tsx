@@ -141,6 +141,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
   const [approvedStages, setApprovedStages] = useState<string[]>(() => lsGet("approvedStages", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
+  const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
+  const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
   const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
@@ -409,6 +411,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         }
         if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
         if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+        if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
+        if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
         if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
@@ -515,6 +519,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         }
         if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
         if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+        if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
+        if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
         if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
@@ -538,7 +544,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
+      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
         if (!result.ok) {
           if ((result as { status?: number }).status === 423) {
             showToast("// pipeline is locked \u2014 unlock to make changes", t.amber);
@@ -551,7 +557,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       });
     }, 800);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
+  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
 
   // Auto-expand matching pipelines on search
   useEffect(() => {
@@ -931,6 +937,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000);
   };
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+  const setStageNameOverride = (name: string, val: string) => setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+  const setSubtaskStage = (key: string, status: string) => setSubtaskStages(prev => ({ ...prev, [key]: status }));
   const setStageStatusDirect = (name: string, status: string) => {
     setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
     logActivity("status", name, `\u2192 ${status}`);
@@ -1398,6 +1406,10 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 isLocked={isLocked}
                 currentWorkspaceId={currentWorkspaceId}
                 onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
+                stageNameOverrides={stageNameOverrides}
+                setStageNameOverride={setStageNameOverride}
+                subtaskStages={subtaskStages}
+                setSubtaskStage={setSubtaskStage}
               />
             </Suspense>
           </ErrorBoundary>

@@ -70,6 +70,8 @@ export const PATCH_KEY_WHITELIST = new Set([
   "subtasks",
   "stageStatusOverrides",
   "stageDescOverrides",
+  "stageNameOverrides",
+  "subtaskStages",
   "pipeDescOverrides",
   "pipeMetaOverrides",
   "customStages",

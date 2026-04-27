@@ -44,6 +44,10 @@ interface Props {
   approveStage: (name: string) => void;
   assignTask: (sid: string, userId: string | null) => void;
   isLocked: (pipelineId: string) => boolean;
+  stageNameOverrides?: Record<string, string>;
+  setStageNameOverride?: (name: string, val: string) => void;
+  subtaskStages?: Record<string, string>;
+  setSubtaskStage?: (key: string, status: string) => void;
 }
 
 export default function HomeView({
@@ -52,6 +56,7 @@ export default function HomeView({
   commentInput, setCommentInput, getStatus, sc, ck,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   handleClaim, handleReact, toggleSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
+  stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
 }: Props) {
   // All pipelines visible to this user across their workspaces
   const visiblePipelines = useMemo(() => {
@@ -165,6 +170,10 @@ export default function HomeView({
         defaultMyAllFilter={isCaptainOfAny ? "all" : "my"}
         pipelineWorkspaceMap={pipelineWorkspaceMap}
         headerLabel="🏠 home"
+        stageNameOverrides={stageNameOverrides}
+        setStageNameOverride={setStageNameOverride}
+        subtaskStages={subtaskStages}
+        setSubtaskStage={setSubtaskStage}
       />
     </div>
   );

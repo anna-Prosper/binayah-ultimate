@@ -9,6 +9,8 @@ export type SharedState = {
   comments?: Record<string, { id: number; text: string; by: string; time: string }[]>;
   stageStatusOverrides?: Record<string, string>;
   stageDescOverrides?: Record<string, string>;
+  stageNameOverrides?: Record<string, string>;
+  subtaskStages?: Record<string, string>;
   pipeDescOverrides?: Record<string, string>;
   pipeMetaOverrides?: Record<string, { name?: string; priority?: string }>;
   customStages?: Record<string, string[]>;
