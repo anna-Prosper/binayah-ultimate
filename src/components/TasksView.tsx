@@ -432,6 +432,7 @@ function SubtaskCard({
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
   onToggle: () => void;
 } & SharedCardProps) {
+  const [isHovered, setIsHovered] = useState(false);
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -458,7 +459,7 @@ function SubtaskCard({
   const creator = users.find(u => u.id === taskSub.by);
 
   return (
-    <div ref={subtaskRef}>
+    <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell t={t} borderColor={t.border}>
       {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -512,6 +513,7 @@ function SubtaskCard({
         onEmoji={emoji => { handleReact(key, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
+        showEditButton={isHovered}
       />
 
       {showCommentPopover && (
