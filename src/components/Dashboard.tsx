@@ -1155,8 +1155,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </div>
           )}
 
-          {/* All header buttons — same height via alignItems: stretch on parent */}
-          <div className="bu-header-btns" style={{ display: "flex", alignItems: "stretch", gap: 4 }}>
+          {/* All header buttons — hidden on home (rendered inside HomeView workspace card instead) */}
+          <div className="bu-header-btns" style={{ display: activeNavItem === "home" ? "none" : "flex", alignItems: "stretch", gap: 4 }}>
             {/* User card — clickable to open avatar picker */}
             {me && (
               <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "0 12px", cursor: "pointer", transition: "border-color 0.2s" }}
@@ -1414,6 +1414,26 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setStageNameOverride={setStageNameOverride}
                 subtaskStages={subtaskStages}
                 setSubtaskStage={setSubtaskStage}
+                navbarSlot={me ? (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 10px", cursor: "pointer" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"}
+                      onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border}>
+                      <AvatarC user={me} size={24} />
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{me.name}</div>
+                        <div style={{ fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                      </div>
+                    </div>
+                    <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); }} style={{ ...hBtn, fontSize: 14 }} title="Team chat"><MessageSquare size={14} strokeWidth={1.8} /></button>
+                    <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Notifications">
+                      <Bell size={14} strokeWidth={1.8} />
+                      {unseen > 0 && <div style={{ position: "absolute", top: 4, right: 4, minWidth: 12, height: 12, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
+                    </button>
+                    <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 14, gap: 3 }} title="Theme">{t.icon} <span style={{ fontSize: 9 }}>▾</span></button>
+                    <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn, fontSize: 11 }}>sign out</button>
+                  </div>
+                ) : undefined}
               />
             </Suspense>
           </ErrorBoundary>

@@ -15,6 +15,7 @@ interface Props {
   t: T;
   me: UserType;
   users: UserType[];
+  navbarSlot?: React.ReactNode;
   myWorkspaces: Workspace[];
   allPipelinesGlobal: Pipeline[];
   customStages: Record<string, string[]>;
@@ -58,6 +59,7 @@ export default function HomeView({
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   handleClaim, handleReact, toggleSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
+  navbarSlot,
 }: Props) {
   // All pipelines visible to this user across their workspaces
   const visiblePipelines = useMemo(() => {
@@ -166,7 +168,7 @@ export default function HomeView({
 
                 return (
                   <>
-                    {/* Header: icon, name, and stats */}
+                    {/* Header: icon, name, stats + navbar slot on the right */}
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 16, justifyContent: "space-between", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                         <div style={{ fontSize: 32, lineHeight: 1 }}>{activeWs.icon}</div>
@@ -178,6 +180,8 @@ export default function HomeView({
                           </div>
                         </div>
                       </div>
+                      {/* Navbar buttons slot — passed from Dashboard */}
+                      {navbarSlot && <div style={{ flexShrink: 0 }}>{navbarSlot}</div>}
                     </div>
 
                     {/* Team members section */}
