@@ -141,7 +141,7 @@ function DashboardInner({
   useEffect(() => { lsSet("binayah_activeNav", activeNavItem); }, [activeNavItem]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
-  useEffect(() => { if (syncStatus !== "connecting") setIsHydrating(false); }, [syncStatus]);
+  useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -294,7 +294,7 @@ function DashboardInner({
             <span style={{ fontSize: 20 }}>🤖</span>
             <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>Binayah AI</div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-              <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "hydrating" ? t.amber : t.red, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
               <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines · {allStages.length} stages{syncStatus === "offline" ? " · offline" : ""}</span>
             </div>
           </div>

@@ -10,7 +10,8 @@ import {
   type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace,
 } from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
-import { fetchState, patchState, pushMessage, pushComment, pushActivity } from "@/lib/apiSync";
+import { patchState, pushMessage, pushComment, pushActivity, type SharedState } from "@/lib/apiSync";
+import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 
 export type CustomPipeline = {
@@ -75,7 +76,7 @@ interface ModelContextValue {
   liveNotifs: Record<string, { comment?: string; reaction?: string }>;
 
   // Sync status
-  syncStatus: "connecting" | "live" | "offline";
+  syncStatus: SyncStatus;
 
   // Computed
   getStatus: (name: string) => string;
@@ -197,13 +198,9 @@ export function ModelProvider({
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [chatNotif, setChatNotif] = useState<{ name: string; text: string; isComment?: boolean; stage?: string; isReaction?: boolean; isClaim?: boolean } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
-  const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "offline">("connecting");
 
-  // ── Sync refs ─────────────────────────────────────────────────────────────
-  const isInitializedRef = useRef(false);
+  // ── Sync refs (kept for poll-merge logic) ─────────────────────────────────
   const isPollUpdateRef = useRef(false);
-  const lastWriteRef = useRef<number>(0);
-  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
@@ -269,150 +266,114 @@ export function ModelProvider({
     pushActivity(entry).then(result => { if (!result.ok) setSyncStatus("offline"); });
   }, [currentUser]);
 
-  // ── On mount: fetch API state ─────────────────────────────────────────────
-  useEffect(() => {
-    fetchState().then(s => {
-      if (s && Object.keys(s).length > 0) {
-        if (s.claims) { prevClaimsRef.current = s.claims as Record<string, string[]>; setClaims(s.claims); }
-        if (s.reactions) { prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>; setReactions(s.reactions); }
-        if (s.activityLog) setActivityLog(s.activityLog);
-        if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
-        if (s.comments) {
-          setComments(s.comments as Record<string, CommentItem[]>);
-          for (const [stage, msgs] of Object.entries(s.comments)) {
-            knownCommentsRef.current[stage] = (msgs as CommentItem[]).length;
-          }
+  // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
+  const mergePatch = useCallback((s: SharedState) => {
+    if (!s || !Object.keys(s).length) return;
+    isPollUpdateRef.current = true;
+    if (s.claims) {
+      const prev = prevClaimsRef.current;
+      for (const [stage, claimers] of Object.entries(s.claims as Record<string, string[]>)) {
+        const prevClaimers = prev[stage] || [];
+        const newClaimers = claimers.filter(uid => !prevClaimers.includes(uid) && uid !== currentUser);
+        if (newClaimers.length > 0) {
+          const claimer = users.find(u => u.id === newClaimers[0]);
+          setChatNotif({ name: claimer?.name || newClaimers[0], text: `claimed "${stage}"`, isClaim: true });
+          playNotifSound();
+          setTimeout(() => setChatNotif(null), 4000);
         }
-        if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
-        if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
-        if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
-        if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
-        if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
-        if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
-        if (s.customStages) setCustomStages(s.customStages);
-        if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
-        if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
-        if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
-        if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
-        if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
       }
-      isInitializedRef.current = true;
-      setSyncStatus("live");
-    }).catch(() => {
-      isInitializedRef.current = true;
-      setSyncStatus("offline");
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── Poll every 5 seconds ──────────────────────────────────────────────────
-  useEffect(() => {
-    const poll = () => {
-      if (Date.now() - lastWriteRef.current < 2000) return;
-      fetchState().then(s => {
-        if (!s) { setSyncStatus("offline"); return; }
-        setSyncStatus("live");
-        isPollUpdateRef.current = true;
-        if (s.claims) {
-          const prev = prevClaimsRef.current;
-          for (const [stage, claimers] of Object.entries(s.claims as Record<string, string[]>)) {
-            const prevClaimers = prev[stage] || [];
-            const newClaimers = claimers.filter(uid => !prevClaimers.includes(uid) && uid !== currentUser);
-            if (newClaimers.length > 0) {
-              const claimer = users.find(u => u.id === newClaimers[0]);
-              setChatNotif({ name: claimer?.name || newClaimers[0], text: `claimed "${stage}"`, isClaim: true });
-              playNotifSound();
-              setTimeout(() => setChatNotif(null), 4000);
-            }
-          }
-          prevClaimsRef.current = s.claims as Record<string, string[]>;
-          setClaims(s.claims);
-        }
-        if (s.reactions) {
-          const prev = prevReactionsRef.current;
-          outer: for (const [stage, emojiMap] of Object.entries(s.reactions as Record<string, Record<string, string[]>>)) {
-            const prevStage = prev[stage] || {};
-            for (const [emoji, reactors] of Object.entries(emojiMap)) {
-              const prevReactors = prevStage[emoji] || [];
-              const newReactors = reactors.filter(uid => !prevReactors.includes(uid) && uid !== currentUser);
-              if (newReactors.length > 0) {
-                const reactor = users.find(u => u.id === newReactors[0]);
-                setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
-                playNotifSound();
-                setTimeout(() => setChatNotif(null), 4000);
-                setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], reaction: emoji } }));
-                setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].reaction; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 3500);
-                break outer;
-              }
-            }
-          }
-          prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>;
-          setReactions(s.reactions);
-        }
-        if (s.activityLog) setActivityLog(s.activityLog);
-        if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
-        if (s.comments) {
-          let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
-          let pendingLiveNotif: { stage: string; name: string } | null = null;
-          setComments(prev => {
-            const remote = s.comments as Record<string, CommentItem[]>;
-            let changed = false;
-            const merged: Record<string, CommentItem[]> = { ...prev };
-            for (const [stage, msgs] of Object.entries(remote)) {
-              const existing = prev[stage] || [];
-              const existingIds = new Set(existing.map(m => m.id));
-              const incoming = msgs.filter(m => !existingIds.has(m.id));
-              if (incoming.length > 0) {
-                merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
-                changed = true;
-                const foreign = incoming.find(m => m.by !== currentUser);
-                if (foreign) {
-                  const sender = users.find(u => u.id === foreign.by);
-                  pendingCommentNotif = { name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage };
-                  pendingLiveNotif = { stage, name: sender?.name || foreign.by };
-                }
-                knownCommentsRef.current[stage] = merged[stage].length;
-              }
-            }
-            return changed ? merged : prev;
-          });
-          if (pendingCommentNotif) { setChatNotif(pendingCommentNotif); playNotifSound(); setTimeout(() => setChatNotif(null), 5000); }
-          if (pendingLiveNotif) {
-            const { stage: stg, name } = pendingLiveNotif;
-            setLiveNotifs(prev => ({ ...prev, [stg]: { ...prev[stg], comment: name } }));
-            setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stg]) { delete n[stg].comment; if (!Object.keys(n[stg]).length) delete n[stg]; } return n; }), 4000);
+      prevClaimsRef.current = s.claims as Record<string, string[]>;
+      setClaims(s.claims);
+    }
+    if (s.reactions) {
+      const prev = prevReactionsRef.current;
+      outer: for (const [stage, emojiMap] of Object.entries(s.reactions as Record<string, Record<string, string[]>>)) {
+        const prevStage = prev[stage] || {};
+        for (const [emoji, reactors] of Object.entries(emojiMap)) {
+          const prevReactors = prevStage[emoji] || [];
+          const newReactors = reactors.filter(uid => !prevReactors.includes(uid) && uid !== currentUser);
+          if (newReactors.length > 0) {
+            const reactor = users.find(u => u.id === newReactors[0]);
+            setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
+            playNotifSound();
+            setTimeout(() => setChatNotif(null), 4000);
+            setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], reaction: emoji } }));
+            setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].reaction; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 3500);
+            break outer;
           }
         }
-        if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
-        if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
-        if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
-        if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
-        if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
-        if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
-        if (s.customStages) setCustomStages(s.customStages);
-        if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
-        if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
-        setTimeout(() => { isPollUpdateRef.current = false; }, 50);
+      }
+      prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>;
+      setReactions(s.reactions);
+    }
+    if (s.activityLog) setActivityLog(s.activityLog);
+    if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+    if (s.comments) {
+      let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
+      let pendingLiveNotif: { stage: string; name: string } | null = null;
+      setComments(prev => {
+        const remote = s.comments as Record<string, CommentItem[]>;
+        let changed = false;
+        const merged: Record<string, CommentItem[]> = { ...prev };
+        for (const [stage, msgs] of Object.entries(remote)) {
+          const existing = prev[stage] || [];
+          const existingIds = new Set(existing.map(m => m.id));
+          const incoming = msgs.filter(m => !existingIds.has(m.id));
+          if (incoming.length > 0) {
+            merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
+            changed = true;
+            const foreign = incoming.find(m => m.by !== currentUser);
+            if (foreign) {
+              const sender = users.find(u => u.id === foreign.by);
+              pendingCommentNotif = { name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage };
+              pendingLiveNotif = { stage, name: sender?.name || foreign.by };
+            }
+            knownCommentsRef.current[stage] = merged[stage].length;
+          }
+        }
+        return changed ? merged : prev;
       });
-    };
-    const id = setInterval(poll, 5000);
-    return () => clearInterval(id);
+      if (pendingCommentNotif) { setChatNotif(pendingCommentNotif); playNotifSound(); setTimeout(() => setChatNotif(null), 5000); }
+      if (pendingLiveNotif) {
+        const { stage: stg, name } = pendingLiveNotif;
+        setLiveNotifs(prev => ({ ...prev, [stg]: { ...prev[stg], comment: name } }));
+        setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stg]) { delete n[stg].comment; if (!Object.keys(n[stg]).length) delete n[stg]; } return n; }), 4000);
+      }
+    }
+    if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
+    if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
+    if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
+    if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
+    if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
+    if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+    if (s.customStages) setCustomStages(s.customStages);
+    if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+    if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
+    if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
+    if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
+    if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
+    if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
+    setTimeout(() => { isPollUpdateRef.current = false; }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
-  // ── Debounced patchState ──────────────────────────────────────────────────
+  const getCurrentState = useCallback((): Partial<SharedState> => ({
+    claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
+    subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+    users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+  }), [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
+       subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks]);
+
+  const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState });
+  // Alias so handlers can signal offline state (argument ignored — always sets offline)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const setSyncStatus = (_s: string) => setOffline();
+
+  // ── Debounced write — delegate to useSync's scheduleWrite ────────────────
   useEffect(() => {
-    if (!isInitializedRef.current) return;
     if (isPollUpdateRef.current) return;
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      lastWriteRef.current = Date.now();
-      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, workspaces, archivedStages, archivedPipelines, archivedSubtasks }).then(result => {
-        if (!result.ok) { setSyncStatus("offline"); showToast("// offline — changes saved locally", t.amber); }
-      });
-    }, 800);
+    scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users]);
 
