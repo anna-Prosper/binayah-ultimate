@@ -114,8 +114,8 @@ export default function HomeView({
       {/* Optimized workspace header */}
       {myWorkspaces.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          {/* Workspace switcher row */}
-          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          {/* Workspace switcher row — only shown when there are 2+ workspaces */}
+          <div style={{ display: myWorkspaces.length > 1 ? "flex" : "none", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
             {myWorkspaces.map(w => {
               const isActive = w.id === currentWorkspaceId;
               return (

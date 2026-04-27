@@ -78,6 +78,7 @@ export const PATCH_KEY_WHITELIST = new Set([
   "customPipelines",
   "lockedPipelines",
   "users",
+  "workspaces",
   "updatedAt",
 ]);
 

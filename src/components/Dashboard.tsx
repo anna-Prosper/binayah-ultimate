@@ -419,6 +419,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
         if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
+        if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
       }
       isInitializedRef.current = true;
       setSyncStatus("live");
@@ -527,6 +528,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
         if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
+        if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
         // Reset flag after React has processed state updates
         setTimeout(() => { isPollUpdateRef.current = false; }, 50);
       });
@@ -544,7 +546,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => {
       lastWriteRef.current = Date.now();
-      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users }).then(result => {
+      patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, workspaces }).then(result => {
         if (!result.ok) {
           if ((result as { status?: number }).status === 423) {
             showToast("// pipeline is locked \u2014 unlock to make changes", t.amber);
@@ -1135,6 +1137,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
         {/* HEADER */}
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
+          {activeNavItem !== "home" && (
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
@@ -1150,6 +1153,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               )}
             </div>
           </div>
+          )}
 
           {/* All header buttons — same height via alignItems: stretch on parent */}
           <div className="bu-header-btns" style={{ display: "flex", alignItems: "stretch", gap: 4 }}>

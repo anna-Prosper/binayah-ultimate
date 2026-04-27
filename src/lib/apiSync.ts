@@ -17,6 +17,7 @@ export type SharedState = {
   customPipelines?: unknown[];
   lockedPipelines?: string[];
   users?: unknown[];
+  workspaces?: unknown[];
   updatedAt?: number;
 };
 

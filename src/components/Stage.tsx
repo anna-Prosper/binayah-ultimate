@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -8,6 +8,118 @@ import { Chev } from "@/components/ui/primitives";
 import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import BottomSheet from "@/components/ui/BottomSheet";
+
+// ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
+function StageSubtaskCard({
+  task, stageId, pC, t, users, currentUser,
+  reactions, comments, claims,
+  handleReact, shareStage, addComment, handleClaim,
+  commentInput, setCommentInput, copied, onToggle, onRemove,
+}: {
+  task: SubtaskItem; stageId: string; pC: string; t: T;
+  users: UserType[]; currentUser: string | null;
+  reactions: Record<string, Record<string, string[]>>;
+  comments: Record<string, CommentItem[]>;
+  claims: Record<string, string[]>;
+  handleReact: (sid: string, emoji: string) => void;
+  shareStage: (name: string, text: string) => void;
+  addComment: (sid: string) => void;
+  handleClaim: (sid: string) => void;
+  commentInput: Record<string, string>;
+  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  copied: string | null;
+  onToggle: () => void;
+  onRemove: () => void;
+}) {
+  const key = `${stageId}::${task.id}`;
+  const [reactOpen, setReactOpen] = useState(false);
+  const [commentOpen, setCommentOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setReactOpen(false); setCommentOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", h);
+    return () => document.removeEventListener("mousedown", h);
+  }, []);
+
+  const rxs = reactions[key] || {};
+  const cmts = comments[key] || [];
+  const claimers = claims[key] || [];
+  const isClaimed = currentUser ? claimers.includes(currentUser) : false;
+  const creator = users.find(u => u.id === task.by);
+  const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
+
+  const iconBtn: React.CSSProperties = {
+    background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
+    padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted,
+    fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4,
+  };
+
+  return (
+    <div ref={ref} style={{ background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* Top row */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div onClick={onToggle} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", marginTop: 2 }}>
+          {task.done && <span style={{ fontSize: 10, color: "#fff" }}>✓</span>}
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
+          {creator && <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><AvatarC user={creator} size={12} /> {creator.name.split(" ")[0]}</div>}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
+          <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={{ ...iconBtn, background: isClaimed ? pC + "18" : "transparent", borderColor: isClaimed ? pC + "55" : t.border, color: isClaimed ? pC : t.textMuted }}>{isClaimed ? "✓ mine" : "+ claim"}</button>
+          <button onClick={onRemove} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: t.textDim, padding: "0 2px", opacity: 0.4 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = t.red; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.4"; (e.currentTarget as HTMLElement).style.color = t.textDim; }}>×</button>
+        </div>
+      </div>
+
+      {/* Reaction pills */}
+      {visibleReactions.length > 0 && (
+        <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {visibleReactions.map(([emoji, us]) => {
+            const mine = currentUser ? us.includes(currentUser) : false;
+            return <button key={emoji} onClick={() => handleReact(key, emoji)} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "1px 8px", cursor: "pointer", fontSize: 12, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{emoji} <span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span></button>;
+          })}
+        </div>
+      )}
+
+      {/* Action row */}
+      <div style={{ display: "flex", gap: 4, borderTop: `1px solid ${t.border}`, paddingTop: 6 }}>
+        <div style={{ position: "relative" }}>
+          <button onClick={() => { setReactOpen(v => !v); setCommentOpen(false); }} style={iconBtn}>😀 +</button>
+          {reactOpen && (
+            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+              {REACTIONS.map(emoji => <button key={emoji} onClick={() => { handleReact(key, emoji); setReactOpen(false); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 15, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>)}
+            </div>
+          )}
+        </div>
+        <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); }} style={iconBtn}>💬 {cmts.length}</button>
+        <button onClick={() => shareStage(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
+      </div>
+
+      {/* Comment box */}
+      {commentOpen && (
+        <div style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
+          {cmts.length > 0 && (
+            <div style={{ maxHeight: 100, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
+              {cmts.slice(-4).map(c => { const u = users.find(u => u.id === c.by); return <div key={c.id} style={{ display: "flex", gap: 4 }}>{u && <AvatarC user={u} size={14} />}<div style={{ flex: 1 }}><span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name} </span><span style={{ fontSize: 11, color: t.text }}>{c.text}</span></div></div>; })}
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 4 }}>
+            <input value={commentInput[key] || ""} onChange={e => setCommentInput(p => ({ ...p, [key]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") { addComment(key); setCommentOpen(false); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+            <button onClick={() => { addComment(key); setCommentOpen(false); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface StageProps {
   name: string;
@@ -269,24 +381,30 @@ export default function Stage({
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
               <div style={{ flex: 1, padding: "12px 16px", borderRight: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
                 <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {tasks.map(task => {
-                  const creator = users.find(u => u.id === task.by);
-                  return (
-                  <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 10, background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, transition: "all 0.15s" }}>
-                    <div onClick={() => !isLocked && toggleSubtask(name, task.id)} style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", marginTop: 1 }}>
-                      {task.done && <span style={{ fontSize: 9, color: "#fff" }}>✓</span>}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 600, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
-                      {creator && <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}><AvatarC user={creator} size={12} /> {creator.name.split(" ")[0]}</div>}
-                    </div>
-                    <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 13, cursor: "pointer", opacity: 0.25, color: t.red, transition: "opacity 0.15s", flexShrink: 0 }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.25"; }}>×</span>
-                  </div>
-                  );
-                })}
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {tasks.map(task => (
+                  <StageSubtaskCard
+                    key={task.id}
+                    task={task}
+                    stageId={name}
+                    pC={pC}
+                    t={t}
+                    users={users}
+                    currentUser={currentUser}
+                    reactions={rxns}
+                    comments={comments}
+                    claims={claims}
+                    handleReact={handleReact}
+                    shareStage={shareStage}
+                    addComment={addComment}
+                    handleClaim={handleClaim}
+                    commentInput={commentInput}
+                    setCommentInput={setCommentInput}
+                    copied={copied}
+                    onToggle={() => !isLocked && toggleSubtask(name, task.id)}
+                    onRemove={() => removeSubtask(name, task.id)}
+                  />
+                ))}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                   <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
@@ -423,21 +541,30 @@ export default function Stage({
             {/* Subtasks */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
-              {tasks.map(task => {
-                const creator = users.find(u => u.id === task.by);
-                return (
-                <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 12, background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, transition: "all 0.15s" }}>
-                  <div onClick={() => !task.locked && !isLocked && toggleSubtask(name, task.id)} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked || isLocked ? "default" : "pointer", marginTop: 2 }}>
-                    {task.done && <span style={{ fontSize: 10, color: "#fff" }}>✓</span>}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: task.locked ? t.textDim : task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
-                    {creator && <div style={{ fontSize: 11, color: t.textDim, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><AvatarC user={creator} size={14} /> {creator.name.split(" ")[0]}</div>}
-                  </div>
-                </div>
-                );
-              })}
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
+              {tasks.map(task => (
+                <StageSubtaskCard
+                  key={task.id}
+                  task={task}
+                  stageId={name}
+                  pC={pC}
+                  t={t}
+                  users={users}
+                  currentUser={currentUser}
+                  reactions={rxns}
+                  comments={comments}
+                  claims={claims}
+                  handleReact={handleReact}
+                  shareStage={shareStage}
+                  addComment={addComment}
+                  handleClaim={handleClaim}
+                  commentInput={commentInput}
+                  setCommentInput={setCommentInput}
+                  copied={copied}
+                  onToggle={() => !task.locked && !isLocked && toggleSubtask(name, task.id)}
+                  onRemove={() => removeSubtask(name, task.id)}
+                />
+              ))}
               </div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                 <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
