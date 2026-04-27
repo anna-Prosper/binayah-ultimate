@@ -58,7 +58,7 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -66,6 +66,8 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
+  const [editingStage, setEditingStage] = useState<string | null>(null);
+  const [editingVal, setEditingVal] = useState("");
 
   const pipelines = allPipelines.map(p => ({
     ...p,
@@ -82,6 +84,7 @@ export default function TasksView(props: Props) {
       .filter(s => getStatus(s) !== "concept")
       .map(s => ({
         stageId: s,
+        displayName: stageNameOverrides?.[s] || s,
         pipelineName: p.displayName,
         pipelineIcon: p.icon,
         pipelineColor: p.color,
@@ -137,6 +140,8 @@ export default function TasksView(props: Props) {
     assignOpen, setAssignOpen, assignments, assignTask,
     handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
+    editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
+    setStageNameOverride,
   };
 
   return (
@@ -229,7 +234,7 @@ export default function TasksView(props: Props) {
 // ─── Task + nested subtasks ───────────────────────────────────────────────────
 
 interface StageTask {
-  stageId: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
+  stageId: string; displayName: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
   status: string; claimers: string[]; locked: boolean;
   workspaceIcon?: string; workspaceName?: string;
 }
@@ -300,7 +305,8 @@ function TaskCard({
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-}: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps) {
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride,
+}: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -343,7 +349,35 @@ function TaskCard({
       {/* Top row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div title={task.stageId} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{task.stageId}</div>
+          {editingStage === task.stageId ? (
+            <input
+              autoFocus
+              value={editingVal}
+              onChange={e => setEditingVal?.(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  setStageNameOverride?.(task.stageId, editingVal);
+                  setEditingStage?.(null);
+                } else if (e.key === "Escape") {
+                  setEditingStage?.(null);
+                }
+              }}
+              onBlur={() => {
+                if (editingVal && editingVal !== task.displayName) {
+                  setStageNameOverride?.(task.stageId, editingVal);
+                }
+                setEditingStage?.(null);
+              }}
+              style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `1px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
+            />
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div title={task.stageId} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{task.displayName}</div>
+              {isHovered && setEditingStage && (
+                <button onClick={() => { setEditingStage(task.stageId); setEditingVal?.(task.displayName || task.stageId); }} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, color: t.textMuted, flexShrink: 0 }} title="Edit">✏️</button>
+              )}
+            </div>
+          )}
           <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
             {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
             {task.pipelineIcon} {task.pipelineName}
