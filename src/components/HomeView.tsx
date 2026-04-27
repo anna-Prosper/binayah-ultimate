@@ -91,12 +91,12 @@ export default function HomeView({
 
   return (
     <div style={{ paddingTop: 20 }}>
-      {/* ── Page header: greeting + workspace context on two lines ── */}
-      <div style={{ marginBottom: 24 }}>
+      {/* ── Page header: greeting + workspace context on one line ── */}
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
 
-        {/* Workspace meta row — flat, no card */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16, marginTop: 12 }}>
+        {/* Workspace meta row — flat, inline */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
           {myWorkspaces.map(w => {
             const isActive = w.id === currentWorkspaceId;
             const role = w.captains.includes(currentUser) ? "captain" : w.firstMates.includes(currentUser) ? "first mate" : "crew";
