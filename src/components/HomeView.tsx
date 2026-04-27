@@ -108,9 +108,10 @@ export default function HomeView({
 
   return (
     <div style={{ paddingTop: 20 }}>
-      {/* Greeting */}
-      <div style={{ marginBottom: 20 }}>
+      {/* Greeting + navbar on same line */}
+      <div style={{ marginBottom: 20, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
+        {navbarSlot && <div style={{ flexShrink: 0 }}>{navbarSlot}</div>}
       </div>
 
       {/* Optimized workspace header */}
@@ -180,8 +181,6 @@ export default function HomeView({
                           </div>
                         </div>
                       </div>
-                      {/* Navbar buttons slot — passed from Dashboard */}
-                      {navbarSlot && <div style={{ flexShrink: 0 }}>{navbarSlot}</div>}
                     </div>
 
                     {/* Team members section */}
