@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { T } from "@/lib/themes";
+import { SubtaskKey } from "@/lib/subtaskKey";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
@@ -23,7 +24,7 @@ function StageSubtaskCard({
 }) {
   const { users, currentUser, reactions, comments, claims, handleClaim, handleReact, addComment } = useModel();
   const { copied, setCopied } = useEphemeral();
-  const key = `${stageId}::${task.id}`;
+  const key = SubtaskKey.make(stageId, task.id);
   const [reactOpen, setReactOpen] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
   const [commentInputVal, setCommentInputVal] = useState("");

@@ -7,6 +7,7 @@ import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { SubtaskKey } from "@/lib/subtaskKey";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -123,7 +124,7 @@ export default function TasksView(props: Props) {
       if (!visibleStageIds.has(parentStageId)) continue;
       for (const sub of subtaskList) {
         if (sub.done) continue;
-        const key = `${parentStageId}::${sub.id}`;
+        const key = SubtaskKey.make(parentStageId, sub.id);
         if ((archivedStages || []).includes(key)) continue;
         let parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
         let pipelineId = "";
@@ -179,8 +180,9 @@ export default function TasksView(props: Props) {
       setSubtaskStage(subtaskKey, targetStatus);
       // Auto-mark subtask as done when dragged to done column
       if (targetStatus === "active") {
-        const [parentStageId, subtaskIdStr] = subtaskKey.split("::");
-        const subtaskId = parseInt(subtaskIdStr);
+        const parsed = SubtaskKey.isValid(subtaskKey) ? SubtaskKey.parse(subtaskKey as Parameters<typeof SubtaskKey.parse>[0]) : null;
+        const parentStageId = parsed?.parentStageId ?? "";
+        const subtaskId = parsed?.subtaskId ?? NaN;
         if (!isNaN(subtaskId)) toggleSubtask(parentStageId, subtaskId);
       }
     }
@@ -296,7 +298,7 @@ export default function TasksView(props: Props) {
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => toggleSubtask(sub.parentStageId, parseInt(sub.key.split("::")[1]))} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
                       </>
                   }
                 </div>
@@ -365,7 +367,7 @@ interface SharedCardProps {
 
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
   const { subtasks, toggleSubtask, subtaskStages } = shared as SharedCardProps & { subtaskStages?: Record<string, string> };
-  const taskSubs = (subtasks[task.stageId] || []).filter(s => !s.done && !subtaskStages?.[`${task.stageId}::${s.id}`]);
+  const taskSubs = (subtasks[task.stageId] || []).filter(s => !s.done && !subtaskStages?.[SubtaskKey.make(task.stageId, s.id)]);
   // Don't show subtasks under "done" stages — completion is implied
   const showSubs = task.status !== "active";
 
@@ -602,7 +604,7 @@ function SubtaskCard({
   const [isHovered, setIsHovered] = useState(false);
   const subtaskRef = useRef<HTMLDivElement>(null);
 
-  const key = `${stageId}::${taskSub.id}`;
+  const key = SubtaskKey.make(stageId, taskSub.id);
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
   const showReactPicker = reactOpen === key;
@@ -748,7 +750,7 @@ function SubtaskKanbanCard({
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
   const creator = users.find(u => u.id === sub.by);
   const isUnknownParent = !sub.pipelineName;
-  const taskId = parseInt(sub.key.split("::")[1]);
+  const taskId = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0])?.subtaskId ?? NaN;
 
   const commitEdit = () => {
     if (editVal.trim() && onRename) onRename(taskId, editVal.trim());

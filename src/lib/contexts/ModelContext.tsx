@@ -10,6 +10,7 @@ import {
   type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace,
 } from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
+import { SubtaskKey } from "@/lib/subtaskKey";
 import { patchState, pushMessage, pushComment, pushActivity, type SharedState } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
@@ -431,7 +432,7 @@ export function ModelProvider({
 
   const assignTask = (sid: string, userId: string | null) => {
     if (!currentUser) return;
-    const isSubtask = sid.includes("::");
+    const isSubtask = SubtaskKey.isValid(sid);
     setAssignments(prev => {
       const copy = { ...prev };
       const prevTaskAssignee = copy[sid] || null;
@@ -439,7 +440,7 @@ export function ModelProvider({
       if (!isSubtask && !sid.startsWith("_")) {
         const taskSubtasks = subtasks[sid] || [];
         for (const sub of taskSubtasks) {
-          const subKey = `${sid}::${sub.id}`;
+          const subKey = SubtaskKey.make(sid, sub.id);
           const subAssignee = copy[subKey] || null;
           if (!subAssignee || subAssignee === prevTaskAssignee) {
             if (!userId) { delete copy[subKey]; } else { copy[subKey] = userId; }
