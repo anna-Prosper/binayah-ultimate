@@ -168,8 +168,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
   // lockedPipelines: canonical list of locked pipeline IDs, persisted to MongoDB
   const [lockedPipelines, setLockedPipelines] = useState<string[]>(() => lsGet("lockedPipelines", []));
-  // isLocked helper — check if a pipeline is locked
-  const isLocked = (pipelineId: string) => lockedPipelines.includes(pipelineId);
+  // Pipeline lock removed in favor of explicit edit affordances.
+  // Helper kept as a no-op for backward compatibility with callers.
+  const isLocked = (_pipelineId: string) => false;
   const { toasts, showToast, dismissToast } = useToasts();
   const isMobile = useIsMobile(768);
   // Per-pipeline ⋮ menu open state for mobile header
@@ -1477,20 +1478,19 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                           {editingPipeName === p.id ? (
                             <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 8px", outline: "none", fontFamily: "inherit" }} />
                           ) : (
-                            <span onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: isLocked(p.id) ? "default" : "text" }} title={isLocked(p.id) ? "Unlock to rename" : "Click to rename"}>
-                              {pipeName} {!isLocked(p.id) && <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"\u270E"}</span>}
-                              {isLocked(p.id) && <span style={{ fontSize: "0.7rem", color: t.amber, background: t.amber + "11", border: `1px solid ${t.amber}44`, borderRadius: 6, padding: "2px 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase" }}>🔒 locked</span>}
+                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
+                              {pipeName} <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"✎"}</span>
                             </span>
                           )}
                           <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
-                          <span onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: isLocked(p.id) ? "default" : "pointer" }} title={isLocked(p.id) ? "Unlock to change priority" : "Click to cycle"}>{pipePriority}</span>
+                          <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "2px 7px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
                           {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                         </div>
 
                         {editingPipeDesc === p.id ? (
                           <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 2 }} />
                         ) : (
-                          <p onClick={e => { e.stopPropagation(); if (!isLocked(p.id)) setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: isLocked(p.id) ? "default" : "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 2px", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
                             {!isLocked(p.id) && <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
                           </p>
@@ -1539,25 +1539,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     {/* Mobile-only: lock toggle + ⋮ menu for secondary actions */}
                     {isMobile && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 6 }} onClick={e => e.stopPropagation()}>
-                        {/* Lock toggle — always visible on mobile */}
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            const nowLocked = !isLocked(p.id);
-                            const next = nowLocked
-                              ? [...lockedPipelines.filter(id => id !== p.id), p.id]
-                              : lockedPipelines.filter(id => id !== p.id);
-                            setLockedPipelines(next);
-                            patchState({ lockedPipelines: next }).then(result => {
-                              if (!result.ok) showToast("// lock change failed", t.amber);
-                            });
-                            logActivity(nowLocked ? "lock" : "unlock", p.id, `${nowLocked ? "locked" : "unlocked"} pipeline ${pipeName}`);
-                          }}
-                          title={isLocked(p.id) ? "Unlock pipeline" : "Lock pipeline"}
-                          style={{ background: isLocked(p.id) ? t.amber + "15" : "transparent", border: isLocked(p.id) ? `1px solid ${t.amber}44` : `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 14, padding: "6px 10px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: isLocked(p.id) ? t.amber : t.textDim, transition: "all 0.2s" }}
-                        >
-                          {isLocked(p.id) ? "🔒" : "🔓"}
-                        </button>
                         {/* ⋮ menu for secondary actions */}
                         <div style={{ position: "relative" }}>
                           <button
@@ -1568,16 +1549,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                           </button>
                           {pipeMenuOpen === p.id && (
                             <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 6, zIndex: 50, minWidth: 150, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeIn 0.15s ease" }}>
-                              {!isLocked(p.id) && (
-                                <>
-                                  <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
-                                    rename pipeline
-                                  </button>
-                                  <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
-                                    edit description
-                                  </button>
-                                </>
-                              )}
+                              <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
+                                ✎ rename pipeline
+                              </button>
+                              <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
+                                ✎ edit description
+                              </button>
                               <button onClick={e => { e.stopPropagation(); toggleExpand(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 10px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 6, fontFamily: "inherit" }}>
                                 {isO ? "collapse" : "expand stages"}
                               </button>
@@ -1588,26 +1565,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     )}
                     <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button
-                          onClick={e => {
-                            e.stopPropagation();
-                            const nowLocked = !isLocked(p.id);
-                            const next = nowLocked
-                              ? [...lockedPipelines.filter(id => id !== p.id), p.id]
-                              : lockedPipelines.filter(id => id !== p.id);
-                            setLockedPipelines(next);
-                            patchState({ lockedPipelines: next }).then(result => {
-                              if (!result.ok) showToast("// lock change failed", t.amber);
-                            });
-                            logActivity(nowLocked ? "lock" : "unlock", p.id, `${nowLocked ? "locked" : "unlocked"} pipeline ${pipeName}`);
-                          }}
-                          title={isLocked(p.id) ? "Unlock pipeline" : "Lock pipeline"}
-                          style={{ background: isLocked(p.id) ? t.amber + "15" : "transparent", border: isLocked(p.id) ? `1px solid ${t.amber}44` : "none", borderRadius: 8, cursor: "pointer", fontSize: 16, padding: isLocked(p.id) ? "3px 7px" : 0, opacity: isLocked(p.id) ? 1 : 0.55, transition: "opacity 0.2s, transform 0.2s, box-shadow 0.2s", transform: isLocked(p.id) ? "scale(1.1)" : "scale(1)", color: isLocked(p.id) ? t.amber : t.textDim, boxShadow: isLocked(p.id) ? `0 0 8px ${t.amber}44` : "none" }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = isLocked(p.id) ? "1" : "0.65"; }}
-                        >
-                          {isLocked(p.id) ? "🔒" : "🔓"}
-                        </button>
                         <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
                       </div>
                       <div style={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>

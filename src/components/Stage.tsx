@@ -276,21 +276,16 @@ export default function Stage({
                   <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderRadius: 6, transition: "background 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                    <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer" }}>
+                    <div onClick={() => toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                       {task.done && <span style={{ fontSize: 8, color: t.green }}>{"\u2713"}</span>}
                     </div>
-                    <span style={{ fontSize: 9, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1, fontStyle: task.locked ? "italic" : "normal" }}>{task.text}</span>
+                    <span style={{ fontSize: 9, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
                     <span style={{ fontSize: 7, color: t.textDim, marginRight: 2 }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
-                    <span onClick={() => lockSubtask(name, task.id)} title={task.locked ? "Unlock" : "Lock"} style={{ fontSize: 11, cursor: "pointer", opacity: task.locked ? 1 : 0.35, transition: "opacity 0.15s", color: task.locked ? t.amber : t.textDim }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = task.locked ? "1" : "0.35"; }}>
-                      {task.locked ? "🔒" : "🔓"}
-                    </span>
-                    {!task.locked && <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 10, cursor: "pointer", opacity: 0.3, color: t.red, transition: "opacity 0.15s" }}
+                    <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 10, cursor: "pointer", opacity: 0.3, color: t.red, transition: "opacity 0.15s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}>
                       ×
-                    </span>}
+                    </span>
                   </div>
                 ))}
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
