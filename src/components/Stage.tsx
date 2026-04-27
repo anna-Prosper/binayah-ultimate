@@ -269,22 +269,25 @@ export default function Stage({
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
               <div style={{ flex: 1, padding: "12px 16px", borderRight: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
                 <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
-                {tasks.map(task => (
-                  <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 0", borderRadius: 8, transition: "background 0.15s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                    <div onClick={() => toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 8, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
-                      {task.done && <span style={{ fontSize: 10, color: t.green }}>{"\u2713"}</span>}
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {tasks.map(task => {
+                  const creator = users.find(u => u.id === task.by);
+                  return (
+                  <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: 10, background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, transition: "all 0.15s" }}>
+                    <div onClick={() => !isLocked && toggleSubtask(name, task.id)} style={{ width: 16, height: 16, borderRadius: "50%", border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", marginTop: 1 }}>
+                      {task.done && <span style={{ fontSize: 9, color: "#fff" }}>✓</span>}
                     </div>
-                    <span style={{ fontSize: 11, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
-                    <span style={{ fontSize: 10, color: t.textDim, marginRight: 0 }}>{users.find(u => u.id === task.by)?.name?.charAt(0)}</span>
-                    <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 13, cursor: "pointer", opacity: 0.3, color: t.red, transition: "opacity 0.15s" }}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
+                      {creator && <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 3 }}><AvatarC user={creator} size={12} /> {creator.name.split(" ")[0]}</div>}
+                    </div>
+                    <span onClick={() => removeSubtask(name, task.id)} title="Remove" style={{ fontSize: 13, cursor: "pointer", opacity: 0.25, color: t.red, transition: "opacity 0.15s", flexShrink: 0 }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.3"; }}>
-                      ×
-                    </span>
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.25"; }}>×</span>
                   </div>
-                ))}
+                  );
+                })}
+                </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                   <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
                   <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 11, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
@@ -420,14 +423,22 @@ export default function Stage({
             {/* Subtasks */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
-              {tasks.map(task => (
-                <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-                  <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 20, height: 20, borderRadius: 8, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer", minWidth: 44, minHeight: 44 }}>
-                    {task.done && <span style={{ fontSize: 13, color: t.green }}>{"✓"}</span>}
+              <div style={{ display: "flex", flexDirection: "column", gap: 6, marginBottom: 4 }}>
+              {tasks.map(task => {
+                const creator = users.find(u => u.id === task.by);
+                return (
+                <div key={task.id} style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "10px 12px", borderRadius: 12, background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, transition: "all 0.15s" }}>
+                  <div onClick={() => !task.locked && !isLocked && toggleSubtask(name, task.id)} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked || isLocked ? "default" : "pointer", marginTop: 2 }}>
+                    {task.done && <span style={{ fontSize: 10, color: "#fff" }}>✓</span>}
                   </div>
-                  <span style={{ fontSize: 13, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: task.locked ? t.textDim : task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.4 }}>{task.text}</div>
+                    {creator && <div style={{ fontSize: 11, color: t.textDim, marginTop: 3, display: "flex", alignItems: "center", gap: 4 }}><AvatarC user={creator} size={14} /> {creator.name.split(" ")[0]}</div>}
+                  </div>
                 </div>
-              ))}
+                );
+              })}
+              </div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
                 <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
                 <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 15, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>

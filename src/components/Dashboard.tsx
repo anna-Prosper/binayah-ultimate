@@ -1222,8 +1222,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           </div>
         </div>
 
-        {/* TEAM BAR */}
-        <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, flexWrap: "wrap" }}>
+        {/* TEAM BAR — hidden on home (HomeView shows the team inside the workspace header) */}
+        <div className="bu-team" style={{ display: activeNavItem === "home" ? "none" : "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, flexWrap: "wrap" }}>
           {users.map((u: typeof USERS_DEFAULT[number]) => {
             const isMe = u.id === currentUser;
             const uPts = getPoints(u.id);

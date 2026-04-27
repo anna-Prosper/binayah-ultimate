@@ -106,28 +106,9 @@ export default function HomeView({
 
   return (
     <div style={{ paddingTop: 20 }}>
-      {/* Greeting + user list with stats on one line */}
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 20, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, flexWrap: "wrap" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15, whiteSpace: "nowrap" }}>{greeting}</div>
-
-        {/* User avatars with stats */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", flex: 1 }}>
-          {users.map((u) => {
-            const uPts = getPoints(u.id);
-            const isMe = u.id === currentUser;
-            return (
-              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
-                  <AvatarC user={u} size={28} />
-                </div>
-                <div style={{ minWidth: "fit-content" }}>
-                  <div style={{ fontSize: 12, fontWeight: isMe ? 800 : 700, color: isMe ? u.color : t.text, lineHeight: 1.2 }}>{u.name.split(" ")[0]}</div>
-                  <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+      {/* Greeting */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
       </div>
 
       {/* Optimized workspace header */}
