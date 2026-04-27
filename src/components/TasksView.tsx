@@ -704,43 +704,48 @@ function SubtaskKanbanCard({
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell
         t={t}
-        borderColor={isUnknownParent ? t.amber + "44" : sub.pipelineColor + "22"}
-        compact
+        borderColor={isUnknownParent ? t.amber + "55" : isMine ? sub.pipelineColor + "55" : t.border}
         draggable
         onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; }}
       >
+        {/* Top row — same structure as TaskCard */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div title={sub.text} style={{ fontSize: 14, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>⤷ {sub.text}</div>
-            <div style={{ fontSize: 10, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>
-              {isUnknownParent ? <span style={{ color: t.amber }}>⚠ unknown parent</span> : <>{sub.pipelineIcon} {sub.parentStageName}</>}
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
+              <span style={{ color: sub.pipelineColor, marginRight: 4 }}>⤷</span>{sub.text}
+            </div>
+            <div style={{ fontSize: 11, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {isUnknownParent
+                ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
+                : <>{sub.pipelineIcon} {sub.parentStageName}</>}
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
-            {creator && <AvatarC user={creator} size={18} />}
+          <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+            {creator && <AvatarC user={creator} size={20} />}
             {currentUser && (
-              <button onClick={e => { e.stopPropagation(); onDone(); }} style={btn(sub.pipelineColor, sub.pipelineColor + "15", sub.pipelineColor + "55", true)}>
-                ✓
+              <button onClick={e => { e.stopPropagation(); onDone(); }} style={btn(sub.pipelineColor, sub.pipelineColor + "18", sub.pipelineColor + "55")}>
+                ✓ done
               </button>
             )}
           </div>
         </div>
 
+        {/* Reactions strip */}
         {visibleReactions.length > 0 && (
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {visibleReactions.map(([emoji, us]) => {
               const mine = currentUser ? us.includes(currentUser) : false;
               return (
-                <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(sub.key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "0 6px", cursor: "pointer", fontSize: 11, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}>
-                  <span style={{ fontSize: 11 }}>{emoji}</span>
-                  <span style={{ fontSize: 8, fontWeight: 700 }}>{us.length}</span>
+                <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(sub.key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+                  <span>{emoji}</span><span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
                 </button>
               );
             })}
           </div>
         )}
 
+        {/* Action row — identical to TaskCard */}
         <ActionRow
           t={t}
           showReactPicker={showReactPicker}
@@ -756,7 +761,7 @@ function SubtaskKanbanCard({
           onEmoji={emoji => { handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
-          compact
+          showEditButton={false}
         />
 
         {showCommentPopover && (
