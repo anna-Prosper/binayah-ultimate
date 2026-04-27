@@ -106,37 +106,45 @@ export default function TasksView(props: Props) {
     ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || assignments[s.stageId] === currentUser) : false)
     : allStageTasks;
 
-  // Build virtual subtask kanban tasks
+  // Build virtual subtask kanban tasks — ONLY from stages visible in current pipelines
+  const visibleStageIds = useMemo(() => new Set(pipelines.flatMap(p => p.allStages)), [pipelines]);
+
   const subtaskKanbanTasks = useMemo(() => {
     const tasks: SubtaskKanbanTask[] = [];
     for (const [parentStageId, subtaskList] of Object.entries(subtasks || {})) {
+      // Only include subtasks whose parent stage is in a visible pipeline
+      if (!visibleStageIds.has(parentStageId)) continue;
       for (const sub of subtaskList) {
-        if (sub.done) continue; // Skip done subtasks
+        if (sub.done) continue;
         const key = `${parentStageId}::${sub.id}`;
-        // Find parent stage info
+        if ((archivedStages || []).includes(key)) continue;
         let parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
+        let pipelineId = "";
         let pipelineIcon = "";
         let pipelineName = "";
         let pipelineColor = "";
-        // Find which pipeline this stage belongs to
         for (const p of pipelines) {
           if (p.allStages.includes(parentStageId)) {
+            pipelineId = p.id;
             pipelineIcon = p.icon;
             pipelineName = p.displayName;
             pipelineColor = p.color;
             break;
           }
         }
-        // Get subtask stage status from subtaskStages or default to "planned"
+        const wsInfo = pipelineWorkspaceMap?.[pipelineId];
         const status = subtaskStages?.[key] || "planned";
         tasks.push({
           key,
           text: sub.text,
           parentStageId,
           parentStageName,
+          pipelineId,
           pipelineIcon,
           pipelineName,
           pipelineColor,
+          workspaceName: wsInfo?.name,
+          workspaceIcon: wsInfo?.icon,
           status,
           done: sub.done,
           by: sub.by,
@@ -145,7 +153,7 @@ export default function TasksView(props: Props) {
       }
     }
     return tasks;
-  }, [subtasks, subtaskStages, stageNameOverrides, pipelines]);
+  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, visibleStageIds, archivedStages, pipelineWorkspaceMap]);
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);
@@ -309,9 +317,12 @@ interface SubtaskKanbanTask {
   text: string;
   parentStageId: string;
   parentStageName: string;
+  pipelineId: string;
   pipelineIcon: string;
   pipelineName: string;
   pipelineColor: string;
+  workspaceName?: string;
+  workspaceIcon?: string;
   status: string;
   done: boolean;
   by: string;
@@ -740,7 +751,7 @@ function SubtaskKanbanCard({
             <div style={{ fontSize: 11, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isUnknownParent
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
-                : <>{sub.pipelineIcon} {sub.parentStageName}</>}
+                : <>{sub.workspaceIcon && sub.workspaceName && <span style={{ marginRight: 3 }}>{sub.workspaceIcon} {sub.workspaceName} · </span>}{sub.pipelineIcon} {sub.parentStageName}</>}
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
             </div>
           </div>

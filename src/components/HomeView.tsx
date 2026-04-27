@@ -68,22 +68,31 @@ export default function HomeView({
   // null = show all workspaces; string = filter to specific workspace
   const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
 
-  // null homeWsFilter = show all workspaces; set = show only that workspace
-  const visiblePipelines = useMemo(() => {
-    const ws = homeWsFilter ? myWorkspaces.filter(w => w.id === homeWsFilter) : myWorkspaces;
-    const ids = new Set<string>();
-    for (const w of ws) for (const pid of w.pipelineIds) ids.add(pid);
-    return allPipelinesGlobal.filter(p => ids.has(p.id));
-  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter]);
-
-  // Map: pipelineId → workspace info for breadcrumb
+  // Build full pipeline→workspace map from ALL user's workspaces
   const pipelineWorkspaceMap = useMemo(() => {
     const m: Record<string, { id: string; name: string; icon: string }> = {};
     for (const w of myWorkspaces) {
-      for (const pid of w.pipelineIds) m[pid] = { id: w.id, name: w.name, icon: w.icon };
+      for (const pid of w.pipelineIds) {
+        if (!m[pid]) m[pid] = { id: w.id, name: w.name, icon: w.icon };
+      }
     }
     return m;
   }, [myWorkspaces]);
+
+  // Pipelines visible based on homeWsFilter:
+  // null = all pipelines linked to any of user's workspaces
+  // set = only pipelines linked to that specific workspace
+  const visiblePipelines = useMemo(() => {
+    if (homeWsFilter) {
+      const ws = myWorkspaces.find(w => w.id === homeWsFilter);
+      const ids = new Set(ws?.pipelineIds || []);
+      return allPipelinesGlobal.filter(p => ids.has(p.id));
+    }
+    // All pipelines from all user's workspaces
+    const ids = new Set<string>();
+    for (const w of myWorkspaces) for (const pid of w.pipelineIds) ids.add(pid);
+    return allPipelinesGlobal.filter(p => ids.has(p.id));
+  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
 
