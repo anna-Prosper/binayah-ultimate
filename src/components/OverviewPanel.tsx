@@ -68,7 +68,7 @@ function StatusSwatch({ status, t }: { status: string; t: T }) {
   const color = statusColor(status, t);
   return (
     <span style={{
-      display: "inline-flex", alignItems: "center", gap: 3,
+      display: "inline-flex", alignItems: "center", gap: 4,
       fontSize: 9, fontWeight: 700, color,
       fontFamily: "var(--font-geist-mono), monospace",
       letterSpacing: 0.5,
@@ -127,13 +127,13 @@ export default function OverviewPanel({
       `}</style>
 
       {/* View toggle */}
-      <div style={{ display: "flex", gap: 2, padding: "2px", background: t.surface, borderRadius: 12, border: `1px solid ${t.border}`, width: "fit-content", alignSelf: "flex-end" }}>
+      <div style={{ display: "flex", gap: 0, padding: "0", background: t.surface, borderRadius: 12, border: `1px solid ${t.border}`, width: "fit-content", alignSelf: "flex-end" }}>
         {(["metrics", "timeline"] as const).map(v => (
           <button
             key={v}
             onClick={() => setPanelView(v)}
             style={{
-              padding: "5px 14px",
+              padding: "4px 12px",
               borderRadius: 8,
               border: "none",
               cursor: "pointer",
@@ -157,7 +157,7 @@ export default function OverviewPanel({
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Pipeline selector */}
           {filtered.length > 1 && (
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
               {filtered.map(p => {
                 const pC = ck[p.colorKey] || t.accent;
                 const isActive = (selectedPipelineId ?? filtered[0]?.id) === p.id;
@@ -190,7 +190,7 @@ export default function OverviewPanel({
             {activePipeline && (
               <>
                 {/* Card header */}
-                <div style={{ padding: "14px 20px 10px", borderBottom: `1px solid ${t.border}` }}>
+                <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${t.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 18 }}>{activePipeline.icon}</span>
                     <span style={{ fontSize: 14, fontWeight: 800, color: t.text }}>
@@ -205,8 +205,8 @@ export default function OverviewPanel({
                 {/* Timeline entries */}
                 {timelineEntries.length === 0 ? (
                   <div style={{ padding: "40px 24px", textAlign: "center" }}>
-                    <div style={{ fontSize: 20, marginBottom: 10 }}>⚡</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginBottom: 6 }}>
+                    <div style={{ fontSize: 20, marginBottom: 8 }}>⚡</div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginBottom: 4 }}>
                       // no moves yet
                     </div>
                     <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }}>
@@ -226,7 +226,7 @@ export default function OverviewPanel({
                       return (
                         <div key={`${entry.time}-${i}`} style={{ display: "flex", gap: 0, position: "relative" }}>
                           {/* Vertical rail */}
-                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 40, flexShrink: 0, paddingTop: 14 }}>
+                          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 40, flexShrink: 0, paddingTop: 12 }}>
                             {/* Node dot */}
                             <div style={{
                               width: 8, height: 8, borderRadius: "50%",
@@ -239,16 +239,16 @@ export default function OverviewPanel({
                               <div style={{
                                 width: 1, flex: 1, minHeight: 20,
                                 background: `${t.border}`,
-                                marginTop: 2,
+                                marginTop: 0,
                               }} />
                             )}
                           </div>
 
                           {/* Row content */}
                           <div style={{
-                            flex: 1, padding: "10px 16px 10px 4px",
+                            flex: 1, padding: "8px 16px 8px 4px",
                             borderBottom: !isLast ? `1px solid ${t.border}30` : "none",
-                            display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+                            display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
                           }}>
                             {/* Stage name */}
                             <span style={{
@@ -261,7 +261,7 @@ export default function OverviewPanel({
                             </span>
 
                             {/* Transition swatches */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                               <StatusSwatch status={fromStatus} t={t} />
                               <span style={{ fontSize: 9, color: t.textDim }}>→</span>
                               <StatusSwatch status={toStatus} t={t} />
@@ -271,7 +271,7 @@ export default function OverviewPanel({
                             <div style={{ flex: 1 }} />
 
                             {/* Actor avatar + time */}
-                            <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                               {actor && (
                                 <>
                                   <AvatarC user={actor} size={18} />
@@ -321,8 +321,8 @@ export default function OverviewPanel({
                 {/* Pipeline header */}
                 <div style={{ padding: "16px 20px 12px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 10, flex: 1, minWidth: 0 }}>
-                      <span style={{ fontSize: 22, flexShrink: 0, marginTop: 1 }}>{p.icon}</span>
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1, minWidth: 0 }}>
+                      <span style={{ fontSize: 22, flexShrink: 0, marginTop: 0 }}>{p.icon}</span>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         {/* Editable pipeline name */}
                         {editingName === p.id ? (
@@ -332,27 +332,27 @@ export default function OverviewPanel({
                             onBlur={() => setEditingName(null)}
                             onKeyDown={e => { if (e.key === "Enter") setEditingName(null); }}
                             autoFocus
-                            style={{ fontSize: 17, fontWeight: 800, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "2px 10px", outline: "none", fontFamily: "inherit", width: "100%" }}
+                            style={{ fontSize: 17, fontWeight: 800, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit", width: "100%" }}
                           />
                         ) : (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 17, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>{pipeName}</span>
                             <button
                               onClick={() => setEditingName(p.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: t.textDim, padding: "1px 3px", opacity: 0.5, lineHeight: 1 }}
+                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: t.textDim, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}
                               title="Rename"
                             >{"✎"}</button>
                           </div>
                         )}
 
                         {/* Badges */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 5, flexWrap: "wrap" }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                           <span
                             onClick={() => {
                               const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(pipePriority as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
                               setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), priority: next } }));
                             }}
-                            style={{ fontSize: 8, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+                            style={{ fontSize: 8, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
                             title="Click to cycle priority"
                           >{pipePriority}</span>
                           <span style={{ fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages · {p.totalHours}</span>
@@ -372,7 +372,7 @@ export default function OverviewPanel({
                   </div>
 
                   {/* Editable description */}
-                  <div style={{ marginTop: 10 }}>
+                  <div style={{ marginTop: 8 }}>
                     {editingDesc === p.id ? (
                       <textarea
                         value={pipeDesc}
@@ -380,7 +380,7 @@ export default function OverviewPanel({
                         onBlur={() => setEditingDesc(null)}
                         autoFocus
                         rows={2}
-                        style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "6px 10px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
+                        style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                       />
                     ) : (
                       <p
@@ -416,7 +416,7 @@ export default function OverviewPanel({
                         className="bu-ov-row"
                         style={{
                           display: "flex", alignItems: "center", gap: 12,
-                          padding: "9px 20px",
+                          padding: "8px 20px",
                           background: isEvenRow ? "transparent" : t.surface + "40",
                           borderBottom: i < stages.length - 1 ? `1px solid ${t.border}40` : "none",
                           transition: "background 0.15s",
@@ -440,7 +440,7 @@ export default function OverviewPanel({
                               onBlur={() => setEditingStageDesc(null)}
                               onKeyDown={e => { if (e.key === "Enter") setEditingStageDesc(null); }}
                               autoFocus
-                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.textSec, fontFamily: "inherit", outline: "none" }}
+                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "inherit", outline: "none" }}
                             />
                           ) : (
                             <span

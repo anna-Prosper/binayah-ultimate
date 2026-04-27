@@ -341,7 +341,7 @@ export default function LoginClient() {
             zIndex: 1,
             width: "100%",
             maxWidth: 440,
-            padding: "96px 24px 80px",
+            padding: "64px 24px 64px",
             boxSizing: "border-box",
           }}
         >
@@ -352,7 +352,7 @@ export default function LoginClient() {
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                marginBottom: 6,
+                marginBottom: 4,
               }}
             >
               <span style={{ fontSize: 24, lineHeight: 1 }}>🏴‍☠️</span>
@@ -397,7 +397,7 @@ export default function LoginClient() {
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
-              gap: 10,
+              gap: 8,
               fontFamily: "var(--font-dm-sans), sans-serif",
               fontWeight: 600,
               fontSize: 14,
@@ -605,7 +605,7 @@ export default function LoginClient() {
                     opacity: (isInFlight || !email.trim() || !password.trim()) ? 0.5 : 1,
                     display: "flex",
                     alignItems: "center",
-                    gap: 6,
+                    gap: 4,
                     transition: "opacity 0.15s",
                     flexShrink: 0,
                     whiteSpace: "nowrap",

@@ -78,7 +78,7 @@ function ToolbarBtn({
         background: active ? t.accent + "22" : "transparent",
         border: `1px solid ${active ? t.accent + "55" : "transparent"}`,
         borderRadius: 8,
-        padding: "3px 7px",
+        padding: "4px 8px",
         cursor: disabled ? "not-allowed" : "pointer",
         color: active ? t.accent : t.textMuted,
         fontSize: 11,
@@ -334,7 +334,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
   // Skeleton row
   const SkeletonRow = () => (
-    <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5 }}>
+    <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
       <div style={{ height: 12, width: "70%", background: t.bgHover, borderRadius: 8 }} />
       <div style={{ height: 9, width: "40%", background: t.bgHover, borderRadius: 8, opacity: 0.6 }} />
     </div>
@@ -356,7 +356,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       height: "100%",
     }}>
       {/* Header + new doc button */}
-      <div style={{ padding: "12px 14px 8px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+      <div style={{ padding: "12px 12px 8px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
         <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", flex: 1 }}>
           // documents
         </span>
@@ -366,7 +366,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
             background: t.accent + "18",
             border: `1px solid ${t.accent + "44"}`,
             borderRadius: 8,
-            padding: "4px 10px",
+            padding: "4px 8px",
             cursor: "pointer",
             fontSize: 9,
             color: t.accent,
@@ -380,14 +380,14 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
       </div>
 
       {/* Pipeline filter pills */}
-      <div style={{ padding: "8px 12px 6px", display: "flex", gap: 4, flexWrap: "wrap", borderBottom: `1px solid ${t.border}` }}>
+      <div style={{ padding: "8px 12px 4px", display: "flex", gap: 4, flexWrap: "wrap", borderBottom: `1px solid ${t.border}` }}>
         <button
           onClick={() => setFilterPipeline(null)}
           style={{
             background: filterPipeline === null ? t.accent + "22" : "transparent",
             border: `1px solid ${filterPipeline === null ? t.accent + "55" : t.border}`,
             borderRadius: 16,
-            padding: "2px 9px",
+            padding: "0 8px",
             cursor: "pointer",
             fontSize: 8,
             color: filterPipeline === null ? t.accent : t.textMuted,
@@ -409,7 +409,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,
                 borderRadius: 16,
-                padding: "2px 9px",
+                padding: "0 8px",
                 cursor: "pointer",
                 fontSize: 8,
                 color: isActive ? pColor : t.textMuted,
@@ -429,7 +429,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
         {loadingList ? (
           <>{[0, 1, 2, 3].map(i => <SkeletonRow key={i} />)}</>
         ) : filteredDocs.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", gap: 8 }}>
             <span style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textAlign: "center", lineHeight: 1.6 }}>
               // no docs yet — forge one
             </span>
@@ -439,7 +439,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 background: t.accent + "22",
                 border: `1px solid ${t.accent + "55"}`,
                 borderRadius: 12,
-                padding: "7px 16px",
+                padding: "8px 16px",
                 cursor: "pointer",
                 fontSize: 10,
                 color: t.accent,
@@ -461,7 +461,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               key={doc._id}
               onClick={() => openDoc(doc._id)}
               style={{
-                padding: "9px 14px",
+                padding: "8px 12px",
                 cursor: "pointer",
                 background: isActive ? t.bgHover : "transparent",
                 borderLeft: `3px solid ${isActive ? t.accent : "transparent"}`,
@@ -470,15 +470,15 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = t.bgHover + "88"; }}
               onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 3 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                 <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 600, color: t.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {doc.title || "untitled"}
                 </span>
                 {creator && <AvatarC user={creator} size={16} />}
               </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {pipe && (
-                  <span style={{ fontSize: 7, color: pColor, background: pColor + "18", border: `1px solid ${pColor + "33"}`, borderRadius: 8, padding: "1px 6px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                  <span style={{ fontSize: 7, color: pColor, background: pColor + "18", border: `1px solid ${pColor + "33"}`, borderRadius: 8, padding: "0 4px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
                     {pipe.icon} {pipe.name}
                   </span>
                 )}
@@ -514,7 +514,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               {isMobile && (
                 <button
                   onClick={() => setMobileView("list")}
-                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 9px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)" }}
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)" }}
                 >
                   ← back
                 </button>
@@ -564,7 +564,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 borderRadius: 1,
                 background: `linear-gradient(90deg, transparent, ${t.accent}, transparent)`,
                 animation: "syncPulse 1.2s ease-in-out infinite",
-                marginBottom: 2,
+                marginBottom: 0,
               }} />
             )}
 
@@ -573,9 +573,9 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               <div style={{
                 display: "flex",
                 alignItems: "center",
-                gap: 6,
-                paddingBottom: 6,
-                paddingTop: 2,
+                gap: 4,
+                paddingBottom: 4,
+                paddingTop: 0,
               }}>
                 {updatedByUser && <AvatarC user={updatedByUser} size={16} />}
                 <span style={{
@@ -588,7 +588,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 </span>
               </div>
             ) : (
-              <div style={{ paddingBottom: 6, paddingTop: 2 }}>
+              <div style={{ paddingBottom: 4, paddingTop: 0 }}>
                 <span style={{
                   fontSize: 9,
                   color: t.textDim,
@@ -600,7 +600,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
             )}
 
             {/* Pipeline tag dropdown */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, paddingBottom: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 4, paddingBottom: 8 }}>
               <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>pipeline:</span>
               <select
                 value={activeDoc.pipelineId ?? ""}
@@ -609,7 +609,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                   background: t.bgCard,
                   border: `1px solid ${t.border}`,
                   borderRadius: 8,
-                  padding: "2px 6px",
+                  padding: "0 4px",
                   fontSize: 9,
                   color: t.textSec,
                   fontFamily: "var(--font-geist-mono, monospace)",
@@ -627,7 +627,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
           {/* Toolbar */}
           {editor && (
-            <div style={{ padding: "6px 20px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 3, flexWrap: "wrap" }}>
+            <div style={{ padding: "4px 20px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
               <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })}>H1</ToolbarBtn>
               <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })}>H2</ToolbarBtn>
               <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")}><strong>B</strong></ToolbarBtn>
@@ -676,7 +676,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
               {/* Attachments */}
               <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                   <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", fontWeight: 700 }}>
                     attachments {activeDoc?.attachments && activeDoc.attachments.length > 0 ? `(${activeDoc.attachments.length})` : ""}
                   </div>
@@ -692,28 +692,28 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingFile}
-                    style={{ background: uploadingFile ? t.surface : t.accent + "18", border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "5px 12px", cursor: uploadingFile ? "wait" : "pointer", fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", display: "flex", alignItems: "center", gap: 5 }}
+                    style={{ background: uploadingFile ? t.surface : t.accent + "18", border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 12px", cursor: uploadingFile ? "wait" : "pointer", fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", display: "flex", alignItems: "center", gap: 4 }}
                   >
                     {uploadingFile ? "↑ uploading..." : "📎 attach file"}
                   </button>
                 </div>
                 {activeDoc?.attachments && activeDoc.attachments.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {activeDoc.attachments.map(a => {
                       const uploader = USERS_DEFAULT.find(u => u.id === a.uploadedBy);
                       const isImage = a.contentType.startsWith("image/");
                       return (
-                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12 }}>
+                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12 }}>
                           <span style={{ fontSize: 18 }}>{isImage ? "🖼" : a.contentType.includes("pdf") ? "📄" : a.contentType.includes("zip") ? "🗜" : "📎"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 600, color: t.text, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{a.name}</a>
-                            <div style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 2 }}>
+                            <div style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
                               {(a.size / 1024).toFixed(1)} kB
                               {uploader && ` · by ${uploader.name}`}
                               {a.uploadedAt && ` · ${relativeTime(a.uploadedAt)}`}
                             </div>
                           </div>
-                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
+                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
                           <button onClick={() => deleteAttachment(a.id)} title="Remove" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
                         </div>
                       );

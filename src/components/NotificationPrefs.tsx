@@ -54,7 +54,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
   if (enabled === null) return null;
 
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span
           style={{
@@ -81,7 +81,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
             border: "none",
             cursor: saving ? "not-allowed" : "pointer",
             background: enabled ? t.accent : t.border,
-            padding: 2,
+            padding: 0,
             transition: "background 0.2s",
             flexShrink: 0,
             opacity: saving ? 0.6 : 1,
@@ -108,7 +108,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
             fontSize: 8,
             color: t.red ?? "#ff453a",
             fontFamily: "var(--font-dm-mono), monospace",
-            marginTop: 3,
+            marginTop: 4,
           }}
         >
           {error}

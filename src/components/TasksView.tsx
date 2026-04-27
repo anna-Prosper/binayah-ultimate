@@ -112,7 +112,7 @@ export default function TasksView(props: Props) {
     background: active ? t.bgCard : "transparent",
     border: "none",
     borderRadius: 12,
-    padding: "7px 18px",
+    padding: "8px 16px",
     cursor: "pointer",
     fontSize: 9,
     fontWeight: active ? 700 : 500,
@@ -125,7 +125,7 @@ export default function TasksView(props: Props) {
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
+    gap: 4,
   });
 
   const pendingCount = stageTasks.filter(s => s.status === "active" && !approvedStages.includes(s.stageId)).length;
@@ -140,17 +140,17 @@ export default function TasksView(props: Props) {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {headerLabel || "🔥 now"}
             {pendingCount > 0 && isAdmin && (
-              <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 6px", fontWeight: 700, letterSpacing: 1 }}>
+              <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "0 4px", fontWeight: 700, letterSpacing: 1 }}>
                 {pendingCount} AWAITING APPROVAL
               </span>
             )}
           </div>
-          <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3 }}>
+          <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
             {stageTasks.length} tasks {"·"} drag between columns to change status
           </div>
         </div>
@@ -164,7 +164,7 @@ export default function TasksView(props: Props) {
           minWidth: 200,
         }}>
           {showMyAllFilter && (
-            <div style={{ display: "flex", padding: "3px 3px", borderBottom: `1px solid ${t.border}` }}>
+            <div style={{ display: "flex", padding: "4px 4px", borderBottom: `1px solid ${t.border}` }}>
               <button style={pillBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>
                 <span>🐱</span><span>mine</span>
               </button>
@@ -173,7 +173,7 @@ export default function TasksView(props: Props) {
               </button>
             </div>
           )}
-          <div style={{ display: "flex", padding: "3px 3px" }}>
+          <div style={{ display: "flex", padding: "4px 4px" }}>
             <button style={pillBtn(view === "kanban")} onClick={() => setView("kanban")}>
               <span>⊞</span><span>kanban</span>
             </button>
@@ -185,19 +185,19 @@ export default function TasksView(props: Props) {
       </div>
 
       {stageTasks.length === 0 ? (
-        <div style={{ padding: "60px 0", textAlign: "center" }}>
+        <div style={{ padding: "64px 0", textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
           <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no tasks yet</div>
         </div>
       ) : view === "list" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {COLS.map(col => {
             const colTasks = stageTasks.filter(s => s.status === col.status);
             if (colTasks.length === 0) return null;
             const stColor = statusColor(col.status);
             return (
               <section key={col.status}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
                   <span style={{ fontSize: 8, fontWeight: 700, color: stColor, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
                   <span style={{ fontSize: 7, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({colTasks.length})</span>
@@ -210,7 +210,7 @@ export default function TasksView(props: Props) {
           })}
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 14, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
           {COLS.map(col => {
             const colTasks = stageTasks.filter(s => s.status === col.status);
             const stColor = statusColor(col.status);
@@ -218,17 +218,17 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "background 0.15s", padding: 2 }}
+                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "background 0.15s", padding: 0 }}
                 onDragOver={e => { e.preventDefault(); setDragOver(col.status); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={e => handleDrop(col.status, e)}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, padding: "6px 4px", borderBottom: `1px solid ${stColor}33` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, padding: "4px 4px", borderBottom: `1px solid ${stColor}33` }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
                   <span style={{ fontSize: 8, fontWeight: 700, color: stColor, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
                   <span style={{ fontSize: 7, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({colTasks.length})</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {colTasks.length === 0
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 8, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
                     : colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!task.locked} {...cardShared} />)
@@ -288,7 +288,7 @@ function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...sh
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
       <TaskCard task={task} isMine={isMine} onClaim={onClaim} draggable={isDraggable} {...shared} />
       {showSubs && taskSubs.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 16, borderLeft: `2px solid ${task.pipelineColor}33`, marginLeft: 6 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 16, borderLeft: `2px solid ${task.pipelineColor}33`, marginLeft: 4 }}>
           {taskSubs.map(sub => (
             <SubtaskCard
               key={sub.id}
@@ -340,17 +340,17 @@ function TaskCard({
       onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
     >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div title={task.stageId} style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{task.stageId}</div>
           <div title={`${task.workspaceName ? task.workspaceName + " · " : ""}${task.pipelineName}`} style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
             {task.workspaceIcon && task.workspaceName && <>{task.workspaceIcon} {task.workspaceName} · </>}
             {task.pipelineIcon} {task.pipelineName}
-            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim, marginLeft: 6 }}>{subDone}/{subCount}</span>}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 6 }}>→ {assignee.name}</span>}
+            {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim, marginLeft: 4 }}>{subDone}/{subCount}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {task.claimers.length > 0 && (
             <div style={{ display: "flex", gap: -4 }}>
               {task.claimers.slice(0, 3).map(id => {
@@ -379,7 +379,7 @@ function TaskCard({
           {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
             return (
-              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(task.stageId, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(task.stageId, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
                 <span style={{ fontSize: 8, fontWeight: 700 }}>{us.length}</span>
               </button>
@@ -446,15 +446,15 @@ function SubtaskCard({
   return (
     <CardShell t={t} borderColor={t.border}>
       {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div title={taskSub.text} style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{taskSub.text}</div>
           <div title={`subtask of ${parentStageName}`} style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
             ↳ subtask of {pipelineIcon} {parentStageName}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 6 }}>→ {assignee.name}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {creator && (
             <div title={`added by ${creator.name}`}>
               <AvatarC user={creator} size={20} />
@@ -473,7 +473,7 @@ function SubtaskCard({
           {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
             return (
-              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
                 <span style={{ fontSize: 8, fontWeight: 700 }}>{us.length}</span>
               </button>
@@ -553,20 +553,20 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
     padding: compact ? "3px 6px" : "3px 7px", cursor: "pointer",
     fontSize: compact ? 9 : 10, color: t.textMuted,
-    fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3,
+    fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4,
     whiteSpace: "nowrap" as const,
   };
 
   return (
-    <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 2, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 0, flexWrap: "wrap" }}>
       <div style={{ position: "relative" }}>
         <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={iconBtn} title="Add reaction">
           😀 <span style={{ fontSize: 7 }}>+</span>
         </button>
         {showReactPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
             {REACTIONS.map(emoji => (
-              <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 8 }}>{emoji}</button>
+              <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>
             ))}
           </div>
         )}
@@ -579,11 +579,11 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           👤 <span style={{ fontSize: 7 }}>{assignee ? assignee.name.toLowerCase() : "assign"}</span>
         </button>
         {showAssignPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 140 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 140 }}>
             {users.map(u => {
               const isCurrent = assignee?.id === u.id;
               return (
-                <button key={u.id} onClick={() => onAssign(isCurrent ? null : u.id)} style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>
+                <button key={u.id} onClick={() => onAssign(isCurrent ? null : u.id)} style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "4px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: u.color, flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{u.name}</span>
                   {isCurrent && <span style={{ fontSize: 8 }}>✓</span>}
@@ -591,7 +591,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
               );
             })}
             {assignee && (
-              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "5px 10px", borderRadius: 8, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>× clear</button>
+              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>× clear</button>
             )}
           </div>
         )}
@@ -608,13 +608,13 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
   inputValue: string; onInputChange: (v: string) => void; onSend: () => void;
 }) {
   return (
-    <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 10, marginTop: 2 }}>
+    <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
       {comments.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>
           {comments.slice(-5).map(c => {
             const u = users.find(u => u.id === c.by);
             return (
-              <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
                 {u && <AvatarC user={u} size={18} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 8, color: u?.color || t.text, fontWeight: 700 }}>{u?.name || c.by}</div>
@@ -631,9 +631,9 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onSend(); } }}
           placeholder="// add a comment..."
-          style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 10, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+          style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 10, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
         />
-        <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+        <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
       </div>
     </div>
   );

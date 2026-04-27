@@ -13,7 +13,7 @@ export const NB = ({ color, children, style: s = {} }: { color: string; children
 );
 
 export const Bar = ({ t, label, value, color }: { t: T; label: string; value: number; color?: string }) => (
-  <div style={{ display: "flex", alignItems: "center", gap: 3, marginBottom: 2 }}>
+  <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 0 }}>
     <span style={{ fontSize: 6, color: t.textMuted, width: 48, textAlign: "right" }}>{label}</span>
     <div style={{ flex: 1, height: 4, background: t.surface, borderRadius: 2 }}>
       <div style={{ width: `${value}%`, height: "100%", background: color || t.accent, borderRadius: 2 }} />
@@ -23,9 +23,9 @@ export const Bar = ({ t, label, value, color }: { t: T; label: string; value: nu
 );
 
 export const Stat = ({ t, label, value, color }: { t: T; label: string; value: string; color: string }) => (
-  <div style={{ textAlign: "center", background: t.surface, borderRadius: 8, padding: "5px 3px", flex: "1 1 40px" }}>
+  <div style={{ textAlign: "center", background: t.surface, borderRadius: 8, padding: "4px 4px", flex: "1 1 40px" }}>
     <div style={{ fontSize: 10, fontWeight: 800, color }}>{value}</div>
-    <div style={{ fontSize: 5, color: t.textDim, marginTop: 1 }}>{label}</div>
+    <div style={{ fontSize: 5, color: t.textDim, marginTop: 0 }}>{label}</div>
   </div>
 );
 

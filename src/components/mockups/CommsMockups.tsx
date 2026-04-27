@@ -34,7 +34,7 @@ export function TimezoneDrips({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/drip-scheduler">
       {[{tz:"🇷🇺 Moscow",local:"9:00 AM",s:"✓ Sent",c:t.green},{tz:"🇮🇳 Mumbai",local:"10:30 AM",s:"Queued",c:t.amber},{tz:"🇨🇳 Beijing",local:"8:00 AM",s:"Tomorrow",c:t.accent},{tz:"🇹🇷 Istanbul",local:"12:00 PM",s:"Queued",c:t.amber}].map((x,i)=>(
-        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"3px 0",borderBottom:`1px solid ${t.border}22`}}>
+        <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:`1px solid ${t.border}22`}}>
           <div>
             <span style={{fontSize:6.5,color:t.text}}>{x.tz}</span>
             <span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.local}</span>
@@ -49,7 +49,7 @@ export function TimezoneDrips({ t }: { t: T }) {
 export function WACompliance({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/wa-health">
-      <div style={{display:"flex",gap:3,marginBottom:5}}>
+      <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Quality" value="High" color={t.green}/>
         <Stat t={t} label="Opt-in" value="94%" color={t.accent}/>
         <Stat t={t} label="Templates" value="12/12" color={t.green}/>

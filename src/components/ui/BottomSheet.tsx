@@ -124,7 +124,7 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
         }}
       >
         {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 6px", flexShrink: 0 }}>
+        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px", flexShrink: 0 }}>
           <div style={{ width: 40, height: 4, borderRadius: 2, background: t.border }} />
         </div>
 
@@ -132,7 +132,7 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
         {title && (
           <div style={{
             display: "flex", alignItems: "center", justifyContent: "space-between",
-            padding: "4px 16px 10px", flexShrink: 0,
+            padding: "4px 16px 8px", flexShrink: 0,
             borderBottom: `1px solid ${t.border}`,
           }}>
             <span style={{
@@ -145,7 +145,7 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
               onClick={onClose}
               style={{
                 background: "transparent", border: `1px solid ${t.border}`,
-                borderRadius: 8, padding: "4px 10px", cursor: "pointer",
+                borderRadius: 8, padding: "4px 8px", cursor: "pointer",
                 fontSize: 11, color: t.textMuted, fontFamily: "inherit",
                 minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center",
               }}

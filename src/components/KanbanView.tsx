@@ -104,13 +104,13 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
               onDragOver={e => { e.preventDefault(); setDragOver(col.id); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null); }}
               onDrop={e => { e.preventDefault(); if (dragging) { const draggedStage = visible.find(s => s.name === dragging); if (draggedStage && !lockedPipelines.includes(draggedStage.pipelineId)) setStageStatusDirect(dragging, col.id); } setDragging(null); setDragOver(null); }}
-              style={{ background: dragOver === col.id ? stc.c + "0c" : t.bgSoft, border: `2px solid ${dragOver === col.id ? stc.c + "55" : t.border}`, borderRadius: 16, padding: "12px 10px", transition: "all 0.15s" }}
+              style={{ background: dragOver === col.id ? stc.c + "0c" : t.bgSoft, border: `2px solid ${dragOver === col.id ? stc.c + "55" : t.border}`, borderRadius: 16, padding: "12px 8px", transition: "all 0.15s" }}
             >
               {/* Column header */}
-              <div className="bu-kb-col-header" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "0 2px" }}>
+              <div className="bu-kb-col-header" style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 12, padding: "0 0" }}>
                 <span style={{ fontSize: 14 }}>{col.emoji}</span>
                 <span style={{ fontSize: 8, fontWeight: 800, color: stc.c, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
-                <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 12, padding: "1px 8px" }}>
+                <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 12, padding: "0 8px" }}>
                   <span style={{ fontSize: 9, color: stc.c, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{stages.length}</span>
                 </div>
               </div>
@@ -130,17 +130,17 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                       onDragStart={e => { if (lockedPipelines.includes(s.pipelineId)) { e.preventDefault(); return; } setDragging(s.name); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setDragging(null); setDragOver(null); }}
                       onClick={() => onCardClick(s.pipelineId, s.name)}
-                      style={{ background: t.bgCard, border: `1px solid ${lockedPipelines.includes(s.pipelineId) ? t.amber + "33" : dragging === s.name ? stc.c + "66" : t.border}`, borderLeft: `3px solid ${s.pipelineColor}`, borderRadius: 12, padding: "10px 12px", cursor: lockedPipelines.includes(s.pipelineId) ? "default" : "pointer", opacity: dragging === s.name ? 0.4 : lockedPipelines.includes(s.pipelineId) ? 0.75 : 1, transition: "all 0.15s", boxShadow: t.shadow, userSelect: "none" }}
+                      style={{ background: t.bgCard, border: `1px solid ${lockedPipelines.includes(s.pipelineId) ? t.amber + "33" : dragging === s.name ? stc.c + "66" : t.border}`, borderLeft: `3px solid ${s.pipelineColor}`, borderRadius: 12, padding: "8px 12px", cursor: lockedPipelines.includes(s.pipelineId) ? "default" : "pointer", opacity: dragging === s.name ? 0.4 : lockedPipelines.includes(s.pipelineId) ? 0.75 : 1, transition: "all 0.15s", boxShadow: t.shadow, userSelect: "none" }}
                     >
                       {/* Pipeline tag */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
                         <span style={{ fontSize: 9 }}>{s.pipelineIcon}</span>
-                        <span className="bu-kb-card-tag" style={{ fontSize: 7, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "1px 6px", borderRadius: 8, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
+                        <span className="bu-kb-card-tag" style={{ fontSize: 7, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "0 4px", borderRadius: 8, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
                       </div>
                       {/* Name */}
                       <div className="bu-kb-card-name" style={{ fontSize: 11, fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.3 }}>{s.name}</div>
                       {/* Desc */}
-                      {def.desc && <div className="bu-kb-card-desc" style={{ fontSize: 8, color: t.textSec, lineHeight: 1.4, marginBottom: 7, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>{def.desc}</div>}
+                      {def.desc && <div className="bu-kb-card-desc" style={{ fontSize: 8, color: t.textSec, lineHeight: 1.4, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>{def.desc}</div>}
                       {/* Footer */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                         {claimedBy.length > 0

@@ -8,7 +8,7 @@ import { Stat } from "@/components/ui/primitives";
 export function LinkedInScrape({ t }: { t: T }) {
   return (
     <Browser t={t} url="apollo.io / phantombuster">
-      <div style={{display:"flex",gap:3,marginBottom:4}}>
+      <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Flagged" value="47" color={t.accent}/>
         <Stat t={t} label="Verified" value="31" color={t.green}/>
         <Stat t={t} label="Hot" value="8" color={t.red}/>
@@ -30,7 +30,7 @@ export function ForumListener({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/forum-monitor">
       {[{s:"r/dubai",p:"'looking to buy investment property in Marina'",intent:"HIGH",c:t.red},{s:"r/expats",p:"'relocating to Dubai in March, need advice'",intent:"HIGH",c:t.amber},{s:"FB Dubai Expats",p:"'anyone recommend a property agent?'",intent:"MED",c:t.accent}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",marginBottom:3}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 4px",marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{fontSize:6,fontWeight:700,color:x.c}}>{x.s}</span>
             <span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.intent}</span>
@@ -45,7 +45,7 @@ export function ForumListener({ t }: { t: T }) {
 export function ColdOutreachSystem({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/outreach-hub">
-      <div style={{display:"flex",gap:3,marginBottom:5}}>
+      <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Verified" value="847" color={t.green}/>
         <Stat t={t} label="Warming" value="78%" color={t.amber}/>
         <Stat t={t} label="Replied" value="34" color={t.accent}/>

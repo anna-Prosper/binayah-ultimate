@@ -93,7 +93,7 @@ function snippetAround(text: string, needle: string, radius = 60): string {
 function SectionHeader({ label, t }: { label: string; t: T }) {
   return (
     <div style={{
-      padding: "6px 14px 4px",
+      padding: "4px 12px 4px",
       fontSize: 9,
       fontWeight: 700,
       color: t.textMuted,
@@ -132,8 +132,8 @@ function ResultRow({
   const base: React.CSSProperties = {
     display: "flex",
     alignItems: "center",
-    gap: 10,
-    padding: "9px 14px",
+    gap: 8,
+    padding: "8px 12px",
     cursor: "pointer",
     background: active ? t.accent + "16" : "transparent",
     borderLeft: `2px solid ${active ? t.accent : "transparent"}`,
@@ -151,7 +151,7 @@ function ResultRow({
           <div style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
             {highlight(result.stageName, query, t.accent)}
           </div>
-          <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 1 }}>
+          <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
             {result.pipelineName}
           </div>
         </div>
@@ -172,7 +172,7 @@ function ResultRow({
             {highlight(result.title || "untitled", query, t.accent)}
           </div>
           {result.snippet && (
-            <div style={{ fontSize: 9, color: t.textSec, marginTop: 2, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 9, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
               {highlight(result.snippet, query, t.accent)}
             </div>
           )}
@@ -193,7 +193,7 @@ function ResultRow({
         <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
           {highlight(result.user.name, query, t.accent)}
         </div>
-        <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 1 }}>
+        <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
           {highlight(result.user.role, query, t.accent)}
         </div>
       </div>
@@ -205,7 +205,7 @@ function ResultRow({
 // ── Skeleton pulse for loading docs ───────────────────────────────────────────
 function DocSkeleton({ t }: { t: T }) {
   return (
-    <div style={{ padding: "9px 14px", display: "flex", flexDirection: "column" as const, gap: 5 }}>
+    <div style={{ padding: "8px 12px", display: "flex", flexDirection: "column" as const, gap: 4 }}>
       {[70, 40, 55].map((w, i) => (
         <div key={i} style={{
           height: i === 0 ? 11 : 8,
@@ -419,7 +419,7 @@ export default function SearchPalette({
           <div style={{
             display: "flex",
             alignItems: "center",
-            gap: 10,
+            gap: 8,
             padding: "12px 16px",
             borderBottom: `1px solid ${t.border}`,
           }}>
@@ -449,7 +449,7 @@ export default function SearchPalette({
               letterSpacing: 1,
               border: `1px solid ${t.border}`,
               borderRadius: 8,
-              padding: "2px 5px",
+              padding: "0 4px",
               flexShrink: 0,
             }}>esc</span>
           </div>
@@ -485,7 +485,7 @@ export default function SearchPalette({
                   );
                 })
               ) : (
-                <div style={{ padding: "10px 14px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                <div style={{ padding: "8px 12px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                   {docsWithContent === null ? "// loading..." : "// no matching documents"}
                 </div>
               )}
@@ -506,7 +506,7 @@ export default function SearchPalette({
 
             {/* Empty state */}
             {!docsLoading && !hasAnyResults && query.trim() !== "" && (
-              <div style={{ padding: "28px 14px", textAlign: "center" as const, fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+              <div style={{ padding: "24px 12px", textAlign: "center" as const, fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                 // nothing found — try a different query
               </div>
             )}
@@ -514,14 +514,14 @@ export default function SearchPalette({
             {/* Hint bar */}
             <div style={{
               borderTop: `1px solid ${t.border}`,
-              padding: "7px 14px",
+              padding: "8px 12px",
               display: "flex",
-              gap: 14,
+              gap: 12,
               alignItems: "center",
             }}>
               {[["↑↓", "navigate"], ["↵", "open"], ["esc", "close"]].map(([k, label]) => (
                 <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
-                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "1px 5px", fontSize: 9 }}>{k}</span>
+                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", fontSize: 9 }}>{k}</span>
                   {label}
                 </span>
               ))}

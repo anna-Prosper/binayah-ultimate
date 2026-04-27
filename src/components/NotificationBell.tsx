@@ -205,14 +205,14 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
     background: t.bgCard,
     border: `1px solid ${t.border}`,
     borderRadius: 12,
-    padding: "0 13px",
+    padding: "0 12px",
     cursor: "pointer",
     color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace",
     fontSize: 14,
     fontWeight: 600,
     whiteSpace: "nowrap" as const,
-    gap: 5,
+    gap: 4,
     position: "relative" as const,
     minHeight: 44,
   };
@@ -314,7 +314,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "space-between",
-                padding: "10px 14px",
+                padding: "8px 12px",
                 borderBottom: `1px solid ${t.border}`,
               }}
             >
@@ -380,8 +380,8 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                       style={{
                         display: "flex",
                         alignItems: "center",
-                        gap: 10,
-                        padding: "9px 14px",
+                        gap: 8,
+                        padding: "8px 12px",
                         borderBottom: `1px solid ${t.border}`,
                         borderLeft: isUnread ? `2px solid ${t.accent}` : "2px solid transparent",
                         background: isUnread ? `${t.accent}08` : "transparent",
@@ -440,7 +440,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                             fontSize: 9,
                             color: t.textMuted,
                             fontFamily: "var(--font-dm-mono), monospace",
-                            marginTop: 2,
+                            marginTop: 0,
                           }}
                           title={new Date(item.time).toLocaleString()}
                         >
@@ -466,7 +466,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                 {notifications.length > MAX_VISIBLE && (
                   <div
                     style={{
-                      padding: "8px 14px",
+                      padding: "8px 12px",
                       fontSize: 9,
                       color: t.textMuted,
                       fontFamily: "var(--font-dm-mono), monospace",

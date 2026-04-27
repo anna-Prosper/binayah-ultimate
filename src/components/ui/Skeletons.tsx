@@ -22,7 +22,7 @@ export function ChatSkeleton({ t }: { t: T }) {
       style={{
         display: "flex",
         justifyContent: align === "right" ? "flex-end" : "flex-start",
-        marginBottom: 10,
+        marginBottom: 8,
       }}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: align === "right" ? "flex-end" : "flex-start", maxWidth: "70%" }}>
@@ -56,13 +56,13 @@ export function ChatSkeleton({ t }: { t: T }) {
     >
       <PulseStyle />
       {/* Tab bar skeleton */}
-      <div style={{ display: "flex", gap: 6, padding: "12px 14px 0", borderBottom: `1px solid ${t.border}`, paddingBottom: 10 }}>
+      <div style={{ display: "flex", gap: 4, padding: "12px 12px 0", borderBottom: `1px solid ${t.border}`, paddingBottom: 8 }}>
         {["60px", "50px"].map((w, i) => (
           <div key={i} style={{ height: 24, width: w, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
         ))}
       </div>
       {/* Messages area */}
-      <div style={{ flex: 1, padding: "16px 14px", display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ flex: 1, padding: "16px 12px", display: "flex", flexDirection: "column", gap: 4 }}>
         {bar("120px", "left")}
         {bar("180px", "right")}
         {bar("150px", "left")}
@@ -70,7 +70,7 @@ export function ChatSkeleton({ t }: { t: T }) {
         {bar("200px", "left")}
       </div>
       {/* Input area placeholder */}
-      <div style={{ padding: "10px 14px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 8, alignItems: "center" }}>
+      <div style={{ padding: "8px 12px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 8, alignItems: "center" }}>
         <div style={{ flex: 1, height: 38, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
         <div style={{ width: 38, height: 38, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
       </div>
@@ -86,20 +86,20 @@ export function ActivitySkeleton({ t }: { t: T }) {
         background: t.bgCard,
         border: `1px solid ${t.border}`,
         borderRadius: 16,
-        padding: "14px",
+        padding: "12px",
         minHeight: 280,
       }}
     >
       <PulseStyle />
       {/* Header */}
-      <div style={{ height: 16, width: 120, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
+      <div style={{ height: 16, width: 120, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
       {/* Activity rows */}
       {[0, 1, 2, 3, 4].map(i => (
-        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
+        <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
           {/* Avatar circle */}
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
           {/* Text lines */}
-          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 4 }}>
             <div style={{ height: 10, width: `${60 + (i * 13) % 30}%`, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
             <div style={{ height: 8, width: `${35 + (i * 7) % 20}%`, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
           </div>
@@ -139,7 +139,7 @@ export function KanbanSkeleton({ t }: { t: T }) {
           }}
         >
           {/* Column header */}
-          <div style={{ height: 18, width: 90, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
+          <div style={{ height: 18, width: 90, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
           {/* Cards */}
           {card("100%")}
           {card("90%")}
@@ -164,7 +164,7 @@ export function OverviewSkeleton({ t }: { t: T }) {
     >
       <PulseStyle />
       {/* Stats grid: 4 metric cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 20 }}>
         {[0, 1, 2, 3].map(i => (
           <div key={i} style={{ height: 72, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
         ))}
@@ -173,7 +173,7 @@ export function OverviewSkeleton({ t }: { t: T }) {
       <div style={{ marginBottom: 20 }}>
         <div style={{ height: 14, width: 140, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
         {[0, 1, 2].map(i => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{ width: 90, height: 10, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
             <div style={{ flex: 1, height: 8, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
           </div>
@@ -183,7 +183,7 @@ export function OverviewSkeleton({ t }: { t: T }) {
       <div>
         <div style={{ height: 14, width: 110, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
         {[0, 1, 2].map(i => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
             <div style={{ width: 80, height: 10, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
             <div style={{ flex: 1, height: 8, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginLeft: "auto", maxWidth: 100 }} />

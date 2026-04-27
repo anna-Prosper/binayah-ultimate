@@ -106,7 +106,7 @@ export function AvatarPicker({
       `}</style>
 
       {/* Tab switcher */}
-      <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 3, marginBottom: 18 }}>
+      <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 4, marginBottom: 16 }}>
         {(["emoji", "ai"] as const).map(tb => (
           <button
             key={tb}
@@ -186,7 +186,7 @@ export function AvatarPicker({
       {/* AI TAB */}
       {tab === "ai" && (
         <div style={{ animation: "ap-fadeIn 0.3s ease" }}>
-          <div style={{ position: "relative", marginBottom: 10 }}>
+          <div style={{ position: "relative", marginBottom: 8 }}>
             <input
               ref={inputRef}
               value={aiPrompt}
@@ -196,7 +196,7 @@ export function AvatarPicker({
               style={{
                 width: "100%", boxSizing: "border-box",
                 background: t.surface, border: `1.5px solid ${t.border}`, borderRadius: 12,
-                padding: "12px 52px 12px 14px", color: t.text, fontSize: 13,
+                padding: "12px 48px 12px 12px", color: t.text, fontSize: 13,
                 fontFamily: "var(--font-dm-mono), monospace", outline: "none",
                 transition: "border-color 0.2s",
               }}
@@ -222,14 +222,14 @@ export function AvatarPicker({
           </div>
 
           {/* Hint chips */}
-          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginBottom: 12 }}>
             {hints.map(h => (
               <button
                 key={h}
                 onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }}
                 style={{
                   background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16,
-                  padding: "3px 10px", fontSize: 9, color: t.textMuted, cursor: "pointer",
+                  padding: "4px 8px", fontSize: 9, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
@@ -251,7 +251,7 @@ export function AvatarPicker({
                 background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`,
                 backgroundSize: "200% 100%", animation: "ap-shimmer 1.4s ease-in-out infinite",
               }} />
-              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>
+              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 8 }}>
                 // generating your vibe...
               </div>
             </div>
@@ -286,7 +286,7 @@ export function AvatarPicker({
                 onClick={generate}
                 style={{
                   display: "block", margin: "8px auto 0", background: "transparent",
-                  border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 14px",
+                  border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 12px",
                   fontSize: 9, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace",
                 }}

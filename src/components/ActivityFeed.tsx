@@ -30,8 +30,8 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
   const capped = activityLog.slice(0, CLIENT_CAP);
 
   return (
-    <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 14px", marginBottom: 8, borderRadius: 16 }}>
-      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 6 }}>
+    <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 12px", marginBottom: 8, borderRadius: 16 }}>
+      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
         activity feed
         {activityLog.length > CLIENT_CAP && (
           <span style={{ fontSize: 7, color: t.amber, fontWeight: 700 }}>
@@ -40,7 +40,7 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
         )}
       </div>
       {capped.length === 0 ? (
-        <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+        <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <span style={{ fontSize: 20 }}>📋</span>
           <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no activity yet — make a move</span>
         </div>
@@ -49,7 +49,7 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
           const u = users.find(x => x.id === a.user);
           const timeStr = relativeTime(a.time);
           return (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < capped.length - 1 ? `1px solid ${t.border}` : "none" }}>
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 4, padding: "4px 0", borderBottom: i < capped.length - 1 ? `1px solid ${t.border}` : "none" }}>
               {u && <AvatarC user={u} size={16} />}
               <div style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontSize: 8, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>

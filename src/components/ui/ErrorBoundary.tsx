@@ -49,7 +49,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            gap: 10,
+            gap: 8,
             padding: "24px 16px",
             minHeight: 120,
           }}
@@ -63,7 +63,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               background: "transparent",
               border: "1px solid #555",
               borderRadius: 8,
-              padding: "5px 16px",
+              padding: "4px 16px",
               cursor: "pointer",
               fontSize: 10,
               color: "#aaa",

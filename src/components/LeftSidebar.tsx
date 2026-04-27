@@ -73,11 +73,11 @@ export default function LeftSidebar({
       overflow: "hidden",
     }}>
       {/* Workspace switcher */}
-      <div style={{ padding: "10px 10px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
+      <div style={{ padding: "8px 8px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
         <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600, marginBottom: 4 }}>workspace</div>
         <button
           onClick={() => setWsOpen(v => !v)}
-          style={{ width: "100%", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 6, textAlign: "left" }}
+          style={{ width: "100%", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, textAlign: "left" }}
         >
           <span style={{ fontSize: 14 }}>{current?.icon || "🏴‍☠️"}</span>
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current?.name || "No workspace"}</span>
@@ -91,7 +91,7 @@ export default function LeftSidebar({
                 <button
                   key={w.id}
                   onClick={() => { onWorkspaceChange(w.id); setWsOpen(false); }}
-                  style={{ width: "100%", background: isActive ? t.accent + "18" : "transparent", border: "none", padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: isActive ? t.accent : t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 11, fontWeight: isActive ? 700 : 500, textAlign: "left" }}
+                  style={{ width: "100%", background: isActive ? t.accent + "18" : "transparent", border: "none", padding: "8px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: isActive ? t.accent : t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 11, fontWeight: isActive ? 700 : 500, textAlign: "left" }}
                 >
                   <span style={{ fontSize: 14 }}>{w.icon}</span>
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</span>
@@ -102,7 +102,7 @@ export default function LeftSidebar({
             {canManageCurrentWorkspace && (
               <button
                 onClick={() => { setWsOpen(false); onManageCurrentWorkspace(); }}
-                style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 700, textAlign: "left" }}
+                style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 700, textAlign: "left" }}
               >
                 ⚙ manage workspace
               </button>
@@ -110,7 +110,7 @@ export default function LeftSidebar({
             {canCreateWorkspace && (
               <button
                 onClick={() => { setWsOpen(false); onCreateWorkspace(); }}
-                style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 10px", cursor: "pointer", display: "flex", alignItems: "center", gap: 7, color: t.accent, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 700, textAlign: "left" }}
+                style={{ width: "100%", background: "transparent", border: "none", borderTop: `1px solid ${t.border}`, padding: "8px 8px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, color: t.accent, fontFamily: "var(--font-dm-mono, monospace)", fontSize: 10, fontWeight: 700, textAlign: "left" }}
               >
                 + new workspace
               </button>
@@ -120,7 +120,7 @@ export default function LeftSidebar({
       </div>
 
       {/* Nav items */}
-      <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 2 }}>
+      <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
         {NAV_ITEMS.map(item => {
           const isActive = activeNav === item.id;
           return (
@@ -131,7 +131,7 @@ export default function LeftSidebar({
                 display: "flex",
                 alignItems: "center",
                 gap: 8,
-                padding: "8px 14px",
+                padding: "8px 12px",
                 background: isActive ? t.accent + "22" : "transparent",
                 border: "none",
                 borderLeft: `3px solid ${isActive ? t.accent : "transparent"}`,
@@ -172,7 +172,7 @@ export default function LeftSidebar({
           padding: "4px 0",
           borderTop: `1px solid ${t.border}`,
         }}>
-          <div style={{ padding: "6px 14px", fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600 }}>
+          <div style={{ padding: "4px 12px", fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono, monospace)", fontWeight: 600 }}>
             workspaces
           </div>
           {pipelines.map(p => {
@@ -184,9 +184,9 @@ export default function LeftSidebar({
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 7,
+                  gap: 8,
                   width: "100%",
-                  padding: "6px 14px",
+                  padding: "4px 12px",
                   background: isActive ? t.accent + "18" : "transparent",
                   border: "none",
                   borderLeft: `3px solid ${isActive ? t.accent : "transparent"}`,
