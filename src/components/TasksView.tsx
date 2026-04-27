@@ -40,6 +40,11 @@ interface Props {
   defaultMyAllFilter?: "my" | "all";
   pipelineWorkspaceMap?: Record<string, { id: string; name: string; icon: string }>;
   headerLabel?: string;
+  // Optional name/stage editing props
+  stageNameOverrides?: Record<string, string>;
+  setStageNameOverride?: (name: string, val: string) => void;
+  subtaskStages?: Record<string, string>;
+  setSubtaskStage?: (key: string, status: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
