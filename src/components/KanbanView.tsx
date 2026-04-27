@@ -110,7 +110,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
               <div className="bu-kb-col-header" style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 12, padding: "0 2px" }}>
                 <span style={{ fontSize: 14 }}>{col.emoji}</span>
                 <span style={{ fontSize: 8, fontWeight: 800, color: stc.c, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
-                <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 10, padding: "1px 8px" }}>
+                <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 12, padding: "1px 8px" }}>
                   <span style={{ fontSize: 9, color: stc.c, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{stages.length}</span>
                 </div>
               </div>
@@ -135,7 +135,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                       {/* Pipeline tag */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 6 }}>
                         <span style={{ fontSize: 9 }}>{s.pipelineIcon}</span>
-                        <span className="bu-kb-card-tag" style={{ fontSize: 7, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "1px 6px", borderRadius: 5, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
+                        <span className="bu-kb-card-tag" style={{ fontSize: 7, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "1px 6px", borderRadius: 8, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
                       </div>
                       {/* Name */}
                       <div className="bu-kb-card-name" style={{ fontSize: 11, fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.3 }}>{s.name}</div>
@@ -155,7 +155,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                 })}
 
                 {stages.length === 0 && (
-                  <div className="bu-kb-empty" style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 8, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 10, border: `2px dashed ${t.border}` }} />
+                  <div className="bu-kb-empty" style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 8, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 12, border: `2px dashed ${t.border}` }} />
                 )}
               </div>
             </div>

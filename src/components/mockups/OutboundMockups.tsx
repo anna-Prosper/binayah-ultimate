@@ -30,7 +30,7 @@ export function ForumListener({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/forum-monitor">
       {[{s:"r/dubai",p:"'looking to buy investment property in Marina'",intent:"HIGH",c:t.red},{s:"r/expats",p:"'relocating to Dubai in March, need advice'",intent:"HIGH",c:t.amber},{s:"FB Dubai Expats",p:"'anyone recommend a property agent?'",intent:"MED",c:t.accent}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",marginBottom:3}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{fontSize:6,fontWeight:700,color:x.c}}>{x.s}</span>
             <span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.intent}</span>

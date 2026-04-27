@@ -270,7 +270,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                 right: 6,
                 minWidth: 14,
                 height: 14,
-                borderRadius: 7,
+                borderRadius: 8,
                 background: t.accent,
                 border: `2px solid ${t.bg}`,
                 display: "flex",

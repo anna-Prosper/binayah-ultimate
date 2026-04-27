@@ -84,7 +84,7 @@ export default function LeftSidebar({
           <span style={{ fontSize: 8, color: t.textDim }}>▾</span>
         </button>
         {wsOpen && (
-          <div style={{ position: "absolute", left: 10, right: 10, top: "calc(100% - 2px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 50, overflow: "hidden" }}>
+          <div style={{ position: "absolute", left: 10, right: 10, top: "calc(100% - 2px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 50, overflow: "hidden" }}>
             {workspaces.map(w => {
               const isActive = w.id === currentWorkspaceId;
               return (

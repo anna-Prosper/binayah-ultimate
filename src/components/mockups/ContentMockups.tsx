@@ -45,7 +45,7 @@ export function MarketReports({ t }: { t: T }) {
       <Bar t={t} label="Marina" value={82} color={t.accent}/>
       <Bar t={t} label="JVC" value={94} color={t.green}/>
       <Bar t={t} label="Downtown" value={71} color={t.amber}/>
-      <div style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginTop:3}}>
+      <div style={{background:t.surface,borderRadius:8,padding:"3px 5px",marginTop:3}}>
         <span style={{fontSize:5.5,color:t.textDim}}>📥 Lead magnet: 234 downloads this week</span>
       </div>
     </Browser>
@@ -95,7 +95,7 @@ export function OffPlanEval({ t }: { t: T }) {
 export function ViralAgent({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/viral-agent">
-      <div style={{background:t.amber+"15",borderRadius:6,padding:"4px 6px",marginBottom:4,display:"flex",gap:4,alignItems:"center"}}>
+      <div style={{background:t.amber+"15",borderRadius:8,padding:"4px 6px",marginBottom:4,display:"flex",gap:4,alignItems:"center"}}>
         <span style={{fontSize:10}}>🔥</span>
         <div>
           <div style={{fontSize:6.5,fontWeight:700,color:t.amber}}>Trending: Golden visa 2026 changes</div>
@@ -142,12 +142,12 @@ export function SignalDetection({ t }: { t: T }) {
 export function ROICalculator({ t }: { t: T }) {
   return (
     <Browser t={t} url="tools/roi-calculator">
-      <div style={{background:t.surface,borderRadius:6,padding:"5px 7px",marginBottom:4}}>
+      <div style={{background:t.surface,borderRadius:8,padding:"5px 7px",marginBottom:4}}>
         <div style={{fontSize:6,color:t.textDim,marginBottom:1}}>Marina 2BR — if you bought in 2019</div>
         <div style={{fontSize:15,fontWeight:900,color:t.green}}>1.95M <span style={{fontSize:9}}>(+62%)</span></div>
         <div style={{fontSize:6,color:t.accent}}>+380K rental income · net yield 7.1%</div>
       </div>
-      <div style={{background:t.accent+"12",borderRadius:5,padding:"4px 6px"}}>
+      <div style={{background:t.accent+"12",borderRadius:8,padding:"4px 6px"}}>
         <div style={{fontSize:6,fontWeight:600,color:t.accent}}>📌 Similar opportunity today: Creek Vista T3 · 1.3M</div>
       </div>
     </Browser>
@@ -161,7 +161,7 @@ export function CryptoBuyerPage({ t }: { t: T }) {
         <div style={{fontSize:8,fontWeight:800,color:t.text}}>Buy Dubai Property with Crypto</div>
         <div style={{display:"flex",gap:2,marginTop:3,flexWrap:"wrap"}}>
           {[{s:"₿ BTC",c:"#f7931a"},{s:"Ξ ETH",c:"#627eea"},{s:"◎ USDT",c:"#26a17b"},{s:"◉ USDC",c:"#2775ca"}].map(x=>(
-            <span key={x.s} style={{fontSize:6,background:x.c+"18",color:x.c,border:`1px solid ${x.c}33`,padding:"1px 5px",borderRadius:4,fontWeight:700}}>{x.s}</span>
+            <span key={x.s} style={{fontSize:6,background:x.c+"18",color:x.c,border:`1px solid ${x.c}33`,padding:"1px 5px",borderRadius:8,fontWeight:700}}>{x.s}</span>
           ))}
         </div>
       </div>
@@ -194,7 +194,7 @@ export function AreaGuides({ t }: { t: T }) {
       <Bar t={t} label="Lifestyle" value={94} color={t.accent}/>
       <Bar t={t} label="ROI" value={74} color={t.green}/>
       <Bar t={t} label="Schools" value={58} color={t.amber}/>
-      <div style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginTop:3}}>
+      <div style={{background:t.surface,borderRadius:8,padding:"3px 5px",marginTop:3}}>
         <span style={{fontSize:5.5,color:t.textDim}}>Avg 3BR: 4.2M · 6.1% yield · ⚠ High service charge</span>
       </div>
     </Browser>
@@ -222,7 +222,7 @@ export function MarketDashboard({ t }: { t: T }) {
 export function SocialAgent({ t }: { t: T }) {
   return (
     <Browser t={t} url="reddit.com/r/dubai">
-      <div style={{background:t.surface,borderRadius:6,padding:"5px 6px",marginBottom:3}}>
+      <div style={{background:t.surface,borderRadius:8,padding:"5px 6px",marginBottom:3}}>
         <div style={{fontSize:6.5,fontWeight:700,color:t.text}}>Worth buying Dubai vs London right now?</div>
         <div style={{fontSize:5.5,color:t.textDim}}>r/dubai · 127 upvotes · 43 comments</div>
       </div>
@@ -245,7 +245,7 @@ export function Newsletter({ t }: { t: T }) {
         <Stat t={t} label="Open rate" value="48%" color={t.green}/>
         <Stat t={t} label="Fwd rate" value="12%" color={t.amber}/>
       </div>
-      <div style={{background:t.surface,borderRadius:5,padding:"5px 6px"}}>
+      <div style={{background:t.surface,borderRadius:8,padding:"5px 6px"}}>
         <div style={{fontSize:6.5,fontWeight:700,color:t.text,marginBottom:2}}>This week&apos;s issue:</div>
         <div style={{fontSize:6,color:t.textSec,lineHeight:1.4}}>&quot;The one thing nobody tells you about off-plan ROI (and why developers hate us for saying it)&quot;</div>
         <div style={{fontSize:5.5,color:t.textDim,marginTop:2}}>1 insight · 1 data point · 1 honest take</div>

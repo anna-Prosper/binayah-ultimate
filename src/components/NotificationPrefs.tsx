@@ -77,7 +77,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
             alignItems: "center",
             width: 34,
             height: 18,
-            borderRadius: 9,
+            borderRadius: 12,
             border: "none",
             cursor: saving ? "not-allowed" : "pointer",
             background: enabled ? t.accent : t.border,

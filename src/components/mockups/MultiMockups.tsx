@@ -8,7 +8,7 @@ import { Stat, Bar } from "@/components/ui/primitives";
 export function MultilingualDirs({ t }: { t: T }) {
   return (
     <Browser t={t} url="binayah.com/tr">
-      <div style={{background:t.surface,borderRadius:6,padding:6,marginBottom:4}}>
+      <div style={{background:t.surface,borderRadius:8,padding:6,marginBottom:4}}>
         <div style={{fontSize:8.5,fontWeight:800,color:t.text}}>🏠 Binayah Dubai</div>
         <div style={{fontSize:6,color:t.textMuted}}>Dubai&apos;da en iyi gayrimenkuller</div>
         <div style={{display:"flex",gap:4,marginTop:3}}>
@@ -71,7 +71,7 @@ export function DynamicHomepage({ t }: { t: T }) {
   return (
     <div style={{display:"flex",gap:3}}>
       {[{f:"🇷🇺",l:"Russian",a:"Marina · RUB",cta:"Golden Visa →",c:t.accent},{f:"🇮🇳",l:"Indian",a:"JVC · INR",cta:"EMI Calc →",c:t.green},{f:"🇹🇷",l:"Turkish",a:"Business Bay · TRY",cta:"Taksit →",c:t.amber}].map(v=>(
-        <div key={v.l} style={{flex:1,background:t.surface,borderRadius:6,padding:"5px 4px",textAlign:"center"}}>
+        <div key={v.l} style={{flex:1,background:t.surface,borderRadius:8,padding:"5px 4px",textAlign:"center"}}>
           <span style={{fontSize:13}}>{v.f}</span>
           <div style={{fontSize:6,fontWeight:700,color:v.c,marginTop:2}}>{v.l}</div>
           <div style={{fontSize:5.5,color:t.textSec,marginTop:1}}>{v.a}</div>
@@ -86,7 +86,7 @@ export function Newsletters({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/push-newsletters">
       {[{f:"🇷🇺",s:"Ruble -4% hedge angle",o:"38%",sent:"4.2K"},{f:"🇮🇳",s:"JVC under 400K — NRI guide",o:"42%",sent:"3.1K"},{f:"🇹🇷",s:"0% ödeme planı öne çıkar",o:"31%",sent:"1.8K"}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",marginBottom:3}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{fontSize:6.5,color:t.textSec}}>{x.f} {x.s}</span>
           </div>
@@ -104,7 +104,7 @@ export function GeoCampaigns({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/geo-campaigns">
       {[{flag:"🇹🇷",title:"Turkey surge +47%",status:"Pending approval",budget:"$200/d",c:t.red},{flag:"🇷🇺",title:"Russia bounce -12%",status:"Paused",budget:"—",c:t.amber},{flag:"🇮🇳",title:"India steady +8%",status:"Running",budget:"$80/d",c:t.green}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
             <span style={{fontSize:7}}>{x.flag} <span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.title}</span></span>
             <span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.budget}</span>

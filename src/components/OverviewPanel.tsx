@@ -127,7 +127,7 @@ export default function OverviewPanel({
       `}</style>
 
       {/* View toggle */}
-      <div style={{ display: "flex", gap: 2, padding: "2px", background: t.surface, borderRadius: 10, border: `1px solid ${t.border}`, width: "fit-content", alignSelf: "flex-end" }}>
+      <div style={{ display: "flex", gap: 2, padding: "2px", background: t.surface, borderRadius: 12, border: `1px solid ${t.border}`, width: "fit-content", alignSelf: "flex-end" }}>
         {(["metrics", "timeline"] as const).map(v => (
           <button
             key={v}
@@ -167,7 +167,7 @@ export default function OverviewPanel({
                     onClick={() => setSelectedPipelineId(p.id)}
                     style={{
                       padding: "4px 12px",
-                      borderRadius: 20,
+                      borderRadius: 16,
                       border: `1px solid ${isActive ? pC : t.border}`,
                       background: isActive ? `${pC}14` : "transparent",
                       color: isActive ? pC : t.textMuted,
@@ -186,7 +186,7 @@ export default function OverviewPanel({
           )}
 
           {/* Timeline card */}
-          <div style={{ background: t.bgCard, borderRadius: 18, border: `1px solid ${t.border}`, boxShadow: t.shadow, overflow: "hidden" }}>
+          <div style={{ background: t.bgCard, borderRadius: 16, border: `1px solid ${t.border}`, boxShadow: t.shadow, overflow: "hidden" }}>
             {activePipeline && (
               <>
                 {/* Card header */}
@@ -314,7 +314,7 @@ export default function OverviewPanel({
             const buildCt = stages.filter(s => getStatus(s) === "in-progress").length;
 
             return (
-              <div key={p.id} style={{ background: t.bgCard, borderRadius: 18, border: `1px solid ${t.border}`, boxShadow: t.shadow, overflow: "hidden" }}>
+              <div key={p.id} style={{ background: t.bgCard, borderRadius: 16, border: `1px solid ${t.border}`, boxShadow: t.shadow, overflow: "hidden" }}>
                 {/* Colored top strip */}
                 <div style={{ height: 3, background: `linear-gradient(90deg, ${pC}, ${pC}66)` }} />
 
@@ -440,7 +440,7 @@ export default function OverviewPanel({
                               onBlur={() => setEditingStageDesc(null)}
                               onKeyDown={e => { if (e.key === "Enter") setEditingStageDesc(null); }}
                               autoFocus
-                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 6, padding: "3px 8px", fontSize: 10, color: t.textSec, fontFamily: "inherit", outline: "none" }}
+                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.textSec, fontFamily: "inherit", outline: "none" }}
                             />
                           ) : (
                             <span

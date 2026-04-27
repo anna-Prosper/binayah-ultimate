@@ -4,7 +4,7 @@ import { T } from "@/lib/themes";
 
 export const Phone = ({ title, children }: { t: T; title: string; children: React.ReactNode }) => (
   <div style={{ width: "100%", maxWidth: 240, margin: "0 auto" }}>
-    <div style={{ background: "#111", borderRadius: 20, padding: "5px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)" }}>
+    <div style={{ background: "#111", borderRadius: 16, padding: "5px 4px", boxShadow: "0 4px 20px rgba(0,0,0,0.5)" }}>
       <div style={{ background: "#0b141a", borderRadius: 16, overflow: "hidden" }}>
         <div style={{ background: "#1f2c34", padding: "6px 8px", display: "flex", alignItems: "center", gap: 6 }}>
           <div style={{ width: 20, height: 20, borderRadius: "50%", background: "linear-gradient(135deg,#00a884,#005c4b)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9 }}>&#x1F464;</div>
@@ -25,7 +25,7 @@ export const Phone = ({ title, children }: { t: T; title: string; children: Reac
 export const WaM = ({ text, out, time, label }: { text: string; out?: boolean; time: string; label?: string }) => (
   <div style={{ alignSelf: out ? "flex-end" : "flex-start", maxWidth: "84%" }}>
     {label && <div style={{ fontSize: 5, color: "#eab038", marginBottom: 0.5 }}>{label}</div>}
-    <div style={{ background: out ? "#005c4b" : "#1f2c34", borderRadius: 6, padding: "3px 5px" }}>
+    <div style={{ background: out ? "#005c4b" : "#1f2c34", borderRadius: 8, padding: "3px 5px" }}>
       <div style={{ fontSize: 7, color: "#e9edef", lineHeight: 1.3, whiteSpace: "pre-line" }}>{text}</div>
       <div style={{ textAlign: "right", fontSize: 5, color: "#667781" }}>{time}{out && " ✓✓"}</div>
     </div>
@@ -40,10 +40,10 @@ export const WaSys = ({ text }: { text: string }) => (
 
 export const Browser = ({ t, url, children }: { t: T; url: string; children: React.ReactNode }) => (
   <div style={{ width: "100%", maxWidth: 310, margin: "0 auto" }}>
-    <div style={{ background: t.bgCard, borderRadius: 10, overflow: "hidden", boxShadow: t.shadow, border: `1px solid ${t.border}` }}>
+    <div style={{ background: t.bgCard, borderRadius: 12, overflow: "hidden", boxShadow: t.shadow, border: `1px solid ${t.border}` }}>
       <div style={{ background: t.surface, padding: "4px 8px", display: "flex", alignItems: "center", gap: 5 }}>
         <div style={{ display: "flex", gap: 2 }}>{["#ff5f57", "#ffbd2e", "#28c840"].map(c => <div key={c} style={{ width: 6, height: 6, borderRadius: "50%", background: c }} />)}</div>
-        <div style={{ flex: 1, background: t.bgSoft, borderRadius: 4, padding: "2px 6px", fontSize: 6, color: t.textMuted, textAlign: "center" }}>{url}</div>
+        <div style={{ flex: 1, background: t.bgSoft, borderRadius: 8, padding: "2px 6px", fontSize: 6, color: t.textMuted, textAlign: "center" }}>{url}</div>
       </div>
       <div style={{ padding: 8, minHeight: 90 }}>{children}</div>
     </div>

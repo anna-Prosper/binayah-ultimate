@@ -77,7 +77,7 @@ function ToolbarBtn({
       style={{
         background: active ? t.accent + "22" : "transparent",
         border: `1px solid ${active ? t.accent + "55" : "transparent"}`,
-        borderRadius: 6,
+        borderRadius: 8,
         padding: "3px 7px",
         cursor: disabled ? "not-allowed" : "pointer",
         color: active ? t.accent : t.textMuted,
@@ -335,8 +335,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   // Skeleton row
   const SkeletonRow = () => (
     <div style={{ padding: "10px 12px", display: "flex", flexDirection: "column", gap: 5 }}>
-      <div style={{ height: 12, width: "70%", background: t.bgHover, borderRadius: 4 }} />
-      <div style={{ height: 9, width: "40%", background: t.bgHover, borderRadius: 4, opacity: 0.6 }} />
+      <div style={{ height: 12, width: "70%", background: t.bgHover, borderRadius: 8 }} />
+      <div style={{ height: 9, width: "40%", background: t.bgHover, borderRadius: 8, opacity: 0.6 }} />
     </div>
   );
 
@@ -386,7 +386,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
           style={{
             background: filterPipeline === null ? t.accent + "22" : "transparent",
             border: `1px solid ${filterPipeline === null ? t.accent + "55" : t.border}`,
-            borderRadius: 20,
+            borderRadius: 16,
             padding: "2px 9px",
             cursor: "pointer",
             fontSize: 8,
@@ -408,7 +408,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               style={{
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,
-                borderRadius: 20,
+                borderRadius: 16,
                 padding: "2px 9px",
                 cursor: "pointer",
                 fontSize: 8,
@@ -438,7 +438,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
               style={{
                 background: t.accent + "22",
                 border: `1px solid ${t.accent + "55"}`,
-                borderRadius: 10,
+                borderRadius: 12,
                 padding: "7px 16px",
                 cursor: "pointer",
                 fontSize: 10,
@@ -608,7 +608,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                 style={{
                   background: t.bgCard,
                   border: `1px solid ${t.border}`,
-                  borderRadius: 6,
+                  borderRadius: 8,
                   padding: "2px 6px",
                   fontSize: 9,
                   color: t.textSec,
@@ -703,7 +703,7 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                       const uploader = USERS_DEFAULT.find(u => u.id === a.uploadedBy);
                       const isImage = a.contentType.startsWith("image/");
                       return (
-                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 10 }}>
+                        <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12 }}>
                           <span style={{ fontSize: 18 }}>{isImage ? "🖼" : a.contentType.includes("pdf") ? "📄" : a.contentType.includes("zip") ? "🗜" : "📎"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 11, fontWeight: 600, color: t.text, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{a.name}</a>
@@ -713,8 +713,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
                               {a.uploadedAt && ` · ${relativeTime(a.uploadedAt)}`}
                             </div>
                           </div>
-                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "4px 10px", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
-                          <button onClick={() => deleteAttachment(a.id)} title="Remove" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
+                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
+                          <button onClick={() => deleteAttachment(a.id)} title="Remove" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
                         </div>
                       );
                     })}

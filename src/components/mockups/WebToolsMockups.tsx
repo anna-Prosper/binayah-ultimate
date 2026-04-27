@@ -30,7 +30,7 @@ export function PropertyMap({ t }: { t: T }) {
     <Browser t={t} url="binayah.com/map">
       <div style={{display:"flex",flexDirection:"column",gap:2.5}}>
         {[{zone:"Marina",sqft:"1,840",trend:"+2.1%",risk:"⚠ 3 towers u/c",c:t.accent},{zone:"JVC",sqft:"980",trend:"+1.4%",risk:"✓ Low risk",c:t.green},{zone:"Downtown",sqft:"2,240",trend:"+3.1%",risk:"⚠ High service charge",c:t.amber}].map((x,i)=>(
-          <div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",borderLeft:`2.5px solid ${x.c}`}}>
+          <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",borderLeft:`2.5px solid ${x.c}`}}>
             <div style={{display:"flex",justifyContent:"space-between"}}>
               <span style={{fontSize:7,fontWeight:700,color:x.c}}>{x.zone}</span>
               <span style={{fontSize:6.5,color:t.green,fontWeight:700}}>{x.trend}</span>
@@ -41,7 +41,7 @@ export function PropertyMap({ t }: { t: T }) {
             </div>
           </div>
         ))}
-        <div style={{background:t.accent+"10",borderRadius:4,padding:"3px 5px"}}>
+        <div style={{background:t.accent+"10",borderRadius:8,padding:"3px 5px"}}>
           <span style={{fontSize:5.5,color:t.accent}}>💬 AI: &quot;best ROI under 1.5M?&quot; → JVC 7.8% ✓</span>
         </div>
       </div>
@@ -59,7 +59,7 @@ export function PropertyCompare({ t }: { t: T }) {
           ))}
         </div>
       ))}
-      <div style={{background:t.accent+"10",borderRadius:4,padding:"3px 5px"}}>
+      <div style={{background:t.accent+"10",borderRadius:8,padding:"3px 5px"}}>
         <span style={{fontSize:5.5,color:t.accent}}>📥 Download PDF comparison → lead captured</span>
       </div>
     </Browser>
@@ -79,7 +79,7 @@ export function NeighbourhoodQuiz({ t }: { t: T }) {
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
         {["🏖 Beach access","🌃 Nightlife","👨‍👩‍👧 Family-first","📈 Max ROI"].map(x=>(
-          <div key={x} style={{background:t.surface,borderRadius:6,padding:"6px 4px",textAlign:"center",fontSize:6.5,color:t.textSec,cursor:"pointer"}}>{x}</div>
+          <div key={x} style={{background:t.surface,borderRadius:8,padding:"6px 4px",textAlign:"center",fontSize:6.5,color:t.textSec,cursor:"pointer"}}>{x}</div>
         ))}
       </div>
     </Browser>

@@ -30,7 +30,7 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
   const capped = activityLog.slice(0, CLIENT_CAP);
 
   return (
-    <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 14px", marginBottom: 8, borderRadius: 14 }}>
+    <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 14px", marginBottom: 8, borderRadius: 16 }}>
       <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 6, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 6 }}>
         activity feed
         {activityLog.length > CLIENT_CAP && (

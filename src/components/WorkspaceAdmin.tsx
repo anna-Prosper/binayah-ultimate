@@ -109,7 +109,7 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
             const isMe = uid === currentUser;
             const onlyCaptain = workspace.captains.length === 1 && workspace.captains[0] === uid;
             return (
-              <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10 }}>
+              <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12 }}>
                 <AvatarC user={u} size={24} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name} {isMe && <span style={{ fontSize: 8, color: t.textDim }}>(you)</span>}</div>
@@ -120,19 +120,19 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
                     value={rank}
                     onChange={e => onSetRank(uid, e.target.value as "captain" | "firstMate" | "crew")}
                     disabled={onlyCaptain}
-                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 6px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: onlyCaptain ? "not-allowed" : "pointer" }}
+                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 6px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: onlyCaptain ? "not-allowed" : "pointer" }}
                   >
                     <option value="captain">👑 captain</option>
                     <option value="firstMate">⚓ first mate</option>
                     <option value="crew">🏴‍☠️ crew</option>
                   </select>
                 ) : (
-                  <span style={{ fontSize: 8, color: rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: (rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim) + "18", padding: "2px 6px", borderRadius: 4 }}>
+                  <span style={{ fontSize: 8, color: rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: (rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim) + "18", padding: "2px 6px", borderRadius: 8 }}>
                     {rank === "captain" ? "CAPTAIN" : rank === "firstMate" ? "FIRST MATE" : "CREW"}
                   </span>
                 )}
                 {canManage && !onlyCaptain && (
-                  <button onClick={() => onRemoveMember(uid)} title="Remove from workspace" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 9, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>×</button>
+                  <button onClick={() => onRemoveMember(uid)} title="Remove from workspace" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 9, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>×</button>
                 )}
               </div>
             );
@@ -176,8 +176,8 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
           ) : (
             <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>// delete {workspace.name}?</span>
-              <button onClick={() => { onDelete(); onClose(); }} style={{ background: t.red, border: "none", borderRadius: 7, padding: "5px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>yes, delete</button>
-              <button onClick={() => setConfirmDelete(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, padding: "5px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
+              <button onClick={() => { onDelete(); onClose(); }} style={{ background: t.red, border: "none", borderRadius: 8, padding: "5px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>yes, delete</button>
+              <button onClick={() => setConfirmDelete(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
             </div>
           )}
         </div>
@@ -200,7 +200,7 @@ function ModalShell({ t, onClose, children }: { t: T; onClose: () => void; child
     >
       <div
         onClick={e => e.stopPropagation()}
-        style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 18, padding: 24, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.6)", position: "relative" }}
+        style={{ background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: 24, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", boxShadow: "0 24px 80px rgba(0,0,0,0.6)", position: "relative" }}
       >
         <button onClick={onClose} style={{ position: "absolute", top: 12, right: 12, background: "transparent", border: "none", cursor: "pointer", fontSize: 18, color: t.textMuted, lineHeight: 1, padding: 4 }} aria-label="Close">×</button>
         {children}
@@ -214,9 +214,9 @@ function FieldLabel({ t, children }: { t: T; children: React.ReactNode }) {
 }
 
 function primaryBtn(t: T): React.CSSProperties {
-  return { background: t.accent, border: "none", borderRadius: 10, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace" };
+  return { background: t.accent, border: "none", borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace" };
 }
 
 function secondaryBtn(t: T): React.CSSProperties {
-  return { background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 14px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" };
+  return { background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 14px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" };
 }

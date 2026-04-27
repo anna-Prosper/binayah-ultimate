@@ -211,7 +211,7 @@ function DocSkeleton({ t }: { t: T }) {
           height: i === 0 ? 11 : 8,
           width: `${w}%`,
           background: t.bgHover,
-          borderRadius: 4,
+          borderRadius: 8,
           animation: "searchPulse 1.4s ease-in-out infinite",
           animationDelay: `${i * 0.15}s`,
         }} />
@@ -448,7 +448,7 @@ export default function SearchPalette({
               fontFamily: "var(--font-geist-mono, monospace)",
               letterSpacing: 1,
               border: `1px solid ${t.border}`,
-              borderRadius: 5,
+              borderRadius: 8,
               padding: "2px 5px",
               flexShrink: 0,
             }}>esc</span>
@@ -521,7 +521,7 @@ export default function SearchPalette({
             }}>
               {[["↑↓", "navigate"], ["↵", "open"], ["esc", "close"]].map(([k, label]) => (
                 <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
-                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 4, padding: "1px 5px", fontSize: 9 }}>{k}</span>
+                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "1px 5px", fontSize: 9 }}>{k}</span>
                   {label}
                 </span>
               ))}

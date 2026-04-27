@@ -24,7 +24,7 @@ export function CRMIntegration({ t }: { t: T }) {
       {[{n:"Lead Responder",s:"Live",c:t.green},{n:"Behavior Scoring",s:"Live",c:t.green},{n:"Approval Hub",s:"Pending",c:t.amber},{n:"KPI Dashboard",s:"Pending",c:t.amber},{n:"WA Communities",s:"Planned",c:t.purple},{n:"Leak Detector",s:"Planned",c:t.purple}].map((x,i)=>(
         <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}>
           <span style={{fontSize:6.5,color:t.text}}>{x.n}</span>
-          <span style={{fontSize:6,color:x.c,fontWeight:700,background:x.c+"12",padding:"1px 5px",borderRadius:4}}>{x.s}</span>
+          <span style={{fontSize:6,color:x.c,fontWeight:700,background:x.c+"12",padding:"1px 5px",borderRadius:8}}>{x.s}</span>
         </div>
       ))}
     </Browser>
@@ -78,7 +78,7 @@ export function TranslationMemory({ t }: { t: T }) {
         <Stat t={t} label="Saved" value="$420" color={t.amber}/>
       </div>
       {[{en:"Sea view apt",ru:"Квартира с видом",n:142},{en:"Payment plan",ru:"План оплаты",n:89},{en:"Golden Visa",ru:"Золотая виза",n:67}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:4,padding:"3px 5px",marginBottom:2}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"3px 5px",marginBottom:2}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.en}</span>
             <span style={{fontSize:5.5,color:t.textDim}}>×{x.n}</span>

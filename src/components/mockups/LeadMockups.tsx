@@ -108,7 +108,7 @@ export function InvestorPortal({ t }: { t: T }) {
         <Stat t={t} label="Appreciation" value="+18%" color={t.purple}/>
       </div>
       {[{label:"Marina Heights 2BR",status:"Occupied",rent:"12,500/mo",val:"1.94M",cost:"2,400",c:t.green},{label:"JVC Studio",status:"Vacant 12d",rent:"—",val:"820K",cost:"180",c:t.red},{label:"Business Bay 1BR",status:"Renewing",rent:"9,800/mo",val:"1.45M",cost:"900",c:t.amber}].map((x,i)=>(
-        <div key={i} style={{background:t.surface,borderRadius:5,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}>
+        <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 6px",marginBottom:3,borderLeft:`2.5px solid ${x.c}`}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
             <span style={{fontSize:6.5,fontWeight:700,color:t.text}}>{x.label}</span>
             <span style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.status}</span>
@@ -120,7 +120,7 @@ export function InvestorPortal({ t }: { t: T }) {
           </div>
         </div>
       ))}
-      <div style={{background:t.purple+"10",borderRadius:4,padding:"3px 5px"}}>
+      <div style={{background:t.purple+"10",borderRadius:8,padding:"3px 5px"}}>
         <span style={{fontSize:5.5,color:t.purple}}>🤖 AI: JVC vacant — suggested AED 6,800/mo (-3%). Draft landlord message ready.</span>
       </div>
     </Browser>
@@ -139,7 +139,7 @@ export function CRMLeaderboard({ t }: { t: T }) {
           <span style={{fontSize:7}}>{x.badge}×{x.streak}</span>
         </div>
       ))}
-      <div style={{background:t.amber+"12",borderRadius:5,padding:4,marginTop:4}}>
+      <div style={{background:t.amber+"12",borderRadius:8,padding:4,marginTop:4}}>
         <div style={{fontSize:6,color:t.amber,fontWeight:600}}>📌 Daily: Follow up 5 leads → +200XP</div>
       </div>
     </Browser>

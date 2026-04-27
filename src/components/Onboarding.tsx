@@ -176,7 +176,7 @@ function AvatarStep({
           <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 3, marginBottom: 18 }}>
             {(["emoji", "ai"] as const).map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{
-                flex: 1, padding: "8px 0", borderRadius: 9, border: "none", cursor: "pointer",
+                flex: 1, padding: "8px 0", borderRadius: 12, border: "none", cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), sans-serif", fontSize: 12, fontWeight: 700,
                 background: tab === tb ? t.bgCard : "transparent",
                 color: tab === tb ? user.color : t.textMuted,
@@ -195,7 +195,7 @@ function AvatarStep({
                 const active = selAvatar === av.id && !selAiImg;
                 return (
                   <button key={av.id} onClick={() => { setSelAvatar(av.id); setSelAiImg(null); setAiUserAvatar(null); }} style={{
-                    width: "100%", aspectRatio: "1", borderRadius: 14, padding: 0, overflow: "hidden",
+                    width: "100%", aspectRatio: "1", borderRadius: 16, padding: 0, overflow: "hidden",
                     border: `2px solid ${active ? user.color : t.border}`,
                     cursor: "pointer", transition: "all 0.2s", position: "relative",
                     boxShadow: active ? `0 0 20px ${user.color}44` : "none",
@@ -238,7 +238,7 @@ function AvatarStep({
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
                 {hints.map(h => (
                   <button key={h} onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }} style={{
-                    background: "transparent", border: `1px solid ${t.border}`, borderRadius: 20,
+                    background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16,
                     padding: "3px 10px", fontSize: 9, color: t.textMuted, cursor: "pointer",
                     fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap",
                   }}
@@ -249,7 +249,7 @@ function AvatarStep({
               </div>
               {aiLoading && (
                 <div style={{ marginBottom: 16, textAlign: "center" }}>
-                  <div style={{ width: 140, height: 140, borderRadius: 20, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "ob-shimmer 1.4s ease-in-out infinite" }} />
+                  <div style={{ width: 140, height: 140, borderRadius: 16, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "ob-shimmer 1.4s ease-in-out infinite" }} />
                   <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>// generating your vibe...</div>
                 </div>
               )}
@@ -258,7 +258,7 @@ function AvatarStep({
                 <div style={{ marginBottom: 16, textAlign: "center", animation: "ob-popIn 0.4s ease" }}>
                   <div style={{ position: "relative", display: "inline-block" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={aiImage} alt="ai pfp" style={{ width: 140, height: 140, borderRadius: 20, objectFit: "cover", border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44` }} />
+                    <img src={aiImage} alt="ai pfp" style={{ width: 140, height: 140, borderRadius: 16, objectFit: "cover", border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44` }} />
                     <div style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: user.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, boxShadow: `0 0 8px ${user.color}` }}>✓</div>
                   </div>
                   <button onClick={generate} style={{ display: "block", margin: "8px auto 0", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 14px", fontSize: 9, color: t.textMuted, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}>↺ regenerate</button>
@@ -288,7 +288,7 @@ function AvatarStep({
           </div>
 
           <button onClick={confirm} style={{
-            background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 14,
+            background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 16,
             padding: "12px 40px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer",
             fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`,
             textTransform: "lowercase", position: "relative", overflow: "hidden",
@@ -369,7 +369,7 @@ export function AvatarStep6({
           <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 3, marginBottom: 18 }}>
             {(["emoji", "ai"] as const).map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{
-                flex: 1, padding: "8px 0", borderRadius: 9, border: "none", cursor: "pointer",
+                flex: 1, padding: "8px 0", borderRadius: 12, border: "none", cursor: "pointer",
                 fontFamily: "var(--font-dm-sans), sans-serif", fontSize: 12, fontWeight: 700,
                 background: tab === tb ? t.bgCard : "transparent",
                 color: tab === tb ? user.color : t.textMuted,
@@ -384,7 +384,7 @@ export function AvatarStep6({
                 const active = selAvatar === av.id && !selAiImg;
                 return (
                   <button key={av.id} onClick={() => { setSelAvatar(av.id); setSelAiImg(null); setAiUserAvatar(null); }} style={{
-                    width: "100%", aspectRatio: "1", borderRadius: 14, padding: 0, overflow: "hidden",
+                    width: "100%", aspectRatio: "1", borderRadius: 16, padding: 0, overflow: "hidden",
                     border: `2px solid ${active ? user.color : t.border}`,
                     cursor: "pointer", transition: "all 0.2s", position: "relative",
                     boxShadow: active ? `0 0 20px ${user.color}44` : "none",
@@ -413,19 +413,19 @@ export function AvatarStep6({
               </div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center", marginBottom: 14 }}>
                 {hints.map(h => (
-                  <button key={h} onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 20, padding: "3px 10px", fontSize: 9, color: t.textMuted, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap" }}
+                  <button key={h} onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16, padding: "3px 10px", fontSize: 9, color: t.textMuted, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = user.color + "55"; (e.currentTarget as HTMLElement).style.color = user.color; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
                   >{h}</button>
                 ))}
               </div>
-              {aiLoading && (<div style={{ marginBottom: 16, textAlign: "center" }}><div style={{ width: 140, height: 140, borderRadius: 20, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "ob-shimmer 1.4s ease-in-out infinite" }} /><div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>// generating your vibe...</div></div>)}
+              {aiLoading && (<div style={{ marginBottom: 16, textAlign: "center" }}><div style={{ width: 140, height: 140, borderRadius: 16, margin: "0 auto", background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`, backgroundSize: "200% 100%", animation: "ob-shimmer 1.4s ease-in-out infinite" }} /><div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 10 }}>// generating your vibe...</div></div>)}
               {aiError && <div style={{ color: "#ff5f5f", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>⚠ {aiError}</div>}
               {aiImage && !aiLoading && (
                 <div style={{ marginBottom: 16, textAlign: "center", animation: "ob-popIn 0.4s ease" }}>
                   <div style={{ position: "relative", display: "inline-block" }}>
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={aiImage} alt="ai pfp" style={{ width: 140, height: 140, borderRadius: 20, objectFit: "cover", border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44` }} />
+                    <img src={aiImage} alt="ai pfp" style={{ width: 140, height: 140, borderRadius: 16, objectFit: "cover", border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44` }} />
                     <div style={{ position: "absolute", top: 8, right: 8, width: 22, height: 22, borderRadius: "50%", background: user.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, boxShadow: `0 0 8px ${user.color}` }}>✓</div>
                   </div>
                   <button onClick={generate} style={{ display: "block", margin: "8px auto 0", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 14px", fontSize: 9, color: t.textMuted, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}>↺ regenerate</button>
@@ -449,7 +449,7 @@ export function AvatarStep6({
             <div style={{ fontSize: 16, fontWeight: 900, color: user.color, marginTop: 10 }}>{user.name}</div>
             <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{user.role}</div>
           </div>
-          <button onClick={confirm} style={{ background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 14, padding: "12px 40px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`, textTransform: "lowercase", position: "relative", overflow: "hidden" }}>
+          <button onClick={confirm} style={{ background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 16, padding: "12px 40px", color: "#fff", fontSize: 14, fontWeight: 800, cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`, textTransform: "lowercase", position: "relative", overflow: "hidden" }}>
             <span style={{ position: "relative", zIndex: 1 }}>{onConfirm ? "save avatar →" : "let’s build →"}</span>
             <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
           </button>
@@ -550,7 +550,7 @@ function CelebStep({
           ].map(chip => (
             <div key={chip.label} style={{
               background: sessionUser.color + "12", border: `1px solid ${sessionUser.color}25`,
-              borderRadius: 20, padding: "6px 14px", textAlign: "center",
+              borderRadius: 16, padding: "6px 14px", textAlign: "center",
             }}>
               <div style={{ fontSize: 18, fontWeight: 900, color: sessionUser.color, fontFamily: "var(--font-dm-mono), monospace" }}>{chip.value}</div>
               <div style={{ fontSize: 8, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase" }}>{chip.label}</div>
@@ -560,7 +560,7 @@ function CelebStep({
 
         {/* CTA */}
         <button onClick={() => onComplete({ avatar: selAvatar, aiAvatar: selAiAvatar })} style={{
-          width: "100%", height: 52, borderRadius: 14, border: "none",
+          width: "100%", height: 52, borderRadius: 16, border: "none",
           background: `linear-gradient(135deg, ${sessionUser.color}, ${sessionUser.color}cc)`,
           color: "#fff", fontSize: 15, fontWeight: 800,
           letterSpacing: "0.3px", textTransform: "lowercase",
@@ -642,7 +642,7 @@ export default function Onboarding({
                     <button key={String(opt.dark)} onClick={() => setIsDark(opt.dark)} style={{
                       flex: "1 1 0", maxWidth: 200,
                       background: active ? t.bgCard : t.surface + "44",
-                      border: `2px solid ${active ? t.accent : t.border}`, borderRadius: 18,
+                      border: `2px solid ${active ? t.accent : t.border}`, borderRadius: 16,
                       padding: "24px 14px", cursor: "pointer", textAlign: "center",
                       transition: "all 0.35s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit",
                       boxShadow: active ? `0 0 40px ${t.accent}22, inset 0 0 30px ${t.accent}08` : "none",
@@ -662,10 +662,10 @@ export default function Onboarding({
               </div>
 
               <div style={{ display: "flex", justifyContent: "center", gap: 10 }}>
-                <button onClick={() => setThemePhase("theme")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 14, padding: "12px 24px", color: t.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
+                <button onClick={() => setThemePhase("theme")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16, padding: "12px 24px", color: t.textMuted, fontSize: 12, fontWeight: 600, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
                 <button onClick={() => setStep(1)} style={{
                   background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`,
-                  border: "none", borderRadius: 14, padding: "12px 44px", color: "#fff", fontSize: 14, fontWeight: 800,
+                  border: "none", borderRadius: 16, padding: "12px 44px", color: "#fff", fontSize: 14, fontWeight: 800,
                   cursor: "pointer", fontFamily: "var(--font-dm-sans), sans-serif",
                   boxShadow: `0 4px 24px ${t.accent}33`, textTransform: "lowercase", position: "relative", overflow: "hidden",
                 }}>
@@ -699,7 +699,7 @@ export default function Onboarding({
                 return (
                   <button key={th.id} onClick={() => setThemeId(th.id)} style={{
                     background: active ? th.bg : t.bgCard, border: `2px solid ${active ? th.color : t.border}`,
-                    borderRadius: 18, padding: "18px 12px", cursor: "pointer", textAlign: "center",
+                    borderRadius: 16, padding: "18px 12px", cursor: "pointer", textAlign: "center",
                     transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
                     boxShadow: active ? `0 0 40px ${th.color}15, inset 0 0 40px ${th.color}08` : "0 2px 8px rgba(0,0,0,0.3)",
                     transform: active ? "scale(1.02)" : "scale(1)", animation: `ob-scaleIn 0.4s ease ${idx * 0.08}s both`,
@@ -756,7 +756,7 @@ export default function Onboarding({
         </div>
         {/* Personalisation tag */}
         <div style={{ position: "absolute", top: 28, left: "50%", transform: "translateX(-50%)", zIndex: 2, animation: "ob-fadeIn 0.5s ease 0.2s both" }}>
-          <span style={{ fontSize: 9, color: sessionUser.color, background: sessionUser.color + "15", border: `1px solid ${sessionUser.color}30`, borderRadius: 20, padding: "3px 10px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>
+          <span style={{ fontSize: 9, color: sessionUser.color, background: sessionUser.color + "15", border: `1px solid ${sessionUser.color}30`, borderRadius: 16, padding: "3px 10px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>
             // {firstName.toLowerCase()} · {sessionUser.role}
           </span>
         </div>
@@ -788,7 +788,7 @@ export default function Onboarding({
           </div>
 
           <button onClick={() => setStep(step + 1)} style={{
-            background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, border: "none", borderRadius: 14,
+            background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, border: "none", borderRadius: 16,
             padding: "14px 40px", color: "#fff", fontSize: 13, fontWeight: 800, cursor: "pointer",
             fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${t.accent}33`,
             textTransform: "lowercase", transition: "all 0.3s", letterSpacing: 0.3,

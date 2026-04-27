@@ -33,7 +33,7 @@ export function ChatSkeleton({ t }: { t: T }) {
           style={{
             height: 32,
             width: w,
-            borderRadius: 10,
+            borderRadius: 12,
             background: t.bgSoft,
             animation: "skeletonPulse 1.5s ease-in-out infinite",
           }}
@@ -47,7 +47,7 @@ export function ChatSkeleton({ t }: { t: T }) {
       style={{
         background: t.bgCard,
         border: `1px solid ${t.border}`,
-        borderRadius: 14,
+        borderRadius: 16,
         overflow: "hidden",
         minHeight: 400,
         display: "flex",
@@ -71,8 +71,8 @@ export function ChatSkeleton({ t }: { t: T }) {
       </div>
       {/* Input area placeholder */}
       <div style={{ padding: "10px 14px", borderTop: `1px solid ${t.border}`, display: "flex", gap: 8, alignItems: "center" }}>
-        <div style={{ flex: 1, height: 38, borderRadius: 10, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
-        <div style={{ width: 38, height: 38, borderRadius: 10, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+        <div style={{ flex: 1, height: 38, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+        <div style={{ width: 38, height: 38, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
       </div>
     </div>
   );
@@ -85,14 +85,14 @@ export function ActivitySkeleton({ t }: { t: T }) {
       style={{
         background: t.bgCard,
         border: `1px solid ${t.border}`,
-        borderRadius: 14,
+        borderRadius: 16,
         padding: "14px",
         minHeight: 280,
       }}
     >
       <PulseStyle />
       {/* Header */}
-      <div style={{ height: 16, width: 120, borderRadius: 6, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
+      <div style={{ height: 16, width: 120, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
       {/* Activity rows */}
       {[0, 1, 2, 3, 4].map(i => (
         <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 12 }}>
@@ -100,8 +100,8 @@ export function ActivitySkeleton({ t }: { t: T }) {
           <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
           {/* Text lines */}
           <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 5 }}>
-            <div style={{ height: 10, width: `${60 + (i * 13) % 30}%`, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
-            <div style={{ height: 8, width: `${35 + (i * 7) % 20}%`, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+            <div style={{ height: 10, width: `${60 + (i * 13) % 30}%`, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+            <div style={{ height: 8, width: `${35 + (i * 7) % 20}%`, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
           </div>
         </div>
       ))}
@@ -112,7 +112,7 @@ export function ActivitySkeleton({ t }: { t: T }) {
 // --- KanbanSkeleton --- matches KanbanView layout (4 columns)
 export function KanbanSkeleton({ t }: { t: T }) {
   const card = (w: string) => (
-    <div style={{ height: 64, borderRadius: 10, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 8, width: w }} />
+    <div style={{ height: 64, borderRadius: 12, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 8, width: w }} />
   );
 
   return (
@@ -134,12 +134,12 @@ export function KanbanSkeleton({ t }: { t: T }) {
             flex: "0 0 220px",
             background: t.bgCard,
             border: `1px solid ${t.border}`,
-            borderRadius: 14,
+            borderRadius: 16,
             padding: "12px",
           }}
         >
           {/* Column header */}
-          <div style={{ height: 18, width: 90, borderRadius: 6, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
+          <div style={{ height: 18, width: 90, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 14 }} />
           {/* Cards */}
           {card("100%")}
           {card("90%")}
@@ -157,7 +157,7 @@ export function OverviewSkeleton({ t }: { t: T }) {
       style={{
         background: t.bgCard,
         border: `1px solid ${t.border}`,
-        borderRadius: 14,
+        borderRadius: 16,
         padding: "16px",
         minHeight: 360,
       }}
@@ -171,22 +171,22 @@ export function OverviewSkeleton({ t }: { t: T }) {
       </div>
       {/* Pipeline progress bars */}
       <div style={{ marginBottom: 20 }}>
-        <div style={{ height: 14, width: 140, borderRadius: 5, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
+        <div style={{ height: 14, width: 140, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
         {[0, 1, 2].map(i => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <div style={{ width: 90, height: 10, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
-            <div style={{ flex: 1, height: 8, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+            <div style={{ width: 90, height: 10, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+            <div style={{ flex: 1, height: 8, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
           </div>
         ))}
       </div>
       {/* Leaderboard: 3 rows */}
       <div>
-        <div style={{ height: 14, width: 110, borderRadius: 5, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
+        <div style={{ height: 14, width: 110, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginBottom: 12 }} />
         {[0, 1, 2].map(i => (
           <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
             <div style={{ width: 28, height: 28, borderRadius: "50%", background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", flexShrink: 0 }} />
-            <div style={{ width: 80, height: 10, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
-            <div style={{ flex: 1, height: 8, borderRadius: 4, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginLeft: "auto", maxWidth: 100 }} />
+            <div style={{ width: 80, height: 10, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite" }} />
+            <div style={{ flex: 1, height: 8, borderRadius: 8, background: t.bgSoft, animation: "skeletonPulse 1.5s ease-in-out infinite", marginLeft: "auto", maxWidth: 100 }} />
           </div>
         ))}
       </div>
@@ -210,9 +210,9 @@ export function MockupSkeleton({ t }: { t: T }) {
     >
       <PulseStyle />
       <div style={{ display: "flex", flexDirection: "column", gap: 8, width: "80%", alignItems: "center" }}>
-        <div style={{ height: 10, width: "60%", borderRadius: 4, background: t.border }} />
-        <div style={{ height: 10, width: "80%", borderRadius: 4, background: t.border }} />
-        <div style={{ height: 10, width: "50%", borderRadius: 4, background: t.border }} />
+        <div style={{ height: 10, width: "60%", borderRadius: 8, background: t.border }} />
+        <div style={{ height: 10, width: "80%", borderRadius: 8, background: t.border }} />
+        <div style={{ height: 10, width: "50%", borderRadius: 8, background: t.border }} />
       </div>
     </div>
   );

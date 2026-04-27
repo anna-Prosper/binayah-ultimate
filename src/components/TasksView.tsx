@@ -111,7 +111,7 @@ export default function TasksView(props: Props) {
     flex: 1,
     background: active ? t.bgCard : "transparent",
     border: "none",
-    borderRadius: 9,
+    borderRadius: 12,
     padding: "7px 18px",
     cursor: "pointer",
     fontSize: 9,
@@ -145,7 +145,7 @@ export default function TasksView(props: Props) {
           <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {headerLabel || "🔥 now"}
             {pendingCount > 0 && isAdmin && (
-              <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 5, padding: "2px 6px", fontWeight: 700, letterSpacing: 1 }}>
+              <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 6px", fontWeight: 700, letterSpacing: 1 }}>
                 {pendingCount} AWAITING APPROVAL
               </span>
             )}
@@ -158,7 +158,7 @@ export default function TasksView(props: Props) {
         <div style={{
           background: t.bgSoft,
           border: `1px solid ${t.border}`,
-          borderRadius: 14,
+          borderRadius: 16,
           overflow: "hidden",
           boxShadow: `0 1px 3px rgba(0,0,0,0.06)`,
           minWidth: 200,
@@ -218,7 +218,7 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 14, transition: "background 0.15s", padding: 2 }}
+                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "background 0.15s", padding: 2 }}
                 onDragOver={e => { e.preventDefault(); setDragOver(col.status); }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={e => handleDrop(col.status, e)}
@@ -230,7 +230,7 @@ export default function TasksView(props: Props) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {colTasks.length === 0
-                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 10, padding: "24px 12px", textAlign: "center", fontSize: 8, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
+                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 8, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
                     : colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!task.locked} {...cardShared} />)
                   }
                 </div>
@@ -550,7 +550,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; compact?: boolean;
 }) {
   const iconBtn: React.CSSProperties = {
-    background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6,
+    background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
     padding: compact ? "3px 6px" : "3px 7px", cursor: "pointer",
     fontSize: compact ? 9 : 10, color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3,
@@ -564,9 +564,9 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           😀 <span style={{ fontSize: 7 }}>+</span>
         </button>
         {showReactPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
             {REACTIONS.map(emoji => (
-              <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 6 }}>{emoji}</button>
+              <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "4px 6px", borderRadius: 8 }}>{emoji}</button>
             ))}
           </div>
         )}
@@ -579,11 +579,11 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           👤 <span style={{ fontSize: 7 }}>{assignee ? assignee.name.toLowerCase() : "assign"}</span>
         </button>
         {showAssignPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", flexDirection: "column", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 140 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 2, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 140 }}>
             {users.map(u => {
               const isCurrent = assignee?.id === u.id;
               return (
-                <button key={u.id} onClick={() => onAssign(isCurrent ? null : u.id)} style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 6, display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>
+                <button key={u.id} onClick={() => onAssign(isCurrent ? null : u.id)} style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "6px 10px", borderRadius: 8, display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>
                   <span style={{ width: 8, height: 8, borderRadius: "50%", background: u.color, flexShrink: 0 }} />
                   <span style={{ flex: 1 }}>{u.name}</span>
                   {isCurrent && <span style={{ fontSize: 8 }}>✓</span>}
@@ -591,7 +591,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
               );
             })}
             {assignee && (
-              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "5px 10px", borderRadius: 6, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>× clear</button>
+              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "5px 10px", borderRadius: 8, fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>× clear</button>
             )}
           </div>
         )}
@@ -608,7 +608,7 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
   inputValue: string; onInputChange: (v: string) => void; onSend: () => void;
 }) {
   return (
-    <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 10, marginTop: 2 }}>
+    <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 10, marginTop: 2 }}>
       {comments.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>
           {comments.slice(-5).map(c => {
@@ -631,9 +631,9 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
           onChange={e => onInputChange(e.target.value)}
           onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onSend(); } }}
           placeholder="// add a comment..."
-          style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 7, padding: "6px 10px", fontSize: 10, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+          style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 10px", fontSize: 10, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
         />
-        <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 7, padding: "6px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+        <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
       </div>
     </div>
   );
@@ -651,7 +651,7 @@ function btn(color: string, bg: string, borderColor: string, small = false): Rea
 function badge(color: string): React.CSSProperties {
   return {
     fontSize: 8, color, background: color + "18", border: `1px solid ${color}44`,
-    borderRadius: 6, padding: "4px 8px", fontWeight: 700,
+    borderRadius: 8, padding: "4px 8px", fontWeight: 700,
     fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0,
   };
 }

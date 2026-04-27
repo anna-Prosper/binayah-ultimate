@@ -112,7 +112,7 @@ export function AvatarPicker({
             key={tb}
             onClick={() => setTab(tb)}
             style={{
-              flex: 1, padding: "8px 0", borderRadius: 9, border: "none", cursor: "pointer",
+              flex: 1, padding: "8px 0", borderRadius: 12, border: "none", cursor: "pointer",
               fontFamily: "var(--font-dm-sans), sans-serif", fontSize: 12, fontWeight: 700,
               background: tab === tb ? t.bgCard : "transparent",
               color: tab === tb ? user.color : t.textMuted,
@@ -143,7 +143,7 @@ export function AvatarPicker({
                   onAvatarChange?.({ avatar: av.id, aiAvatar: null });
                 }}
                 style={{
-                  width: "100%", aspectRatio: "1", borderRadius: 14, padding: 0, overflow: "hidden",
+                  width: "100%", aspectRatio: "1", borderRadius: 16, padding: 0, overflow: "hidden",
                   border: `2px solid ${active ? user.color : t.border}`,
                   cursor: "pointer", transition: "all 0.2s", position: "relative",
                   boxShadow: active ? `0 0 20px ${user.color}44` : "none",
@@ -228,7 +228,7 @@ export function AvatarPicker({
                 key={h}
                 onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }}
                 style={{
-                  background: "transparent", border: `1px solid ${t.border}`, borderRadius: 20,
+                  background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16,
                   padding: "3px 10px", fontSize: 9, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap",
                 }}
@@ -247,7 +247,7 @@ export function AvatarPicker({
           {aiLoading && (
             <div style={{ marginBottom: 16, textAlign: "center" }}>
               <div style={{
-                width: 100, height: 100, borderRadius: 20, margin: "0 auto",
+                width: 100, height: 100, borderRadius: 16, margin: "0 auto",
                 background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`,
                 backgroundSize: "200% 100%", animation: "ap-shimmer 1.4s ease-in-out infinite",
               }} />
@@ -271,7 +271,7 @@ export function AvatarPicker({
                   src={aiImage}
                   alt="ai pfp"
                   style={{
-                    width: 100, height: 100, borderRadius: 20, objectFit: "cover",
+                    width: 100, height: 100, borderRadius: 16, objectFit: "cover",
                     border: `3px solid ${user.color}`, boxShadow: `0 0 30px ${user.color}44`,
                   }}
                 />

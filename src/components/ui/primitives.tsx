@@ -9,7 +9,7 @@ export const Chev = ({ open, color }: { open: boolean; color?: string }) => (
 );
 
 export const NB = ({ color, children, style: s = {} }: { color: string; children: React.ReactNode; style?: React.CSSProperties }) => (
-  <div style={{ border: `1px solid ${color}30`, boxShadow: `0 0 12px ${color}08`, borderRadius: 14, ...s }}>{children}</div>
+  <div style={{ border: `1px solid ${color}30`, boxShadow: `0 0 12px ${color}08`, borderRadius: 16, ...s }}>{children}</div>
 );
 
 export const Bar = ({ t, label, value, color }: { t: T; label: string; value: number; color?: string }) => (
@@ -23,7 +23,7 @@ export const Bar = ({ t, label, value, color }: { t: T; label: string; value: nu
 );
 
 export const Stat = ({ t, label, value, color }: { t: T; label: string; value: string; color: string }) => (
-  <div style={{ textAlign: "center", background: t.surface, borderRadius: 5, padding: "5px 3px", flex: "1 1 40px" }}>
+  <div style={{ textAlign: "center", background: t.surface, borderRadius: 8, padding: "5px 3px", flex: "1 1 40px" }}>
     <div style={{ fontSize: 10, fontWeight: 800, color }}>{value}</div>
     <div style={{ fontSize: 5, color: t.textDim, marginTop: 1 }}>{label}</div>
   </div>

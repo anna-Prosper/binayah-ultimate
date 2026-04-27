@@ -37,7 +37,7 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
     const handle = match[1].toLowerCase();
     const user = users.find(u => u.id === handle || u.name.toLowerCase() === handle);
     if (user) {
-      parts.push(<span key={`m-${i++}`} style={{ color: user.color, fontWeight: 700, background: user.color + "14", padding: "0 4px", borderRadius: 4 }}>@{user.name}</span>);
+      parts.push(<span key={`m-${i++}`} style={{ color: user.color, fontWeight: 700, background: user.color + "14", padding: "0 4px", borderRadius: 8 }}>@{user.name}</span>);
     } else {
       parts.push(<span key={`u-${i++}`} style={{ color: textColor }}>{match[0]}</span>);
     }
@@ -270,7 +270,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
           <div style={{ padding: "10px 16px", borderTop: `1px solid ${t.border}`, position: "relative" }}>
             {/* Mention autocomplete picker */}
             {mentionState.open && mentionMatches.length > 0 && (
-              <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(100% - 4px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, boxShadow: "0 -8px 24px rgba(0,0,0,0.3)", overflow: "hidden", zIndex: 50 }}>
+              <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(100% - 4px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 -8px 24px rgba(0,0,0,0.3)", overflow: "hidden", zIndex: 50 }}>
                 {mentionMatches.map((u, idx) => (
                   <button
                     key={u.id}
@@ -315,7 +315,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   flex: 1,
                   background: "transparent",
                   border: `1px solid ${isInputTooLong ? t.red + "88" : t.border}`,
-                  borderRadius: 10,
+                  borderRadius: 12,
                   padding: mobileMode ? "12px" : "8px 12px",
                   minHeight: mobileMode ? 44 : undefined,
                   fontSize: 10,
@@ -330,7 +330,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 style={{
                   background: canSend ? t.accent : t.surface,
                   border: "none",
-                  borderRadius: 10,
+                  borderRadius: 12,
                   padding: mobileMode ? "12px 20px" : "8px 16px",
                   minHeight: mobileMode ? 44 : undefined,
                   minWidth: mobileMode ? 44 : undefined,
@@ -415,7 +415,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAi(); } }}
                 placeholder="ask binayah ai..."
                 disabled={aiLoading}
-                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }}
               />
               <button
                 onClick={sendAi}
@@ -423,7 +423,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 style={{
                   background: (aiLoading || !aiInput.trim()) ? t.surface : `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`,
                   border: "none",
-                  borderRadius: 10,
+                  borderRadius: 12,
                   padding: "8px 16px",
                   cursor: (aiLoading || !aiInput.trim()) ? "not-allowed" : "pointer",
                   fontSize: 11,

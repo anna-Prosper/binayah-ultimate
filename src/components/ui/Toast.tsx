@@ -50,7 +50,7 @@ export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
             style={{
               background: t.bgCard,
               border: `1px solid ${toast.color}44`,
-              borderRadius: 10,
+              borderRadius: 12,
               padding: "9px 16px",
               fontSize: 11,
               fontFamily: "var(--font-dm-mono), monospace",
@@ -146,7 +146,7 @@ export function RecoveryToast({ t, message = "// cache cleared — fresh start" 
           zIndex: 9999,
           background: t.bgCard,
           border: `1px solid ${t.amber}44`,
-          borderRadius: 10,
+          borderRadius: 12,
           padding: "9px 16px",
           fontSize: 11,
           fontFamily: "var(--font-dm-mono), monospace",

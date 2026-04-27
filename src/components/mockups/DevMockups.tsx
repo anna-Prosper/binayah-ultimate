@@ -44,7 +44,7 @@ export function QAAgent({ t }: { t: T }) {
           <span style={{fontSize:6.5,color:x.p?t.textSec:t.red}}>{x.c}</span>
         </div>
       ))}
-      <div style={{background:t.red+"12",borderRadius:5,padding:"3px 6px",marginTop:4,display:"flex",gap:4}}>
+      <div style={{background:t.red+"12",borderRadius:8,padding:"3px 6px",marginTop:4,display:"flex",gap:4}}>
         <span style={{fontSize:6,color:t.red}}>↩ Sent back: fix L94 double-book case → Dev Agent</span>
       </div>
     </Browser>
@@ -54,7 +54,7 @@ export function QAAgent({ t }: { t: T }) {
 export function CodeReview({ t }: { t: T }) {
   return (
     <Browser t={t} url="admin/review-queue">
-      <div style={{background:t.green+"10",border:`1px solid ${t.green}33`,borderRadius:6,padding:"5px 7px",marginBottom:5}}>
+      <div style={{background:t.green+"10",border:`1px solid ${t.green}33`,borderRadius:8,padding:"5px 7px",marginBottom:5}}>
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
           <span style={{fontSize:7,fontWeight:700,color:t.text}}>feat: WA scheduler</span>
           <span style={{fontSize:5.5,color:t.green,fontWeight:700}}>QA ✓ PASSED</span>
@@ -68,8 +68,8 @@ export function CodeReview({ t }: { t: T }) {
         </div>
       ))}
       <div style={{display:"flex",gap:3,marginTop:5}}>
-        <div style={{flex:1,background:t.green,borderRadius:4,padding:"3px 0",textAlign:"center",fontSize:6,color:"#fff",fontWeight:700}}>✓ Merge</div>
-        <div style={{flex:1,background:t.surface,borderRadius:4,padding:"3px 0",textAlign:"center",fontSize:6,color:t.textSec}}>→ PM Agent</div>
+        <div style={{flex:1,background:t.green,borderRadius:8,padding:"3px 0",textAlign:"center",fontSize:6,color:"#fff",fontWeight:700}}>✓ Merge</div>
+        <div style={{flex:1,background:t.surface,borderRadius:8,padding:"3px 0",textAlign:"center",fontSize:6,color:t.textSec}}>→ PM Agent</div>
       </div>
     </Browser>
   );
@@ -90,7 +90,7 @@ export function ContentFactory({ t }: { t: T }) {
           <span style={{fontSize:6,color:t.green,fontWeight:700}}>{x[3]}</span>
         </div>
       ))}
-      <div style={{background:t.amber+"12",borderRadius:4,padding:"3px 6px",marginTop:4}}>
+      <div style={{background:t.amber+"12",borderRadius:8,padding:"3px 6px",marginTop:4}}>
         <span style={{fontSize:6,color:t.amber,fontWeight:600}}>⏳ Pending Approval Hub review</span>
       </div>
     </Browser>

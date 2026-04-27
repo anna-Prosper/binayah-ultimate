@@ -115,7 +115,7 @@ export default function Stage({
           }
         };
         return (
-      <div onClick={handleCardClick} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 14, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
+      <div onClick={handleCardClick} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow }}>
 
         {/* Header row — on mobile: name+status on first line, meta on second */}
         <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
@@ -123,7 +123,7 @@ export default function Stage({
           <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0, flex: 1, width: "100%" }}>
             <Chev open={isMobile ? mobileSheetOpen : isE} color={pC} />
             <span style={{ fontSize: 12, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 6, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 7, fontWeight: 700, color: st.c, background: st.c + "12", padding: "2px 8px", borderRadius: 8, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
           </div>
 
           {/* Line 2 (mobile) or inline (desktop): reactions + meta */}
@@ -141,13 +141,13 @@ export default function Stage({
               const existing = Object.entries(sr).filter(([, v]) => v.length > 0);
               if (reactOpen === name) {
                 return REACTIONS.map(r => { const us = sr[r] || []; const mine = us.includes(currentUser!); const has = us.length > 0; return (
-                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 10, padding: isMobile ? "6px 8px" : "2px 5px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
+                  <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 12, padding: isMobile ? "6px 8px" : "2px 5px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
                     <span style={{ fontSize: has ? 13 : 11 }}>{r}</span>
                     {has && <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
                   </button>); });
               }
               return existing.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
-                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 10, padding: isMobile ? "6px 8px" : "2px 6px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
+                <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 12, padding: isMobile ? "6px 8px" : "2px 6px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
                   <span style={{ fontSize: 12 }}>{emoji}</span>
                   <span style={{ fontSize: 7, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                 </button>); });
@@ -160,7 +160,7 @@ export default function Stage({
 
             {/* Preview badge — indicates stage has a mockup */}
             {MockupComp && !(isMobile ? mobileSheetOpen : isE) && (
-              <span style={{ fontSize: 7, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 6, padding: "1px 6px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
+              <span style={{ fontSize: 7, color: pC, background: pC + "15", border: `1px solid ${pC}22`, borderRadius: 8, padding: "1px 6px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, flexShrink: 0, opacity: 0.8 }}>▸</span>
             )}
 
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 2 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
@@ -239,7 +239,7 @@ export default function Stage({
                   if (owners.length) { lines.push(""); lines.push(`Owned by: ${owners.join(", ")}`); }
                   if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
                   shareStage(name, lines.join("\n"));
-                }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 14px", cursor: "pointer", fontSize: 9, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   {copied === name ? "\u2713 copied" : "\uD83D\uDCCB copy"}
                 </button>
               </div>
@@ -273,10 +273,10 @@ export default function Stage({
               <div style={{ flex: 1, padding: "14px 16px", borderRight: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
                 <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 {tasks.map(task => (
-                  <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderRadius: 6, transition: "background 0.15s" }}
+                  <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderRadius: 8, transition: "background 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                    <div onClick={() => toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 4, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
+                    <div onClick={() => toggleSubtask(name, task.id)} style={{ width: 14, height: 14, borderRadius: 8, border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer" }}>
                       {task.done && <span style={{ fontSize: 8, color: t.green }}>{"\u2713"}</span>}
                     </div>
                     <span style={{ fontSize: 9, color: task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
@@ -335,7 +335,7 @@ export default function Stage({
                     <span style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", fontWeight: 600 }}>
                       gallery {totalCount > 0 && `(${totalCount})`}
                     </span>
-                    <label onClick={e => { e.stopPropagation(); if (isLocked) { return; } }} style={{ fontSize: 8, color: isLocked ? t.textDim : pC, cursor: isLocked ? "not-allowed" : "pointer", fontWeight: 700, background: isLocked ? t.surface : pC + "15", border: `1px solid ${isLocked ? t.border : pC + "33"}`, borderRadius: 6, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", pointerEvents: isLocked ? "none" : "auto" }}>
+                    <label onClick={e => { e.stopPropagation(); if (isLocked) { return; } }} style={{ fontSize: 8, color: isLocked ? t.textDim : pC, cursor: isLocked ? "not-allowed" : "pointer", fontWeight: 700, background: isLocked ? t.surface : pC + "15", border: `1px solid ${isLocked ? t.border : pC + "33"}`, borderRadius: 8, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", pointerEvents: isLocked ? "none" : "auto" }}>
                       {isLocked ? "🔒 locked" : "↑ upload"}
                       <input type="file" accept="image/*" disabled={isLocked} style={{ display: "none" }} onChange={e => {
                         const file = e.target.files?.[0];
@@ -353,7 +353,7 @@ export default function Stage({
                       {(hasMock || imgs.length > 0) ? (
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
                           {hasMock && (
-                            <div style={{ gridColumn: "1 / -1", borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
+                            <div style={{ gridColumn: "1 / -1", borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
                               <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, marginBottom: 8, opacity: 0.8 }}>▸ live preview</div>
                               <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
                                 <ErrorBoundary>
@@ -425,15 +425,15 @@ export default function Stage({
               <div style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
               {tasks.map(task => (
                 <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
-                  <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 20, height: 20, borderRadius: 6, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer", minWidth: 44, minHeight: 44 }}>
+                  <div onClick={() => !task.locked && toggleSubtask(name, task.id)} style={{ width: 20, height: 20, borderRadius: 8, border: `1.5px solid ${task.locked ? t.textDim + "55" : task.done ? t.green : t.border}`, background: task.done ? t.green + "22" : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: task.locked ? "default" : "pointer", minWidth: 44, minHeight: 44 }}>
                     {task.done && <span style={{ fontSize: 12, color: t.green }}>{"✓"}</span>}
                   </div>
                   <span style={{ fontSize: 12, color: task.locked ? t.textDim : task.done ? t.textDim : t.textSec, textDecoration: task.done ? "line-through" : "none", flex: 1 }}>{task.text}</span>
                 </div>
               ))}
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
-                <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 10, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
+                <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
               </div>
             </div>
 
@@ -455,8 +455,8 @@ export default function Stage({
                 ); })}
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 10, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 10, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
+                <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 14, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
               </div>
             </div>
 
@@ -464,7 +464,7 @@ export default function Stage({
             {MockupComp && (
               <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${t.border}` }}>
                 <div style={{ fontSize: 7, color: pC, letterSpacing: 1.5, textTransform: "uppercase", fontWeight: 700, padding: "10px 0 8px", opacity: 0.8 }}>▸ live preview</div>
-                <div style={{ borderRadius: 10, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
+                <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
                   <ErrorBoundary>
                     <MockupComp t={t} />
                   </ErrorBoundary>
