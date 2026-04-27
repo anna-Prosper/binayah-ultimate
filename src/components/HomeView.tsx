@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { Users, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace, type SubtaskItem, type CommentItem } from "@/lib/data";
+import { AvatarC } from "@/components/ui/Avatar";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 
@@ -76,6 +77,15 @@ export default function HomeView({
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
 
+  const getPoints = (uid: string) => {
+    let p = 0;
+    Object.entries(claims).forEach(([s, claimers]) => {
+      if ((claimers as string[]).includes(uid) && approvedStages.includes(s)) p += 10;
+    });
+    Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if ((r as string[]).includes(uid)) p += 2; }); });
+    return p;
+  };
+
   const ACTIONABLE = new Set(["planned", "in-progress", "active", "blocked"]);
   const visibleStages = useMemo(() => {
     const wsMap = new Map<string, Workspace>();
@@ -96,9 +106,28 @@ export default function HomeView({
 
   return (
     <div style={{ paddingTop: 20 }}>
-      {/* Greeting only */}
-      <div style={{ marginBottom: 20 }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
+      {/* Greeting + user list with stats on one line */}
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 20, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, flexWrap: "wrap" }}>
+        <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15, whiteSpace: "nowrap" }}>{greeting}</div>
+
+        {/* User avatars with stats */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap", flex: 1 }}>
+          {users.map((u) => {
+            const uPts = getPoints(u.id);
+            const isMe = u.id === currentUser;
+            return (
+              <div key={u.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                  <AvatarC user={u} size={28} />
+                </div>
+                <div style={{ minWidth: "fit-content" }}>
+                  <div style={{ fontSize: 12, fontWeight: isMe ? 800 : 700, color: isMe ? u.color : t.text, lineHeight: 1.2 }}>{u.name.split(" ")[0]}</div>
+                  <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Workspace preview cards — separate line below */}
