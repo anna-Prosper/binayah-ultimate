@@ -559,28 +559,41 @@ function SubtaskCard({
 
   return (
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-      <CardShell t={t} borderColor={t.border}>
-      {/* Top row — mirrors TaskCard structure: title + breadcrumb + creator avatar + done button */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <CardShell t={t} borderColor={pipelineColor + "33"} compact={false}>
+      {/* Header with visual indicator */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 4, borderBottom: `1px solid ${pipelineColor}22` }}>
+        <div style={{ fontSize: 14, color: pipelineColor, fontWeight: 700 }}>⤷</div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div title={taskSub.text} style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>{taskSub.text}</div>
-          <div title={`subtask of ${parentStageName}`} style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
-            ↳ subtask of {pipelineIcon} {parentStageName}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
+          <div title={taskSub.text} style={{ fontSize: 14, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{taskSub.text}</div>
+          <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", gap: 8, alignItems: "center" }}>
+            <span>{pipelineIcon} {parentStageName}</span>
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+      </div>
+
+      {/* Bottom row: creator + actions */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4, justifyContent: "space-between", paddingTop: 6 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flex: 1 }}>
           {creator && (
-            <div title={`added by ${creator.name}`}>
-              <AvatarC user={creator} size={20} />
+            <AvatarC user={creator} size={18} />
+          )}
+          {visibleReactions.length > 0 && (
+            <div style={{ display: "flex", gap: 2 }}>
+              {visibleReactions.slice(0, 2).map(([emoji]) => (
+                <span key={emoji} style={{ fontSize: 11 }}>{emoji}</span>
+              ))}
             </div>
           )}
-          {currentUser && (
-            <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55")}>
-              done →
-            </button>
+          {cmts.length > 0 && (
+            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>💬 {cmts.length}</span>
           )}
         </div>
+        {currentUser && (
+          <button onClick={e => { e.stopPropagation(); onToggle(); }} style={btn(pipelineColor, pipelineColor + "15", pipelineColor + "55", true)}>
+            ✓
+          </button>
+        )}
       </div>
 
       {visibleReactions.length > 0 && (
