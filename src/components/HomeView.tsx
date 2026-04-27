@@ -96,45 +96,73 @@ export default function HomeView({
 
   return (
     <div style={{ paddingTop: 20 }}>
-      {/* ── Page header: greeting + workspace context on one line ── */}
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "center", gap: 24, flexWrap: "wrap" }}>
+      {/* Greeting only */}
+      <div style={{ marginBottom: 20 }}>
         <div style={{ fontSize: 26, fontWeight: 800, color: t.text, letterSpacing: -0.5, lineHeight: 1.15 }}>{greeting}</div>
+      </div>
 
-        {/* Workspace meta row — flat, inline */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
-          {myWorkspaces.map(w => {
-            const isActive = w.id === currentWorkspaceId;
-            const role = w.captains.includes(currentUser) ? "captain" : w.firstMates.includes(currentUser) ? "first mate" : "crew";
-            const roleColor = role === "captain" ? t.amber : role === "first mate" ? (t.cyan || t.accent) : t.textMuted;
-            const wMyCount = visibleStages.filter(s => s.wsId === w.id && (claims[s.stageId] || []).includes(currentUser)).length;
-            return (
-              <button
-                key={w.id}
-                onClick={() => onSwitchWorkspace(w.id)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  background: "transparent", border: "none",
-                  padding: 0, cursor: "pointer",
-                  borderBottom: isActive ? `2px solid ${t.accent}` : "2px solid transparent",
-                  paddingBottom: 2, transition: "border-color 0.15s",
-                }}
-              >
-                <span style={{ fontSize: 16 }}>{w.icon}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? t.accent : t.text }}>{w.name}</span>
-                <span style={{ fontSize: 10, color: roleColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{role}</span>
-                <span style={{ fontSize: 10, color: t.textDim, display: "flex", alignItems: "center", gap: 6 }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <Users size={12} strokeWidth={2} /> {w.members.length}
-                  </span>
-                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <Zap size={12} strokeWidth={2} /> {w.pipelineIds.length}
-                  </span>
-                  {wMyCount > 0 && <span style={{ marginLeft: 3 }}>· {wMyCount} yours</span>}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+      {/* Workspace preview cards — separate line below */}
+      <div style={{ marginBottom: 24, display: "flex", flexWrap: "wrap", gap: 12 }}>
+        {myWorkspaces.map(w => {
+          const isActive = w.id === currentWorkspaceId;
+          const role = w.captains.includes(currentUser) ? "captain" : w.firstMates.includes(currentUser) ? "first mate" : "crew";
+          const roleColor = role === "captain" ? t.amber : role === "first mate" ? (t.cyan || t.accent) : t.textMuted;
+          const wMyCount = visibleStages.filter(s => s.wsId === w.id && (claims[s.stageId] || []).includes(currentUser)).length;
+          return (
+            <button
+              key={w.id}
+              onClick={() => onSwitchWorkspace(w.id)}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: 10,
+                background: isActive ? t.accent + "11" : t.bgCard,
+                border: isActive ? `2px solid ${t.accent}` : `1px solid ${t.border}`,
+                borderRadius: 14,
+                padding: "12px 14px",
+                cursor: "pointer",
+                transition: "all 0.2s",
+                minWidth: 160,
+                flex: "0 1 auto",
+                textAlign: "left",
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget as HTMLElement;
+                if (!isActive) {
+                  el.style.background = t.bgHover || t.bgSoft;
+                  el.style.borderColor = t.accent + "44";
+                }
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget as HTMLElement;
+                if (!isActive) {
+                  el.style.background = t.bgCard;
+                  el.style.borderColor = t.border;
+                }
+              }}
+            >
+              {/* Header: icon + name + role badge */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>{w.icon}</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{w.name}</div>
+                  <div style={{ fontSize: 10, color: roleColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{role}</div>
+                </div>
+              </div>
+
+              {/* Stats row: members, pipelines, my tasks */}
+              <div style={{ display: "flex", gap: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <Users size={11} strokeWidth={2} /> {w.members.length}
+                </div>
+                <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                  <Zap size={11} strokeWidth={2} /> {w.pipelineIds.length}
+                </div>
+                {wMyCount > 0 && <div style={{ color: t.accent, fontWeight: 700 }}>· {wMyCount}</div>}
+              </div>
+            </button>
+          );
+        })}
       </div>
 
       <TasksView
