@@ -86,15 +86,28 @@ export default function HomeView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visiblePipelines, myWorkspaces, customStages, getStatus]);
 
+  const totalMyTasks = visibleStages.filter(s => (claims[s.stageId] || []).includes(currentUser)).length;
+
   return (
     <div>
-      <div style={{ fontSize: 18, fontWeight: 800, color: t.text, marginTop: 20 }}>{greeting}</div>
-      <div style={{ fontSize: 13, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, marginBottom: 20 }}>
-        // {myWorkspaces.length} workspace{myWorkspaces.length === 1 ? "" : "s"} · cross-workspace board below
+      {/* Hero row: greeting left, my-task summary right */}
+      <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginTop: 24, marginBottom: 24, gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 22, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>{greeting}</div>
+          <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+            {myWorkspaces.length} workspace{myWorkspaces.length !== 1 ? "s" : ""} · {visibleStages.length} active tasks
+          </div>
+        </div>
+        {totalMyTasks > 0 && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, background: t.accent + "14", border: `1px solid ${t.accent}33`, borderRadius: 12, padding: "8px 16px" }}>
+            <span style={{ fontSize: 20, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{totalMyTasks}</span>
+            <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>yours</span>
+          </div>
+        )}
       </div>
 
-      {/* Workspace cards row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, marginBottom: 28 }}>
+      {/* Workspace strips */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
         {myWorkspaces.map(w => {
           const isActive = w.id === currentWorkspaceId;
           const role = w.captains.includes(currentUser) ? "captain" : w.firstMates.includes(currentUser) ? "first mate" : "crew";
@@ -106,44 +119,46 @@ export default function HomeView({
               key={w.id}
               onClick={() => onSwitchWorkspace(w.id)}
               style={{
-                background: isActive ? t.accent + "10" : t.bgCard,
-                border: `1px solid ${isActive ? t.accent + "55" : t.border}`,
+                background: isActive ? t.accent + "0c" : t.bgCard,
+                border: `1px solid ${isActive ? t.accent + "44" : t.border}`,
                 borderRadius: 12,
-                padding: 16,
+                padding: "14px 20px",
                 cursor: "pointer",
                 display: "flex",
-                flexDirection: "column",
-                gap: 12,
+                alignItems: "center",
+                gap: 16,
                 textAlign: "left",
-                transition: "border-color 0.15s",
+                transition: "border-color 0.15s, background 0.15s",
+                width: "100%",
               }}
-              onMouseEnter={e => { if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = t.accent + "33"; }}
-              onMouseLeave={e => { if (!isActive) (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
+              onMouseEnter={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "33"; (e.currentTarget as HTMLElement).style.background = t.bgHover; } }}
+              onMouseLeave={e => { if (!isActive) { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.background = t.bgCard; } }}
             >
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{ fontSize: 22 }}>{w.icon}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: isActive ? t.accent : t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</div>
-                  <span style={{ fontSize: 10, color: roleColor, background: roleColor + "18", borderRadius: 8, padding: "2px 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, display: "inline-block", marginTop: 4 }}>{role}</span>
-                </div>
-                {isActive && <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>●</span>}
+              {/* Icon */}
+              <span style={{ fontSize: 24, flexShrink: 0 }}>{w.icon}</span>
+
+              {/* Name + role */}
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: isActive ? t.accent : t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</div>
+                <span style={{ fontSize: 10, color: roleColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{role}</span>
               </div>
-              <div style={{ display: "flex", gap: 12, fontFamily: "var(--font-dm-mono), monospace" }}>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{w.members.length}</span>
-                  <span style={{ fontSize: 10, color: t.textMuted }}>members</span>
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{w.pipelineIds.length}</span>
-                  <span style={{ fontSize: 10, color: t.textMuted }}>pipelines</span>
-                </div>
-                {wTaskCount > 0 && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                    <span style={{ fontSize: 15, fontWeight: 800, color: wMyCount > 0 ? t.accent : t.text }}>{wMyCount > 0 ? wMyCount : wTaskCount}</span>
-                    <span style={{ fontSize: 10, color: t.textMuted }}>{wMyCount > 0 ? "yours" : "tasks"}</span>
+
+              {/* Stats */}
+              <div style={{ display: "flex", gap: 24, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
+                {[
+                  { v: w.members.length, l: "members" },
+                  { v: w.pipelineIds.length, l: "pipelines" },
+                  ...(wTaskCount > 0 ? [{ v: wMyCount > 0 ? wMyCount : wTaskCount, l: wMyCount > 0 ? "yours" : "tasks", accent: wMyCount > 0 }] : []),
+                ].map(s => (
+                  <div key={s.l} style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: (s as {accent?: boolean}).accent ? t.accent : t.text, lineHeight: 1 }}>{s.v}</span>
+                    <span style={{ fontSize: 10, color: t.textMuted }}>{s.l}</span>
                   </div>
-                )}
+                ))}
               </div>
+
+              {/* Active dot */}
+              {isActive && <div style={{ width: 8, height: 8, borderRadius: "50%", background: t.accent, flexShrink: 0, boxShadow: `0 0 8px ${t.accent}` }} />}
             </button>
           );
         })}

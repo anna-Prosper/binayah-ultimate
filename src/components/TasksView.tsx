@@ -140,19 +140,16 @@ export default function TasksView(props: Props) {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            {headerLabel || "🔥 now"}
-            {pendingCount > 0 && isAdmin && (
-              <span style={{ fontSize: 10, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "0 4px", fontWeight: 700, letterSpacing: 0.5 }}>
-                {pendingCount} AWAITING APPROVAL
-              </span>
-            )}
-          </div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>
             {stageTasks.length} tasks
-          </div>
+          </span>
+          {pendingCount > 0 && isAdmin && (
+            <span style={{ fontSize: 10, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+              {pendingCount} awaiting approval
+            </span>
+          )}
         </div>
         {/* Right-side controls: one unified card, two segmented rows */}
         <div style={{
@@ -213,6 +210,7 @@ export default function TasksView(props: Props) {
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
           {COLS.map(col => {
             const colTasks = stageTasks.filter(s => s.status === col.status);
+            if (colTasks.length === 0 && col.status === "blocked") return null;
             const stColor = statusColor(col.status);
             const isOver = dragOver === col.status;
             return (
