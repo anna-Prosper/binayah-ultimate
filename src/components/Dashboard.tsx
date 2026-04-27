@@ -34,10 +34,6 @@ import SearchPalette from "@/components/SearchPalette";
 const ChatPanel = dynamic(() => import("@/components/ChatPanel"), {
   ssr: false, // uses localStorage + browser APIs
 });
-const NotificationBell = dynamic(() => import("@/components/NotificationBell"), {
-  ssr: false,
-  loading: () => null,
-});
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), {
   ssr: false,
 });
@@ -343,8 +339,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     const allIds = [...pipelineData.map(p => p.id), ...customPipelines.map(p => p.id)];
     const warRoom: Workspace = {
       id: DEFAULT_WORKSPACE_ID,
-      name: "War Room",
-      icon: "🏴‍☠️",
+      name: "Binayah AI",
+      icon: "🤖",
       colorKey: "purple",
       members: USERS_DEFAULT.map(u => u.id),
       captains: [...ADMIN_IDS],
@@ -355,6 +351,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     if (!currentWorkspaceId) setCurrentWorkspaceId(DEFAULT_WORKSPACE_ID);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+  // Migrate existing users who already have the "War Room" workspace
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWorkspaces(prev => prev.map(w =>
+      w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w
+    ));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
   useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
@@ -1028,11 +1031,43 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 13px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 5, minHeight: 44 };
 
   return (
-    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
+    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", display: "flex", flexDirection: "row" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes shimmer{0%{left:-100%}100%{left:200%}}@keyframes flyup{0%{opacity:1;transform:translateY(0)}100%{opacity:0;transform:translateY(-30px)}}@keyframes confetti0{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(40px,-50px) rotate(180deg)}}@keyframes confetti1{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-30px,-60px) rotate(-120deg)}}@keyframes confetti2{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(60px,-30px) rotate(90deg)}}@keyframes confetti3{0%{opacity:1;transform:translate(0,0)}100%{opacity:0;transform:translate(-50px,-40px) rotate(-200deg)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}@keyframes emojiPop{0%{opacity:0;transform:scale(0.3) translateY(0)}40%{opacity:1;transform:scale(1.4) translateY(-8px)}70%{opacity:1;transform:scale(1.1) translateY(-14px)}100%{opacity:0;transform:scale(0.8) translateY(-22px)}}@keyframes commentPulse{0%,100%{box-shadow:none}30%,70%{box-shadow:0 0 0 2px #00ff8844}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:768px){.bu-pipe-left{width:100%!important}.bu-pipe-actions{flex-wrap:wrap!important;gap:4px!important}}@media(max-width:640px){.bu-stats{grid-template-columns:repeat(3,1fr)!important}.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}`}</style>
 
-      {/* Top section: header + team bar — max-width constrained */}
-      <div style={{ maxWidth: 1400, margin: "0 auto", padding: isMobile ? "16px 12px 0" : "24px 20px 0" }}>
+      {/* LEFT SIDEBAR — desktop only, flush to viewport left edge */}
+      {!isMobile && (
+        <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
+          <LeftSidebar
+            t={t}
+            activeNav={activeNavItem}
+            onNavChange={(item) => {
+              setActiveNavItem(item);
+              if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); }
+              else if (item === "chat") setShowChat(true);
+              else { setShowActivity(false); setShowChat(false); }
+            }}
+            pipelines={allPipelines as SidebarPipeline[]}
+            activePipelineId={activeSidebarPipeline}
+            onPipelineSelect={(id) => {
+              setActiveSidebarPipeline(id);
+              setExpanded(prev => prev.includes(id) ? prev : [...prev, id]);
+            }}
+            workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
+            currentWorkspaceId={currentWorkspaceId}
+            onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
+            canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
+            onCreateWorkspace={() => setWorkspaceModal("create")}
+            canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && currentWorkspace.members.includes(currentUser)}
+            onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
+          />
+        </div>
+      )}
+
+      {/* Right section: header + content, fills remaining width */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+
+      {/* Top section: header + team bar */}
+      <div style={{ padding: isMobile ? "16px 12px 0" : "24px 20px 0" }}>
 
         {/* HEADER */}
         <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "stretch", marginBottom: 24, gap: 12 }}>
@@ -1076,11 +1111,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
               )}
             </button>
-
-            {/* Notification bell — SSE-driven real-time activity badge */}
-            {currentUser && (
-              <NotificationBell t={t} currentUserId={currentUser} users={users} />
-            )}
 
             {/* Activity bell */}
             <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Notifications" aria-label="View notifications">
@@ -1257,39 +1287,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         </div>
       </div>{/* end top-section maxWidth */}
 
-      {/* Main body: sidebar (desktop) + content area */}
-      <div style={{ display: "flex", flexDirection: "row", maxWidth: 1400, margin: "0 auto", minHeight: "calc(100vh - 200px)" }}>
-        {/* LEFT SIDEBAR — desktop only */}
-        {!isMobile && (
-          <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
-            <LeftSidebar
-              t={t}
-              activeNav={activeNavItem}
-              onNavChange={(item) => {
-                setActiveNavItem(item);
-                if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); }
-                else if (item === "chat") setShowChat(true);
-                else { setShowActivity(false); setShowChat(false); }
-              }}
-              pipelines={allPipelines as SidebarPipeline[]}
-              activePipelineId={activeSidebarPipeline}
-              onPipelineSelect={(id) => {
-                setActiveSidebarPipeline(id);
-                setExpanded(prev => prev.includes(id) ? prev : [...prev, id]);
-              }}
-              workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
-              currentWorkspaceId={currentWorkspaceId}
-              onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
-              canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
-              onCreateWorkspace={() => setWorkspaceModal("create")}
-              canManageCurrentWorkspace={isOfficerOfCurrent}
-              onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
-            />
-          </div>
-        )}
-
-        {/* MAIN CONTENT AREA */}
-        <div style={{ flex: 1, minWidth: 0, padding: isMobile ? "0 12px 16px" : "0 20px 24px", overflowX: "hidden" }}>
+      {/* MAIN CONTENT AREA */}
+      <div style={{ flex: 1, minWidth: 0, padding: isMobile ? "0 12px 16px" : "0 20px 24px", overflowX: "hidden" }}>
 
         {/* Mobile: Activity Feed BottomSheet — unchanged */}
         {isMobile && (
@@ -1662,7 +1661,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
         </div>
         </div>{/* end main content area */}
-      </div>{/* end sidebar+content flex row */}
+      </div>{/* end right-section */}
 
       {/* WORKSPACE MODALS */}
       {workspaceModal === "create" && (
