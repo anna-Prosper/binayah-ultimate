@@ -57,7 +57,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
           animation: fadeIn 0.2s ease;
         }
         .bu-kb-col { min-height: 420px; }
-        .bu-kb-empty::after { content: "drag here"; }
+        .bu-kb-empty::after { content: "// empty waters"; }
         @media (max-width: 768px) {
           .bu-kb-board {
             display: flex;
@@ -87,7 +87,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
           .bu-kb-card-name { font-size: 13px !important; }
           .bu-kb-card-desc { font-size: 10px !important; }
           .bu-kb-card-tag  { font-size: 9px !important; }
-          .bu-kb-empty::after { content: "tap a card to move"; }
+          .bu-kb-empty::after { content: "// empty waters"; }
           .bu-kb-col-header { position: sticky; top: 0; background: inherit; z-index: 2; padding-top: 4px; padding-bottom: 8px; }
         }
       `}</style>
@@ -129,7 +129,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                       onDragStart={e => { setDragging(s.name); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setDragging(null); setDragOver(null); }}
                       onClick={() => onCardClick(s.pipelineId, s.name)}
-                      style={{ background: t.bgCard, border: `1px solid ${dragging === s.name ? stc.c + "66" : t.border}`, borderLeft: `3px solid ${s.pipelineColor}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer", opacity: dragging === s.name ? 0.4 : 1, transition: "all 0.15s", boxShadow: t.shadow, userSelect: "none" }}
+                      style={{ background: t.bgCard, border: `1px solid ${dragging === s.name ? stc.c + "66" : t.border}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer", opacity: dragging === s.name ? 0.4 : 1, transition: "all 0.15s", boxShadow: `inset 3px 0 0 ${s.pipelineColor}, ${t.shadow}`, userSelect: "none" }}
                     >
                       {/* Pipeline tag */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>

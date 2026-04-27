@@ -200,6 +200,7 @@ export default function Stage({
   const effectiveStatus = getStatus(name);
   const st = sc[effectiveStatus] ?? { l: "concept", c: "#888" };
   const claimedBy = claims[name] || [];
+  const claimedByMe = currentUser ? claimedBy.includes(currentUser) : false;
   const MockupComp = mockupsMap[name] ?? null;
   const tasks = subtasks[name] || [];
   const cmts = comments[name] || [];
@@ -238,7 +239,7 @@ export default function Stage({
           }
         };
         return (
-      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: stageEditMode ? t.bgCard : (isE ? t.bgHover : t.bgSoft), border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? t.accent + "44" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.3s, background 0.15s", overflow: "hidden", boxShadow: hasLive ? `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : (stageEditMode ? `inset 3px 0 0 ${pC}, inset 0 0 0 9999px ${t.accent}06, ${isE ? t.shadowLg : t.shadow}` : `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}`), position: "relative" }}>
+      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: stageEditMode ? t.bgCard : (isE ? t.bgHover : t.bgSoft), border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? t.accent + "44" : claimedByMe ? pC + "55" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.3s, background 0.15s", overflow: "hidden", boxShadow: hasLive ? `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : (stageEditMode ? `inset 3px 0 0 ${pC}, inset 0 0 0 9999px ${t.accent}08, ${isE ? t.shadowLg : t.shadow}` : `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}`), position: "relative" }}>
 
         {/* Header row — on mobile: name+status on first line, meta on second */}
         <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
@@ -374,20 +375,7 @@ export default function Stage({
               {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 13, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"\uD83D\uDC80"} owned!</div>}
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {!claimedBy.includes(currentUser!) ? (
-                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: isTopClaim ? "claimPulse 2s ease-in-out infinite" : "none", position: "relative", overflow: "hidden", letterSpacing: 0.3, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
-                    <span style={{ fontSize: 16 }}>{"\uD83D\uDC80"}</span>
-                    <span>claim this</span>
-                    <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "0 8px", fontSize: 10 }}>earn +{s.points} on live</span>
-                    <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.2),transparent)", animation: "shimmer 2.5s ease-in-out infinite" }} />
-                  </button>
-                ) : (
-                  <button onClick={() => handleClaim(name)} title="Click to unclaim" style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 13, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", gap: 4, boxShadow: `0 0 12px ${t.green}18`, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
-                    <AvatarC user={me} size={20} />
-                    <span>{"\u2713"} claimed</span>
-                    <span style={{ fontSize: 10, color: t.textMuted, fontWeight: 500, opacity: 0.7 }}>· unclaim?</span>
-                  </button>
-                )}
+                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaim(name)} pulse={isTopClaim} />
 
                 {claimedBy.filter(uid => uid !== currentUser).length > 0 && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -582,19 +570,7 @@ export default function Stage({
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                {!claimedBy.includes(currentUser!) ? (
-                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "12px 20px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, minHeight: 44 }}>
-                    <span style={{ fontSize: 18 }}>{"💀"}</span>
-                    <span>claim this</span>
-                    <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "0 8px", fontSize: 11 }}>earn +{s.points} on live</span>
-                  </button>
-                ) : (
-                  <button onClick={() => handleClaim(name)} title="Click to unclaim" style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 13, color: t.green, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, width: "100%", minHeight: 44 }}>
-                    <AvatarC user={me} size={22} />
-                    <span>{"✓"} claimed</span>
-                    <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 500, opacity: 0.7 }}>· unclaim?</span>
-                  </button>
-                )}
+                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaim(name)} />
               </div>
             </div>
 

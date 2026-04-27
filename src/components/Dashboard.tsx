@@ -1188,7 +1188,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <AvatarC user={me} size={28} />
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div>
-                  <div style={{ fontSize: 11, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                  <div style={{ fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
                 </div>
               </div>
             )}
@@ -1278,7 +1278,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     {userRankInCurrent(u.id) === "captain" && <span style={{ fontSize: 10, color: t.text, fontWeight: 800 }}>👑</span>}
                     {userRankInCurrent(u.id) === "firstMate" && <span style={{ fontSize: 10, color: t.text, fontWeight: 800 }}>⚓</span>}
                   </div>
-                  <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
+                  <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
               </div>
 
@@ -1306,7 +1306,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                   {/* Stats row */}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
                     <div style={{ background: t.bgHover, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
-                      <div style={{ fontSize: 16, fontWeight: 900, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}</div>
+                      <div style={{ fontSize: 16, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}</div>
                       <div style={{ fontSize: 10, color: t.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>pts</div>
                     </div>
                     <div style={{ background: t.bgHover, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
@@ -1447,7 +1447,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       <AvatarC user={me} size={24} />
                       <div>
                         <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{me.name}</div>
-                        <div style={{ fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                        <div style={{ fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
                       </div>
                     </div>
                     <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); }} style={{ ...hBtn, fontSize: 14 }} title="Team chat"><MessageSquare size={14} strokeWidth={1.8} /></button>
@@ -1678,7 +1678,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>
                         {allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
                       </div>
-                      <div style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
+                      <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
                     </div>
                   </div>
 
