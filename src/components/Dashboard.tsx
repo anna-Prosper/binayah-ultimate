@@ -133,9 +133,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
   const [showArchive, setShowArchive] = useState(false);
-  const [trashedStages, setTrashedStages] = useState<string[]>(() => lsGet("trashedStages", []));
-  const [trashedPipelines, setTrashedPipelines] = useState<string[]>(() => lsGet("trashedPipelines", []));
-  const [trashedSubtasks, setTrashedSubtasks] = useState<string[]>(() => lsGet("trashedSubtasks", []));
   const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null);
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
@@ -173,11 +170,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
-  // lockedPipelines: canonical list of locked pipeline IDs, persisted to MongoDB
-  const [lockedPipelines, setLockedPipelines] = useState<string[]>(() => lsGet("lockedPipelines", []));
-  // Pipeline lock removed in favor of explicit edit affordances.
-  // Helper kept as a no-op for backward compatibility with callers.
-  const isLocked = (_pipelineId: string) => false;
   const { toasts, showToast, dismissToast } = useToasts();
   const isMobile = useIsMobile(768);
   // Per-pipeline ⋮ menu open state for mobile header
@@ -261,8 +253,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("approvedStages", approvedStages) }, [approvedStages]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
-  useEffect(() => { lsSet("lockedPipelines", lockedPipelines) }, [lockedPipelines]);
-
   // Deep-link: ?pipeline=<name>&stage=<name> from email CTAs
   // Expand the target pipeline, expand the stage card, and scroll to it.
   useEffect(() => {
@@ -343,9 +333,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => { lsSet("archivedStages", archivedStages) }, [archivedStages]);
   useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
   useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
-  useEffect(() => { lsSet("trashedStages", trashedStages) }, [trashedStages]);
-  useEffect(() => { lsSet("trashedPipelines", trashedPipelines) }, [trashedPipelines]);
-  useEffect(() => { lsSet("trashedSubtasks", trashedSubtasks) }, [trashedSubtasks]);
   useEffect(() => { lsSet("currentWorkspaceId", currentWorkspaceId) }, [currentWorkspaceId]);
 
   // One-time workspace migration: seed "War Room" with all existing pipelines,
@@ -431,7 +418,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
         if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
         if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
@@ -543,7 +529,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
         if (s.customStages) setCustomStages(s.customStages);
         if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-        if (s.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]);
         if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
         if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
         // Reset flag after React has processed state updates
@@ -565,13 +550,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       lastWriteRef.current = Date.now();
       patchState({ claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, workspaces, archivedStages, archivedPipelines, archivedSubtasks }).then(result => {
         if (!result.ok) {
-          if ((result as { status?: number }).status === 423) {
-            showToast("// pipeline is locked \u2014 unlock to make changes", t.amber);
-            fetchState().then(s => { if (s?.lockedPipelines) setLockedPipelines(s.lockedPipelines as string[]); });
-          } else {
-            setSyncStatus("offline");
+          setSyncStatus("offline");
             showToast("// offline \u2014 changes saved locally", t.amber);
-          }
         }
       });
     }, 800);
@@ -613,18 +593,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     ? allPipelinesGlobal.filter(p => currentWorkspace.pipelineIds.includes(p.id))
     : allPipelinesGlobal;
   const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser) : true);
-  // Map stage name -> pipeline ID for lock checks
-  const getPipelineForStage = (stageName: string): string | undefined => {
-    for (const p of allPipelines) {
-      const stages = [...p.stages, ...(customStages[p.id] || [])];
-      if (stages.includes(stageName)) return p.id;
-    }
-    return undefined;
-  };
-  const isStageInLockedPipeline = (stageName: string): boolean => {
-    const pid = getPipelineForStage(stageName);
-    return pid ? isLocked(pid) : false;
-  };
   const allStages = [
     ...pipelineData.flatMap(p => p.stages),
     ...customPipelines.flatMap(p => p.stages),
@@ -665,28 +633,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   };
 
   // ─── Workspace admin handlers ────────────────────────────────────────────
-  // Trash handlers (with confirmation before delete, restorable)
-  const trashStage = (sid: string) => {
-    setTrashedStages(prev => prev.includes(sid) ? prev : [...prev, sid]);
-    showToast(`moved to trash: ${stageNameOverrides[sid] || sid}`, t.red);
-  };
-  const restoreFromTrashStage = (sid: string) => setTrashedStages(prev => prev.filter(s => s !== sid));
-  const permanentDeleteStage = (sid: string) => {
-    setTrashedStages(prev => prev.filter(s => s !== sid));
-    // Clean up associated state
-    setClaims(prev => { const n = {...prev}; delete n[sid]; return n; });
-    setReactions(prev => { const n = {...prev}; delete n[sid]; return n; });
-    setComments(prev => { const n = {...prev}; delete n[sid]; return n; });
-    setSubtasks(prev => { const n = {...prev}; delete n[sid]; return n; });
-  };
-  const trashPipeline = (pid: string) => {
-    setTrashedPipelines(prev => prev.includes(pid) ? prev : [...prev, pid]);
-    showToast("pipeline moved to trash", t.red);
-  };
-  const restoreFromTrashPipeline = (pid: string) => setTrashedPipelines(prev => prev.filter(p => p !== pid));
-  const trashSubtask = (key: string) => setTrashedSubtasks(prev => prev.includes(key) ? prev : [...prev, key]);
-  const restoreFromTrashSubtask = (key: string) => setTrashedSubtasks(prev => prev.filter(k => k !== key));
-
   // Archive handlers
   const archiveStage = (sid: string) => {
     setArchivedStages(prev => prev.includes(sid) ? prev : [...prev, sid]);
@@ -786,14 +732,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const cyclePriority = (pid: string, cur: string) => {
-    if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
     const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(cur as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
     setPipeMetaOverrides(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), priority: next } }));
   };
   const addCustomStage = (pid: string) => {
     const val = newStageInput[pid]?.trim();
     if (!val) return;
-    if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
     setNewStageInput(prev => ({ ...prev, [pid]: "" }));
   };
@@ -873,7 +817,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Claim = take ownership. Points only granted when stage goes LIVE.
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
-    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     const alreadyClaimed = (claims[sid] || []).includes(currentUser);
     setClaims(prev => {
       const c = prev[sid] || [];
@@ -924,13 +867,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
   const handleReact = (sid: string, emoji: string) => {
     if (!currentUser) return;
-    // Check lock for both stage reactions (sid = stage name) and pipeline reactions (sid = _pipe_<id>)
-    if (sid.startsWith("_pipe_")) {
-      const pid = sid.slice(6);
-      if (isLocked(pid)) { showToast("// pipeline is locked", t.amber); return; }
-    } else if (isStageInLockedPipeline(sid)) {
-      showToast("// pipeline is locked", t.amber); return;
-    }
     // Compute next reactions synchronously so we can pass it to patchState
     const prevReactions = reactions;
     const s = { ...(prevReactions[sid] || {}) };
@@ -950,7 +886,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const addSubtask = (sid: string) => {
     const val = subtaskInput[sid]?.trim();
     if (!val || !currentUser) return;
-    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     if (val.length > MAX_SUBTASK_LEN) {
       showToast("// subtask too long — max 200 chars", t.red);
       return;
@@ -965,17 +900,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), newTask] }));
     setSubtaskInput(prev => ({ ...prev, [sid]: "" }));
   };
-  const toggleSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
-  const renameSubtask = (sid: string, taskId: number, text: string) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) })); };
-  const lockSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
-  const removeSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
-  const addStageImage = (sid: string, dataUrl: string) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
+  const toggleSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
+  const renameSubtask = (sid: string, taskId: number, text: string) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) })); };
+  const lockSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
+  const removeSubtask = (sid: string, taskId: number) => { setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
+  const addStageImage = (sid: string, dataUrl: string) => { setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
   const MAX_COMMENT_LEN = 1000;
   const addComment = (sid: string) => {
     const val = commentInput[sid]?.trim();
     if (!val || !currentUser) return;
-    if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; }
     if (val.length > MAX_COMMENT_LEN) {
       showToast("// comment too long — max 1000 chars", t.red);
       return;
@@ -993,16 +927,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           ...prev,
           [sid]: (prev[sid] || []).filter(x => x.id !== commentId),
         }));
-        if ((result as { status?: number }).status === 423) {
-          showToast("// pipeline is locked — unlock to make changes", t.amber);
-        } else {
           setSyncStatus("offline");
           showToast("// comment lost — try again", t.red);
-        }
       }
     });
   };
-  const cycleStatus = (name: string) => { if (isStageInLockedPipeline(name)) { showToast("// pipeline is locked", t.amber); return; } const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
+  const cycleStatus = (name: string) => { const cur = getStatus(name); const idx = STATUS_ORDER.indexOf(cur); const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length]; setStageStatusOverrides(prev => ({ ...prev, [name]: next })); logActivity("status", name, `\u2192 ${next}`); };
   const shareStage = (name: string, text: string) => { navigator.clipboard?.writeText(text).catch(() => {}); setCopied(name); setTimeout(() => setCopied(null), 2000); };
   const sharePipeline = (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
     const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
@@ -1119,7 +1049,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
   if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
 
-  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage, archiveStage };
+  const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs, stageImages, addStageImage, removeStageImage, archiveStage };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
@@ -1187,9 +1117,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                   const pName = pipeMetaOverrides[p.id]?.name || p.name;
                   const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
                   const pDesc = pipeDescOverrides[p.id] || p.desc;
-                  const locked = isLocked(p.id) ? " [LOCKED]" : "";
                   const stages = [...p.stages, ...(customStages[p.id] || [])];
-                  lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                  lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}`);
                   stages.forEach((s, si) => {
                     const st = getStatus(s);
                     const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
@@ -1483,7 +1412,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setStageStatus={setStageStatusDirect}
                 approveStage={approveStage}
                 assignTask={assignTask}
-                isLocked={isLocked}
                 currentWorkspaceId={currentWorkspaceId}
                 onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
                 stageNameOverrides={stageNameOverrides}
@@ -1581,7 +1509,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 commentInput={commentInput}
                 setCommentInput={setCommentInput}
                 copied={copied}
-                isLocked={isLocked}
                 setStageStatus={setStageStatusDirect}
                 approvedStages={approvedStages}
                 approveStage={approveStage}
@@ -1593,9 +1520,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 setStageNameOverride={setStageNameOverride}
                 subtaskStages={subtaskStages}
                 setSubtaskStage={setSubtaskStage}
-                archivedStages={[...archivedStages, ...trashedStages]}
+                archivedStages={archivedStages}
                 onPipelineClick={(pid) => setActiveSidebarPipeline(pid)}
-                trashStage={trashStage}
                 showMyAllFilter={true}
                 defaultMyAllFilter={isAdmin ? "all" : "my"}
                 pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))}
@@ -1630,7 +1556,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
 
             return (
-              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isLocked(p.id) ? t.amber + "33" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s", opacity: isLocked(p.id) ? 0.82 : 1 }}>
+              <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s" }}>
                 <div style={{ height: 2, background: t.surface }}>
                   <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} />
                 </div>
@@ -1657,7 +1583,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                         ) : (
                           <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 13, color: t.textSec, margin: "0 0 0", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
-                            {!isLocked(p.id) && <span style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
+                            <span style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>
                           </p>
                         )}
 
@@ -1756,14 +1682,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 {isO && (
                   <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                     <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                      {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isLocked={isLocked(p.id)} isMobile={isMobile} {...stageProps} /></div>)}
+                      {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isMobile={isMobile} {...stageProps} /></div>)}
                     </div>
-                    {!isLocked(p.id) && (
-                      <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
+                    <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
                         <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
                         <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
                       </div>
-                    )}
                   </div>
                 )}
               </div>
@@ -1901,9 +1825,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 const pName = pipeMetaOverrides[p.id]?.name || p.name;
                 const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
                 const pDesc = pipeDescOverrides[p.id] || p.desc;
-                const locked = isLocked(p.id) ? " [LOCKED]" : "";
                 const stages = [...p.stages, ...(customStages[p.id] || [])];
-                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}`);
                 stages.forEach((s, si) => {
                   const st = getStatus(s);
                   const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
@@ -1948,9 +1871,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 const pName = pipeMetaOverrides[p.id]?.name || p.name;
                 const pPrio = pipeMetaOverrides[p.id]?.priority || p.priority;
                 const pDesc = pipeDescOverrides[p.id] || p.desc;
-                const locked = isLocked(p.id) ? " [LOCKED]" : "";
                 const stages = [...p.stages, ...(customStages[p.id] || [])];
-                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}${locked}`);
+                lines.push(`${pi + 1}. ${pName} — ${pPrio} — ${pDesc}`);
                 stages.forEach((s, si) => {
                   const st = getStatus(s);
                   const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed";
@@ -2087,10 +2009,9 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
       {showArchive && (
         <div style={{ position: "fixed", bottom: 132, right: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>📦 archive & trash</div>
-            {trashedStages.length + trashedPipelines.length > 0 && <span style={{ fontSize: 10, background: t.red + "18", color: t.red, border: `1px solid ${t.red}44`, borderRadius: 8, padding: "0 6px", fontWeight: 700 }}>🗑 {trashedStages.length + trashedPipelines.length}</span>}
+            <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>📦 archive</div>
           </div>
-          {archivedStages.length === 0 && archivedPipelines.length === 0 && trashedStages.length === 0 && trashedPipelines.length === 0 ? (
+          {archivedStages.length === 0 && archivedPipelines.length === 0 ? (
             <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>nothing archived yet</div>
           ) : (
             <>
@@ -2117,18 +2038,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       </div>
                     );
                   })}
-                </div>
-              )}
-              {trashedStages.length > 0 && (
-                <div style={{ marginTop: 8 }}>
-                  <div style={{ fontSize: 10, color: t.red, fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6 }}>🗑 trash ({trashedStages.length})</div>
-                  {trashedStages.map(sid => (
-                    <div key={sid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: t.red + "08", marginBottom: 4 }}>
-                      <span style={{ flex: 1, fontSize: 12, color: t.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "line-through" }}>{stageNameOverrides[sid] || sid}</span>
-                      <button onClick={() => restoreFromTrashStage(sid)} style={{ background: t.green + "18", border: `1px solid ${t.green}44`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.green, fontWeight: 700 }}>restore</button>
-                      <button onClick={() => permanentDeleteStage(sid)} style={{ background: t.red + "18", border: `1px solid ${t.red}44`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 9, color: t.red, fontWeight: 700 }}>delete</button>
-                    </div>
-                  ))}
                 </div>
               )}
             </>

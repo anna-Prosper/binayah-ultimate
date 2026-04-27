@@ -46,7 +46,6 @@ interface Props {
   setStageStatus: (name: string, status: string) => void;
   approveStage: (name: string) => void;
   assignTask: (sid: string, userId: string | null) => void;
-  isLocked: (pipelineId: string) => boolean;
   stageNameOverrides?: Record<string, string>;
   setStageNameOverride?: (name: string, val: string) => void;
   subtaskStages?: Record<string, string>;
@@ -62,7 +61,7 @@ export default function HomeView({
   claims, reactions, comments, subtasks, assignments, approvedStages, copied,
   commentInput, setCommentInput, getStatus, sc, ck,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
-  handleClaim, handleReact, toggleSubtask, renameSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
+  handleClaim, handleReact, toggleSubtask, renameSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
   editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
@@ -266,7 +265,6 @@ export default function HomeView({
         commentInput={commentInput}
         setCommentInput={setCommentInput}
         copied={copied}
-        isLocked={isLocked}
         setStageStatus={setStageStatus}
         approvedStages={approvedStages}
         approveStage={approveStage}

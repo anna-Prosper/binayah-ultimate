@@ -3,10 +3,11 @@ import { SCHEMA_VERSION } from "@/lib/version";
 const LS_PREFIX = "binayah_";
 // Keys written by lsSet() across the codebase — used for full cache wipe on schema version mismatch
 // NOTE: keep this list in sync with every lsSet() call in the codebase
+// v3 — removed lockedPipelines, trashedStages, trashedPipelines, trashedSubtasks keys
 export const ALL_LS_KEYS = [
   "isDark", "themeId", "currentUser", "users", "onboardStep",
   "reactions", "claims", "subtasks", "comments",
-  "stageStatusOverrides", "stageImages", "lockedPipelines",
+  "stageStatusOverrides", "stageImages",
   "stageDescOverrides", "pipeDescOverrides", "pipeMetaOverrides",
   "customStages", "customPipelines", "expanded", "activityLog",
   "chatMessages", "view", "lastSeenActivity",

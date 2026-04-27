@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateStageKey, validateText, validateUserId } from "@/lib/validate";
+import { checkContentLength, validateStageKey, validateText } from "@/lib/validate";
 import { logApi } from "@/lib/log";
-import { pipelineData } from "@/lib/data";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -16,14 +17,6 @@ async function ensureDoc() {
     { $setOnInsert: { state: {}, updatedAt: new Date() } },
     { upsert: true }
   );
-}
-
-/** Resolve a stage name to its pipeline ID from static data. */
-function getPipelineIdForStage(stageName: string): string | undefined {
-  for (const p of pipelineData) {
-    if (p.stages.includes(stageName)) return p.id;
-  }
-  return undefined;
 }
 
 export async function POST(req: NextRequest) {
@@ -57,11 +50,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "stage and comment required" }, { status: 400 });
   }
 
-  const byErr = validateUserId(comment.by, "by");
-  if (byErr) {
-    logApi(ROUTE, "validation_fail", { reason: byErr });
-    return NextResponse.json({ error: byErr }, { status: 400 });
-  }
+  // comment.by will be overwritten by session user below — skip body validation of by
   const textErr = validateText(comment.text, "text", 1000);
   if (textErr) {
     logApi(ROUTE, "validation_fail", { reason: textErr });
@@ -69,23 +58,17 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    // Session-authoritative attribution — overwrite comment.by with session user; ignore body value
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      logApi(ROUTE, "unauthorized");
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+    const authoredUser = session.user.fixedUserId ?? "unknown";
+    comment.by = authoredUser;
+
     await connectMongo();
     await ensureDoc();
-
-    // Pipeline lock enforcement — check if the target stage's pipeline is locked
-    const stageName = stage as string;
-    const pipelineId = getPipelineIdForStage(stageName);
-    if (pipelineId) {
-      const currentDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
-      const lockedPipelines = (currentDoc?.state?.lockedPipelines as string[] | undefined) || [];
-      if (lockedPipelines.includes(pipelineId)) {
-        logApi(ROUTE, "pipeline_locked", { pipelineId, stage: stageName });
-        return NextResponse.json(
-          { error: "PIPELINE_LOCKED", message: "Pipeline is locked", pipelineId },
-          { status: 423 }
-        );
-      }
-    }
 
     // $slice: -100 keeps the most recent 100 comments per stage
     await PipelineState.findOneAndUpdate(

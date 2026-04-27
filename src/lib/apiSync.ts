@@ -15,7 +15,7 @@ export type SharedState = {
   pipeMetaOverrides?: Record<string, { name?: string; priority?: string }>;
   customStages?: Record<string, string[]>;
   customPipelines?: unknown[];
-  lockedPipelines?: string[];
+  // lockedPipelines removed in v3 — lock system dropped
   users?: unknown[];
   workspaces?: unknown[];
   archivedStages?: string[];

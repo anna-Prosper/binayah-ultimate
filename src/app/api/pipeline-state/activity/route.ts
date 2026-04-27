@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
+import { checkContentLength, validateText } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 import { chatBus } from "@/lib/chatBus";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 // Event types surfaced in the notification bell
 const BELL_EVENT_TYPES = new Set(["claimed", "active", "comment"]);
@@ -43,11 +45,8 @@ export async function POST(req: NextRequest) {
 
   const entry = (await req.json()) as Record<string, unknown>;
 
-  const userErr = validateUserId(entry.user, "user");
-  if (userErr) {
-    logApi(ROUTE, "validation_fail", { reason: userErr });
-    return NextResponse.json({ error: userErr }, { status: 400 });
-  }
+  // Server-authoritative attribution — ignore body.user entirely
+  // Moved below session check (after connectMongo)
   if (entry.detail !== undefined) {
     const detailErr = validateText(entry.detail, "detail", 500);
     if (detailErr) {
@@ -63,19 +62,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Session-authoritative attribution — require a valid session; ignore body.user
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    logApi(ROUTE, "unauthorized");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const authoredUser = session.user.fixedUserId ?? "unknown";
+  entry.user = authoredUser;
+  if (entry.by !== undefined) entry.by = authoredUser;
+
   await connectMongo();
   await ensureDoc();
-
-  // Lock guard: reject non-lock/unlock activity for locked pipelines
-  if (entry.pipeline && typeof entry.pipeline === "string") {
-    const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { lockedPipelines?: string[] } } | null;
-    const lockedPipelines: string[] = doc?.state?.lockedPipelines || [];
-    const entryType = typeof entry.type === "string" ? entry.type : "";
-    if (lockedPipelines.includes(entry.pipeline) && entryType !== "lock" && entryType !== "unlock") {
-      logApi(ROUTE, "pipeline_locked", { pipeline: entry.pipeline });
-      return NextResponse.json({ error: "PIPELINE_LOCKED" }, { status: 423 });
-    }
-  }
 
   // $slice: 200 keeps the most recent 200 entries (prepended, so slice from front)
   await PipelineState.findOneAndUpdate(

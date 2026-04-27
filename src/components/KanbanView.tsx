@@ -26,10 +26,9 @@ interface Props {
   customPipelines: { id: string; name: string; icon: string; colorKey: string; stages: string[] }[];
   onCardClick: (pipelineId: string, stageName: string) => void;
   searchQ: string;
-  lockedPipelines?: string[];
 }
 
-export default function KanbanView({ t, getStatus, setStageStatusDirect, claims, reactions, users, currentUser, sc, ck, customStages, customPipelines, onCardClick, searchQ, lockedPipelines = [] }: Props) {
+export default function KanbanView({ t, getStatus, setStageStatusDirect, claims, reactions, users, currentUser, sc, ck, customStages, customPipelines, onCardClick, searchQ }: Props) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
 
@@ -103,7 +102,7 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
               className="bu-kb-col"
               onDragOver={e => { e.preventDefault(); setDragOver(col.id); }}
               onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null); }}
-              onDrop={e => { e.preventDefault(); if (dragging) { const draggedStage = visible.find(s => s.name === dragging); if (draggedStage && !lockedPipelines.includes(draggedStage.pipelineId)) setStageStatusDirect(dragging, col.id); } setDragging(null); setDragOver(null); }}
+              onDrop={e => { e.preventDefault(); if (dragging) { setStageStatusDirect(dragging, col.id); } setDragging(null); setDragOver(null); }}
               style={{ background: dragOver === col.id ? stc.c + "0c" : t.bgSoft, border: `2px solid ${dragOver === col.id ? stc.c + "55" : t.border}`, borderRadius: 16, padding: "12px 8px", transition: "all 0.15s" }}
             >
               {/* Column header */}
@@ -126,11 +125,11 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                     <div
                       key={s.name}
                       className="bu-kb-card"
-                      draggable={!lockedPipelines.includes(s.pipelineId)}
-                      onDragStart={e => { if (lockedPipelines.includes(s.pipelineId)) { e.preventDefault(); return; } setDragging(s.name); e.dataTransfer.effectAllowed = "move"; }}
+                      draggable
+                      onDragStart={e => { setDragging(s.name); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setDragging(null); setDragOver(null); }}
                       onClick={() => onCardClick(s.pipelineId, s.name)}
-                      style={{ background: t.bgCard, border: `1px solid ${lockedPipelines.includes(s.pipelineId) ? t.amber + "33" : dragging === s.name ? stc.c + "66" : t.border}`, borderLeft: `3px solid ${s.pipelineColor}`, borderRadius: 12, padding: "8px 12px", cursor: lockedPipelines.includes(s.pipelineId) ? "default" : "pointer", opacity: dragging === s.name ? 0.4 : lockedPipelines.includes(s.pipelineId) ? 0.75 : 1, transition: "all 0.15s", boxShadow: t.shadow, userSelect: "none" }}
+                      style={{ background: t.bgCard, border: `1px solid ${dragging === s.name ? stc.c + "66" : t.border}`, borderLeft: `3px solid ${s.pipelineColor}`, borderRadius: 12, padding: "8px 12px", cursor: "pointer", opacity: dragging === s.name ? 0.4 : 1, transition: "all 0.15s", boxShadow: t.shadow, userSelect: "none" }}
                     >
                       {/* Pipeline tag */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>

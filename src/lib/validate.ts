@@ -64,6 +64,7 @@ export function checkContentLength(req: { headers: { get(name: string): string |
 }
 
 /** Whitelist of allowed PATCH keys for /api/pipeline-state */
+// v3 — removed lockedPipelines, trashedStages, trashedPipelines, trashedSubtasks
 export const PATCH_KEY_WHITELIST = new Set([
   "claims",
   "reactions",
@@ -76,7 +77,6 @@ export const PATCH_KEY_WHITELIST = new Set([
   "pipeMetaOverrides",
   "customStages",
   "customPipelines",
-  "lockedPipelines",
   "users",
   "workspaces",
   "archivedStages",
@@ -129,6 +129,22 @@ export function validateSubtasks(subtasks: unknown): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Nested key validator — walks values of pipeline-scoped patch keys and rejects
+ * any nested key containing $, ., __proto__, constructor, or prototype.
+ * Max recursion depth: 6. Returns false if a forbidden key is found, true if clean.
+ */
+export function validateNestedKeys(obj: unknown, depth = 0): boolean {
+  if (depth > 6) return true; // stop recursing at max depth
+  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return true;
+  for (const k of Object.keys(obj as Record<string, unknown>)) {
+    if (FORBIDDEN_KEY_PATTERN.test(k)) return false;
+    const child = (obj as Record<string, unknown>)[k];
+    if (!validateNestedKeys(child, depth + 1)) return false;
+  }
+  return true;
 }
 
 /**

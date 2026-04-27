@@ -27,7 +27,6 @@ interface Props {
   commentInput: Record<string, string>;
   setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   copied: string | null;
-  isLocked: (pipelineId: string) => boolean;
   setStageStatus: (name: string, status: string) => void;
   approvedStages: string[];
   approveStage: (name: string) => void;
@@ -46,7 +45,6 @@ interface Props {
   editMode?: boolean;
   archivedStages?: string[];
   onPipelineClick?: (pipelineId: string) => void;
-  trashStage?: (sid: string) => void;
   hideConcept?: boolean;
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
@@ -65,7 +63,7 @@ const ALL_COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, trashStage, hideConcept } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, hideConcept } = props;
 
   const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 
@@ -83,7 +81,6 @@ export default function TasksView(props: Props) {
     displayName: pipeMetaOverrides[p.id]?.name || p.name,
     allStages: [...p.stages, ...(customStages[p.id] || [])],
     color: ck[p.colorKey] || t.accent,
-    locked: isLocked(p.id),
   }));
 
   // Every non-concept stage becomes a task
@@ -100,7 +97,6 @@ export default function TasksView(props: Props) {
         pipelineId: p.id,
         status: getStatus(s),
         claimers: claims[s] || [],
-        locked: p.locked,
         workspaceIcon: ws?.icon,
         workspaceName: ws?.name,
       }));
@@ -153,7 +149,6 @@ export default function TasksView(props: Props) {
           status,
           done: sub.done,
           by: sub.by,
-          locked: sub.locked || false,
         });
       }
     }
@@ -212,7 +207,7 @@ export default function TasksView(props: Props) {
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
-    editMode, onPipelineClick, trashStage,
+    editMode, onPipelineClick,
     handleClaim, claims,
   };
 
@@ -294,7 +289,7 @@ export default function TasksView(props: Props) {
                   {totalCount === 0
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
                     : <>
-                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!task.locked} subtaskStages={subtaskStages} {...cardShared} />)}
+                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => toggleSubtask(sub.parentStageId, parseInt(sub.key.split("::")[1]))} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
                       </>
                   }
@@ -313,7 +308,7 @@ export default function TasksView(props: Props) {
 interface StageTask {
   stageId: string; displayName: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
   pipelineId: string;
-  status: string; claimers: string[]; locked: boolean;
+  status: string; claimers: string[];
   workspaceIcon?: string; workspaceName?: string;
 }
 
@@ -331,7 +326,6 @@ interface SubtaskKanbanTask {
   status: string;
   done: boolean;
   by: string;
-  locked: boolean;
 }
 
 interface SharedCardProps {
@@ -339,7 +333,6 @@ interface SharedCardProps {
   users: UserType[];
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
-  trashStage?: (sid: string) => void;
   currentUser: string | null;
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
@@ -403,11 +396,10 @@ function TaskCard({
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick, trashStage,
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
   const isDone = task.status === "active";
@@ -582,20 +574,7 @@ function TaskCard({
         />
       )}
 
-      {/* Delete with confirmation — appears on hover bottom-left */}
-      {trashStage && (isHovered || confirmDelete) && (
-        <div style={{ position: "absolute", bottom: 10, left: 10 }}>
-          {confirmDelete ? (
-            <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>move to trash?</span>
-              <button onClick={e => { e.stopPropagation(); trashStage(task.stageId); setConfirmDelete(false); }} style={{ background: t.red + "18", border: `1px solid ${t.red}55`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.red, fontWeight: 700 }}>yes</button>
-              <button onClick={e => { e.stopPropagation(); setConfirmDelete(false); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted }}>no</button>
-            </div>
-          ) : (
-            <button onClick={e => { e.stopPropagation(); setConfirmDelete(true); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, width: 22, height: 22, cursor: "pointer", fontSize: 11, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, opacity: 0.6 }} title="Move to trash">🗑</button>
-          )}
-        </div>
-      )}
+
     </CardShell>
     </div>
   );

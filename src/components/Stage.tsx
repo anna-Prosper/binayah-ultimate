@@ -160,12 +160,12 @@ interface StageProps {
   addComment: (sid: string) => void;
   stageDescOverrides: Record<string, string>;
   setStageDescOverride: (name: string, val: string) => void;
+  setStageNameOverride: (name: string, val: string) => void;
   liveNotifs: Record<string, { comment?: string; reaction?: string }>;
   stageImages: Record<string, string[]>;
   addStageImage: (name: string, dataUrl: string) => void;
   removeStageImage: (name: string, idx: number) => void;
   archiveStage?: (sid: string) => void;
-  isLocked: boolean;
   isMobile?: boolean;
 }
 
@@ -176,16 +176,19 @@ export default function Stage({
   handleClaim, handleReact, cycleStatus, shareStage,
   subtaskInput, setSubtaskInput, commentInput, setCommentInput,
   addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
-  stageDescOverrides, setStageDescOverride, liveNotifs,
+  stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs,
   stageImages, addStageImage, removeStageImage, archiveStage,
-  isLocked, isMobile = false,
+  isMobile = false,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
   const [stageEditMode, setStageEditMode] = useState(false);
+  const [editingName, setEditingName] = useState(name);
   const [isHovered, setIsHovered] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  // Reset editing name when name prop changes (e.g. after rename is applied)
+  useEffect(() => { setEditingName(name); }, [name]);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
 
@@ -242,24 +245,36 @@ export default function Stage({
             {stageEditMode ? (
               <input
                 autoFocus
-                defaultValue={name}
+                value={editingName}
+                onChange={e => setEditingName(e.target.value)}
                 onClick={e => e.stopPropagation()}
-                onBlur={e => {
-                  const val = e.target.value.trim();
-                  if (val && val !== name) setStageDescOverride(name, e.target.value);
+                onBlur={() => {
+                  const trimmed = editingName.trim();
+                  if (trimmed && trimmed !== name) setStageNameOverride(name, trimmed);
+                  setStageEditMode(false);
                 }}
-                onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { e.stopPropagation(); setStageEditMode(false); } }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") {
+                    e.stopPropagation();
+                    const trimmed = editingName.trim();
+                    if (trimmed && trimmed !== name) setStageNameOverride(name, trimmed);
+                    setStageEditMode(false);
+                  } else if (e.key === "Escape") {
+                    e.stopPropagation();
+                    setEditingName(name);
+                    setStageEditMode(false);
+                  }
+                }}
                 style={{ fontSize: 13, fontWeight: 700, color: t.text, flex: 1, background: pC + "08", border: `2px dashed ${pC}55`, borderRadius: 6, padding: "0 4px", outline: "none", fontFamily: "inherit" }}
               />
             ) : (
               <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
             )}
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 10, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 10, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: "pointer" }} title="Click to cycle status">{st.l}</span>
           </div>
 
           {/* Line 2 (mobile) or inline (desktop): reactions + meta */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, position: "relative", flexWrap: "wrap", ...(isMobile ? { paddingLeft: 20 } : {}) }} onClick={e => e.stopPropagation()}>
-            {isLocked && <span style={{ fontSize: 13, color: t.amber, opacity: 0.85, flexShrink: 0 }} title="Pipeline is locked">🔒</span>}
             {/* Live reaction pop */}
             {liveNotifs[name]?.reaction && (
               <span style={{ position: "absolute", top: -14, left: "50%", transform: "translateX(-50%)", fontSize: 16, pointerEvents: "none", animation: "emojiPop 1.2s ease-out forwards", zIndex: 10 }}>
@@ -285,9 +300,9 @@ export default function Stage({
             })()}
 
             {/* React toggle */}
-            {!isLocked && <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "8px 12px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "inherit" }}>
+            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "8px 12px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "inherit" }}>
               {"\uD83D\uDE00"}
-            </button>}
+            </button>
 
 
 
@@ -300,7 +315,7 @@ export default function Stage({
 
         {/* Description subtitle — one line, always visible, click to edit */}
         <div style={{ paddingLeft: 32, paddingRight: 12, paddingBottom: 8 }} onClick={e => e.stopPropagation()}>
-          {editingShortDesc && !isLocked ? (
+          {editingShortDesc ? (
             <input
               autoFocus
               value={currentDesc}
@@ -308,12 +323,11 @@ export default function Stage({
               onBlur={() => setEditingShortDesc(false)}
               onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setEditingShortDesc(false); }}
               placeholder="Short description..."
-              disabled={isLocked}
               style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${pC}44`, outline: "none", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", padding: "0 0 0 0", lineHeight: 1.4 }}
             />
           ) : (
             <p
-              onClick={e => { e.stopPropagation(); if (!isLocked && stageEditMode) setEditingShortDesc(true); }}
+              onClick={e => { e.stopPropagation(); if (stageEditMode) setEditingShortDesc(true); }}
               title={stageEditMode ? "Click to edit" : ""}
               style={{ margin: 0, fontSize: 11, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: "text" }}
             >
@@ -349,10 +363,10 @@ export default function Stage({
 
         {/* Expanded content */}
         {isE && (
-          <div style={{ borderTop: `1px solid ${isLocked ? t.amber + "33" : t.border}`, animation: "fadeIn 0.2s ease", boxShadow: isLocked ? `inset 0 0 0 1px ${t.amber}22` : "none" }} onClick={e => e.stopPropagation()}>
+          <div style={{ borderTop: `1px solid ${t.border}`, animation: "fadeIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
 
             {/* Action bar */}
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden", pointerEvents: isLocked ? "none" : "auto", cursor: isLocked ? "not-allowed" : "auto" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
               {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 13, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"\uD83D\uDC80"} owned!</div>}
 
@@ -410,20 +424,19 @@ export default function Stage({
             <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 about
-                {!editingDesc && !isLocked && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
+                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
                 {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 10, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
               </div>
-              {editingDesc && !isLocked ? (
+              {editingDesc ? (
                 <textarea
                   value={aboutDesc}
                   onChange={e => setStageDescOverride(name, e.target.value)}
                   autoFocus
-                  disabled={isLocked}
                   rows={4}
                   style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                 />
               ) : (
-                <div onClick={() => { if (!isLocked) setEditingDesc(true); }} title={isLocked ? "Pipeline is locked" : "Click to edit"} style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, cursor: isLocked ? "not-allowed" : "text", display: "flex", alignItems: "flex-start", gap: 4 }}>
+                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 4 }}>
                   <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
                 </div>
               )}
@@ -431,7 +444,7 @@ export default function Stage({
 
             {/* Subtasks + Comments */}
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
-              <div style={{ flex: 1, padding: "12px 16px", borderRight: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
+              <div style={{ flex: 1, padding: "12px 16px", borderRight: `1px solid ${t.border}` }}>
                 <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {tasks.map(task => (
@@ -453,14 +466,14 @@ export default function Stage({
                     commentInput={commentInput}
                     setCommentInput={setCommentInput}
                     copied={copied}
-                    onToggle={() => !isLocked && toggleSubtask(name, task.id)}
+                    onToggle={() => toggleSubtask(name, task.id)}
                     onRemove={() => removeSubtask(name, task.id)}
                   />
                 ))}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
-                  <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 11, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
+                  <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
 
@@ -484,8 +497,8 @@ export default function Stage({
                   ); })}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${isLocked ? t.amber + "22" : t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none", cursor: isLocked ? "not-allowed" : "text" }} />
-                  <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 11, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
+                  <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
                 </div>
               </div>
             </div>
@@ -505,9 +518,9 @@ export default function Stage({
                     <span style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600 }}>
                       gallery {totalCount > 0 && `(${totalCount})`}
                     </span>
-                    <label onClick={e => { e.stopPropagation(); if (isLocked) { return; } }} style={{ fontSize: 10, color: isLocked ? t.textDim : pC, cursor: isLocked ? "not-allowed" : "pointer", fontWeight: 700, background: isLocked ? t.surface : pC + "15", border: `1px solid ${isLocked ? t.border : pC + "33"}`, borderRadius: 8, padding: "0 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto", pointerEvents: isLocked ? "none" : "auto" }}>
-                      {isLocked ? "🔒 locked" : "↑ upload"}
-                      <input type="file" accept="image/*" disabled={isLocked} style={{ display: "none" }} onChange={e => {
+                    <label onClick={e => { e.stopPropagation(); }} style={{ fontSize: 10, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC + "33"}`, borderRadius: 8, padding: "0 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                      {"↑ upload"}
+                      <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                         const file = e.target.files?.[0];
                         if (!file) return;
                         const reader = new FileReader();
@@ -563,7 +576,7 @@ export default function Stage({
         >
           <div style={{ padding: "0 0 env(safe-area-inset-bottom, 0)" }}>
             {/* Action bar */}
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden", pointerEvents: isLocked ? "none" : "auto", cursor: isLocked ? "not-allowed" : "auto" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {!claimedBy.includes(currentUser!) ? (
@@ -591,7 +604,7 @@ export default function Stage({
             </div>
 
             {/* Subtasks */}
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, pointerEvents: isLocked ? "none" : "auto" }}>
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
               {tasks.map(task => (
@@ -613,14 +626,14 @@ export default function Stage({
                   commentInput={commentInput}
                   setCommentInput={setCommentInput}
                   copied={copied}
-                  onToggle={() => !task.locked && !isLocked && toggleSubtask(name, task.id)}
+                  onToggle={() => !task.locked && toggleSubtask(name, task.id)}
                   onRemove={() => removeSubtask(name, task.id)}
                 />
               ))}
               </div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                <input value={subtaskInput[name] || ""} onChange={e => { if (!isLocked) setSubtaskInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder={isLocked ? "pipeline is locked" : "+ add subtask..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addSubtask(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 15, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
+                <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
               </div>
             </div>
 
@@ -642,8 +655,8 @@ export default function Stage({
                 ); })}
               </div>
               <div style={{ display: "flex", gap: 4 }}>
-                <input value={commentInput[name] || ""} onChange={e => { if (!isLocked) setCommentInput(prev => ({ ...prev, [name]: e.target.value })); }} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder={isLocked ? "pipeline is locked" : "comment..."} disabled={isLocked} style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addComment(name)} disabled={isLocked} style={{ background: isLocked ? t.surface : t.accent + "15", border: `1px solid ${isLocked ? t.border : t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: isLocked ? "not-allowed" : "pointer", fontSize: 15, color: isLocked ? t.textDim : t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
+                <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
               </div>
             </div>
 
