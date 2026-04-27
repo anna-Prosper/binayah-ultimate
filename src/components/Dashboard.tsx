@@ -175,7 +175,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // Per-pipeline ⋮ menu open state for mobile header
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Left sidebar nav — desktop only; persisted so user returns to where they left off
-  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => lsGet("binayah_activeNav", "home") as NavItem);
+  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => {
+    const saved = lsGet("binayah_activeNav", "home");
+    // Migrate stale "now" → "home" (now tab was removed)
+    const valid: NavItem[] = ["home", "pipelines", "documents", "activity", "chat"];
+    return (valid.includes(saved as NavItem) ? saved : "home") as NavItem;
+  });
   // Active pipeline in sidebar sub-list — remembers last selected pipeline
   const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
   // Mobile documents sheet
@@ -1326,45 +1331,33 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 t={t}
                 me={me}
                 users={users}
-                workspaces={workspaces}
                 myWorkspaces={myWorkspaces}
                 allPipelinesGlobal={allPipelinesGlobal}
                 customStages={customStages}
+                pipeMetaOverrides={pipeMetaOverrides}
                 claims={claims}
-                assignments={assignments}
+                reactions={reactions}
+                comments={comments}
                 subtasks={subtasks}
+                assignments={assignments}
+                approvedStages={approvedStages}
+                copied={copied}
+                commentInput={commentInput}
+                setCommentInput={setCommentInput}
                 getStatus={getStatus}
                 sc={sc}
-                approvedStages={approvedStages}
+                ck={ck}
                 currentUser={currentUser!}
                 isCaptainOfAny={!!currentUser && workspaces.some(w => w.captains.includes(currentUser))}
-                currentWorkspaceId={currentWorkspaceId}
-                onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
-                onNavigateToNow={() => setActiveNavItem("now")}
-                ck={ck}
-              />
-            </Suspense>
-          </ErrorBoundary>
-        )}
-
-        {/* Desktop: Now view when activeNavItem === 'now' */}
-        {!isMobile && activeNavItem === "now" && me && (
-          <ErrorBoundary onError={() => showToast("// now failed to load — refresh to retry", t.red)}>
-            <Suspense fallback={null}>
-              <TasksView
-                allPipelines={allPipelines}
-                customStages={customStages}
-                pipeMetaOverrides={pipeMetaOverrides}
-                isLocked={isLocked}
-                isMobile={isMobile}
-                ck={ck}
+                handleClaim={handleClaim}
+                handleReact={handleReact}
+                toggleSubtask={toggleSubtask}
+                shareStage={shareStage}
+                addComment={addComment}
                 setStageStatus={setStageStatusDirect}
-                approvedStages={approvedStages}
                 approveStage={approveStage}
-                isAdmin={isAdmin}
-                assignments={assignments}
                 assignTask={assignTask}
-                {...stageProps}
+                isLocked={isLocked}
               />
             </Suspense>
           </ErrorBoundary>

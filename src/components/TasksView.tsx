@@ -35,6 +35,11 @@ interface Props {
   assignments: Record<string, string>;
   assignTask: (sid: string, userId: string | null) => void;
   ck: Record<string, string>;
+  // Optional cross-workspace mode props
+  showMyAllFilter?: boolean;
+  defaultMyAllFilter?: "my" | "all";
+  pipelineWorkspaceMap?: Record<string, { id: string; name: string; icon: string }>;
+  headerLabel?: string;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
@@ -48,13 +53,14 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel } = props;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [reactOpen, setReactOpen] = useState<string | null>(null);
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
+  const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
 
   const pipelines = allPipelines.map(p => ({
     ...p,
@@ -65,8 +71,9 @@ export default function TasksView(props: Props) {
   }));
 
   // Every non-concept stage becomes a task
-  const stageTasks = pipelines.flatMap(p =>
-    p.allStages
+  const allStageTasks = pipelines.flatMap(p => {
+    const ws = pipelineWorkspaceMap?.[p.id];
+    return p.allStages
       .filter(s => getStatus(s) !== "concept")
       .map(s => ({
         stageId: s,
@@ -76,8 +83,15 @@ export default function TasksView(props: Props) {
         status: getStatus(s),
         claimers: claims[s] || [],
         locked: p.locked,
-      }))
-  );
+        workspaceIcon: ws?.icon,
+        workspaceName: ws?.name,
+      }));
+  });
+
+  // Apply my/all filter when in cross-workspace mode
+  const stageTasks = (showMyAllFilter && myAllFilter === "my")
+    ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || assignments[s.stageId] === currentUser) : false)
+    : allStageTasks;
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);
@@ -113,10 +127,10 @@ export default function TasksView(props: Props) {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8 }}>
-            🔥 now
+          <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {headerLabel || "🔥 now"}
             {pendingCount > 0 && isAdmin && (
               <span style={{ fontSize: 8, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 5, padding: "2px 6px", fontWeight: 700, letterSpacing: 1 }}>
                 {pendingCount} AWAITING APPROVAL
@@ -127,9 +141,17 @@ export default function TasksView(props: Props) {
             {stageTasks.length} tasks {"·"} drag between columns to change status
           </div>
         </div>
-        <div style={{ display: "flex", gap: 4 }}>
-          <button style={viewBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
-          <button style={viewBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {showMyAllFilter && (
+            <div style={{ display: "flex", gap: 4 }}>
+              <button style={viewBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🧑 my tasks</button>
+              <button style={viewBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all tasks</button>
+            </div>
+          )}
+          <div style={{ display: "flex", gap: 4 }}>
+            <button style={viewBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
+            <button style={viewBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
+          </div>
         </div>
       </div>
 
@@ -197,6 +219,7 @@ export default function TasksView(props: Props) {
 interface StageTask {
   stageId: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
   status: string; claimers: string[]; locked: boolean;
+  workspaceIcon?: string; workspaceName?: string;
 }
 
 interface SharedCardProps {
@@ -292,6 +315,7 @@ function TaskCard({
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{task.stageId}</div>
           <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 3, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            {task.workspaceIcon && task.workspaceName && <span>{task.workspaceIcon} {task.workspaceName} ·</span>}
             <span>{task.pipelineIcon} {task.pipelineName}</span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>{subDone}/{subCount}</span>}
             {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
