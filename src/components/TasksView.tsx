@@ -410,7 +410,21 @@ function TaskCard({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
 
+  const isDone = task.status === "active";
+  const isApproved = approvedStages.includes(task.stageId);
+  const isPending = isDone && !isApproved;
+  const rxs = reactions[task.stageId] || {};
+  const cmts = comments[task.stageId] || [];
+  const showReactPicker = reactOpen === task.stageId;
+  const showCommentPopover = commentOpen === task.stageId;
+  const showAssignPicker = assignOpen === task.stageId;
+
+  // Only register the click-outside handler when *this* card has a popover open.
+  // Otherwise every card on screen would call setCommentOpen(null) on every click in
+  // any other card — instantly closing the popover the user just opened.
+  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen;
   useEffect(() => {
+    if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         setReactOpen(null);
@@ -421,16 +435,7 @@ function TaskCard({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setReactOpen, setCommentOpen, setAssignOpen]);
-
-  const isDone = task.status === "active";
-  const isApproved = approvedStages.includes(task.stageId);
-  const isPending = isDone && !isApproved;
-  const rxs = reactions[task.stageId] || {};
-  const cmts = comments[task.stageId] || [];
-  const showReactPicker = reactOpen === task.stageId;
-  const showCommentPopover = commentOpen === task.stageId;
-  const showAssignPicker = assignOpen === task.stageId;
+  }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
   const assigneeId = assignments[task.stageId];
   const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
   const subCount = (subtasks[task.stageId] || []).length;
@@ -613,7 +618,18 @@ function SubtaskCard({
   const [isHovered, setIsHovered] = useState(false);
   const subtaskRef = useRef<HTMLDivElement>(null);
 
+  const key = `${stageId}::${taskSub.id}`;
+  const rxs = reactions[key] || {};
+  const cmts = comments[key] || [];
+  const showReactPicker = reactOpen === key;
+  const showCommentPopover = commentOpen === key;
+  const showAssignPicker = assignOpen === key;
+
+  // Only run the click-outside handler when *this* card has a popover open —
+  // otherwise sibling cards' handlers fire on every click and close the popover.
+  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker;
   useEffect(() => {
+    if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (subtaskRef.current && !subtaskRef.current.contains(e.target as Node)) {
         setReactOpen(null);
@@ -623,14 +639,7 @@ function SubtaskCard({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setReactOpen, setCommentOpen, setAssignOpen]);
-
-  const key = `${stageId}::${taskSub.id}`;
-  const rxs = reactions[key] || {};
-  const cmts = comments[key] || [];
-  const showReactPicker = reactOpen === key;
-  const showCommentPopover = commentOpen === key;
-  const showAssignPicker = assignOpen === key;
+  }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
   const assigneeId = assignments[key];
   const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
@@ -731,7 +740,17 @@ function SubtaskKanbanCard({
   const [editVal, setEditVal] = useState("");
   const subtaskRef = useRef<HTMLDivElement>(null);
 
+  const rxs = reactions[sub.key] || {};
+  const cmts = comments[sub.key] || [];
+  const showReactPicker = reactOpen === sub.key;
+  const showCommentPopover = commentOpen === sub.key;
+  const showAssignPicker = assignOpen === sub.key;
+
+  // Click-outside should only run when this card actually has a popover open.
+  // Otherwise sibling cards' handlers all fire on every click and close popovers immediately.
+  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen;
   useEffect(() => {
+    if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (subtaskRef.current && !subtaskRef.current.contains(e.target as Node)) {
         setReactOpen(null);
@@ -741,13 +760,7 @@ function SubtaskKanbanCard({
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [setReactOpen, setCommentOpen, setAssignOpen]);
-
-  const rxs = reactions[sub.key] || {};
-  const cmts = comments[sub.key] || [];
-  const showReactPicker = reactOpen === sub.key;
-  const showCommentPopover = commentOpen === sub.key;
-  const showAssignPicker = assignOpen === sub.key;
+  }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
   const assigneeId = assignments[sub.key];
   const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
