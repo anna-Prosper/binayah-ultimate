@@ -5,6 +5,7 @@ import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
+import ClaimChip from "@/components/ui/ClaimChip";
 import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -72,7 +73,7 @@ function StageSubtaskCard({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
-          <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={{ ...iconBtn, background: isClaimed ? pC + "18" : "transparent", borderColor: isClaimed ? pC + "55" : t.border, color: isClaimed ? pC : t.textMuted }}>{isClaimed ? "✓ mine" : "+ claim"}</button>
+          <ClaimChip claimed={isClaimed} pipelineColor={pC} t={t} onClaim={() => handleClaim(key)} variant="subtask" small />
           <button onClick={onRemove} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: t.textDim, padding: "0 2px", opacity: 0.4 }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = t.red; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.4"; (e.currentTarget as HTMLElement).style.color = t.textDim; }}>×</button>
@@ -167,6 +168,7 @@ interface StageProps {
   removeStageImage: (name: string, idx: number) => void;
   archiveStage?: (sid: string) => void;
   isMobile?: boolean;
+  isTopClaim?: boolean;
 }
 
 export default function Stage({
@@ -179,6 +181,7 @@ export default function Stage({
   stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs,
   stageImages, addStageImage, removeStageImage, archiveStage,
   isMobile = false,
+  isTopClaim = false,
 }: StageProps) {
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
@@ -235,7 +238,7 @@ export default function Stage({
           }
         };
         return (
-      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: isE ? t.bgHover : t.bgSoft, border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? pC + "66" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.4s, box-shadow 0.4s, background 0.2s", overflow: "hidden", boxShadow: hasLive ? `${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : isE ? t.shadowLg : t.shadow, position: "relative" }}>
+      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: stageEditMode ? t.bgCard : (isE ? t.bgHover : t.bgSoft), border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? t.accent + "44" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.3s, background 0.15s", overflow: "hidden", boxShadow: hasLive ? `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : (stageEditMode ? `inset 3px 0 0 ${pC}, inset 0 0 0 9999px ${t.accent}06, ${isE ? t.shadowLg : t.shadow}` : `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}`), position: "relative" }}>
 
         {/* Header row — on mobile: name+status on first line, meta on second */}
         <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
@@ -309,7 +312,7 @@ export default function Stage({
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
             {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"\uD83D\uDCAC"}{cmts.length}</span>}
-            <span style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
+            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
           </div>
         </div>
 
@@ -358,12 +361,12 @@ export default function Stage({
               color: stageEditMode ? pC : t.textMuted,
               transition: "all 0.15s",
             }}
-          >✏️</button>
+          >&#9998;</button>
         )}
 
         {/* Expanded content */}
-        {isE && (
-          <div style={{ borderTop: `1px solid ${t.border}`, animation: "fadeIn 0.2s ease" }} onClick={e => e.stopPropagation()}>
+        <div style={{ overflow: "hidden", maxHeight: isE ? "2000px" : "0px", transition: "max-height 300ms ease" }} onClick={e => e.stopPropagation()}>
+          <div style={{ borderTop: isE ? `1px solid ${t.border}` : "none" }}>
 
             {/* Action bar */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
@@ -372,7 +375,7 @@ export default function Stage({
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 {!claimedBy.includes(currentUser!) ? (
-                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: "claimPulse 2s ease-in-out infinite", position: "relative", overflow: "hidden", letterSpacing: 0.3, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
+                  <button onClick={() => handleClaim(name)} style={{ background: `linear-gradient(135deg,${me?.color || t.accent},${me?.color || t.accent}aa)`, border: "none", borderRadius: 12, padding: "8px 20px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", textTransform: "lowercase", boxShadow: `0 0 20px ${me?.color || t.accent}44, 0 2px 8px rgba(0,0,0,0.4)`, display: "flex", alignItems: "center", gap: 8, animation: isTopClaim ? "claimPulse 2s ease-in-out infinite" : "none", position: "relative", overflow: "hidden", letterSpacing: 0.3, width: isMobile ? "100%" : undefined, justifyContent: isMobile ? "center" : undefined, minHeight: 44 }}>
                     <span style={{ fontSize: 16 }}>{"\uD83D\uDC80"}</span>
                     <span>claim this</span>
                     <span style={{ background: "rgba(255,255,255,0.15)", borderRadius: 8, padding: "0 8px", fontSize: 10 }}>earn +{s.points} on live</span>
@@ -561,7 +564,7 @@ export default function Stage({
               );
             })()}
           </div>
-        )}
+        </div>
       </div>
         );
       })()}

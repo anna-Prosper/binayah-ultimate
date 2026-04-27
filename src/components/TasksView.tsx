@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { T } from "@/lib/themes";
 import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import ClaimChip from "@/components/ui/ClaimChip";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -241,7 +242,7 @@ export default function TasksView(props: Props) {
       {stageTasks.length === 0 ? (
         <div style={{ padding: "64px 0", textAlign: "center" }}>
           <div style={{ fontSize: 32, marginBottom: 12 }}>✓</div>
-          <div style={{ fontSize: 13, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no tasks yet</div>
+          <div style={{ fontSize: 13, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// empty waters</div>
         </div>
       ) : view === "list" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -287,7 +288,7 @@ export default function TasksView(props: Props) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {totalCount === 0
-                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
+                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => toggleSubtask(sub.parentStageId, parseInt(sub.key.split("::")[1]))} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
@@ -438,7 +439,8 @@ function TaskCard({
     <div ref={cardRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell
         t={t}
-        borderColor={isPending ? t.amber + "55" : isMine ? task.pipelineColor + "55" : t.border}
+        borderColor={isPending ? t.amber + "55" : t.border}
+        pipelineColor={task.pipelineColor}
         draggable={isDraggable}
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
       >
@@ -512,9 +514,7 @@ function TaskCard({
           {isPending && !isAdmin && <span style={badge(t.amber)}>⏳ pending</span>}
           {isDone && isApproved && <span style={badge(t.green)}>✓ approved</span>}
           {currentUser && !(isPending && isAdmin) && !isApproved && (
-            <button onClick={e => { e.stopPropagation(); onClaim(); }} style={btn(isMine ? t.green : task.pipelineColor, isMine ? t.green + "18" : task.pipelineColor + "15", isMine ? t.green + "55" : task.pipelineColor + "55")}>
-              {isMine ? "✓ claimed" : "claim"}
-            </button>
+            <ClaimChip claimed={isMine} pipelineColor={task.pipelineColor} t={t} onClaim={() => onClaim()} />
           )}
         </div>
       </div>
@@ -628,7 +628,7 @@ function SubtaskCard({
 
   return (
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
-      <CardShell t={t} borderColor={isClaimed ? pipelineColor + "55" : t.border}>
+      <CardShell t={t} borderColor={t.border} pipelineColor={pipelineColor}>
       {/* Top row — identical structure to TaskCard */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -648,9 +648,7 @@ function SubtaskCard({
             </div>
           )}
           {currentUser && handleClaim && (
-            <button onClick={e => { e.stopPropagation(); handleClaim(key); }} style={btn(isClaimed ? pipelineColor : pipelineColor, isClaimed ? pipelineColor + "18" : pipelineColor + "15", isClaimed ? pipelineColor + "55" : pipelineColor + "55")}>
-              {isClaimed ? "✓ claimed" : "claim"}
-            </button>
+            <ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" />
           )}
 
         </div>
@@ -756,7 +754,8 @@ function SubtaskKanbanCard({
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell
         t={t}
-        borderColor={isUnknownParent ? t.amber + "55" : isMine ? sub.pipelineColor + "55" : t.border}
+        borderColor={isUnknownParent ? t.amber + "55" : t.border}
+        pipelineColor={sub.pipelineColor}
         draggable={!editOpen}
         onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; }}
       >
@@ -847,8 +846,8 @@ function SubtaskKanbanCard({
 
 // ─── Shared micro-components ─────────────────────────────────────────────────
 
-function CardShell({ t, borderColor, compact, draggable: isDraggable, onDragStart, children }: {
-  t: T; borderColor: string; compact?: boolean;
+function CardShell({ t, borderColor, pipelineColor, compact, draggable: isDraggable, onDragStart, children }: {
+  t: T; borderColor: string; pipelineColor?: string; compact?: boolean;
   draggable?: boolean; onDragStart?: (e: React.DragEvent) => void;
   children: React.ReactNode;
 }) {
@@ -867,6 +866,7 @@ function CardShell({ t, borderColor, compact, draggable: isDraggable, onDragStar
         userSelect: "none",
         transition: "border-color 0.15s",
         position: "relative",
+        boxShadow: pipelineColor ? `inset 3px 0 0 ${pipelineColor}` : undefined,
       }}
     >
       {children}
@@ -954,7 +954,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
             boxShadow: showEditInput ? `0 2px 8px ${t.accent}33` : "none",
           }}
         >
-          ✏️
+          &#9998;
         </button>
       )}
     </div>
@@ -1001,7 +1001,7 @@ function btn(color: string, bg: string, borderColor: string, small = false): Rea
   return {
     background: bg, border: `1px solid ${borderColor}`, borderRadius: 8,
     padding: small ? "4px 10px" : "6px 12px", cursor: "pointer",
-    fontSize: small ? 8 : 9, color, fontWeight: 800,
+    fontSize: 10, color, fontWeight: 700,
     fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0,
   };
 }

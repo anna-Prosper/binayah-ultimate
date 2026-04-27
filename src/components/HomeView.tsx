@@ -226,9 +226,9 @@ export default function HomeView({
                               <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
                                   {u.name.split(" ")[0]}
-                                  {role && <span style={{ fontSize: 9, color: role === "captain" ? t.amber : t.cyan || t.accent, background: (role === "captain" ? t.amber : t.cyan || t.accent) + "22", border: `1px solid ${(role === "captain" ? t.amber : t.cyan || t.accent)}44`, borderRadius: 6, padding: "0 4px", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" }}>{role === "captain" ? "👑" : "⚓"}</span>}
+                                  {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }}>{role === "captain" ? "👑" : "⚓"}</span>}
                                 </div>
-                                <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                                <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
                               </div>
                             </div>
                           );
