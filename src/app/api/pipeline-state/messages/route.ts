@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongo";
-import PipelineState from "@/lib/PipelineState";
+import ChatMessage from "@/lib/ChatMessage";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
 import { logApi } from "@/lib/log";
@@ -57,15 +59,28 @@ async function notifyMentions(text: string, senderUserId: string) {
 }
 
 export const dynamic = "force-dynamic";
-const WORKSPACE = { workspaceId: "main" };
 const ROUTE = "/api/pipeline-state/messages";
 
-async function ensureDoc() {
-  await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    { $setOnInsert: { state: {}, updatedAt: new Date() } },
-    { upsert: true }
-  );
+export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const before = req.nextUrl.searchParams.get("before");   // optional msgId cursor
+  const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50"), 100);
+
+  await connectMongo();
+  const query: Record<string, unknown> = { workspaceId: "main" };
+  if (before) query.id = { $lt: parseInt(before, 10) };
+
+  const messages = await ChatMessage.find(query)
+    .sort({ id: -1 })   // newest first from DB
+    .limit(limit)
+    .lean();
+
+  // Return oldest-first for client rendering
+  return NextResponse.json(messages.reverse().map(m => ({
+    id: m.id, userId: m.userId, text: m.text, time: m.time,
+  })));
 }
 
 export async function POST(req: NextRequest) {
@@ -101,18 +116,14 @@ export async function POST(req: NextRequest) {
   }
 
   await connectMongo();
-  await ensureDoc();
-  // $slice: -200 keeps the most recent 200 messages
-  const doc = await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    {
-      $push: { "state.chatMessages": { $each: [msg], $slice: -200 } },
-      $set: { updatedAt: new Date() },
-    },
-    { new: true }
-  ).lean();
-  const total = ((doc as { state?: { chatMessages?: unknown[] } } | null)?.state?.chatMessages || []).length;
-  logApi(ROUTE, "success", { total });
+  await ChatMessage.create({
+    workspaceId: "main",
+    id: msg.id,
+    userId: msg.userId,
+    text: msg.text,
+    time: msg.time,
+  });
+  logApi(ROUTE, "success");
   // Emit to SSE subscribers so all connected clients receive the message instantly
   chatBus.emit("message", msg);
   // Fire-and-forget: email mentioned users (Gmail SMTP)
@@ -121,5 +132,5 @@ export async function POST(req: NextRequest) {
   if (text && senderId) {
     notifyMentions(text, senderId).catch(e => console.warn("[chat-mention] notifyMentions failed:", e));
   }
-  return NextResponse.json({ ok: true, total });
+  return NextResponse.json({ ok: true });
 }

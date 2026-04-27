@@ -23,6 +23,10 @@ interface Props {
   mobileMode?: boolean;
   /** When true: occupies full viewport height (Telegram-style) — no border/radius, messages area fills remaining height */
   fullScreen?: boolean;
+  /** Load older messages (infinite scroll — scroll to top triggers this) */
+  onLoadMore?: () => Promise<void>;
+  /** Whether more messages are available to load */
+  hasMore?: boolean;
 }
 
 // Render chat text with @mentions styled in user color
@@ -47,7 +51,7 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
   return parts.length ? parts : text;
 }
 
-export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false }: Props) {
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, hasMore = true }: Props) {
   const [tab, setTab] = useState<"team" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
@@ -89,6 +93,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const [aiInputError, setAiInputError] = useState<string | null>(null);
   const [sseConnected, setSseConnected] = useState(false);
   const [sseHasConnected, setSseHasConnected] = useState(false); // true after first successful open
+  const [loadingMore, setLoadingMore] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const aiBottomRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
@@ -146,6 +151,20 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // intentionally only on mount — SSE runs for component lifetime
+
+  const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (el.scrollTop < 60 && !loadingMore && hasMore) {
+      setLoadingMore(true);
+      const prevHeight = el.scrollHeight;
+      await onLoadMore?.();
+      // After messages load, maintain scroll position so it doesn't jump to top
+      requestAnimationFrame(() => {
+        el.scrollTop = el.scrollHeight - prevHeight;
+      });
+      setLoadingMore(false);
+    }
+  };
 
   const canSend = input.trim().length > 0 && input.trim().length <= MAX_MSG_LEN;
 
@@ -242,7 +261,20 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {/* Team chat */}
       {tab === "team" && (
         <>
-          <div style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          <div onScroll={handleScroll} style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {loadingMore && (
+              <div style={{ textAlign: "center", padding: "8px", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                // loading older messages...
+              </div>
+            )}
+            {hasMore && !loadingMore && messages.length >= 50 && (
+              <div style={{ textAlign: "center", padding: "8px" }}>
+                <button onClick={async () => { setLoadingMore(true); await onLoadMore?.(); setLoadingMore(false); }}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>
+                  &#x2191; load older messages
+                </button>
+              </div>
+            )}
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 24 }}>💬</span>

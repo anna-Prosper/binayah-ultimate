@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { chatBus } from "@/lib/chatBus";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
+import ChatMessage from "@/lib/ChatMessage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -79,26 +80,26 @@ export async function GET(req: NextRequest) {
 
       try {
         await connectMongo();
-        const doc = await PipelineState.findOne(WORKSPACE).lean() as {
-          state?: {
-            chatMessages?: ChatMsg[];
-            activityLog?: ActivityItem[];
-          }
-        } | null;
 
-        // Gap-fill chat messages
-        const historical = doc?.state?.chatMessages ?? [];
-        const missed = historical.filter((m) => m.id > since);
+        // Gap-fill chat messages from ChatMessage collection (no cap, infinite history)
+        const missed = await ChatMessage.find({ workspaceId: "main", id: { $gt: since } })
+          .sort({ id: 1 })
+          .limit(200)
+          .lean();
         for (const m of missed) {
-          seenIds.add(m.id);
-          send(m);
+          seenIds.add(m.id as number);
+          send(m as ChatMsg);
         }
 
-        // Gap-fill activity entries newer than sinceActivity
-        // sinceActivity is a stringified time number from the last known activity item
+        // Gap-fill activity entries newer than sinceActivity from PipelineState
         if (sinceActivity !== null) {
           const sinceTime = parseInt(sinceActivity, 10);
           const BELL_TYPES = new Set(["claimed", "active", "comment"]);
+          const doc = await PipelineState.findOne(WORKSPACE).lean() as {
+            state?: {
+              activityLog?: ActivityItem[];
+            }
+          } | null;
           const activityLog = doc?.state?.activityLog ?? [];
           const missedActivity = activityLog.filter(
             (a) => BELL_TYPES.has(a.type) && a.time > sinceTime

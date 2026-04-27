@@ -159,7 +159,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   const [showChat, setShowChat] = useState(false);
   const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "ai">("ai");
   const [view, setView] = useState<"list" | "kanban" | "overview">("list");
-  const [chatMessages, setChatMessages] = useState<ChatMsg[]>(() => lsGet("chatMessages", []));
+  const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
+  const [hasMoreMessages, setHasMoreMessages] = useState(true);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
   // lockedPipelines: canonical list of locked pipeline IDs, persisted to MongoDB
@@ -360,7 +361,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { lsSet("expanded", expanded) }, [expanded]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
-  useEffect(() => { lsSet("chatMessages", chatMessages) }, [chatMessages]);
   useEffect(() => { lsSet("view", view) }, [view]);
   useEffect(() => { lsSet("binayah_activeNav", activeNavItem) }, [activeNavItem]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity) }, [lastSeenActivity]);
@@ -397,7 +397,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   useEffect(() => {
     fetchState().then(s => {
       if (s && Object.keys(s).length > 0) {
-        if (s.chatMessages) { setChatMessages(s.chatMessages); knownMsgCount.current = s.chatMessages.length; }
         if (s.claims) { prevClaimsRef.current = s.claims as Record<string, string[]>; setClaims(s.claims); }
         if (s.reactions) { prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>; setReactions(s.reactions); }
         if (s.activityLog) setActivityLog(s.activityLog);
@@ -439,29 +438,6 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         if (!s) { setSyncStatus("offline"); return; }
         setSyncStatus("live");
         isPollUpdateRef.current = true;
-        if (s.chatMessages) {
-          let pendingChatNotif: { name: string; text: string } | null = null;
-          setChatMessages(prev => {
-            // Merge by ID — never replace messages already in local state
-            const existingIds = new Set(prev.map(m => m.id));
-            const incoming = s.chatMessages!.filter(m => !existingIds.has(m.id));
-            if (incoming.length === 0) return prev; // nothing new, no re-render
-            const foreign = incoming.find(m => m.userId !== currentUser);
-            if (foreign) {
-              const sender = (s.users as typeof USERS_DEFAULT | undefined)?.find(u => u.id === foreign.userId) ||
-                users.find(u => u.id === foreign.userId);
-              pendingChatNotif = { name: sender?.name || foreign.userId, text: foreign.text };
-            }
-            const merged = [...prev, ...incoming].sort((a, b) => a.id - b.id);
-            knownMsgCount.current = merged.length;
-            return merged;
-          });
-          if (pendingChatNotif) {
-            setChatNotif(pendingChatNotif);
-            playNotifSound();
-            setTimeout(() => setChatNotif(null), 4000);
-          }
-        }
         if (s.claims) {
           const prev = prevClaimsRef.current;
           for (const [stage, claimers] of Object.entries(s.claims as Record<string, string[]>)) {
@@ -795,6 +771,33 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
+  // Fetch initial messages on mount from persistent ChatMessage collection
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    fetch("/api/pipeline-state/messages?limit=50")
+      .then(r => r.json())
+      .then((msgs: ChatMsg[]) => {
+        if (Array.isArray(msgs)) setChatMessages(msgs);
+      })
+      .catch(() => {}); // offline — start empty
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadMoreMessages = async () => {
+    if (!hasMoreMessages || chatMessages.length === 0) return;
+    const oldest = chatMessages[0];
+    try {
+      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50`);
+      const older: ChatMsg[] = await res.json();
+      if (!Array.isArray(older) || older.length === 0) {
+        setHasMoreMessages(false);
+        return;
+      }
+      setChatMessages(prev => [...older, ...prev]);
+      if (older.length < 50) setHasMoreMessages(false);
+    } catch { /* ignore */ }
+  };
+
   // Claim = take ownership. Points only granted when stage goes LIVE.
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
@@ -1079,6 +1082,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               currentUser={currentUser!}
               t={t}
               defaultTab="team"
+              onLoadMore={loadMoreMessages}
+              hasMore={hasMoreMessages}
               buildAiContext={() => {
                 const me = users.find(u => u.id === currentUser);
                 const lines: string[] = [];
@@ -1754,7 +1759,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
         <BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}>
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<ChatSkeleton t={t} />}>
-          <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} buildAiContext={() => {
+          <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} onLoadMore={loadMoreMessages} hasMore={hasMoreMessages} buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
@@ -1801,7 +1806,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </button>
             <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
               <Suspense fallback={<ChatSkeleton t={t} />}>
-            <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} buildAiContext={() => {
+            <ChatPanel messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={chatDefaultTab} onLoadMore={loadMoreMessages} hasMore={hasMoreMessages} buildAiContext={() => {
               const me = users.find(u => u.id === currentUser);
               const lines: string[] = [];
               lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
