@@ -107,12 +107,18 @@ export default function TasksView(props: Props) {
     if (stageId && getStatus(stageId) !== targetStatus) setStageStatus(stageId, targetStatus);
   };
 
-  const viewBtn = (active: boolean): React.CSSProperties => ({
+  const segBtn = (active: boolean): React.CSSProperties => ({
     background: active ? t.accent + "22" : "transparent",
-    border: `1px solid ${active ? t.accent + "55" : t.border}`,
-    borderRadius: 8, padding: "3px 12px", cursor: "pointer",
-    fontSize: 8, color: active ? t.accent : t.textMuted,
-    fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace",
+    border: `1px solid ${active ? t.accent + "44" : "transparent"}`,
+    borderRadius: 7,
+    padding: "5px 14px",
+    cursor: "pointer",
+    fontSize: 8,
+    color: active ? t.accent : t.textMuted,
+    fontWeight: active ? 700 : 500,
+    fontFamily: "var(--font-dm-mono), monospace",
+    transition: "all 0.15s",
+    whiteSpace: "nowrap" as const,
   });
 
   const pendingCount = stageTasks.filter(s => s.status === "active" && !approvedStages.includes(s.stageId)).length;
@@ -127,7 +133,7 @@ export default function TasksView(props: Props) {
 
   return (
     <div style={{ padding: "20px 0" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-start", marginBottom: 18, gap: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 18, gap: 12, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 11, fontWeight: 700, color: t.text, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             {headerLabel || "🔥 now"}
@@ -141,16 +147,17 @@ export default function TasksView(props: Props) {
             {stageTasks.length} tasks {"·"} drag between columns to change status
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {/* Right-side controls: scope filter + view toggle, stacked in two rows */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 5, alignItems: "flex-end" }}>
           {showMyAllFilter && (
-            <div style={{ display: "flex", gap: 4 }}>
-              <button style={viewBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 my tasks</button>
-              <button style={viewBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all tasks</button>
+            <div style={{ display: "flex", background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 2, gap: 2 }}>
+              <button style={segBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 my tasks</button>
+              <button style={segBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all tasks</button>
             </div>
           )}
-          <div style={{ display: "flex", gap: 4 }}>
-            <button style={viewBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
-            <button style={viewBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
+          <div style={{ display: "flex", background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 2, gap: 2 }}>
+            <button style={segBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
+            <button style={segBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
           </div>
         </div>
       </div>
