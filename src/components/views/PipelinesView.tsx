@@ -1,0 +1,298 @@
+"use client";
+
+import { Suspense, useState } from "react";
+import { useEphemeral } from "@/lib/contexts/EphemeralContext";
+import { useModel } from "@/lib/contexts/ModelContext";
+import { Chev } from "@/components/ui/primitives";
+import { AvatarC } from "@/components/ui/Avatar";
+import SearchFilter from "@/components/SearchFilter";
+import Stage from "@/components/Stage";
+import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
+import { KanbanSkeleton, OverviewSkeleton } from "@/components/ui/Skeletons";
+import dynamic from "next/dynamic";
+import { REACTIONS } from "@/lib/data";
+
+const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
+const OverviewPanel = dynamic(() => import("@/components/OverviewPanel"), { ssr: false });
+
+const ICON_OPTIONS = ["🔧", "🚀", "💡", "🎯", "⚡", "🔥", "🤖", "💥", "✨", "📊"];
+const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+const COLOR_OPTIONS = ["blue", "purple", "green", "amber", "cyan", "red", "orange", "lime", "slate"] as const;
+
+interface PipelinesViewProps {
+  view: "list" | "kanban" | "overview";
+  setView: (v: "list" | "kanban" | "overview") => void;
+  expanded: string[];
+  setExpanded: React.Dispatch<React.SetStateAction<string[]>>;
+  expS: string | null;
+  setExpS: (v: string | null) => void;
+  searchQ: string;
+  setSearchQ: (v: string) => void;
+  statusFilter: string | null;
+  setStatusFilter: (v: string | null) => void;
+  claimAnim: { stage: string; pts: number } | null;
+  subtaskInput: Record<string, string>;
+  setSubtaskInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  commentInput: Record<string, string>;
+  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+  showMockup: Record<string, boolean>;
+  setShowMockup: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
+  isMobile: boolean;
+  currentWorkspaceId: string;
+  currentWorkspace: { name: string; icon: string } | null;
+  isAdmin: boolean;
+  showToast: (msg: string, color: string) => void;
+  handleClaimWithAnim: (sid: string) => void;
+  shareStage: (name: string, text: string) => void;
+  sharePipeline: (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => void;
+  addCommentWrapped: (sid: string) => void;
+  addSubtaskWrapped: (sid: string) => void;
+  onPipelineClick: (pid: string) => void;
+}
+
+export default function PipelinesView({
+  view, setView, expanded, setExpanded, expS, setExpS,
+  searchQ, setSearchQ, statusFilter, setStatusFilter,
+  claimAnim, subtaskInput, setSubtaskInput, commentInput, setCommentInput,
+  showMockup, setShowMockup, isMobile, currentWorkspaceId, currentWorkspace,
+  isAdmin, showToast, handleClaimWithAnim, shareStage, sharePipeline,
+  addCommentWrapped, addSubtaskWrapped, onPipelineClick,
+}: PipelinesViewProps) {
+  // Pipeline editing state — local to PipelinesView
+  const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
+  const [editingPipeName, setEditingPipeName] = useState<string | null>(null);
+  const [newStageInput, setNewStageInput] = useState<Record<string, string>>({});
+  const [addingPipeline, setAddingPipeline] = useState(false);
+  const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" });
+  const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
+  const {
+    users, currentUser, me,
+    claims, reactions, comments, subtasks, assignments,
+    stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
+    subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
+    customStages, customPipelines, workspaces, allPipelinesGlobal,
+    archivedStages, stageImages,
+    liveNotifs, getStatus, getPoints, sc, ck, pr,
+    handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask,
+    archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
+    setStageStatusDirect, cycleStatus, approveStage,
+    addCustomStage, addCustomPipeline, cyclePriority,
+    addStageImage, removeStageImage, activityLog,
+    t,
+  } = useModel();
+  const { reactOpen, setReactOpen, copied } = useEphemeral();
+
+  const allPipelines = currentWorkspaceId
+    ? (() => {
+        const ws = workspaces.find(w => w.id === currentWorkspaceId);
+        return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal;
+      })()
+    : allPipelinesGlobal;
+
+  const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const addCustomStageLocal = (pid: string) => { const val = newStageInput[pid]?.trim(); if (!val) return; addCustomStage(pid, val); setNewStageInput(prev => ({ ...prev, [pid]: "" })); };
+  const addCustomPipelineLocal = () => { if (!newPipeForm.name.trim()) return; const id = addCustomPipeline(newPipeForm); if (id) { setNewPipeForm({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" }); setAddingPipeline(false); setExpanded(prev => [...prev, id]); } };
+
+  const stageProps = {
+    t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users,
+    currentUser, me: me!, showMockup, setShowMockup, claimAnim,
+    handleClaim: handleClaimWithAnim, handleReact, cycleStatus, shareStage,
+    subtaskInput, setSubtaskInput, commentInput, setCommentInput,
+    addSubtask: addSubtaskWrapped, toggleSubtask, lockSubtask, removeSubtask,
+    addComment: addCommentWrapped,
+    stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs,
+    stageImages, addStageImage, removeStageImage, archiveStage,
+  };
+
+  // Top claim stage
+  const topClaimStageName = (() => {
+    if (!currentUser) return null;
+    const actionableStatuses = new Set(["planned", "in-progress", "active"]);
+    for (const p of allPipelines) {
+      const stages = [...p.stages, ...(customStages[p.id] || [])];
+      for (const s of stages) {
+        if (actionableStatuses.has(getStatus(s)) && !(claims[s] || []).includes(currentUser)) return s;
+      }
+    }
+    return null;
+  })();
+
+  if (!me) return null;
+
+  return (
+    <div style={{ marginTop: 16 }}>
+      {/* Search + view toggle */}
+      <div className="bu-search-row" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
+        <div style={{ flex: 1 }}><SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} /></div>
+        <div className="bu-view-toggle" style={{ display: "flex", gap: 4, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 4px" }}>
+          {([["list", "☰ list", "☰"], ["kanban", "⊞ kanban", "⊞"], ["overview", "□ overview", "□"]] as const).map(([v, label, icon]) => (
+            <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{isMobile ? icon : label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Overview */}
+      {view === "overview" && (
+        <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+          <Suspense fallback={<OverviewSkeleton t={t} />}>
+            <OverviewPanel allPipelines={allPipelines} customStages={customStages} getStatus={getStatus} claims={claims} users={users} sc={sc} ck={ck} stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride} pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides} pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides} searchQ={searchQ} activityLog={activityLog} t={t} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* Kanban */}
+      {view === "kanban" && (
+        <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+          <Suspense fallback={<KanbanSkeleton t={t} />}>
+            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} subtasks={subtasks} claims={claims} reactions={reactions} comments={comments} getStatus={getStatus} sc={sc} users={users} currentUser={currentUser} handleClaim={handleClaimWithAnim} handleReact={handleReact} toggleSubtask={toggleSubtask} renameSubtask={renameSubtask} shareStage={shareStage} addComment={addCommentWrapped} commentInput={commentInput} setCommentInput={setCommentInput} setStageStatus={setStageStatusDirect} approvedStages={approvedStages} approveStage={approveStage} isAdmin={isAdmin} assignments={assignments} assignTask={assignTask} ck={ck} stageNameOverrides={stageNameOverrides} setStageNameOverride={setStageNameOverride} subtaskStages={subtaskStages} setSubtaskStage={setSubtaskStage} archivedStages={archivedStages} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin ? "all" : "my"} pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} />
+          </Suspense>
+        </ErrorBoundary>
+      )}
+
+      {/* List */}
+      {view === "list" && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {allPipelines.filter(p => {
+          const q = searchQ.toLowerCase();
+          const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+          const matchesSearch = !q || p.name.toLowerCase().includes(q) || allPStages.some(s => s.toLowerCase().includes(q));
+          const matchesFilter = !statusFilter || (statusFilter === "claimed" ? allPStages.some(s => (claims[s] || []).includes(currentUser!)) : allPStages.some(s => getStatus(s) === statusFilter));
+          return matchesSearch && matchesFilter;
+        }).map(p => {
+          const isO = expanded.includes(p.id);
+          const pipeMeta = pipeMetaOverrides[p.id] || {};
+          const pipeName = pipeMeta.name ?? p.name;
+          const pipePriority = pipeMeta.priority ?? p.priority;
+          const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
+          const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+          const pC = ck[p.colorKey] || t.accent;
+          const prC = pr[pipePriority as keyof typeof pr] || { c: t.textMuted };
+          const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
+          const pct = allPStages.length > 0 ? Math.round(allPStages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / allPStages.length) : 0;
+          const uClaim = [...new Set(allPStages.flatMap(s => claims[s] || []))];
+          const allPipelineClaimed = allPStages.length > 0 && allPStages.every(s => (claims[s] || []).includes(currentUser!));
+          const pipeReactKey = `_pipe_${p.id}`;
+          const pipeReactions = reactions[pipeReactKey] || {};
+          const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
+          return (
+            <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s" }}>
+              <div style={{ height: 2, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} /></div>
+              <div onClick={() => toggleExpand(p.id)} style={{ padding: "12px 16px", cursor: "pointer" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
+                    <Chev open={isO} color={pC} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+                        <span style={{ fontSize: 16 }}>{p.icon}</span>
+                        {editingPipeName === p.id ? (
+                          <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 15, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit" }} />
+                        ) : (
+                          <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
+                        )}
+                        <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 8px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                        <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 10, color: prC.c, background: prC.c + "12", padding: "0 8px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
+                        {pct > 0 && <span style={{ fontSize: 10, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
+                      </div>
+                      {editingPipeDesc === p.id ? (
+                        <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 0 }} />
+                      ) : (
+                        <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 13, color: t.textSec, margin: "0 0 0", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
+                          <span style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"✎"}</span>
+                        </p>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, p.totalHours, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓ copied" : "📋 copy"}</button>
+                        <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
+                          {reactOpen === pipeReactKey
+                            ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
+                            : <>{pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (<button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit" }}><span style={{ fontSize: 13 }}>{emoji}</span><span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span></button>); })}
+                            <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button></>
+                          }
+                        </div>
+                        <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{isO ? "▾ collapse" : "▸ details"}</button>
+                        {!allPipelineClaimed ? (
+                          <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{"💀"} claim all</button>
+                        ) : (
+                          <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
+                        )}
+                        {uClaim.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{uClaim.slice(0, 5).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={16} /></div> : null; })}</div>}
+                      </div>
+                    </div>
+                  </div>
+                  {isMobile && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, marginLeft: 4 }} onClick={e => e.stopPropagation()}>
+                      <div style={{ position: "relative" }}>
+                        <button onClick={e => { e.stopPropagation(); setPipeMenuOpen(pipeMenuOpen === p.id ? null : p.id); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 15, padding: "4px 8px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: t.textMuted }}>⋮</button>
+                        {pipeMenuOpen === p.id && (
+                          <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, zIndex: 50, minWidth: 150, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeIn 0.15s ease" }}>
+                            <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>✎ rename pipeline</button>
+                            <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>✎ edit description</button>
+                            <button onClick={e => { e.stopPropagation(); toggleExpand(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>{isO ? "collapse" : "expand stages"}</button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ fontSize: 13, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div></div>
+                    <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>{allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}</div>
+                    <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
+                  </div>
+                </div>
+                {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, paddingLeft: 20 }}>
+                  {allPStages.map((s, i) => {
+                    const stC = sc[getStatus(s)] || { c: t.textDim };
+                    const isClaimed = (claims[s] || []).length > 0;
+                    return (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                        <span style={{ fontSize: 10, color: stC.c, background: stC.c + "0a", padding: "0 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
+                        {i < allPStages.length - 1 && <span style={{ color: t.textDim, fontSize: 10 }}>{"→"}</span>}
+                      </div>
+                    );
+                  })}
+                </div>}
+              </div>
+              {isO && (
+                <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
+                  <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
+                    {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isMobile={isMobile} isTopClaim={s === topClaimStageName} {...stageProps} /></div>)}
+                  </div>
+                  <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
+                    <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStageLocal(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+                    <button onClick={() => addCustomStageLocal(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {/* Add pipeline */}
+        {!addingPipeline ? (
+          <button onClick={() => setAddingPipeline(true)} style={{ background: "transparent", border: `2px dashed ${t.border}`, borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 13, color: t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center", width: "100%" }}>+ new pipeline</button>
+        ) : (
+          <div style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 16, padding: "20px" }}>
+            <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
+            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
+              {ICON_OPTIONS.map(ico => (<button key={ico} onClick={() => setNewPipeForm(p => ({ ...p, icon: ico }))} style={{ background: newPipeForm.icon === ico ? t.accent + "22" : "transparent", border: `1px solid ${newPipeForm.icon === ico ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "4px 4px", cursor: "pointer", fontSize: 16 }}>{ico}</button>))}
+            </div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+              <input value={newPipeForm.name} onChange={e => setNewPipeForm(p => ({ ...p, name: e.target.value }))} placeholder="Pipeline name *" autoFocus style={{ flex: "1 1 200px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", fontWeight: 700 }} />
+              <input value={newPipeForm.desc} onChange={e => setNewPipeForm(p => ({ ...p, desc: e.target.value }))} placeholder="Short description" style={{ flex: "2 1 280px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none" }} />
+            </div>
+            <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
+              {PRIORITY_CYCLE.map(p => <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "55" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>)}
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
+              {COLOR_OPTIONS.map(c => <div key={c} onClick={() => setNewPipeForm(p => ({ ...p, colorKey: c }))} style={{ width: 14, height: 14, borderRadius: "50%", background: ck[c], cursor: "pointer", border: newPipeForm.colorKey === c ? `2px solid ${t.text}` : "2px solid transparent", flexShrink: 0 }} />)}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button onClick={addCustomPipelineLocal} disabled={!newPipeForm.name.trim()} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "8px 20px", cursor: newPipeForm.name.trim() ? "pointer" : "not-allowed", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", opacity: newPipeForm.name.trim() ? 1 : 0.45, transition: "opacity 0.15s" }}>create pipeline</button>
+              <button onClick={() => setAddingPipeline(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
+            </div>
+          </div>
+        )}
+      </div>}
+    </div>
+  );
+}
