@@ -2,6 +2,7 @@
 
 import { useMemo } from "react";
 import dynamic from "next/dynamic";
+import { Users, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace, type SubtaskItem, type CommentItem } from "@/lib/data";
 
@@ -116,8 +117,14 @@ export default function HomeView({
                 <span style={{ fontSize: 16 }}>{w.icon}</span>
                 <span style={{ fontSize: 13, fontWeight: 700, color: isActive ? t.accent : t.text }}>{w.name}</span>
                 <span style={{ fontSize: 10, color: roleColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{role}</span>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
-                  {w.members.length}m · {w.pipelineIds.length}p{wMyCount > 0 ? ` · ${wMyCount} yours` : ""}
+                <span style={{ fontSize: 10, color: t.textDim, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <Users size={12} strokeWidth={2} /> {w.members.length}
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 3 }}>
+                    <Zap size={12} strokeWidth={2} /> {w.pipelineIds.length}
+                  </span>
+                  {wMyCount > 0 && <span style={{ marginLeft: 3 }}>· {wMyCount} yours</span>}
                 </span>
               </button>
             );
