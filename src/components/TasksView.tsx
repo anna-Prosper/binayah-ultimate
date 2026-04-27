@@ -296,6 +296,7 @@ function TaskCard({
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps) {
+  const [editOpen, setEditOpen] = useState(false);
   const isDone = task.status === "active";
   const isApproved = approvedStages.includes(task.stageId);
   const isPending = isDone && !isApproved;
@@ -374,13 +375,15 @@ function TaskCard({
         commentCount={cmts.length}
         assignee={assignee}
         users={users}
-        onReactToggle={() => { setReactOpen(showReactPicker ? null : task.stageId); setCommentOpen(null); setAssignOpen(null); }}
-        onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : task.stageId); setReactOpen(null); setAssignOpen(null); }}
-        onAssignToggle={() => { setAssignOpen(showAssignPicker ? null : task.stageId); setReactOpen(null); setCommentOpen(null); }}
+        onReactToggle={() => { setReactOpen(showReactPicker ? null : task.stageId); setCommentOpen(null); setAssignOpen(null); setEditOpen(false); }}
+        onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : task.stageId); setReactOpen(null); setAssignOpen(null); setEditOpen(false); }}
+        onAssignToggle={() => { setAssignOpen(showAssignPicker ? null : task.stageId); setReactOpen(null); setCommentOpen(null); setEditOpen(false); }}
         onAssign={userId => { assignTask(task.stageId, userId); setAssignOpen(null); }}
         onEmoji={emoji => { handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
+        onEditToggle={() => { setEditOpen(!editOpen); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); }}
+        showEditInput={editOpen}
       />
 
       {showCommentPopover && (
@@ -520,12 +523,12 @@ function CardShell({ t, borderColor, compact, draggable: isDraggable, onDragStar
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, compact }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onEditToggle, showEditInput, compact }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
   commentCount: number; assignee: UserType | null | undefined; users: UserType[];
   onReactToggle: () => void; onCommentToggle: () => void; onAssignToggle: () => void;
   onAssign: (userId: string | null) => void;
-  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; compact?: boolean;
+  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onEditToggle?: () => void; showEditInput?: boolean; compact?: boolean;
 }) {
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
@@ -577,6 +580,11 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
       <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title="Copy">
         {copied ? "✓ copied" : "📋 copy"}
       </button>
+      {onEditToggle && (
+        <button onClick={e => { e.stopPropagation(); onEditToggle(); }} style={iconBtn} title="Edit">
+          ✏️ edit
+        </button>
+      )}
     </div>
   );
 }
