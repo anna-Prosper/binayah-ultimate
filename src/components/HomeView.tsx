@@ -40,6 +40,7 @@ interface Props {
   handleClaim: (sid: string) => void;
   handleReact: (sid: string, emoji: string) => void;
   toggleSubtask: (sid: string, taskId: number) => void;
+  renameSubtask?: (sid: string, taskId: number, text: string) => void;
   shareStage: (name: string, text: string) => void;
   addComment: (sid: string) => void;
   setStageStatus: (name: string, status: string) => void;
@@ -61,7 +62,7 @@ export default function HomeView({
   claims, reactions, comments, subtasks, assignments, approvedStages, copied,
   commentInput, setCommentInput, getStatus, sc, ck,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
-  handleClaim, handleReact, toggleSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
+  handleClaim, handleReact, toggleSubtask, renameSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask, isLocked,
   stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
   editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
@@ -251,6 +252,7 @@ export default function HomeView({
         handleClaim={handleClaim}
         handleReact={handleReact}
         toggleSubtask={toggleSubtask}
+        renameSubtask={renameSubtask}
         shareStage={shareStage}
         addComment={addComment}
         commentInput={commentInput}
@@ -275,6 +277,7 @@ export default function HomeView({
         editMode={editMode}
         archivedStages={archivedStages}
         onPipelineClick={onPipelineClick}
+        hideConcept={true}
       />
     </div>
   );

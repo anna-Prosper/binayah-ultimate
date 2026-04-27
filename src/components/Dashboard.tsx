@@ -966,6 +966,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     setSubtaskInput(prev => ({ ...prev, [sid]: "" }));
   };
   const toggleSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) })); };
+  const renameSubtask = (sid: string, taskId: number, text: string) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) })); };
   const lockSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) })); };
   const removeSubtask = (sid: string, taskId: number) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) })); };
   const addStageImage = (sid: string, dataUrl: string) => { if (isStageInLockedPipeline(sid)) { showToast("// pipeline is locked", t.amber); return; } setStageImages(prev => ({ ...prev, [sid]: [...(prev[sid] || []), dataUrl] })); };
@@ -1476,6 +1477,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 handleClaim={handleClaim}
                 handleReact={handleReact}
                 toggleSubtask={toggleSubtask}
+                renameSubtask={renameSubtask}
                 shareStage={shareStage}
                 addComment={addComment}
                 setStageStatus={setStageStatusDirect}
@@ -1573,6 +1575,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 handleClaim={handleClaim}
                 handleReact={handleReact}
                 toggleSubtask={toggleSubtask}
+                renameSubtask={renameSubtask}
                 shareStage={shareStage}
                 addComment={addComment}
                 commentInput={commentInput}

@@ -47,14 +47,16 @@ interface Props {
   archivedStages?: string[];
   onPipelineClick?: (pipelineId: string) => void;
   trashStage?: (sid: string) => void;
+  hideConcept?: boolean;
   subtaskStages?: Record<string, string>;
   setSubtaskStage?: (key: string, status: string) => void;
+  renameSubtask?: (sid: string, taskId: number, text: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
 
 // Columns in the now-tab kanban — these map 1:1 to stage statuses
-const COLS = [
+const ALL_COLS = [
   { status: "concept",     label: "concept",     colorKey: "slate" },
   { status: "planned",     label: "planned",     colorKey: "cyan"  },
   { status: "in-progress", label: "in progress", colorKey: "amber" },
@@ -63,7 +65,9 @@ const COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, editMode, archivedStages, onPipelineClick, trashStage } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, copied, isLocked, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, trashStage, hideConcept } = props;
+
+  const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -86,7 +90,7 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => !(archivedStages || []).includes(s))
+      .filter(s => !(archivedStages || []).includes(s) && !(hideConcept && getStatus(s) === 'concept'))
       .map(s => ({
         stageId: s,
         displayName: stageNameOverrides?.[s] || s,
@@ -291,7 +295,7 @@ export default function TasksView(props: Props) {
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>drop here</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!task.locked} subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => toggleSubtask(sub.parentStageId, parseInt(sub.key.split("::")[1]))} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => toggleSubtask(sub.parentStageId, parseInt(sub.key.split("::")[1]))} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
                       </>
                   }
                 </div>
@@ -701,15 +705,17 @@ function SubtaskCard({
 // ─── Subtask as first-class kanban item ──────────────────────────────────────
 
 function SubtaskKanbanCard({
-  sub, isMine, onDone,
+  sub, isMine, onDone, onRename,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
 }: {
-  sub: SubtaskKanbanTask; isMine: boolean; onDone: () => void;
+  sub: SubtaskKanbanTask; isMine: boolean; onDone: () => void; onRename?: (taskId: number, text: string) => void;
 } & SharedCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editVal, setEditVal] = useState("");
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -734,20 +740,38 @@ function SubtaskKanbanCard({
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
   const creator = users.find(u => u.id === sub.by);
   const isUnknownParent = !sub.pipelineName;
+  const taskId = parseInt(sub.key.split("::")[1]);
+
+  const commitEdit = () => {
+    if (editVal.trim() && onRename) onRename(taskId, editVal.trim());
+    setEditOpen(false);
+  };
 
   return (
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell
         t={t}
         borderColor={isUnknownParent ? t.amber + "55" : isMine ? sub.pipelineColor + "55" : t.border}
-        draggable
+        draggable={!editOpen}
         onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; }}
       >
         {/* Top row — same structure as TaskCard */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
-              <span style={{ color: sub.pipelineColor, marginRight: 4 }}>⤷</span>{sub.text}
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>
+              <span style={{ color: sub.pipelineColor, marginRight: 4 }}>&#10551;</span>
+              {editOpen
+                ? <input
+                    autoFocus
+                    value={editVal}
+                    onChange={e => setEditVal(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditOpen(false); }}
+                    onBlur={commitEdit}
+                    onClick={e => e.stopPropagation()}
+                    style={{ fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", width: "100%", fontFamily: "inherit" }}
+                  />
+                : <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.text}</span>
+              }
             </div>
             <div style={{ fontSize: 11, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isUnknownParent
@@ -796,7 +820,9 @@ function SubtaskKanbanCard({
           onEmoji={emoji => { handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
-          showEditButton={false}
+          showEditButton={isHovered || editOpen}
+          showEditInput={editOpen}
+          onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
 
         {showCommentPopover && (
