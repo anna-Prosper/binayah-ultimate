@@ -18,6 +18,7 @@ import { ActivitySkeleton } from "@/components/ui/Skeletons";
 import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
+import { ChromeShell } from "@/components/ChromeShell";
 import { MessageSquare, Bell } from "lucide-react";
 import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
@@ -298,68 +299,71 @@ function DashboardInner({
 
   const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, claimAnim, subtaskInput, setSubtaskInput, commentInput, setCommentInput, showMockup, setShowMockup, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, showToast, handleClaimWithAnim, shareStage, sharePipeline, addCommentWrapped, addSubtaskWrapped, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
 
+  // Compose sidebar and header nodes for ChromeShell
+  const sidebarNode = !isMobile ? (
+    <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
+      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser!))} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} />
+    </div>
+  ) : null;
+
+  const headerNode = activeNavItem === "chat" && !isMobile ? null : (
+    <div style={{ padding: isMobile ? "12px 12px 0" : (activeNavItem === "home" ? "12px 20px 0" : "24px 20px 0") }}>
+      <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
+        {activeNavItem !== "home" && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <span style={{ fontSize: 20 }}>🤖</span>
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>Binayah AI</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
+              <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines · {allStages.length} stages{syncStatus === "offline" ? " · offline" : ""}</span>
+            </div>
+          </div>
+        )}
+        <div className="bu-header-btns" style={{ display: activeNavItem === "home" ? "none" : "flex", alignItems: "stretch", gap: 4 }}>
+          {me && (<div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "0 12px", cursor: "pointer" }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border} title="Change avatar"><AvatarC user={me} size={28} /><div><div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div><div style={{ fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div></div></div>)}
+          <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
+          <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
+          {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
+          <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
+            <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Change theme">{t.icon} <span style={{ fontSize: 10 }}>▾</span></button>
+            {showThemePicker && (<div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 8, zIndex: 200, width: "min(220px, calc(100vw - 32px))", boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>{THEME_OPTIONS.map(opt => (<div key={opt.id} onClick={() => { setThemeId(opt.id); setShowThemePicker(false); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", borderRadius: 12, cursor: "pointer", background: themeId === opt.id ? opt.color + "18" : "transparent", transition: "all 0.15s" }}><span style={{ fontSize: 20 }}>{opt.icon}</span><div><div style={{ fontSize: 13, fontWeight: 700, color: themeId === opt.id ? opt.color : t.text }}>{opt.name}</div><div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div></div>{themeId === opt.id && <span style={{ marginLeft: "auto", fontSize: 13, color: opt.color }}>✓</span>}</div>))}<div style={{ borderTop: `1px solid ${t.border}`, marginTop: 4, paddingTop: 8, display: "flex", justifyContent: "center" }}><button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{isDark ? "☀️ light mode" : "🌚 dark mode"}</button></div></div>)}
+          </div>
+          <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn }}>sign out</button>
+        </div>
+      </div>
+      {/* TEAM BAR */}
+      {activeNavItem !== "home" && <TeamBar ptsFlash={ptsFlash} viewingUser={viewingUser} setViewingUser={setViewingUser} currentWorkspaceId={currentWorkspaceId} onAvatarClick={(uid, avatar) => { setSelUser(uid); setSelAvatar(avatar); setShowAvatarPicker(true); }} />}
+    </div>
+  );
+
   return (
-    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", display: "flex", flexDirection: "row" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); }}>
+    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px ${t.accent}55,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 4px 32px ${t.accent}88,0 2px 12px rgba(0,0,0,0.4)}}`}</style>
 
-      {/* LEFT SIDEBAR */}
-      {!isMobile && (
-        <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
-          <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && workspaces.some(w => w.captains.includes(currentUser!))} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} />
-        </div>
-      )}
-
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowX: "hidden" }}>
+      <ChromeShell
+        sidebar={sidebarNode}
+        header={headerNode}
+        outerStyle={{ minHeight: "100vh" }}
+        contentStyle={{ padding: isMobile ? "0 12px 16px" : "0 20px 24px" }}
+      >
         {activeNavItem === "chat" && !isMobile ? (
           <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
         ) : (
           <>
-            {/* HEADER */}
-            <div style={{ padding: isMobile ? "12px 12px 0" : (activeNavItem === "home" ? "12px 20px 0" : "24px 20px 0") }}>
-              <div className="bu-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16, gap: 12 }}>
-                {activeNavItem !== "home" && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 20 }}>🤖</span>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>Binayah AI</div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
-                      <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines · {allStages.length} stages{syncStatus === "offline" ? " · offline" : ""}</span>
-                    </div>
-                  </div>
-                )}
-                <div className="bu-header-btns" style={{ display: activeNavItem === "home" ? "none" : "flex", alignItems: "stretch", gap: 4 }}>
-                  {me && (<div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "0 12px", cursor: "pointer" }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border} title="Change avatar"><AvatarC user={me} size={28} /><div><div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div><div style={{ fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div></div></div>)}
-                  <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
-                  <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
-                  {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
-                  <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Change theme">{t.icon} <span style={{ fontSize: 10 }}>▾</span></button>
-                    {showThemePicker && (<div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 8, zIndex: 200, width: "min(220px, calc(100vw - 32px))", boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>{THEME_OPTIONS.map(opt => (<div key={opt.id} onClick={() => { setThemeId(opt.id); setShowThemePicker(false); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", borderRadius: 12, cursor: "pointer", background: themeId === opt.id ? opt.color + "18" : "transparent", transition: "all 0.15s" }}><span style={{ fontSize: 20 }}>{opt.icon}</span><div><div style={{ fontSize: 13, fontWeight: 700, color: themeId === opt.id ? opt.color : t.text }}>{opt.name}</div><div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div></div>{themeId === opt.id && <span style={{ marginLeft: "auto", fontSize: 13, color: opt.color }}>✓</span>}</div>))}<div style={{ borderTop: `1px solid ${t.border}`, marginTop: 4, paddingTop: 8, display: "flex", justifyContent: "center" }}><button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{isDark ? "☀️ light mode" : "🌚 dark mode"}</button></div></div>)}
-                  </div>
-                  <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn }}>sign out</button>
-                </div>
-              </div>
-              {/* TEAM BAR */}
-              {activeNavItem !== "home" && <TeamBar ptsFlash={ptsFlash} viewingUser={viewingUser} setViewingUser={setViewingUser} currentWorkspaceId={currentWorkspaceId} onAvatarClick={(uid, avatar) => { setSelUser(uid); setSelAvatar(avatar); setShowAvatarPicker(true); }} />}
-            </div>
+            {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} /></Suspense></ErrorBoundary></BottomSheet>)}
+            {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} /></div></Suspense></ErrorBoundary>)}
+            {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} />}
+            {!isMobile && activeNavItem === "home" && me && (
+              <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} handleClaimWithAnim={handleClaimWithAnim} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
+            )}
+            {(isMobile || activeNavItem === "pipelines") && <PipelinesView {...pipelinesViewProps} />}
 
-            {/* ROUTE SWITCH */}
-            <div style={{ flex: 1, minWidth: 0, padding: isMobile ? "0 12px 16px" : "0 20px 24px", overflowX: "hidden" }}>
-              {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} /></Suspense></ErrorBoundary></BottomSheet>)}
-              {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} /></div></Suspense></ErrorBoundary>)}
-              {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} />}
-              {!isMobile && activeNavItem === "home" && me && (
-                <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} commentInput={commentInput} setCommentInput={setCommentInput} handleClaimWithAnim={handleClaimWithAnim} shareStage={shareStage} addCommentWrapped={addCommentWrapped} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
-              )}
-              {(isMobile || activeNavItem === "pipelines") && <PipelinesView {...pipelinesViewProps} />}
-
-              {/* Toasts */}
-              {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}><span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "⚡" : "💀"}</span><span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span><span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span></div>}
-              {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ fontSize: 16, flexShrink: 0 }}>{chatNotif.isClaim ? "🤝" : chatNotif.isReaction ? "⚡" : chatNotif.isComment ? "💬" : "👀"}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 15, padding: 0, marginLeft: 4 }}>×</button></div>)}
-            </div>
+            {/* Toasts */}
+            {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}><span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "⚡" : "💀"}</span><span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span><span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span></div>}
+            {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ fontSize: 16, flexShrink: 0 }}>{chatNotif.isClaim ? "🤝" : chatNotif.isReaction ? "⚡" : chatNotif.isComment ? "💬" : "👀"}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 15, padding: 0, marginLeft: 4 }}>×</button></div>)}
           </>
         )}
-      </div>
+      </ChromeShell>
 
       {/* WORKSPACE MODALS */}
       {workspaceModal === "create" && <Suspense fallback={null}><CreateWorkspaceModal t={t} users={users} ck={ck} onClose={() => setWorkspaceModal(null)} onCreate={(name, icon, colorKey) => createWorkspace(name, icon, colorKey)} /></Suspense>}

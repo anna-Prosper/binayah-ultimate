@@ -2,11 +2,10 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Users, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace, type SubtaskItem, type CommentItem } from "@/lib/data";
+import { type UserType, type Workspace } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { useEphemeral } from "@/lib/contexts/EphemeralContext";
+import { useModel } from "@/lib/contexts/ModelContext";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 
@@ -19,53 +18,26 @@ interface Props {
   navbarSlot?: React.ReactNode;
   myWorkspaces: Workspace[];
   allPipelinesGlobal: Pipeline[];
-  customStages: Record<string, string[]>;
   pipeMetaOverrides: Record<string, { name?: string; priority?: string }>;
-  claims: Record<string, string[]>;
-  reactions: Record<string, Record<string, string[]>>;
-  comments: Record<string, CommentItem[]>;
-  subtasks: Record<string, SubtaskItem[]>;
-  assignments: Record<string, string>;
-  approvedStages: string[];
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  getStatus: (name: string) => string;
-  sc: Record<string, { l: string; c: string }>;
-  ck: Record<string, string>;
   currentUser: string;
   isCaptainOfAny: boolean;
   currentWorkspaceId: string | null;
   onSwitchWorkspace: (id: string) => void;
-  // Handlers (route through to current workspace's actions; the underlying state is global by stageId)
-  handleClaim: (sid: string) => void;
-  handleReact: (sid: string, emoji: string) => void;
-  toggleSubtask: (sid: string, taskId: number) => void;
-  renameSubtask?: (sid: string, taskId: number, text: string) => void;
-  shareStage: (name: string, text: string) => void;
-  addComment: (sid: string) => void;
-  setStageStatus: (name: string, status: string) => void;
-  approveStage: (name: string) => void;
-  assignTask: (sid: string, userId: string | null) => void;
-  stageNameOverrides?: Record<string, string>;
-  setStageNameOverride?: (name: string, val: string) => void;
-  subtaskStages?: Record<string, string>;
-  setSubtaskStage?: (key: string, status: string) => void;
   editMode?: boolean;
-  archivedStages?: string[];
   onPipelineClick?: (pipelineId: string) => void;
   onUserClick?: (userId: string) => void;
 }
 
 export default function HomeView({
-  t, me, users, myWorkspaces, allPipelinesGlobal, customStages, pipeMetaOverrides,
-  claims, reactions, comments, subtasks, assignments, approvedStages,
-  commentInput, setCommentInput, getStatus, sc, ck,
+  t, me, users, myWorkspaces, allPipelinesGlobal, pipeMetaOverrides,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
-  handleClaim, handleReact, toggleSubtask, renameSubtask, shareStage, addComment, setStageStatus, approveStage, assignTask,
-  stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
-  editMode, archivedStages, onPipelineClick, onUserClick, navbarSlot,
+  editMode, onPipelineClick, onUserClick, navbarSlot,
 }: Props) {
-  const { copied } = useEphemeral();
+  const {
+    claims, reactions, approvedStages, customStages, getPoints: modelGetPoints,
+    getStatus, ck,
+  } = useModel();
+
   // null = show all workspaces; string = filter to specific workspace
   const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
 
@@ -96,33 +68,6 @@ export default function HomeView({
   }, [myWorkspaces, allPipelinesGlobal, homeWsFilter]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
-
-  const getPoints = (uid: string) => {
-    let p = 0;
-    Object.entries(claims).forEach(([s, claimers]) => {
-      if ((claimers as string[]).includes(uid) && approvedStages.includes(s)) p += 10;
-    });
-    Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if ((r as string[]).includes(uid)) p += 2; }); });
-    return p;
-  };
-
-  const ACTIONABLE = new Set(["planned", "in-progress", "active", "blocked"]);
-  const visibleStages = useMemo(() => {
-    const wsMap = new Map<string, Workspace>();
-    for (const w of myWorkspaces) for (const pid of w.pipelineIds) wsMap.set(pid, w);
-    const out: { stageId: string; wsId: string }[] = [];
-    for (const p of visiblePipelines) {
-      const ws = wsMap.get(p.id); if (!ws) continue;
-      const stages = [...p.stages, ...(customStages[p.id] || [])];
-      for (const s of stages) {
-        if (ACTIONABLE.has(getStatus(s))) out.push({ stageId: s, wsId: ws.id });
-      }
-    }
-    return out;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visiblePipelines, myWorkspaces, customStages, getStatus]);
-
-  const totalMyTasks = visibleStages.filter(s => (claims[s.stageId] || []).includes(currentUser)).length;
 
   return (
     <div>
@@ -195,7 +140,7 @@ export default function HomeView({
 
                 return (
                   <>
-                    {/* Header: icon, name, stats + navbar slot on the right */}
+                    {/* Header: icon, name, stats */}
                     <div style={{ display: "flex", alignItems: "flex-start", gap: 16, justifyContent: "space-between", flexWrap: "wrap" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                         <div style={{ fontSize: 32, lineHeight: 1 }}>{activeWs.icon}</div>
@@ -216,7 +161,7 @@ export default function HomeView({
                       </div>
                       <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                         {wsTeamMembers.map((u) => {
-                          const uPts = getPoints(u.id);
+                          const uPts = modelGetPoints(u.id);
                           const isMe = u.id === currentUser;
                           const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
                           return (
@@ -249,39 +194,16 @@ export default function HomeView({
         allPipelines={visiblePipelines}
         customStages={customStages}
         pipeMetaOverrides={pipeMetaOverrides}
-        subtasks={subtasks}
-        claims={claims}
-        reactions={reactions}
-        comments={comments}
         getStatus={getStatus}
-        sc={sc}
         users={users}
         currentUser={currentUser}
-        handleClaim={handleClaim}
-        handleReact={handleReact}
-        toggleSubtask={toggleSubtask}
-        renameSubtask={renameSubtask}
-        shareStage={shareStage}
-        addComment={addComment}
-        commentInput={commentInput}
-        setCommentInput={setCommentInput}
-        setStageStatus={setStageStatus}
-        approvedStages={approvedStages}
-        approveStage={approveStage}
         isAdmin={isCaptainOfAny}
-        assignments={assignments}
-        assignTask={assignTask}
         ck={ck}
         showMyAllFilter={true}
         defaultMyAllFilter={isCaptainOfAny ? "all" : "my"}
         pipelineWorkspaceMap={pipelineWorkspaceMap}
         headerLabel="🏠 home"
-        stageNameOverrides={stageNameOverrides}
-        setStageNameOverride={setStageNameOverride}
-        subtaskStages={subtaskStages}
-        setSubtaskStage={setSubtaskStage}
         editMode={editMode}
-        archivedStages={archivedStages}
         onPipelineClick={onPipelineClick}
         hideConcept={true}
       />

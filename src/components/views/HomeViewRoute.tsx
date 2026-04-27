@@ -29,11 +29,7 @@ interface HomeViewRouteProps {
   selAvatar: string | null;
   setSelAvatar: (v: string | null) => void;
   setShowAvatarPicker: (v: boolean) => void;
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   handleClaimWithAnim: (sid: string) => void;
-  shareStage: (name: string, text: string) => void;
-  addCommentWrapped: (sid: string) => void;
   editMode?: boolean;
   unseen: number;
   themeId: string;
@@ -46,19 +42,16 @@ export default function HomeViewRoute({
   showToast, currentWorkspaceId, setCurrentWorkspaceId, setActiveSidebarPipeline,
   setActiveNavItem, viewingUser, setViewingUser, showActivity, setShowActivity,
   setLastSeenActivity, showThemePicker, setShowThemePicker, selUser, setSelUser,
-  selAvatar, setSelAvatar, setShowAvatarPicker, commentInput, setCommentInput,
-  handleClaimWithAnim, shareStage, addCommentWrapped, editMode, unseen,
-  themeId, isDark, setThemeId, setIsDark,
+  selAvatar, setSelAvatar, setShowAvatarPicker, handleClaimWithAnim,
+  editMode, unseen, themeId, isDark, setThemeId, setIsDark,
 }: HomeViewRouteProps) {
   const {
-    users, currentUser, me, allPipelinesGlobal, customStages,
-    pipeMetaOverrides, claims, reactions, comments, subtasks, assignments, approvedStages,
-    getStatus, sc, ck, workspaces, activityLog, handleReact, toggleSubtask, renameSubtask,
-    setStageStatusDirect, approveStage, assignTask, stageNameOverrides, setStageNameOverride,
-    subtaskStages, setSubtaskStage, archivedStages, getPoints, t,
+    users, currentUser, me, allPipelinesGlobal,
+    pipeMetaOverrides, workspaces, activityLog, getPoints, t,
   } = useModel();
 
   const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser!) : true);
+  const isCaptainOfAny = !!currentUser && workspaces.some(w => w.captains.includes(currentUser!));
 
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
 
@@ -67,20 +60,17 @@ export default function HomeViewRoute({
     <ErrorBoundary onError={() => showToast("// home failed to load — refresh to retry", t.red)}>
       <Suspense fallback={null}>
         <HomeView
-          t={t} me={me} users={users} myWorkspaces={myWorkspaces} allPipelinesGlobal={allPipelinesGlobal}
-          customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} claims={claims}
-          reactions={reactions} comments={comments} subtasks={subtasks} assignments={assignments}
-          approvedStages={approvedStages} commentInput={commentInput} setCommentInput={setCommentInput}
-          getStatus={getStatus} sc={sc} ck={ck} currentUser={currentUser!}
-          isCaptainOfAny={!!currentUser && workspaces.some(w => w.captains.includes(currentUser!))}
-          handleClaim={handleClaimWithAnim} handleReact={handleReact}
-          toggleSubtask={toggleSubtask} renameSubtask={renameSubtask} shareStage={shareStage}
-          addComment={addCommentWrapped} setStageStatus={setStageStatusDirect} approveStage={approveStage}
-          assignTask={assignTask} currentWorkspaceId={currentWorkspaceId}
+          t={t}
+          me={me}
+          users={users}
+          myWorkspaces={myWorkspaces}
+          allPipelinesGlobal={allPipelinesGlobal}
+          pipeMetaOverrides={pipeMetaOverrides}
+          currentUser={currentUser!}
+          isCaptainOfAny={isCaptainOfAny}
+          currentWorkspaceId={currentWorkspaceId}
           onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
-          stageNameOverrides={stageNameOverrides} setStageNameOverride={setStageNameOverride}
-          subtaskStages={subtaskStages} setSubtaskStage={setSubtaskStage}
-          editMode={editMode} archivedStages={archivedStages}
+          editMode={editMode}
           onPipelineClick={(pid) => { setActiveNavItem("pipelines"); setActiveSidebarPipeline(pid); }}
           onUserClick={(uid) => setViewingUser(viewingUser === uid ? null : uid)}
           navbarSlot={(

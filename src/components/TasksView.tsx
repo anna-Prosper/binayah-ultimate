@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "@/lib/themes";
 import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
+import { useModel } from "@/lib/contexts/ModelContext";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -14,42 +15,20 @@ interface Props {
   allPipelines: Pipeline[];
   customStages: Record<string, string[]>;
   pipeMetaOverrides: Record<string, { name?: string; priority?: string }>;
-  subtasks: Record<string, SubtaskItem[]>;
-  claims: Record<string, string[]>;
-  reactions: Record<string, Record<string, string[]>>;
-  comments: Record<string, CommentItem[]>;
   getStatus: (name: string) => string;
   users: UserType[];
   currentUser: string | null;
-  handleClaim: (sid: string) => void;
-  handleReact: (sid: string, emoji: string) => void;
-  toggleSubtask: (sid: string, taskId: number) => void;
-  shareStage: (name: string, text: string) => void;
-  addComment: (sid: string) => void;
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  setStageStatus: (name: string, status: string) => void;
-  approvedStages: string[];
-  approveStage: (name: string) => void;
-  isAdmin: boolean;
-  assignments: Record<string, string>;
-  assignTask: (sid: string, userId: string | null) => void;
   ck: Record<string, string>;
+  isAdmin: boolean;
   // Optional cross-workspace mode props
   showMyAllFilter?: boolean;
   defaultMyAllFilter?: "my" | "all";
   pipelineWorkspaceMap?: Record<string, { id: string; name: string; icon: string }>;
   headerLabel?: string;
-  // Optional name/stage editing props
-  stageNameOverrides?: Record<string, string>;
-  setStageNameOverride?: (name: string, val: string) => void;
+  // Optional editing props
   editMode?: boolean;
-  archivedStages?: string[];
   onPipelineClick?: (pipelineId: string) => void;
   hideConcept?: boolean;
-  subtaskStages?: Record<string, string>;
-  setSubtaskStage?: (key: string, status: string) => void;
-  renameSubtask?: (sid: string, taskId: number, text: string) => void;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
@@ -64,8 +43,33 @@ const ALL_COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, subtasks, claims, reactions, comments, getStatus, users, currentUser, handleClaim, handleReact, toggleSubtask, shareStage, addComment, commentInput, setCommentInput, setStageStatus, approvedStages, approveStage, isAdmin, assignments, assignTask, ck, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage, renameSubtask, editMode, archivedStages, onPipelineClick, hideConcept } = props;
-  const { copied } = useEphemeral();
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept } = props;
+  const {
+    claims, reactions, comments, subtasks, assignments, approvedStages,
+    handleClaim, handleReact, toggleSubtask, renameSubtask,
+    setStageStatusDirect: setStageStatus, approveStage, assignTask,
+    stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
+    archivedStages,
+    addComment: modelAddComment,
+  } = useModel();
+  const { copied, setCopied } = useEphemeral();
+
+  // Comment input is local UI state — no need to lift to context or parent
+  const [commentInput, setCommentInput] = useState<Record<string, string>>({});
+
+  // Reconstruct shareStage locally (writes to clipboard + sets copied ephemeral)
+  const shareStage = useCallback((name: string, text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(name);
+    setTimeout(() => setCopied(null), 2000);
+  }, [setCopied]);
+
+  // Wrap addComment to use local commentInput state
+  const addComment = useCallback((sid: string) => {
+    const val = commentInput[sid]?.trim();
+    if (!val) return;
+    modelAddComment(sid, val, () => setCommentInput(prev => ({ ...prev, [sid]: "" })));
+  }, [commentInput, modelAddComment]);
 
   const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 

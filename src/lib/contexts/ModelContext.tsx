@@ -138,16 +138,19 @@ interface ModelProviderProps {
   initialUserId?: string;
   themeId: string;
   isDark: boolean;
-  showToast: (msg: string, color: string) => void;
+  showToast?: (msg: string, color: string) => void;
   currentWorkspaceId: string;
 }
+
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const noopToast = () => {};
 
 export function ModelProvider({
   children,
   initialUserId,
   themeId,
   isDark,
-  showToast,
+  showToast = noopToast,
   currentWorkspaceId,
 }: ModelProviderProps) {
   const t = mkTheme(themeId, isDark);
