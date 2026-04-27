@@ -2,40 +2,31 @@
 
 import { useState, useRef, useEffect } from "react";
 import { T } from "@/lib/themes";
-import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type CommentItem, type UserType } from "@/lib/data";
+import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
 import ClaimChip from "@/components/ui/ClaimChip";
 import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
+import { useModel } from "@/lib/contexts/ModelContext";
 import BottomSheet from "@/components/ui/BottomSheet";
 
 // ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
 function StageSubtaskCard({
-  task, stageId, pC, t, users, currentUser,
-  reactions, comments, claims,
-  handleReact, shareStage, addComment, handleClaim,
-  commentInput, setCommentInput, copied, onToggle, onRemove,
+  task, stageId, pC, t,
+  onToggle, onRemove,
 }: {
   task: SubtaskItem; stageId: string; pC: string; t: T;
-  users: UserType[]; currentUser: string | null;
-  reactions: Record<string, Record<string, string[]>>;
-  comments: Record<string, CommentItem[]>;
-  claims: Record<string, string[]>;
-  handleReact: (sid: string, emoji: string) => void;
-  shareStage: (name: string, text: string) => void;
-  addComment: (sid: string) => void;
-  handleClaim: (sid: string) => void;
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  copied: string | null;
   onToggle: () => void;
   onRemove: () => void;
 }) {
+  const { users, currentUser, reactions, comments, claims, handleClaim, handleReact, addComment } = useModel();
+  const { copied, setCopied } = useEphemeral();
   const key = `${stageId}::${task.id}`;
   const [reactOpen, setReactOpen] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
+  const [commentInputVal, setCommentInputVal] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +38,11 @@ function StageSubtaskCard({
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
   }, []);
+
+  const shareSubtask = (name: string, text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(name); setTimeout(() => setCopied(null), 2000);
+  };
 
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
@@ -102,7 +98,7 @@ function StageSubtaskCard({
           )}
         </div>
         <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); }} style={iconBtn}>💬 {cmts.length}</button>
-        <button onClick={() => shareStage(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
+        <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
       </div>
 
       {/* Comment box */}
@@ -114,8 +110,8 @@ function StageSubtaskCard({
             </div>
           )}
           <div style={{ display: "flex", gap: 4 }}>
-            <input value={commentInput[key] || ""} onChange={e => setCommentInput(p => ({ ...p, [key]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") { addComment(key); setCommentOpen(false); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-            <button onClick={() => { addComment(key); setCommentOpen(false); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(key, commentInputVal, () => setCommentInputVal("")); setCommentOpen(false); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+            <button onClick={() => { addComment(key, commentInputVal, () => setCommentInputVal("")); setCommentOpen(false); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
           </div>
         </div>
       )}
@@ -132,56 +128,36 @@ interface StageProps {
   t: T;
   expS: string | null;
   setExpS: (v: string | null) => void;
-  getStatus: (name: string) => string;
-  sc: Record<string, { l: string; c: string }>;
-  claims: Record<string, string[]>;
-  reactions: Record<string, Record<string, string[]>>;
-  subtasks: Record<string, SubtaskItem[]>;
-  comments: Record<string, CommentItem[]>;
-  users: UserType[];
-  currentUser: string | null;
-  me: UserType;
-  showMockup: Record<string, boolean>;
-  setShowMockup: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
-  claimAnim: { stage: string; pts: number } | null;
-  handleClaim: (sid: string) => void;
-  handleReact: (sid: string, emoji: string) => void;
-  cycleStatus: (name: string) => void;
-  shareStage: (name: string, text: string) => void;
-  subtaskInput: Record<string, string>;
-  setSubtaskInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  addSubtask: (sid: string) => void;
-  toggleSubtask: (sid: string, taskId: number) => void;
-  lockSubtask: (sid: string, taskId: number) => void;
-  removeSubtask: (sid: string, taskId: number) => void;
-  addComment: (sid: string) => void;
-  stageDescOverrides: Record<string, string>;
-  setStageDescOverride: (name: string, val: string) => void;
-  setStageNameOverride: (name: string, val: string) => void;
-  liveNotifs: Record<string, { comment?: string; reaction?: string }>;
-  stageImages: Record<string, string[]>;
-  addStageImage: (name: string, dataUrl: string) => void;
-  removeStageImage: (name: string, idx: number) => void;
-  archiveStage?: (sid: string) => void;
   isMobile?: boolean;
   isTopClaim?: boolean;
 }
 
 export default function Stage({
-  name, idx, tot, pC, pId, t, expS, setExpS, getStatus, sc,
-  claims, reactions: rxns, subtasks, comments, users, currentUser, me,
-  showMockup, setShowMockup, claimAnim,
-  handleClaim, handleReact, cycleStatus, shareStage,
-  subtaskInput, setSubtaskInput, commentInput, setCommentInput,
-  addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
-  stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs,
-  stageImages, addStageImage, removeStageImage, archiveStage,
+  name, idx, tot, pC, pId, t, expS, setExpS,
   isMobile = false,
   isTopClaim = false,
 }: StageProps) {
-  const { reactOpen, setReactOpen, copied } = useEphemeral();
+  const {
+    claims, reactions: rxns, comments, subtasks, users, currentUser, me,
+    stageDescOverrides, stageImages, liveNotifs,
+    handleClaim, handleReact, cycleStatus,
+    addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
+    setStageDescOverride, setStageNameOverride,
+    addStageImage, removeStageImage, archiveStage,
+    getStatus, sc,
+  } = useModel();
+  const { reactOpen, setReactOpen, copied, setCopied, claimAnim, setClaimAnim } = useEphemeral();
+
+  const handleClaimWithAnim = (sid: string) => {
+    const alreadyClaimed = currentUser ? (claims[sid] || []).includes(currentUser) : false;
+    handleClaim(sid);
+    if (!alreadyClaimed && currentUser) {
+      setClaimAnim({ stage: sid, pts: s.points || 10 });
+      setTimeout(() => setClaimAnim(null), 1200);
+    }
+  };
+
+  // Local UI state (stage-specific, not shared)
   const [editingDesc, setEditingDesc] = useState(false);
   const [editingShortDesc, setEditingShortDesc] = useState(false);
   const [stageEditMode, setStageEditMode] = useState(false);
@@ -189,10 +165,19 @@ export default function Stage({
   const [isHovered, setIsHovered] = useState(false);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
+  const [showMockup, setShowMockup] = useState(false);
+  const [subtaskInputVal, setSubtaskInputVal] = useState("");
+  const [commentInputVal, setCommentInputVal] = useState("");
+
   // Reset editing name when name prop changes (e.g. after rename is applied)
   useEffect(() => { setEditingName(name); }, [name]);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
+
+  const shareStage = (stageName: string, text: string) => {
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(stageName); setTimeout(() => setCopied(null), 2000);
+  };
 
   // Fallback for custom stages not in stageDefaults
   const s = stageDefaults[name] ?? { desc: "", points: 10, status: "concept" };
@@ -204,15 +189,17 @@ export default function Stage({
   const tasks = subtasks[name] || [];
   const cmts = comments[name] || [];
   const tasksDone = tasks.filter(x => x.done).length;
-  const isMockOpen = showMockup[name];
+  const isMockOpen = showMockup;
+  void isMockOpen; // used implicitly via setShowMockup
   const currentDesc = stageDescOverrides[name] ?? s.desc;
   const aboutDesc = stageDescOverrides[name] ?? (stageLongDescs[name] || s.desc);
 
   const openPreview = (e: React.MouseEvent) => {
     e.stopPropagation();
     setExpS(k);
-    setShowMockup(prev => ({ ...prev, [name]: true }));
+    setShowMockup(true);
   };
+  void openPreview; // available for mockup preview button if added
 
   return (
     <div style={{ display: "flex" }}>
@@ -304,14 +291,14 @@ export default function Stage({
 
             {/* React toggle */}
             <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "8px 12px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "inherit" }}>
-              {"\uD83D\uDE00"}
+              {"😀"}
             </button>
 
 
 
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
-            {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"\uD83D\uDCAC"}{cmts.length}</span>}
+            {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"💬"}{cmts.length}</span>}
             <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
           </div>
         </div>
@@ -371,10 +358,10 @@ export default function Stage({
             {/* Action bar */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
-              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 13, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"\uD83D\uDC80"} owned!</div>}
+              {claimAnim?.stage === name && <div style={{ position: "absolute", left: 70, top: 0, color: t.green, fontSize: 13, fontWeight: 900, fontFamily: "var(--font-dm-mono), monospace", animation: "flyup 1s ease-out forwards", opacity: 0, zIndex: 5 }}>{"💀"} owned!</div>}
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaim(name)} pulse={isTopClaim} />
+                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaimWithAnim(name)} pulse={isTopClaim} />
 
                 {claimedBy.filter(uid => uid !== currentUser).length > 0 && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -397,7 +384,7 @@ export default function Stage({
                   if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
                   shareStage(name, lines.join("\n"));
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {copied === name ? "\u2713 copied" : "\uD83D\uDCCB copy"}
+                  {copied === name ? "✓ copied" : "📋 copy"}
                 </button>
                 {archiveStage && (
                   <button onClick={() => archiveStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
@@ -414,7 +401,7 @@ export default function Stage({
             <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 about
-                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"\u270E"}</span>}
+                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"✎"}</span>}
                 {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 10, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
               </div>
               {editingDesc ? (
@@ -444,26 +431,14 @@ export default function Stage({
                     stageId={name}
                     pC={pC}
                     t={t}
-                    users={users}
-                    currentUser={currentUser}
-                    reactions={rxns}
-                    comments={comments}
-                    claims={claims}
-                    handleReact={handleReact}
-                    shareStage={shareStage}
-                    addComment={addComment}
-                    handleClaim={handleClaim}
-                    commentInput={commentInput}
-                    setCommentInput={setCommentInput}
-                    copied={copied}
                     onToggle={() => toggleSubtask(name, task.id)}
                     onRemove={() => removeSubtask(name, task.id)}
                   />
                 ))}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
+                  <input value={subtaskInputVal} onChange={e => setSubtaskInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addSubtask(name, subtaskInputVal, () => setSubtaskInputVal("")); } }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addSubtask(name, subtaskInputVal, () => setSubtaskInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
 
@@ -487,8 +462,8 @@ export default function Stage({
                   ); })}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"\u21B5"}</button>
+                  <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(name, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addComment(name, commentInputVal, () => setCommentInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"↵"}</button>
                 </div>
               </div>
             </div>
@@ -527,7 +502,7 @@ export default function Stage({
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8 }}>
                           {hasMock && (
                             <div style={{ gridColumn: "1 / -1", borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
-                              
+
                               <div style={{ transform: "scale(0.85)", transformOrigin: "top left", width: "117%" }}>
                                 <ErrorBoundary>
                                   {MockupComp && <MockupComp t={t} />}
@@ -569,7 +544,7 @@ export default function Stage({
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, position: "relative", overflow: "hidden" }}>
               {claimAnim?.stage === name && [...Array(16)].map((_, i) => (<div key={`conf-${i}`} style={{ position: "absolute", width: 4 + i % 3, height: 4 + i % 3, borderRadius: i % 2 === 0 ? "50%" : "1px", background: [me?.color || t.accent, t.green, t.amber, t.purple, t.cyan, "#ff69b4"][i % 6], left: "60px", top: "16px", animation: `confetti${i % 4} 0.8s ease-out forwards`, opacity: 0 }} />))}
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaim(name)} />
+                <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaimWithAnim(name)} />
               </div>
             </div>
 
@@ -592,26 +567,14 @@ export default function Stage({
                   stageId={name}
                   pC={pC}
                   t={t}
-                  users={users}
-                  currentUser={currentUser}
-                  reactions={rxns}
-                  comments={comments}
-                  claims={claims}
-                  handleReact={handleReact}
-                  shareStage={shareStage}
-                  addComment={addComment}
-                  handleClaim={handleClaim}
-                  commentInput={commentInput}
-                  setCommentInput={setCommentInput}
-                  copied={copied}
                   onToggle={() => !task.locked && toggleSubtask(name, task.id)}
                   onRemove={() => removeSubtask(name, task.id)}
                 />
               ))}
               </div>
               <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                <input value={subtaskInput[name] || ""} onChange={e => setSubtaskInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addSubtask(name); }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addSubtask(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
+                <input value={subtaskInputVal} onChange={e => setSubtaskInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addSubtask(name, subtaskInputVal, () => setSubtaskInputVal("")); } }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addSubtask(name, subtaskInputVal, () => setSubtaskInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>+</button>
               </div>
             </div>
 
@@ -633,15 +596,15 @@ export default function Stage({
                 ); })}
               </div>
               <div style={{ display: "flex", gap: 4 }}>
-                <input value={commentInput[name] || ""} onChange={e => setCommentInput(prev => ({ ...prev, [name]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(name); }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
-                <button onClick={() => addComment(name)} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
+                <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(name, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 44 }} />
+                <button onClick={() => addComment(name, commentInputVal, () => setCommentInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 12, padding: "12px 16px", cursor: "pointer", fontSize: 15, color: t.accent, fontWeight: 700, fontFamily: "inherit", minHeight: 44, minWidth: 44 }}>{"↵"}</button>
               </div>
             </div>
 
             {/* Mockup (if available) — lazy-loaded component */}
             {MockupComp && (
               <div style={{ padding: "0 16px 16px", borderTop: `1px solid ${t.border}` }}>
-                
+
                 <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid ${pC}33`, background: t.surface, padding: 12 }}>
                   <ErrorBoundary>
                     <MockupComp t={t} />

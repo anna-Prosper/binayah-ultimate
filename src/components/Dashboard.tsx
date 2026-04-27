@@ -109,8 +109,8 @@ function DashboardInner({
   toasts: ToastItem[];
   dismissToast: (id: number) => void;
 }) {
-  const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, addComment, addSubtask, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, t } = useModel();
-  const { reactOpen, setReactOpen, copied, setCopied } = useEphemeral();
+  const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, t } = useModel();
+  const { reactOpen, setReactOpen, copied, setCopied, setClaimAnim } = useEphemeral();
 
   // Navigation
   const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => {
@@ -130,13 +130,9 @@ function DashboardInner({
   const [showActivity, setShowActivity] = useState(false); const [showChat, setShowChat] = useState(false); const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "ai">("ai");
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
-  const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0)); const [showArchive, setShowArchive] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => { if (typeof window === "undefined" || !initialUserId) return false; return !localStorage.getItem(`binayah_welcomed_${initialUserId}`); });
-  const [subtaskInput, setSubtaskInput] = useState<Record<string, string>>({});
-  const [commentInput, setCommentInput] = useState<Record<string, string>>({});
-  const [showMockup, setShowMockup] = useState<Record<string, boolean>>({});
   const prevMyPtsRef = useRef(0); const prevApprovedRef = useRef<string[]>([]);
   const isMobile = useIsMobile(768);
 
@@ -209,12 +205,7 @@ function DashboardInner({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approvedStages]);
 
-  // shareStage / sharePipeline use both model state + ephemeral copied
-  const shareStage = useCallback((name: string, text: string) => {
-    navigator.clipboard?.writeText(text).catch(() => {});
-    setCopied(name); setTimeout(() => setCopied(null), 2000);
-  }, [setCopied]);
-
+  // sharePipeline uses model state + ephemeral copied
   const sharePipeline = useCallback((pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
     const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
     const owners = [...new Set(stageList.flatMap(s => claims[s] || []))].map(uid => users.find(u => u.id === uid)?.name).filter(Boolean);
@@ -225,17 +216,6 @@ function DashboardInner({
     navigator.clipboard?.writeText(lines.join("\n")).catch(() => {});
     setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000);
   }, [setCopied, getStatus, claims, users]);
-
-  // Comment/subtask wrappers
-  const addCommentWrapped = useCallback((sid: string) => {
-    const val = commentInput[sid]?.trim(); if (!val) return;
-    addComment(sid, val, () => setCommentInput(prev => ({ ...prev, [sid]: "" })));
-  }, [commentInput, addComment]);
-
-  const addSubtaskWrapped = useCallback((sid: string) => {
-    const val = subtaskInput[sid]?.trim(); if (!val) return;
-    addSubtask(sid, val, () => setSubtaskInput(prev => ({ ...prev, [sid]: "" })));
-  }, [subtaskInput, addSubtask]);
 
   // Claim with animation
   const handleClaimWithAnim = useCallback((sid: string) => {
@@ -297,7 +277,7 @@ function DashboardInner({
   }
   if (!me) return <div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>;
 
-  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, claimAnim, subtaskInput, setSubtaskInput, commentInput, setCommentInput, showMockup, setShowMockup, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, showToast, handleClaimWithAnim, shareStage, sharePipeline, addCommentWrapped, addSubtaskWrapped, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
+  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
 
   // Compose sidebar and header nodes for ChromeShell
   const sidebarNode = !isMobile ? (

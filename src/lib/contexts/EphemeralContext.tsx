@@ -8,6 +8,8 @@ interface EphemeralContextValue {
   copied: string | null; setCopied: (v: string | null) => void;
   hoverStage: string | null; setHoverStage: (v: string | null) => void;
   editModeStage: string | null; setEditModeStage: (v: string | null) => void;
+  claimAnim: { stage: string; pts: number } | null;
+  setClaimAnim: (v: { stage: string; pts: number } | null) => void;
 }
 
 const EphemeralContext = createContext<EphemeralContextValue | null>(null);
@@ -19,8 +21,9 @@ export function EphemeralProvider({ children }: { children: ReactNode }) {
   const [copied, setCopied] = useState<string | null>(null);
   const [hoverStage, setHoverStage] = useState<string | null>(null);
   const [editModeStage, setEditModeStage] = useState<string | null>(null);
+  const [claimAnim, setClaimAnim] = useState<{ stage: string; pts: number } | null>(null);
   return (
-    <EphemeralContext.Provider value={{ reactOpen, setReactOpen, commentOpen, setCommentOpen, assignOpen, setAssignOpen, copied, setCopied, hoverStage, setHoverStage, editModeStage, setEditModeStage }}>
+    <EphemeralContext.Provider value={{ reactOpen, setReactOpen, commentOpen, setCommentOpen, assignOpen, setAssignOpen, copied, setCopied, hoverStage, setHoverStage, editModeStage, setEditModeStage, claimAnim, setClaimAnim }}>
       {children}
     </EphemeralContext.Provider>
   );

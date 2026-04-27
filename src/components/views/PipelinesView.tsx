@@ -30,33 +30,21 @@ interface PipelinesViewProps {
   setSearchQ: (v: string) => void;
   statusFilter: string | null;
   setStatusFilter: (v: string | null) => void;
-  claimAnim: { stage: string; pts: number } | null;
-  subtaskInput: Record<string, string>;
-  setSubtaskInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  commentInput: Record<string, string>;
-  setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
-  showMockup: Record<string, boolean>;
-  setShowMockup: React.Dispatch<React.SetStateAction<Record<string, boolean>>>;
   isMobile: boolean;
   currentWorkspaceId: string;
   currentWorkspace: { name: string; icon: string } | null;
   isAdmin: boolean;
   showToast: (msg: string, color: string) => void;
   handleClaimWithAnim: (sid: string) => void;
-  shareStage: (name: string, text: string) => void;
   sharePipeline: (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => void;
-  addCommentWrapped: (sid: string) => void;
-  addSubtaskWrapped: (sid: string) => void;
   onPipelineClick: (pid: string) => void;
 }
 
 export default function PipelinesView({
   view, setView, expanded, setExpanded, expS, setExpS,
   searchQ, setSearchQ, statusFilter, setStatusFilter,
-  claimAnim, subtaskInput, setSubtaskInput, commentInput, setCommentInput,
-  showMockup, setShowMockup, isMobile, currentWorkspaceId, currentWorkspace,
-  isAdmin, showToast, handleClaimWithAnim, shareStage, sharePipeline,
-  addCommentWrapped, addSubtaskWrapped, onPipelineClick,
+  isMobile, currentWorkspaceId, currentWorkspace,
+  isAdmin, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick,
 }: PipelinesViewProps) {
   // Pipeline editing state — local to PipelinesView
   const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
@@ -67,17 +55,15 @@ export default function PipelinesView({
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   const {
     users, currentUser, me,
-    claims, reactions, comments, subtasks, assignments,
-    stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
-    subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
+    claims, reactions,
+    stageDescOverrides,
+    pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, allPipelinesGlobal,
-    archivedStages, stageImages,
-    liveNotifs, getStatus, getPoints, sc, ck, pr,
-    handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask,
-    archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
-    setStageStatusDirect, cycleStatus, approveStage,
+    getStatus, sc, ck, pr,
+    handleReact,
+    setStageDescOverride,
     addCustomStage, addCustomPipeline, cyclePriority,
-    addStageImage, removeStageImage, activityLog,
+    activityLog,
     t,
   } = useModel();
   const { reactOpen, setReactOpen, copied } = useEphemeral();
@@ -92,17 +78,6 @@ export default function PipelinesView({
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const addCustomStageLocal = (pid: string) => { const val = newStageInput[pid]?.trim(); if (!val) return; addCustomStage(pid, val); setNewStageInput(prev => ({ ...prev, [pid]: "" })); };
   const addCustomPipelineLocal = () => { if (!newPipeForm.name.trim()) return; const id = addCustomPipeline(newPipeForm); if (id) { setNewPipeForm({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" }); setAddingPipeline(false); setExpanded(prev => [...prev, id]); } };
-
-  const stageProps = {
-    t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users,
-    currentUser, me: me!, showMockup, setShowMockup, claimAnim,
-    handleClaim: handleClaimWithAnim, handleReact, cycleStatus, shareStage,
-    subtaskInput, setSubtaskInput, commentInput, setCommentInput,
-    addSubtask: addSubtaskWrapped, toggleSubtask, lockSubtask, removeSubtask,
-    addComment: addCommentWrapped,
-    stageDescOverrides, setStageDescOverride, setStageNameOverride, liveNotifs,
-    stageImages, addStageImage, removeStageImage, archiveStage,
-  };
 
   // Top claim stage
   const topClaimStageName = (() => {
@@ -255,7 +230,7 @@ export default function PipelinesView({
               {isO && (
                 <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                   <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>
-                    {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} isMobile={isMobile} isTopClaim={s === topClaimStageName} {...stageProps} /></div>)}
+                    {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} t={t} expS={expS} setExpS={setExpS} isMobile={isMobile} isTopClaim={s === topClaimStageName} /></div>)}
                   </div>
                   <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
                     <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStageLocal(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />

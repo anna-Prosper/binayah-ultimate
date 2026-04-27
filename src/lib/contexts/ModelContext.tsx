@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode,
+  createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, type ReactNode,
 } from "react";
 import { lsGet, lsSet } from "@/lib/storage";
 import {
@@ -730,6 +730,42 @@ export function ModelProvider({
   };
 
   return <ModelContext.Provider value={value}>{children}</ModelContext.Provider>;
+}
+
+// ── Memoized per-stage selectors ─────────────────────────────────────────────
+
+export function useStage(stageId: string) {
+  const { claims, reactions, comments, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, assignments } = useModel();
+  return useMemo(() => ({
+    claimers: claims[stageId] || [],
+    reactions: reactions[stageId] || {},
+    comments: comments[stageId] || [],
+    subtasks: subtasks[stageId] || [],
+    status: stageStatusOverrides?.[stageId],
+    desc: stageDescOverrides?.[stageId],
+    displayName: stageNameOverrides?.[stageId] || stageId,
+    assignedTo: assignments[stageId],
+  }), [claims, reactions, comments, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, assignments, stageId]);
+}
+
+export function usePipeline(pipelineId: string) {
+  const { customPipelines, pipeMetaOverrides, pipeDescOverrides, customStages } = useModel();
+  return useMemo(() => ({
+    nameOverride: pipeMetaOverrides[pipelineId]?.name,
+    descOverride: pipeDescOverrides[pipelineId],
+    priority: pipeMetaOverrides[pipelineId]?.priority,
+    customStages: customStages[pipelineId] || [],
+  }), [customPipelines, pipeMetaOverrides, pipeDescOverrides, customStages, pipelineId]);
+}
+
+export function useOwnership(stageId: string) {
+  const { claims, assignments, currentUser } = useModel();
+  return useMemo(() => ({
+    claimers: claims[stageId] || [],
+    isMine: currentUser ? (claims[stageId] || []).includes(currentUser) : false,
+    assignedTo: assignments[stageId] || null,
+    isAssignedToMe: currentUser ? assignments[stageId] === currentUser : false,
+  }), [claims, assignments, currentUser, stageId]);
 }
 
 export function useModel() {
