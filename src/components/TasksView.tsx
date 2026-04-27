@@ -107,24 +107,20 @@ export default function TasksView(props: Props) {
     if (stageId && getStatus(stageId) !== targetStatus) setStageStatus(stageId, targetStatus);
   };
 
-  const pillBtn = (active: boolean): React.CSSProperties => ({
-    flex: 1,
-    background: active ? t.bgCard : "transparent",
+  const flatBtn = (active: boolean): React.CSSProperties => ({
+    background: active ? t.accent + "18" : "transparent",
     border: "none",
-    borderRadius: 12,
-    padding: "8px 16px",
+    borderRadius: 8,
+    padding: "4px 10px",
     cursor: "pointer",
     fontSize: 11,
     fontWeight: active ? 700 : 500,
-    color: active ? t.text : t.textMuted,
+    color: active ? t.accent : t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace",
-    letterSpacing: 0.3,
-    boxShadow: active ? "0 1px 4px rgba(0,0,0,0.13), 0 0 0 1px rgba(0,0,0,0.04)" : "none",
-    transition: "all 0.18s ease",
+    transition: "all 0.15s",
     whiteSpace: "nowrap" as const,
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
     gap: 4,
   });
 
@@ -151,33 +147,17 @@ export default function TasksView(props: Props) {
             </span>
           )}
         </div>
-        {/* Right-side controls: one unified card, two segmented rows */}
-        <div style={{
-          background: t.bgSoft,
-          border: `1px solid ${t.border}`,
-          borderRadius: 16,
-          overflow: "hidden",
-          boxShadow: `0 1px 3px rgba(0,0,0,0.06)`,
-          minWidth: 200,
-        }}>
+        {/* Flat inline controls */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {showMyAllFilter && (
-            <div style={{ display: "flex", padding: "4px 4px", borderBottom: `1px solid ${t.border}` }}>
-              <button style={pillBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>
-                <span>🐱</span><span>mine</span>
-              </button>
-              <button style={pillBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>
-                <span>🌍</span><span>all</span>
-              </button>
-            </div>
+            <>
+              <button style={flatBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 mine</button>
+              <button style={flatBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all</button>
+              <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
+            </>
           )}
-          <div style={{ display: "flex", padding: "4px 4px" }}>
-            <button style={pillBtn(view === "kanban")} onClick={() => setView("kanban")}>
-              <span>⊞</span><span>kanban</span>
-            </button>
-            <button style={pillBtn(view === "list")} onClick={() => setView("list")}>
-              <span>≡</span><span>list</span>
-            </button>
-          </div>
+          <button style={flatBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
+          <button style={flatBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
         </div>
       </div>
 
