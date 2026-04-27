@@ -36,8 +36,8 @@ interface Props {
   onManageCurrentWorkspace: () => void;
 }
 
-const NAV_ITEMS: { id: NavItem; label: string }[] = [
-  { id: "home",      label: "home"      },
+// Home is rendered separately at the top
+const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "pipelines", label: "pipelines" },
   { id: "documents", label: "documents" },
   { id: "activity",  label: "activity"  },
@@ -70,6 +70,51 @@ export default function LeftSidebar({
   const [wsOpen, setWsOpen] = useState(false);
   const current = workspaces.find(w => w.id === currentWorkspaceId);
 
+  const renderNavItem = (item: { id: NavItem; label: string }) => {
+    const isActive = activeNav === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onNavChange(item.id)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "8px 12px",
+          marginLeft: isActive ? 4 : 0,
+          paddingLeft: isActive ? 8 : 12,
+          background: isActive ? t.accent + "22" : "transparent",
+          border: "none",
+          borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
+          cursor: "pointer",
+          color: isActive ? t.accent : t.textMuted,
+          fontSize: 13,
+          fontWeight: isActive ? 700 : 500,
+          fontFamily: "var(--font-dm-mono, monospace)",
+          letterSpacing: 0.5,
+          textAlign: "left",
+          transition: "all 0.15s",
+          borderRadius: 6,
+        }}
+        onMouseEnter={e => {
+          if (!isActive) {
+            (e.currentTarget as HTMLElement).style.color = t.text;
+            (e.currentTarget as HTMLElement).style.background = t.bgHover;
+          }
+        }}
+        onMouseLeave={e => {
+          if (!isActive) {
+            (e.currentTarget as HTMLElement).style.color = t.textMuted;
+            (e.currentTarget as HTMLElement).style.background = "transparent";
+          }
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center" }}>{NAV_ICONS[item.id]}</span>
+        <span>{item.label}</span>
+      </button>
+    );
+  };
+
   return (
     <div style={{
       width: 220,
@@ -81,6 +126,11 @@ export default function LeftSidebar({
       flexDirection: "column",
       overflow: "hidden",
     }}>
+      {/* Home nav — workspace-independent */}
+      <nav style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
+        {renderNavItem({ id: "home", label: "home" })}
+      </nav>
+
       {/* Workspace switcher */}
       <div style={{ padding: "8px 8px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
         <button
@@ -127,52 +177,9 @@ export default function LeftSidebar({
         )}
       </div>
 
-      {/* Nav items */}
+      {/* Workspace-scoped nav items */}
       <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
-        {NAV_ITEMS.map(item => {
-          const isActive = activeNav === item.id;
-          return (
-            <button
-              key={item.id}
-              onClick={() => onNavChange(item.id)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "8px 12px",
-                marginLeft: isActive ? 4 : 0,
-                paddingLeft: isActive ? 8 : 12,
-                background: isActive ? t.accent + "22" : "transparent",
-                border: "none",
-                borderLeft: isActive ? `3px solid ${t.accent}` : "3px solid transparent",
-                cursor: "pointer",
-                color: isActive ? t.accent : t.textMuted,
-                fontSize: 13,
-                fontWeight: isActive ? 700 : 500,
-                fontFamily: "var(--font-dm-mono, monospace)",
-                letterSpacing: 0.5,
-                textAlign: "left",
-                transition: "all 0.15s",
-                borderRadius: 6,
-              }}
-              onMouseEnter={e => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLElement).style.color = t.text;
-                  (e.currentTarget as HTMLElement).style.background = t.bgHover;
-                }
-              }}
-              onMouseLeave={e => {
-                if (!isActive) {
-                  (e.currentTarget as HTMLElement).style.color = t.textMuted;
-                  (e.currentTarget as HTMLElement).style.background = "transparent";
-                }
-              }}
-            >
-              <span style={{ display: "flex", alignItems: "center" }}>{NAV_ICONS[item.id]}</span>
-              <span>{item.label}</span>
-            </button>
-          );
-        })}
+        {WORKSPACE_NAV_ITEMS.map(item => renderNavItem(item))}
       </nav>
 
       {/* Pipeline sub-list — only when Pipelines is active */}
