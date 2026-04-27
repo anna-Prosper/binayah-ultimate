@@ -55,6 +55,7 @@ interface Props {
 
 // Columns in the now-tab kanban — these map 1:1 to stage statuses
 const COLS = [
+  { status: "concept",     label: "concept",     colorKey: "slate" },
   { status: "planned",     label: "planned",     colorKey: "cyan"  },
   { status: "in-progress", label: "in progress", colorKey: "amber" },
   { status: "active",      label: "done",        colorKey: "green" },
@@ -85,7 +86,7 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => getStatus(s) !== "concept" && !(archivedStages || []).includes(s))
+      .filter(s => !(archivedStages || []).includes(s))
       .map(s => ({
         stageId: s,
         displayName: stageNameOverrides?.[s] || s,

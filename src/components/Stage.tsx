@@ -223,6 +223,8 @@ export default function Stage({
         // On mobile, tapping opens a BottomSheet instead of inline-expanding
         const handleCardClick = (e: React.MouseEvent) => {
           e.stopPropagation();
+          // In edit mode, clicks within the card should not expand/collapse
+          if (stageEditMode) return;
           if (isMobile) {
             setMobileSheetOpen(true);
           } else {
@@ -237,7 +239,21 @@ export default function Stage({
           {/* Line 1: chevron + name + status */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0, flex: 1, width: "100%" }}>
             <Chev open={isMobile ? mobileSheetOpen : isE} color={pC} />
-            <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1, border: stageEditMode ? `2px dashed ${pC}55` : "none", borderRadius: stageEditMode ? 4 : 0, padding: stageEditMode ? "0 4px" : 0, background: stageEditMode ? pC + "08" : "transparent" }}>{name}</span>
+            {stageEditMode ? (
+              <input
+                autoFocus
+                defaultValue={name}
+                onClick={e => e.stopPropagation()}
+                onBlur={e => {
+                  const val = e.target.value.trim();
+                  if (val && val !== name) setStageDescOverride(name, e.target.value);
+                }}
+                onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") { e.stopPropagation(); setStageEditMode(false); } }}
+                style={{ fontSize: 13, fontWeight: 700, color: t.text, flex: 1, background: pC + "08", border: `2px dashed ${pC}55`, borderRadius: 6, padding: "0 4px", outline: "none", fontFamily: "inherit" }}
+              />
+            ) : (
+              <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
+            )}
             <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 10, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: isLocked ? "not-allowed" : "pointer", opacity: isLocked ? 0.6 : 1 }} title={isLocked ? "Pipeline is locked" : "Click to cycle status"}>{st.l}</span>
           </div>
 
