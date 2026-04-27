@@ -136,8 +136,8 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
             borderBottom: `1px solid ${t.border}`,
           }}>
             <span style={{
-              fontSize: 11, fontWeight: 700, color: t.textMuted,
-              fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 1,
+              fontSize: 13, fontWeight: 700, color: t.textMuted,
+              fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5,
             }}>
               {title}
             </span>
@@ -146,7 +146,7 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
               style={{
                 background: "transparent", border: `1px solid ${t.border}`,
                 borderRadius: 8, padding: "4px 8px", cursor: "pointer",
-                fontSize: 11, color: t.textMuted, fontFamily: "inherit",
+                fontSize: 13, color: t.textMuted, fontFamily: "inherit",
                 minWidth: 44, minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center",
               }}
               aria-label="Close"

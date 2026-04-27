@@ -94,10 +94,10 @@ function SectionHeader({ label, t }: { label: string; t: T }) {
   return (
     <div style={{
       padding: "4px 12px 4px",
-      fontSize: 9,
+      fontSize: 11,
       fontWeight: 700,
       color: t.textMuted,
-      letterSpacing: 2,
+      letterSpacing: 0.5,
       textTransform: "uppercase" as const,
       fontFamily: "var(--font-geist-mono, monospace)",
       borderBottom: `1px solid ${t.border}`,
@@ -146,16 +146,16 @@ function ResultRow({
         onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
       >
-        <span style={{ fontSize: 14, flexShrink: 0 }}>{result.pipelineIcon}</span>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>{result.pipelineIcon}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
             {highlight(result.stageName, query, t.accent)}
           </div>
-          <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+          <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
             {result.pipelineName}
           </div>
         </div>
-        <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>stage</span>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>stage</span>
       </div>
     );
   }
@@ -166,18 +166,18 @@ function ResultRow({
         onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
         onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
       >
-        <span style={{ fontSize: 14, flexShrink: 0 }}>📄</span>
+        <span style={{ fontSize: 15, flexShrink: 0 }}>📄</span>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
             {highlight(result.title || "untitled", query, t.accent)}
           </div>
           {result.snippet && (
-            <div style={{ fontSize: 9, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 11, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
               {highlight(result.snippet, query, t.accent)}
             </div>
           )}
         </div>
-        <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>doc</span>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>doc</span>
       </div>
     );
   }
@@ -190,14 +190,14 @@ function ResultRow({
     >
       <AvatarC user={result.user} size={26} />
       <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 12, fontWeight: 600, color: t.text }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
           {highlight(result.user.name, query, t.accent)}
         </div>
-        <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
           {highlight(result.user.role, query, t.accent)}
         </div>
       </div>
-      <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
+      <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
     </div>
   );
 }
@@ -423,7 +423,7 @@ export default function SearchPalette({
             padding: "12px 16px",
             borderBottom: `1px solid ${t.border}`,
           }}>
-            <span style={{ fontSize: 14, color: t.textMuted, flexShrink: 0 }}>⌘</span>
+            <span style={{ fontSize: 15, color: t.textMuted, flexShrink: 0 }}>⌘</span>
             <input
               ref={inputRef}
               value={query}
@@ -443,10 +443,10 @@ export default function SearchPalette({
               } as React.CSSProperties}
             />
             <span style={{
-              fontSize: 8,
+              fontSize: 10,
               color: t.textDim,
               fontFamily: "var(--font-geist-mono, monospace)",
-              letterSpacing: 1,
+              letterSpacing: 0.5,
               border: `1px solid ${t.border}`,
               borderRadius: 8,
               padding: "0 4px",
@@ -485,7 +485,7 @@ export default function SearchPalette({
                   );
                 })
               ) : (
-                <div style={{ padding: "8px 12px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                <div style={{ padding: "8px 12px", fontSize: 13, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                   {docsWithContent === null ? "// loading..." : "// no matching documents"}
                 </div>
               )}
@@ -506,7 +506,7 @@ export default function SearchPalette({
 
             {/* Empty state */}
             {!docsLoading && !hasAnyResults && query.trim() !== "" && (
-              <div style={{ padding: "24px 12px", textAlign: "center" as const, fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+              <div style={{ padding: "24px 12px", textAlign: "center" as const, fontSize: 13, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                 // nothing found — try a different query
               </div>
             )}
@@ -520,12 +520,12 @@ export default function SearchPalette({
               alignItems: "center",
             }}>
               {[["↑↓", "navigate"], ["↵", "open"], ["esc", "close"]].map(([k, label]) => (
-                <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
-                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", fontSize: 9 }}>{k}</span>
+                <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", fontSize: 11 }}>{k}</span>
                   {label}
                 </span>
               ))}
-              <span style={{ marginLeft: "auto", fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+              <span style={{ marginLeft: "auto", fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                 {flatResults.length} result{flatResults.length !== 1 ? "s" : ""}
               </span>
             </div>

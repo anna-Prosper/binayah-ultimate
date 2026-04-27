@@ -54,7 +54,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             minHeight: 120,
           }}
         >
-          <span style={{ fontSize: 11, fontFamily: "var(--font-dm-mono), monospace", color: "#888" }}>
+          <span style={{ fontSize: 13, fontFamily: "var(--font-dm-mono), monospace", color: "#888" }}>
             // failed to load panel — refresh to retry
           </span>
           <button
@@ -65,7 +65,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
               borderRadius: 8,
               padding: "4px 16px",
               cursor: "pointer",
-              fontSize: 10,
+              fontSize: 13,
               color: "#aaa",
               fontFamily: "var(--font-dm-mono), monospace",
             }}

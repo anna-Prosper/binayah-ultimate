@@ -197,7 +197,7 @@ export default function LoginClient() {
         justifyContent: "center",
         fontFamily: "var(--font-dm-mono), monospace",
       }}>
-        <span style={{ color: t.textDim, fontSize: 13 }}>signed in — redirecting…</span>
+        <span style={{ color: t.textDim, fontSize: 15 }}>signed in — redirecting…</span>
       </div>
     );
   }
@@ -276,7 +276,7 @@ export default function LoginClient() {
       <div
         style={{
           marginTop: 12,
-          fontSize: 12,
+          fontSize: 13,
           fontFamily: "var(--font-dm-mono), monospace",
           animation: "errIn 0.15s ease",
           lineHeight: 1.5,
@@ -371,7 +371,7 @@ export default function LoginClient() {
             <div
               style={{
                 fontFamily: "var(--font-dm-mono), monospace",
-                fontSize: 12,
+                fontSize: 13,
                 color: t.textDim,
                 fontStyle: "italic",
               }}
@@ -400,7 +400,7 @@ export default function LoginClient() {
               gap: 8,
               fontFamily: "var(--font-dm-sans), sans-serif",
               fontWeight: 600,
-              fontSize: 14,
+              fontSize: 15,
               cursor: isInFlight ? "not-allowed" : "pointer",
               opacity: isInFlight && authState !== "loading_google" ? 0.5 : 1,
               boxShadow: `0 0 24px ${t.accent}33`,
@@ -426,7 +426,7 @@ export default function LoginClient() {
             <span
               style={{
                 fontFamily: "var(--font-dm-mono), monospace",
-                fontSize: 11,
+                fontSize: 13,
                 color: t.textDim,
                 padding: "0 8px",
                 background: t.bg,
@@ -455,7 +455,7 @@ export default function LoginClient() {
                 gap: 8,
                 cursor: isInFlight ? "not-allowed" : "pointer",
                 fontFamily: "var(--font-dm-mono), monospace",
-                fontSize: 13,
+                fontSize: 15,
                 color: t.textSec,
                 transition: "border-color 0.15s, color 0.15s",
                 opacity: isInFlight ? 0.5 : 1,
@@ -493,7 +493,7 @@ export default function LoginClient() {
                   border: `1px solid ${t.border}`,
                   borderRadius: 8,
                   padding: "0 12px",
-                  fontSize: 13,
+                  fontSize: 15,
                   fontFamily: "var(--font-dm-sans), sans-serif",
                   color: t.text,
                   transition: "border-color 0.15s, box-shadow 0.15s",
@@ -520,7 +520,7 @@ export default function LoginClient() {
                   border: `1px solid ${t.border}`,
                   borderRadius: 8,
                   padding: "0 12px",
-                  fontSize: 13,
+                  fontSize: 15,
                   fontFamily: "var(--font-dm-sans), sans-serif",
                   color: t.text,
                   transition: "border-color 0.15s, box-shadow 0.15s",
@@ -546,7 +546,7 @@ export default function LoginClient() {
                     border: `1px solid ${t.border}`,
                     borderRadius: 8,
                     padding: "0 12px",
-                    fontSize: 13,
+                    fontSize: 15,
                     fontFamily: "var(--font-dm-sans), sans-serif",
                     color: t.text,
                     transition: "border-color 0.15s, box-shadow 0.15s",
@@ -578,7 +578,7 @@ export default function LoginClient() {
                     padding: 0,
                     cursor: isInFlight ? "not-allowed" : "pointer",
                     fontFamily: "var(--font-dm-mono), monospace",
-                    fontSize: 11,
+                    fontSize: 13,
                     color: t.textSec,
                     transition: "color 0.15s",
                     flexShrink: 0,
@@ -600,7 +600,7 @@ export default function LoginClient() {
                     borderRadius: 8,
                     fontFamily: "var(--font-dm-sans), sans-serif",
                     fontWeight: 600,
-                    fontSize: 13,
+                    fontSize: 15,
                     cursor: (isInFlight || !email.trim() || !password.trim()) ? "not-allowed" : "pointer",
                     opacity: (isInFlight || !email.trim() || !password.trim()) ? 0.5 : 1,
                     display: "flex",
@@ -638,7 +638,7 @@ export default function LoginClient() {
             bottom: 24,
             left: 24,
             fontFamily: "var(--font-dm-mono), monospace",
-            fontSize: 10,
+            fontSize: 13,
             color: t.textDim,
             zIndex: 1,
             pointerEvents: "none",

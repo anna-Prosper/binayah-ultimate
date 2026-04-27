@@ -113,7 +113,7 @@ export function AvatarPicker({
             onClick={() => setTab(tb)}
             style={{
               flex: 1, padding: "8px 0", borderRadius: 12, border: "none", cursor: "pointer",
-              fontFamily: "var(--font-dm-sans), sans-serif", fontSize: 12, fontWeight: 700,
+              fontFamily: "var(--font-dm-sans), sans-serif", fontSize: 13, fontWeight: 700,
               background: tab === tb ? t.bgCard : "transparent",
               color: tab === tb ? user.color : t.textMuted,
               boxShadow: tab === tb ? `0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px ${user.color}22` : "none",
@@ -196,7 +196,7 @@ export function AvatarPicker({
               style={{
                 width: "100%", boxSizing: "border-box",
                 background: t.surface, border: `1.5px solid ${t.border}`, borderRadius: 12,
-                padding: "12px 48px 12px 12px", color: t.text, fontSize: 13,
+                padding: "12px 48px 12px 12px", color: t.text, fontSize: 15,
                 fontFamily: "var(--font-dm-mono), monospace", outline: "none",
                 transition: "border-color 0.2s",
               }}
@@ -210,7 +210,7 @@ export function AvatarPicker({
                 position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
                 background: `linear-gradient(135deg,${user.color},${user.color}bb)`,
                 border: "none", borderRadius: 8, width: 36, height: 30,
-                color: "#fff", fontSize: 14, cursor: aiLoading || !aiPrompt.trim() ? "not-allowed" : "pointer",
+                color: "#fff", fontSize: 15, cursor: aiLoading || !aiPrompt.trim() ? "not-allowed" : "pointer",
                 opacity: aiLoading || !aiPrompt.trim() ? 0.5 : 1, transition: "opacity 0.2s",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
@@ -229,7 +229,7 @@ export function AvatarPicker({
                 onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }}
                 style={{
                   background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16,
-                  padding: "4px 8px", fontSize: 9, color: t.textMuted, cursor: "pointer",
+                  padding: "4px 8px", fontSize: 11, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
@@ -251,14 +251,14 @@ export function AvatarPicker({
                 background: `linear-gradient(90deg, ${t.surface} 25%, ${t.border} 50%, ${t.surface} 75%)`,
                 backgroundSize: "200% 100%", animation: "ap-shimmer 1.4s ease-in-out infinite",
               }} />
-              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 8 }}>
+              <div style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 8 }}>
                 // generating your vibe...
               </div>
             </div>
           )}
 
           {aiError && (
-            <div style={{ color: "#ff5f5f", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>
+            <div style={{ color: "#ff5f5f", fontSize: 13, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>
               ⚠ {aiError}
             </div>
           )}
@@ -279,7 +279,7 @@ export function AvatarPicker({
                   position: "absolute", top: 6, right: 6, width: 20, height: 20,
                   borderRadius: "50%", background: user.color,
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: 11, boxShadow: `0 0 8px ${user.color}`,
+                  fontSize: 13, boxShadow: `0 0 8px ${user.color}`,
                 }}>✓</div>
               </div>
               <button
@@ -287,7 +287,7 @@ export function AvatarPicker({
                 style={{
                   display: "block", margin: "8px auto 0", background: "transparent",
                   border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 12px",
-                  fontSize: 9, color: t.textMuted, cursor: "pointer",
+                  fontSize: 11, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace",
                 }}
               >↺ regenerate</button>
@@ -295,7 +295,7 @@ export function AvatarPicker({
           )}
 
           {!aiImage && !aiLoading && !aiError && (
-            <div style={{ padding: "20px 0", color: t.textDim, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <div style={{ padding: "20px 0", color: t.textDim, fontSize: 13, fontFamily: "var(--font-dm-mono), monospace" }}>
               // type a vibe above and hit enter
             </div>
           )}

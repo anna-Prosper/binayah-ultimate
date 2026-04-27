@@ -221,18 +221,18 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         ) : (
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.amber, boxShadow: `0 0 6px ${t.amber}88` }} />
         )}
-        <span style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
+        <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
           {tab === "team" ? "team chat" : "binayah ai"}
         </span>
         {/* M-2: Only show "reconnecting" after we've had a successful connection before; otherwise it's just "connecting" */}
         {tab === "team" && !sseConnected && sseHasConnected && (
-          <span style={{ fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
+          <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
             // reconnecting...
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
           {(["team", "ai"] as const).map(v => (
-            <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 8, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
               {v === "team" ? "👥 team" : "🤖 ai"}
             </button>
           ))}
@@ -246,7 +246,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             {messages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
-                <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no messages yet — break the silence</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no messages yet — break the silence</span>
               </div>
             )}
             {messages.map(msg => {
@@ -256,11 +256,11 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 <div key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", animation: "msgFadeIn 0.15s ease" }}>
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
-                    {!isMe && <div style={{ fontSize: 7, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
-                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 11, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+                    {!isMe && <div style={{ fontSize: 10, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
+                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 13, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
                       {renderMentions(msg.text, users, t.text)}
                     </div>
-                    <div style={{ fontSize: 7, color: t.textDim, marginTop: 4, textAlign: isMe ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
+                    <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, textAlign: isMe ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
                   </div>
                 </div>
               );
@@ -276,11 +276,11 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                     key={u.id}
                     onClick={() => insertMention(u.id)}
                     onMouseEnter={() => setMentionState(s => ({ ...s, selectedIdx: idx }))}
-                    style={{ width: "100%", background: idx === mentionState.selectedIdx ? u.color + "22" : "transparent", border: "none", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, textAlign: "left", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}
+                    style={{ width: "100%", background: idx === mentionState.selectedIdx ? u.color + "22" : "transparent", border: "none", padding: "8px 12px", cursor: "pointer", display: "flex", alignItems: "center", gap: 8, textAlign: "left", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 13 }}
                   >
                     <AvatarC user={u} size={20} />
                     <span style={{ color: u.color, fontWeight: 700 }}>@{u.id}</span>
-                    <span style={{ color: t.textDim, fontSize: 9 }}>{u.name} · {u.role}</span>
+                    <span style={{ color: t.textDim, fontSize: 11 }}>{u.name} · {u.role}</span>
                   </button>
                 ))}
               </div>
@@ -318,7 +318,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   borderRadius: 12,
                   padding: mobileMode ? "12px" : "8px 12px",
                   minHeight: mobileMode ? 44 : undefined,
-                  fontSize: 10,
+                  fontSize: 13,
                   color: t.text,
                   fontFamily: "inherit",
                   outline: "none",
@@ -335,7 +335,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   minHeight: mobileMode ? 44 : undefined,
                   minWidth: mobileMode ? 44 : undefined,
                   cursor: canSend ? "pointer" : "not-allowed",
-                  fontSize: 13,
+                  fontSize: 15,
                   color: canSend ? "#fff" : t.textMuted,
                   fontWeight: 700,
                   display: "flex",
@@ -347,7 +347,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               >↵</button>
             </div>
             {isInputTooLong && (
-              <div style={{ fontSize: 8, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+              <div style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
                 // {inputCharCount}/{MAX_MSG_LEN} — message too long
               </div>
             )}
@@ -362,7 +362,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             {aiMessages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 28 }}>🤖</span>
-                <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>binayah ai · powered by gpt-4o-mini<br />ask anything about the pipeline</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>binayah ai · powered by gpt-4o-mini<br />ask anything about the pipeline</span>
               </div>
             )}
             {aiMessages.map((msg, i) => {
@@ -370,16 +370,16 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               return (
                 <div key={i} style={{ display: "flex", gap: 8, flexDirection: isUser ? "row-reverse" : "row", alignItems: "flex-end" }}>
                   {!isUser && (
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>🤖</div>
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🤖</div>
                   )}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
-                    {!isUser && <div style={{ fontSize: 7, color: msg.error ? t.red : t.accent, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
+                    {!isUser && <div style={{ fontSize: 10, color: msg.error ? t.red : t.accent, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
                     <div style={{
                       background: isUser ? t.accent + "22" : msg.error ? t.red + "12" : t.surface,
                       border: `1px solid ${isUser ? t.accent + "44" : msg.error ? t.red + "33" : t.border}`,
                       borderRadius: isUser ? "14px 14px 4px 14px" : "14px 14px 14px 4px",
                       padding: "8px 12px",
-                      fontSize: 11,
+                      fontSize: 13,
                       color: msg.error ? t.red : t.text,
                       lineHeight: 1.6,
                       whiteSpace: "pre-wrap",
@@ -387,14 +387,14 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                     }}>
                       {msg.content}
                     </div>
-                    <div style={{ fontSize: 7, color: t.textDim, marginTop: 4, textAlign: isUser ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
+                    <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, textAlign: isUser ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
                   </div>
                 </div>
               );
             })}
             {aiLoading && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, flexShrink: 0 }}>🤖</div>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🤖</div>
                 <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: "14px 14px 14px 4px", padding: "8px 12px", display: "flex", gap: 4, alignItems: "center" }}>
                   {[0, 1, 2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: t.accent, animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }} />)}
                 </div>
@@ -404,7 +404,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
           </div>
           <div style={{ padding: "8px 16px", borderTop: `1px solid ${t.border}` }}>
             {aiInputError && (
-              <div style={{ fontSize: 8, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 4 }}>
+              <div style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 4 }}>
                 {aiInputError}
               </div>
             )}
@@ -415,7 +415,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAi(); } }}
                 placeholder="ask binayah ai..."
                 disabled={aiLoading}
-                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", fontSize: 10, color: t.text, fontFamily: "inherit", outline: "none" }}
+                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none" }}
               />
               <button
                 onClick={sendAi}
@@ -426,7 +426,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   borderRadius: 12,
                   padding: "8px 16px",
                   cursor: (aiLoading || !aiInput.trim()) ? "not-allowed" : "pointer",
-                  fontSize: 11,
+                  fontSize: 13,
                   color: "#fff",
                   fontWeight: 700,
                   display: "flex",

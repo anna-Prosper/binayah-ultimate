@@ -36,10 +36,10 @@ export function TimezoneDrips({ t }: { t: T }) {
       {[{tz:"🇷🇺 Moscow",local:"9:00 AM",s:"✓ Sent",c:t.green},{tz:"🇮🇳 Mumbai",local:"10:30 AM",s:"Queued",c:t.amber},{tz:"🇨🇳 Beijing",local:"8:00 AM",s:"Tomorrow",c:t.accent},{tz:"🇹🇷 Istanbul",local:"12:00 PM",s:"Queued",c:t.amber}].map((x,i)=>(
         <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"4px 0",borderBottom:`1px solid ${t.border}22`}}>
           <div>
-            <span style={{fontSize:6.5,color:t.text}}>{x.tz}</span>
+            <span style={{fontSize:10.5,color:t.text}}>{x.tz}</span>
             <span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.local}</span>
           </div>
-          <span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.s}</span>
+          <span style={{fontSize:10,color:x.c,fontWeight:700}}>{x.s}</span>
         </div>
       ))}
     </Browser>
@@ -56,8 +56,8 @@ export function WACompliance({ t }: { t: T }) {
       </div>
       {[{n:"Marketing template",s:"Approved",c:t.green},{n:"Follow-up sequence",s:"Approved",c:t.green},{n:"Bulk broadcast",s:"Under review",c:t.amber},{n:"Monthly report",s:"Draft",c:t.textDim}].map((x,i)=>(
         <div key={i} style={{display:"flex",justifyContent:"space-between",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}>
-          <span style={{fontSize:6.5,color:t.text}}>{x.n}</span>
-          <span style={{fontSize:6,color:x.c,fontWeight:600}}>{x.s}</span>
+          <span style={{fontSize:10.5,color:t.text}}>{x.n}</span>
+          <span style={{fontSize:10,color:x.c,fontWeight:600}}>{x.s}</span>
         </div>
       ))}
     </Browser>

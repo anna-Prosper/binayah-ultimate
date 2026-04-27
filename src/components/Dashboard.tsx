@@ -1013,7 +1013,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
     return (
       <div style={{ background: t.bg, minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 16 }}>
         <div style={{ width: 40, height: 40, borderRadius: "50%", border: `3px solid ${t.border}`, borderTopColor: t.accent, animation: "spin 0.8s linear infinite" }} />
-        <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 2 }}>LOADING</span>
+        <span style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>LOADING</span>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
       </div>
     );
@@ -1022,13 +1022,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
   // WelcomeModal is rendered OVER the dashboard (not instead of it) — rendered below in JSX
 
   const me = users.find((u: typeof USERS_DEFAULT[number]) => u.id === currentUser);
-  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
+  if (!me) return (<div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>);
 
   const stageProps = { t, expS, setExpS, getStatus, sc, claims, reactions, subtasks, comments, users, currentUser, me, reactOpen, setReactOpen, showMockup, setShowMockup, copied, claimAnim, handleClaim, handleReact, cycleStatus, shareStage, subtaskInput, setSubtaskInput, commentInput, setCommentInput, addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment, stageDescOverrides, setStageDescOverride, liveNotifs, stageImages, addStageImage, removeStageImage };
   const unseen = activityLog.length - lastSeenActivity;
 
   // Shared button style for all header buttons — ensures uniform height
-  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 9, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
+  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
 
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", display: "flex", flexDirection: "row" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setPipeMenuOpen(null); }}>
@@ -1125,13 +1125,13 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           <div style={{ display: "flex", flexDirection: "column", justifyContent: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
               <div style={{ width: 8, height: 8, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red, boxShadow: `0 0 10px ${syncStatus === "live" ? t.green : syncStatus === "connecting" ? t.amber : t.red}66`, transition: "all 0.3s" }} title={`sync: ${syncStatus}`} />
-              <span style={{ fontSize: 9, letterSpacing: 3, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines {"\u00B7"} {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
+              <span style={{ fontSize: 11, letterSpacing: 0.5, color: t.textMuted, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines {"\u00B7"} {total} stages{syncStatus === "offline" ? " \u00B7 offline" : ""}</span>
             </div>
             <div style={{ fontSize: 28, fontWeight: 900, color: t.text, letterSpacing: -0.5 }}>{t.icon} {t.name}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 0 }}>
-              <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{t.sub}</div>
+              <div style={{ fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{t.sub}</div>
               {syncStatus === "offline" && (
-                <span style={{ fontSize: 8, color: t.amber, background: t.amber + "18", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "0 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>
+                <span style={{ fontSize: 10, color: t.amber, background: t.amber + "18", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "0 8px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                   // offline — changes saved locally
                 </span>
               )}
@@ -1149,14 +1149,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               >
                 <AvatarC user={me} size={28} />
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: t.text }}>{me.name}</div>
-                  <div style={{ fontSize: 9, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div>
+                  <div style={{ fontSize: 11, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
                 </div>
               </div>
             )}
 
             {/* Chat */}
-            <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Team chat" aria-label="Open team chat">
+            <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat" aria-label="Open team chat">
               {"\uD83D\uDCAC"}
               {chatNotif && activeNavItem !== "chat" && (
                 <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />
@@ -1164,14 +1164,14 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             </button>
 
             {/* Activity bell */}
-            <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }} title="Notifications" aria-label="View notifications">
+            <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications" aria-label="View notifications">
               {"\uD83D\uDD14"}
-              {unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 7, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
+              {unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
             </button>
 
             {/* Documents — mobile only (desktop uses sidebar) */}
             {isMobile && (
-              <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 14 }} title="Documents" aria-label="View documents">
+              <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents" aria-label="View documents">
                 {"📄"}
               </button>
             )}
@@ -1189,22 +1189,22 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
             {/* Theme picker */}
             <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
               <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Change theme" aria-label="Change theme">
-                {t.icon} <span style={{ fontSize: 8 }}>{"\u25BE"}</span>
+                {t.icon} <span style={{ fontSize: 10 }}>{"\u25BE"}</span>
               </button>
               {showThemePicker && (
                 <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 8, zIndex: 200, width: "min(220px, calc(100vw - 32px))", boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>
                   {THEME_OPTIONS.map(opt => (
-                    <div key={opt.id} onClick={() => { setThemeId(opt.id); setShowThemePicker(false); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", borderRadius: 12, cursor: "pointer", background: themeId === opt.id ? opt.color + "18" : "transparent", border: `1px solid ${themeId === opt.id ? opt.color + "44" : "transparent"}`, marginBottom: 0, transition: "all 0.15s" }}>
+                    <div key={opt.id} onClick={() => { setThemeId(opt.id); setShowThemePicker(false); }} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", borderRadius: 12, cursor: "pointer", background: themeId === opt.id ? opt.color + "18" : "transparent", border: "none", marginBottom: 0, transition: "all 0.15s" }}>
                       <span style={{ fontSize: 20 }}>{opt.icon}</span>
                       <div>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: themeId === opt.id ? opt.color : t.text }}>{opt.name}</div>
-                        <div style={{ fontSize: 8, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: themeId === opt.id ? opt.color : t.text }}>{opt.name}</div>
+                        <div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div>
                       </div>
-                      {themeId === opt.id && <span style={{ marginLeft: "auto", fontSize: 10, color: opt.color }}>{"\u2713"}</span>}
+                      {themeId === opt.id && <span style={{ marginLeft: "auto", fontSize: 13, color: opt.color }}>{"\u2713"}</span>}
                     </div>
                   ))}
                   <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 4, paddingTop: 8, display: "flex", justifyContent: "center" }}>
-                    <button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>
+                    <button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>
                       {isDark ? "\u2600\uFE0F light mode" : "\uD83C\uDF1A dark mode"}
                     </button>
                   </div>
@@ -1236,19 +1236,19 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                   <AvatarC user={u} size={26} />
                   {userRankInCurrent(u.id) === "captain" && (
-                    <span title={`Captain of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
+                    <span title={`Captain of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>
                   )}
                   {userRankInCurrent(u.id) === "firstMate" && (
-                    <span title={`First Mate of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 11, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>⚓</span>
+                    <span title={`First Mate of ${currentWorkspace?.name || "workspace"}`} style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>⚓</span>
                   )}
                 </div>
                 <div>
-                  <div style={{ fontSize: 9, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text, display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text, display: "flex", alignItems: "center", gap: 4 }}>
                     {u.name}
-                    {userRankInCurrent(u.id) === "captain" && <span style={{ fontSize: 7, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "0 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>CAPTAIN</span>}
-                    {userRankInCurrent(u.id) === "firstMate" && <span style={{ fontSize: 7, color: t.cyan || t.accent, background: (t.cyan || t.accent) + "22", border: `1px solid ${(t.cyan || t.accent)}55`, borderRadius: 8, padding: "0 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 1 }}>FIRST MATE</span>}
+                    {userRankInCurrent(u.id) === "captain" && <span style={{ fontSize: 10, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "0 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>CAPTAIN</span>}
+                    {userRankInCurrent(u.id) === "firstMate" && <span style={{ fontSize: 10, color: t.cyan || t.accent, background: (t.cyan || t.accent) + "22", border: `1px solid ${(t.cyan || t.accent)}55`, borderRadius: 8, padding: "0 4px", fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>FIRST MATE</span>}
                   </div>
-                  <div style={{ fontSize: 8, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
+                  <div style={{ fontSize: 10, color: uPts > 0 ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
                 </div>
               </div>
 
@@ -1257,7 +1257,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                 <div ref={viewingUserPopupRef} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 10px)", left: 0, zIndex: 200, background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 16, padding: "16px 16px 16px 16px", minWidth: 210, maxWidth: "min(320px, calc(100vw - 32px))", boxShadow: t.shadowLg, animation: "fadeIn 0.15s ease" }}>
 
                   {/* × close button */}
-                  <button onClick={() => setViewingUser(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, color: t.textDim, lineHeight: 1, padding: "0 4px", borderRadius: 8 }} aria-label="Close">×</button>
+                  <button onClick={() => setViewingUser(null)} style={{ position: "absolute", top: 10, right: 10, background: "none", border: "none", cursor: "pointer", fontSize: 15, color: t.textDim, lineHeight: 1, padding: "0 4px", borderRadius: 8 }} aria-label="Close">×</button>
 
                   {/* Header */}
                   <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 12 }}>
@@ -1265,11 +1265,11 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       <AvatarC user={u} size={42} />
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 900, color: u.color, display: "flex", alignItems: "center", gap: 4 }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: u.color, display: "flex", alignItems: "center", gap: 4 }}>
                         {u.name}
-                        <span style={{ fontSize: 11 }}>{rankEmoji}</span>
+                        <span style={{ fontSize: 13 }}>{rankEmoji}</span>
                       </div>
-                      <div style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
                     </div>
                   </div>
 
@@ -1277,43 +1277,43 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 4, marginBottom: 8 }}>
                     <div style={{ background: t.bgHover, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 900, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}</div>
-                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>pts</div>
+                      <div style={{ fontSize: 10, color: t.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>pts</div>
                     </div>
                     <div style={{ background: t.bgHover, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 900, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{claimedStages.length}</div>
-                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>owned</div>
+                      <div style={{ fontSize: 10, color: t.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>owned</div>
                     </div>
                     <div style={{ background: t.bgHover, borderRadius: 12, padding: "8px 4px", textAlign: "center" }}>
                       <div style={{ fontSize: 16, fontWeight: 900, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveOwned.length}</div>
-                      <div style={{ fontSize: 6, color: t.textDim, textTransform: "uppercase", letterSpacing: 1 }}>live</div>
+                      <div style={{ fontSize: 10, color: t.textDim, textTransform: "uppercase", letterSpacing: 0.5 }}>live</div>
                     </div>
                   </div>
 
                   {/* Claimed stages list */}
                   {claimedStages.length > 0 && (
                     <div style={{ marginBottom: isMe ? 10 : 0 }}>
-                      <div style={{ fontSize: 7, color: t.textDim, letterSpacing: 2, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>owned stages</div>
+                      <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>owned stages</div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {claimedStages.map(s => {
                           const st = sc[getStatus(s)] ?? { l: "concept", c: "#888" };
                           return (
-                            <div key={s} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 8, color: t.textSec }}>
+                            <div key={s} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: t.textSec }}>
                               <span style={{ width: 6, height: 6, borderRadius: "50%", background: st.c, flexShrink: 0, boxShadow: getStatus(s) === "active" ? `0 0 6px ${st.c}` : "none" }} />
                               <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s}</span>
-                              <span style={{ fontSize: 7, color: st.c, fontWeight: 700 }}>{st.l}</span>
+                              <span style={{ fontSize: 10, color: st.c, fontWeight: 700 }}>{st.l}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
                   )}
-                  {claimedStages.length === 0 && <div style={{ fontSize: 8, color: t.textDim, fontStyle: "italic", marginBottom: isMe ? 10 : 0 }}>no stages claimed yet</div>}
+                  {claimedStages.length === 0 && <div style={{ fontSize: 10, color: t.textDim, fontStyle: "italic", marginBottom: isMe ? 10 : 0 }}>no stages claimed yet</div>}
 
                   {/* Change avatar + notification prefs — own profile only */}
                   {isMe && (
                     <>
                       <button onClick={() => { setSelUser(u.id); setSelAvatar(u.avatar); setShowAvatarPicker(true); setViewingUser(null); }}
-                        style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 12, padding: "8px", cursor: "pointer", fontSize: 9, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
+                        style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 12, padding: "8px", cursor: "pointer", fontSize: 11, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
                         change avatar →
                       </button>
                       <NotificationPrefs t={t} />
@@ -1328,12 +1328,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4 }}>
             {[{ l: "total", v: total, c: t.textMuted }, { l: "live", v: bySt("active"), c: t.green }, { l: "build", v: bySt("in-progress"), c: t.amber }, { l: "plan", v: bySt("planned"), c: t.cyan || t.accent }, { l: "idea", v: bySt("concept"), c: t.purple }].map(s => (
               <div key={s.l} style={{ display: "flex", flexDirection: "column", alignItems: "center", minWidth: 36, padding: "0 4px", borderRadius: 8, background: s.c + "10" }}>
-                <span style={{ fontSize: 13, fontWeight: 900, color: s.c, lineHeight: 1.2, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</span>
-                <span style={{ fontSize: 6, color: t.textDim, letterSpacing: 1, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{s.l}</span>
+                <span style={{ fontSize: 15, fontWeight: 900, color: s.c, lineHeight: 1.2, fontFamily: "var(--font-dm-mono), monospace" }}>{s.v}</span>
+                <span style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{s.l}</span>
               </div>
             ))}
             <div style={{ width: 1, height: 24, background: t.border, margin: "0 4px" }} />
-            <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</span>
+            <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{Object.keys(claims).filter(k => (claims[k] || []).length > 0).length}/{total} owned</span>
           </div>
         </div>
       </div>{/* end top-section maxWidth */}
@@ -1427,7 +1427,7 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
           {/* View toggle — icon-only on mobile, full labels on desktop */}
           <div className="bu-view-toggle" style={{ display: "flex", gap: 4, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 4px" }}>
             {([["list", "\u2630 list", "\u2630"], ["kanban", "\u25A6 kanban", "\u25A6"], ["overview", "\u25A1 overview", "\u25A1"]] as const).map(([v, label, icon]) => (
-              <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 9, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+              <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                 {isMobile ? icon : label}
               </button>
             ))}
@@ -1503,28 +1503,28 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                         <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
                           <span style={{ fontSize: 16 }}>{p.icon}</span>
                           {editingPipeName === p.id ? (
-                            <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 14, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit" }} />
+                            <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 15, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit" }} />
                           ) : (
-                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 14, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
-                              {pipeName} <span style={{ fontSize: 9, color: t.textDim, opacity: 0.4 }}>{"✎"}</span>
+                            <span onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); }} style={{ fontSize: 15, fontWeight: 900, color: t.text, cursor: "text" }} title="Click to rename">
+                              {pipeName} <span style={{ fontSize: 11, color: t.textDim, opacity: 0.4 }}>{"✎"}</span>
                             </span>
                           )}
-                          <span style={{ fontSize: 7, color: pC, background: pC + "12", padding: "0 8px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
-                          <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 7, color: prC.c, background: prC.c + "12", padding: "0 8px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
-                          {pct > 0 && <span style={{ fontSize: 8, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
+                          <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 8px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                          <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 10, color: prC.c, background: prC.c + "12", padding: "0 8px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
+                          {pct > 0 && <span style={{ fontSize: 10, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
                         </div>
 
                         {editingPipeDesc === p.id ? (
-                          <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 0 }} />
+                          <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 0 }} />
                         ) : (
-                          <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textSec, margin: "0 0 0", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
+                          <p onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 13, color: t.textSec, margin: "0 0 0", lineHeight: 1.4, cursor: "text", display: "flex", alignItems: "baseline", gap: 4 }}>
                             <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
-                            {!isLocked(p.id) && <span style={{ fontSize: 8, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
+                            {!isLocked(p.id) && <span style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0 }}>{"\u270E"}</span>}
                           </p>
                         )}
 
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                          <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, p.totalHours, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 8, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
+                          <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, p.totalHours, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>
                             {copied === `pipe-${p.id}` ? "\u2713 copied" : "\uD83D\uDCCB copy"}
                           </button>
 
@@ -1533,27 +1533,27 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                               ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (
                                   <button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}>
                                     <span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>
-                                    {us.length > 0 && <span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
+                                    {us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
                                   </button>); })}
-                                  <button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 7, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
+                                  <button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
                               : <>{pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
                                   <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit" }}>
-                                    <span style={{ fontSize: 11 }}>{emoji}</span><span style={{ fontSize: 7, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                                    <span style={{ fontSize: 13 }}>{emoji}</span><span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                                   </button>); })}
-                                  <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button></>
+                                  <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button></>
                             }
                           </div>
 
-                          <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 8, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+                          <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
                             {isO ? "\u25BE collapse" : "\u25B8 details"}
                           </button>
 
                           {!allPipelineClaimed ? (
-                            <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 8, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+                            <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                               {"\uD83D\uDC80"} claim all
                             </button>
                           ) : (
-                            <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 8, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">
+                            <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">
                               {"\u2713"} all claimed
                             </button>
                           )}
@@ -1570,19 +1570,19 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                         <div style={{ position: "relative" }}>
                           <button
                             onClick={e => { e.stopPropagation(); setPipeMenuOpen(pipeMenuOpen === p.id ? null : p.id); }}
-                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 14, padding: "4px 8px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: t.textMuted }}
+                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, cursor: "pointer", fontSize: 15, padding: "4px 8px", minHeight: 44, minWidth: 44, display: "flex", alignItems: "center", justifyContent: "center", color: t.textMuted }}
                           >
                             ⋮
                           </button>
                           {pipeMenuOpen === p.id && (
                             <div style={{ position: "absolute", top: "calc(100% + 4px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, zIndex: 50, minWidth: 150, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", animation: "fadeIn 0.15s ease" }}>
-                              <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
+                              <button onClick={e => { e.stopPropagation(); setEditingPipeName(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
                                 ✎ rename pipeline
                               </button>
-                              <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
+                              <button onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
                                 ✎ edit description
                               </button>
-                              <button onClick={e => { e.stopPropagation(); toggleExpand(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 11, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
+                              <button onClick={e => { e.stopPropagation(); toggleExpand(p.id); setPipeMenuOpen(null); }} style={{ display: "block", width: "100%", background: "none", border: "none", textAlign: "left", padding: "8px 8px", cursor: "pointer", fontSize: 13, color: t.text, borderRadius: 8, fontFamily: "inherit" }}>
                                 {isO ? "collapse" : "expand stages"}
                               </button>
                             </div>
@@ -1592,12 +1592,12 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     )}
                     <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
+                        <div style={{ fontSize: 13, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div>
                       </div>
                       <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>
                         {allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}
                       </div>
-                      <div style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
+                      <div style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
                     </div>
                   </div>
 
@@ -1607,8 +1607,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                       const isClaimed = (claims[s] || []).length > 0;
                       return (
                         <div key={i} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                          <span style={{ fontSize: 8, color: stC.c, background: stC.c + "0a", padding: "0 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
-                          {i < allPStages.length - 1 && <span style={{ color: t.textDim, fontSize: 8 }}>{"\u2192"}</span>}
+                          <span style={{ fontSize: 10, color: stC.c, background: stC.c + "0a", padding: "0 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
+                          {i < allPStages.length - 1 && <span style={{ color: t.textDim, fontSize: 10 }}>{"\u2192"}</span>}
                         </div>
                       );
                     })}
@@ -1622,8 +1622,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
                     </div>
                     {!isLocked(p.id) && (
                       <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
-                        <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 9, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-                        <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 9, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
+                        <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStage(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+                        <button onClick={() => addCustomStage(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
                       </div>
                     )}
                   </div>
@@ -1634,30 +1634,30 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
           {/* Add new pipeline */}
           {!addingPipeline ? (
-            <button onClick={() => setAddingPipeline(true)} style={{ background: "transparent", border: `2px dashed ${t.border}`, borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center", width: "100%" }}>
+            <button onClick={() => setAddingPipeline(true)} style={{ background: "transparent", border: `2px dashed ${t.border}`, borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 13, color: t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center", width: "100%" }}>
               + new pipeline
             </button>
           ) : (
             <div style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 16, padding: "20px" }}>
-              <div style={{ fontSize: 9, color: t.textMuted, letterSpacing: 2, textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
+              <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
               <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
                 {ICON_OPTIONS.map(ico => (
                   <button key={ico} onClick={() => setNewPipeForm(p => ({ ...p, icon: ico }))} style={{ background: newPipeForm.icon === ico ? t.accent + "22" : "transparent", border: `1px solid ${newPipeForm.icon === ico ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "4px 4px", cursor: "pointer", fontSize: 16 }}>{ico}</button>
                 ))}
               </div>
               <div style={{ display: "flex", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
-                <input value={newPipeForm.name} onChange={e => setNewPipeForm(p => ({ ...p, name: e.target.value }))} placeholder="Pipeline name *" autoFocus style={{ flex: "1 1 200px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none", fontWeight: 700 }} />
-                <input value={newPipeForm.desc} onChange={e => setNewPipeForm(p => ({ ...p, desc: e.target.value }))} placeholder="Short description" style={{ flex: "2 1 280px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                <input value={newPipeForm.name} onChange={e => setNewPipeForm(p => ({ ...p, name: e.target.value }))} placeholder="Pipeline name *" autoFocus style={{ flex: "1 1 200px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", fontWeight: 700 }} />
+                <input value={newPipeForm.desc} onChange={e => setNewPipeForm(p => ({ ...p, desc: e.target.value }))} placeholder="Short description" style={{ flex: "2 1 280px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none" }} />
               </div>
               <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
-                {PRIORITY_CYCLE.map(p => <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "55" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 8, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>)}
-                <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
+                {PRIORITY_CYCLE.map(p => <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "55" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>)}
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
                 {COLOR_OPTIONS.map(c => <div key={c} onClick={() => setNewPipeForm(p => ({ ...p, colorKey: c }))} style={{ width: 14, height: 14, borderRadius: "50%", background: ck[c], cursor: "pointer", border: newPipeForm.colorKey === c ? `2px solid ${t.text}` : "2px solid transparent", flexShrink: 0 }} />)}
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button onClick={addCustomPipeline} disabled={!newPipeForm.name.trim()} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "8px 20px", cursor: newPipeForm.name.trim() ? "pointer" : "not-allowed", fontSize: 11, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", opacity: newPipeForm.name.trim() ? 1 : 0.45, transition: "opacity 0.15s" }}>create pipeline</button>
-                <button onClick={() => setAddingPipeline(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
+                <button onClick={addCustomPipeline} disabled={!newPipeForm.name.trim()} style={{ background: t.accent, border: "none", borderRadius: 12, padding: "8px 20px", cursor: newPipeForm.name.trim() ? "pointer" : "not-allowed", fontSize: 13, color: "#fff", fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", opacity: newPipeForm.name.trim() ? 1 : 0.45, transition: "opacity 0.15s" }}>create pipeline</button>
+                <button onClick={() => setAddingPipeline(false)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 16px", cursor: "pointer", fontSize: 13, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
               </div>
             </div>
           )}
@@ -1666,8 +1666,8 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
 
         {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5), 0 0 40px ${toast.color}22`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>
           <span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "\u26A1" : "\uD83D\uDC80"}</span>
-          <span style={{ fontSize: 11, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span>
-          <span style={{ fontSize: 11, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span>
+          <span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span>
+          <span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span>
         </div>}
 
         {/* Activity notification toast */}
@@ -1677,16 +1677,16 @@ export default function Dashboard({ initialUserId }: { initialUserId?: string })
               {chatNotif.isClaim ? "🤝" : chatNotif.isReaction ? "⚡" : chatNotif.isComment ? "💬" : "👀"}
             </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 9, fontWeight: 800, color: chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div>
-              <div style={{ fontSize: 10, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>
-              {chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 8, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}
+              <div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.amber : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div>
+              <div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>
+              {chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}
             </div>
-            <button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 14, padding: 0, marginLeft: 4, flexShrink: 0 }}>×</button>
+            <button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, fontSize: 15, padding: 0, marginLeft: 4, flexShrink: 0 }}>×</button>
           </div>
         )}
 
         <div style={{ textAlign: "center", marginTop: 24, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
-          <p style={{ fontSize: 8, color: t.textDim, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
+          <p style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, fontFamily: "var(--font-dm-mono), monospace" }}>BINAYAH.AI {"\u00B7"} {total} STAGES {"\u00B7"} SHIP IT {"\u00B7"} 2026</p>
         </div>
         </div>{/* end main content area */}
         </>

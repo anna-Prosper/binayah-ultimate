@@ -69,7 +69,7 @@ function StatusSwatch({ status, t }: { status: string; t: T }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      fontSize: 9, fontWeight: 700, color,
+      fontSize: 11, fontWeight: 700, color,
       fontFamily: "var(--font-geist-mono), monospace",
       letterSpacing: 0.5,
     }}>
@@ -137,7 +137,7 @@ export default function OverviewPanel({
               borderRadius: 8,
               border: "none",
               cursor: "pointer",
-              fontSize: 10,
+              fontSize: 13,
               fontWeight: 700,
               fontFamily: "var(--font-geist-mono), monospace",
               letterSpacing: 0.8,
@@ -171,7 +171,7 @@ export default function OverviewPanel({
                       border: `1px solid ${isActive ? pC : t.border}`,
                       background: isActive ? `${pC}14` : "transparent",
                       color: isActive ? pC : t.textMuted,
-                      fontSize: 10,
+                      fontSize: 13,
                       fontWeight: 700,
                       cursor: "pointer",
                       fontFamily: "var(--font-geist-mono), monospace",
@@ -193,10 +193,10 @@ export default function OverviewPanel({
                 <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${t.border}` }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <span style={{ fontSize: 18 }}>{activePipeline.icon}</span>
-                    <span style={{ fontSize: 14, fontWeight: 800, color: t.text }}>
+                    <span style={{ fontSize: 15, fontWeight: 800, color: t.text }}>
                       {pipeMetaOverrides[activePipeline.id]?.name ?? activePipeline.name}
                     </span>
-                    <span style={{ fontSize: 9, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginLeft: 4 }}>
+                    <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginLeft: 4 }}>
                       // status history
                     </span>
                   </div>
@@ -206,10 +206,10 @@ export default function OverviewPanel({
                 {timelineEntries.length === 0 ? (
                   <div style={{ padding: "40px 24px", textAlign: "center" }}>
                     <div style={{ fontSize: 20, marginBottom: 8 }}>⚡</div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginBottom: 4 }}>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginBottom: 4 }}>
                       // no moves yet
                     </div>
-                    <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }}>
+                    <div style={{ fontSize: 13, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }}>
                       stake something — change a stage status to start the clock
                     </div>
                   </div>
@@ -252,7 +252,7 @@ export default function OverviewPanel({
                           }}>
                             {/* Stage name */}
                             <span style={{
-                              fontSize: 11, fontWeight: 700, color: t.text,
+                              fontSize: 13, fontWeight: 700, color: t.text,
                               minWidth: 100, maxWidth: 180,
                               overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                               flexShrink: 0,
@@ -263,7 +263,7 @@ export default function OverviewPanel({
                             {/* Transition swatches */}
                             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                               <StatusSwatch status={fromStatus} t={t} />
-                              <span style={{ fontSize: 9, color: t.textDim }}>→</span>
+                              <span style={{ fontSize: 11, color: t.textDim }}>→</span>
                               <StatusSwatch status={toStatus} t={t} />
                             </div>
 
@@ -275,12 +275,12 @@ export default function OverviewPanel({
                               {actor && (
                                 <>
                                   <AvatarC user={actor} size={18} />
-                                  <span style={{ fontSize: 9, color: t.textSec, fontFamily: "var(--font-geist-mono), monospace" }}>
+                                  <span style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-geist-mono), monospace" }}>
                                     {actor.name.split(" ")[0]}
                                   </span>
                                 </>
                               )}
-                              <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }} title={new Date(entry.time).toLocaleString()}>
+                              <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }} title={new Date(entry.time).toLocaleString()}>
                                 {relativeTime(entry.time)}
                               </span>
                             </div>
@@ -339,7 +339,7 @@ export default function OverviewPanel({
                             <span style={{ fontSize: 17, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>{pipeName}</span>
                             <button
                               onClick={() => setEditingName(p.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, color: t.textDim, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}
+                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: t.textDim, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}
                               title="Rename"
                             >{"✎"}</button>
                           </div>
@@ -352,12 +352,12 @@ export default function OverviewPanel({
                               const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(pipePriority as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
                               setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), priority: next } }));
                             }}
-                            style={{ fontSize: 8, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+                            style={{ fontSize: 10, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
                             title="Click to cycle priority"
                           >{pipePriority}</span>
-                          <span style={{ fontSize: 8, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages · {p.totalHours}</span>
-                          {liveCt > 0 && <span style={{ fontSize: 8, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
-                          {buildCt > 0 && <span style={{ fontSize: 8, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{buildCt} building</span>}
+                          <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages · {p.totalHours}</span>
+                          {liveCt > 0 && <span style={{ fontSize: 10, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
+                          {buildCt > 0 && <span style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{buildCt} building</span>}
                         </div>
                       </div>
                     </div>
@@ -380,12 +380,12 @@ export default function OverviewPanel({
                         onBlur={() => setEditingDesc(null)}
                         autoFocus
                         rows={2}
-                        style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
+                        style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                       />
                     ) : (
                       <p
                         onClick={() => setEditingDesc(p.id)}
-                        style={{ fontSize: 11, color: t.textSec, lineHeight: 1.6, margin: 0, cursor: "text", padding: "4px 0" }}
+                        style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, margin: 0, cursor: "text", padding: "4px 0" }}
                         title="Click to edit"
                       >
                         {pipeDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add a description...</span>}
@@ -397,7 +397,7 @@ export default function OverviewPanel({
                 {/* Stage rows */}
                 <div style={{ borderTop: `1px solid ${t.border}` }}>
                   {stages.length === 0 && (
-                    <div style={{ padding: "20px 24px", textAlign: "center", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
+                    <div style={{ padding: "20px 24px", textAlign: "center", fontSize: 13, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
                       // no stages yet — add some to this pipeline
                     </div>
                   )}
@@ -426,10 +426,10 @@ export default function OverviewPanel({
                         <div style={{ flexShrink: 0, width: 8, height: 8, borderRadius: "50%", background: col, boxShadow: status === "active" ? `0 0 6px ${col}88` : "none" }} />
 
                         {/* Status label */}
-                        <span style={{ fontSize: 7, fontWeight: 800, color: col, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase", letterSpacing: 1, flexShrink: 0, width: 46 }}>{label}</span>
+                        <span style={{ fontSize: 10, fontWeight: 800, color: col, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0, width: 46 }}>{label}</span>
 
                         {/* Stage name */}
-                        <span className="bu-ov-name" style={{ fontSize: 12, fontWeight: 700, color: t.text, flexShrink: 0, minWidth: 120, maxWidth: 200 }}>{name}</span>
+                        <span className="bu-ov-name" style={{ fontSize: 13, fontWeight: 700, color: t.text, flexShrink: 0, minWidth: 120, maxWidth: 200 }}>{name}</span>
 
                         {/* Stage description — editable */}
                         <div className="bu-ov-desc" style={{ flex: 1, minWidth: 0 }}>
@@ -440,12 +440,12 @@ export default function OverviewPanel({
                               onBlur={() => setEditingStageDesc(null)}
                               onKeyDown={e => { if (e.key === "Enter") setEditingStageDesc(null); }}
                               autoFocus
-                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 10, color: t.textSec, fontFamily: "inherit", outline: "none" }}
+                              style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "inherit", outline: "none" }}
                             />
                           ) : (
                             <span
                               onClick={() => setEditingStageDesc(name)}
-                              style={{ fontSize: 10, color: t.textSec, cursor: "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                              style={{ fontSize: 13, color: t.textSec, cursor: "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
                               title={desc || "click to add description"}
                             >
                               {desc || <span style={{ color: t.textDim, fontStyle: "italic" }}>—</span>}
@@ -456,7 +456,7 @@ export default function OverviewPanel({
                         {/* Owners */}
                         <div style={{ display: "flex", alignItems: "center", gap: -3, flexShrink: 0 }}>
                           {owners.length === 0
-                            ? <span style={{ fontSize: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>—</span>
+                            ? <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>—</span>
                             : owners.map((u, j) => (
                               <div key={u.id} style={{ marginLeft: j === 0 ? 0 : -6, zIndex: owners.length - j }}>
                                 <AvatarC user={u} size={18} />
@@ -466,7 +466,7 @@ export default function OverviewPanel({
                         </div>
 
                         {/* Points */}
-                        <span style={{ fontSize: 9, fontWeight: 700, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0, minWidth: 36, textAlign: "right" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0, minWidth: 36, textAlign: "right" }}>
                           {s.points}pt
                         </span>
                       </div>
@@ -478,7 +478,7 @@ export default function OverviewPanel({
           })}
 
           {filtered.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 0", color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}>
+            <div style={{ textAlign: "center", padding: "48px 0", color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 13 }}>
               no initiatives match &quot;{searchQ}&quot;
             </div>
           )}

@@ -9,16 +9,16 @@ export function LoginMyList({ t }: { t: T }) {
   return (
     <Browser t={t} url="binayah.com/account">
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
-        <div style={{width:28,height:28,borderRadius:"50%",background:t.accent+"22",border:`2px solid ${t.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12}}>👤</div>
+        <div style={{width:28,height:28,borderRadius:"50%",background:t.accent+"22",border:`2px solid ${t.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>👤</div>
         <div>
-          <div style={{fontSize:7,fontWeight:700,color:t.text}}>Welcome back, Ahmed</div>
+          <div style={{fontSize:10,fontWeight:700,color:t.text}}>Welcome back, Ahmed</div>
           <div style={{fontSize:5.5,color:t.textDim}}>3 saved · 1 under review</div>
         </div>
       </div>
       {[{name:"Marina Heights 2BR",price:"1.6M",tag:"Saved",c:t.accent},{name:"JVC Studio · Payment plan",price:"720K",tag:"Saved",c:t.accent},{name:"My Palm apt · 3BR",price:"—",tag:"Under Review",c:t.amber}].map((x,i)=>(
         <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}>
-          <span style={{fontSize:6.5,color:t.text,flex:1}}>{x.name}</span>
-          <span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.tag}</span>
+          <span style={{fontSize:10.5,color:t.text,flex:1}}>{x.name}</span>
+          <span style={{fontSize:10,color:x.c,fontWeight:700}}>{x.tag}</span>
         </div>
       ))}
     </Browser>
@@ -32,8 +32,8 @@ export function PropertyMap({ t }: { t: T }) {
         {[{zone:"Marina",sqft:"1,840",trend:"+2.1%",risk:"⚠ 3 towers u/c",c:t.accent},{zone:"JVC",sqft:"980",trend:"+1.4%",risk:"✓ Low risk",c:t.green},{zone:"Downtown",sqft:"2,240",trend:"+3.1%",risk:"⚠ High service charge",c:t.amber}].map((x,i)=>(
           <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 4px",borderLeft:`2.5px solid ${x.c}`}}>
             <div style={{display:"flex",justifyContent:"space-between"}}>
-              <span style={{fontSize:7,fontWeight:700,color:x.c}}>{x.zone}</span>
-              <span style={{fontSize:6.5,color:t.green,fontWeight:700}}>{x.trend}</span>
+              <span style={{fontSize:10,fontWeight:700,color:x.c}}>{x.zone}</span>
+              <span style={{fontSize:10.5,color:t.green,fontWeight:700}}>{x.trend}</span>
             </div>
             <div style={{display:"flex",gap:8,marginTop:0}}>
               <span style={{fontSize:5.5,color:t.textDim}}>{x.sqft}/sqft</span>
@@ -71,7 +71,7 @@ export function NeighbourhoodQuiz({ t }: { t: T }) {
     <Browser t={t} url="binayah.com/quiz">
       <div style={{textAlign:"center",marginBottom:4}}>
         <span style={{fontSize:16}}>🏠</span>
-        <div style={{fontSize:8,fontWeight:800,color:t.text,marginTop:0}}>Find your Dubai community</div>
+        <div style={{fontSize:10,fontWeight:800,color:t.text,marginTop:0}}>Find your Dubai community</div>
         <div style={{display:"flex",alignItems:"center",gap:4,justifyContent:"center",marginTop:4}}>
           <div style={{flex:1,height:3,background:t.border,borderRadius:2}}><div style={{width:"60%",height:"100%",background:t.accent,borderRadius:2}}/></div>
           <span style={{fontSize:5.5,color:t.textDim}}>Q3/5</span>
@@ -79,7 +79,7 @@ export function NeighbourhoodQuiz({ t }: { t: T }) {
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:4}}>
         {["🏖 Beach access","🌃 Nightlife","👨‍👩‍👧 Family-first","📈 Max ROI"].map(x=>(
-          <div key={x} style={{background:t.surface,borderRadius:8,padding:"4px 4px",textAlign:"center",fontSize:6.5,color:t.textSec,cursor:"pointer"}}>{x}</div>
+          <div key={x} style={{background:t.surface,borderRadius:8,padding:"4px 4px",textAlign:"center",fontSize:10.5,color:t.textSec,cursor:"pointer"}}>{x}</div>
         ))}
       </div>
     </Browser>
@@ -106,14 +106,14 @@ export function ScamChecker({ t }: { t: T }) {
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
         <ScoreCircle value={78} color={t.amber} size={40}/>
         <div>
-          <div style={{fontSize:7.5,fontWeight:800,color:t.amber}}>SUSPICIOUS</div>
+          <div style={{fontSize:10.5,fontWeight:800,color:t.amber}}>SUSPICIOUS</div>
           <div style={{fontSize:5.5,color:t.textDim}}>Score 78/100 — proceed with caution</div>
         </div>
       </div>
       {[{c:"RERA registration",p:true},{c:"Price vs DLD comps",p:true},{c:"Scam language detected",p:false,note:"'guaranteed ROI'"},{c:"Photo reverse search",p:false,note:"Stolen from Bayut"},{c:"WhatsApp-only contact",p:false,note:"No office address"}].map((x,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0"}}>
-          <span style={{fontSize:7,color:x.p?t.green:t.red,fontWeight:700}}>{x.p?"✓":"✗"}</span>
-          <span style={{fontSize:6.5,color:x.p?t.textSec:t.red,flex:1}}>{x.c}</span>
+          <span style={{fontSize:10,color:x.p?t.green:t.red,fontWeight:700}}>{x.p?"✓":"✗"}</span>
+          <span style={{fontSize:10.5,color:x.p?t.textSec:t.red,flex:1}}>{x.c}</span>
           {(x as {note?:string}).note&&<span style={{fontSize:5,color:t.red}}>{(x as {note?:string}).note}</span>}
         </div>
       ))}
@@ -124,10 +124,10 @@ export function ScamChecker({ t }: { t: T }) {
 export function AreaFutureMap({ t }: { t: T }) {
   return (
     <Browser t={t} url="binayah.com/future-map">
-      <div style={{fontSize:7,fontWeight:800,color:t.text,marginBottom:4}}>📍 Dubai Marina, Block 5</div>
+      <div style={{fontSize:10,fontWeight:800,color:t.text,marginBottom:4}}>📍 Dubai Marina, Block 5</div>
       {[{icon:"🏗",label:"View corridor",verdict:"⚠ At risk",detail:"3 towers permitted behind",c:t.amber},{icon:"🚇",label:"Metro expansion",verdict:"✓ Line 2 planned",detail:"500m by 2028",c:t.green},{icon:"🔊",label:"Noise risk",verdict:"✓ Low",detail:"No roads planned nearby",c:t.green},{icon:"🏭",label:"Construction density",verdict:"🚨 High",detail:"12 towers in 2km radius",c:t.red},{icon:"📈",label:"Value trajectory",verdict:"✓ +8% proj.",detail:"Based on 5Y DLD data",c:t.green}].map((x,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0",borderBottom:`1px solid ${t.border}11`}}>
-          <span style={{fontSize:9}}>{x.icon}</span>
+          <span style={{fontSize:11}}>{x.icon}</span>
           <span style={{fontSize:5.5,color:t.textSec,flex:1}}>{x.label}</span>
           <div style={{textAlign:"right"}}>
             <div style={{fontSize:5.5,color:x.c,fontWeight:700}}>{x.verdict}</div>

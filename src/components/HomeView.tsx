@@ -71,7 +71,7 @@ export default function HomeView({
   return (
     <div>
       <div style={{ fontSize: 18, fontWeight: 800, color: t.text, marginTop: 20 }}>{greeting}</div>
-      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+      <div style={{ fontSize: 13, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
         // {myWorkspaces.length} workspace{myWorkspaces.length === 1 ? "" : "s"} · cross-workspace board below
       </div>
       <TasksView

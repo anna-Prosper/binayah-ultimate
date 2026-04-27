@@ -209,7 +209,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
     cursor: "pointer",
     color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace",
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 600,
     whiteSpace: "nowrap" as const,
     gap: 4,
@@ -276,7 +276,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 7,
+                fontSize: 10,
                 color: "#fff",
                 fontWeight: 800,
                 animation: pulse ? "notifPulse 0.15s ease" : "none",
@@ -320,10 +320,10 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
             >
               <span
                 style={{
-                  fontSize: 9,
+                  fontSize: 11,
                   fontFamily: "var(--font-dm-mono), monospace",
                   color: t.textMuted,
-                  letterSpacing: 2,
+                  letterSpacing: 0.5,
                   textTransform: "uppercase",
                   fontWeight: 600,
                 }}
@@ -337,7 +337,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
-                    fontSize: 9,
+                    fontSize: 11,
                     color: t.accent,
                     fontFamily: "var(--font-dm-mono), monospace",
                     fontWeight: 700,
@@ -358,7 +358,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  fontSize: 10,
+                  fontSize: 13,
                   fontFamily: "var(--font-dm-mono), monospace",
                   color: t.textMuted,
                   letterSpacing: 0.5,
@@ -410,7 +410,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              fontSize: 10,
+                              fontSize: 13,
                               color: eventColor,
                               fontWeight: 800,
                             }}
@@ -424,7 +424,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div
                           style={{
-                            fontSize: 11,
+                            fontSize: 13,
                             fontWeight: 600,
                             color: t.text,
                             lineHeight: 1.3,
@@ -437,7 +437,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                         </div>
                         <div
                           style={{
-                            fontSize: 9,
+                            fontSize: 11,
                             color: t.textMuted,
                             fontFamily: "var(--font-dm-mono), monospace",
                             marginTop: 0,
@@ -467,7 +467,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                   <div
                     style={{
                       padding: "8px 12px",
-                      fontSize: 9,
+                      fontSize: 11,
                       color: t.textMuted,
                       fontFamily: "var(--font-dm-mono), monospace",
                       textAlign: "center",

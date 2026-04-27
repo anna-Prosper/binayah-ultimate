@@ -9,16 +9,16 @@ export function MultilingualDirs({ t }: { t: T }) {
   return (
     <Browser t={t} url="binayah.com/tr">
       <div style={{background:t.surface,borderRadius:8,padding:4,marginBottom:4}}>
-        <div style={{fontSize:8.5,fontWeight:800,color:t.text}}>🏠 Binayah Dubai</div>
-        <div style={{fontSize:6,color:t.textMuted}}>Dubai&apos;da en iyi gayrimenkuller</div>
+        <div style={{fontSize:10.5,fontWeight:800,color:t.text}}>🏠 Binayah Dubai</div>
+        <div style={{fontSize:10,color:t.textMuted}}>Dubai&apos;da en iyi gayrimenkuller</div>
         <div style={{display:"flex",gap:4,marginTop:4}}>
-          <span style={{fontSize:6,color:t.amber,fontWeight:700}}>📅 Taksit planı</span>
-          <span style={{fontSize:6,color:t.green}}>✈ İstanbul direk uçuş</span>
+          <span style={{fontSize:10,color:t.amber,fontWeight:700}}>📅 Taksit planı</span>
+          <span style={{fontSize:10,color:t.green}}>✈ İstanbul direk uçuş</span>
         </div>
       </div>
       <div style={{display:"flex",gap:0,flexWrap:"wrap"}}>
         {[{f:"🇷🇺",c:"/ru"},{f:"🇮🇳",c:"/hi"},{f:"🇹🇷",c:"/tr",active:true},{f:"🇨🇳",c:"/cn"},{f:"🇮🇷",c:"/fa"},{f:"🇫🇷",c:"/fr"},{f:"🇩🇪",c:"/de"},{f:"🇰🇿",c:"/kz"}].map(x=>(
-          <span key={x.c} style={{fontSize:6,background:(x as {active?:boolean}).active?t.amber+"22":t.surface,padding:"0 4px",borderRadius:3,color:(x as {active?:boolean}).active?t.amber:t.textMuted,border:(x as {active?:boolean}).active?`1px solid ${t.amber}44`:"none"}}>{x.f}{x.c}</span>
+          <span key={x.c} style={{fontSize:10,background:(x as {active?:boolean}).active?t.amber+"22":t.surface,padding:"0 4px",borderRadius:3,color:(x as {active?:boolean}).active?t.amber:t.textMuted,border:(x as {active?:boolean}).active?`1px solid ${t.amber}44`:"none"}}>{x.f}{x.c}</span>
         ))}
       </div>
     </Browser>
@@ -32,11 +32,11 @@ export function RegionalSEO({ t }: { t: T }) {
         {[{d:"binayah.ru",e:"Yandex",r:"#4",c:t.accent,note:"↑2 this week"},{d:"binayah.kz",e:"Yandex KZ",r:"#7",c:t.green,note:"New"},{d:"binayah.cn",e:"Baidu",r:"ICP pending",c:t.amber,note:"In review"},{d:"WeChat OA",e:"WeChat",r:"2.1K fans",c:t.purple,note:"Live"}].map((x,i)=>(
           <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"2.5px 0",borderBottom:`1px solid ${t.border}22`}}>
             <div>
-              <span style={{fontSize:6.5,fontWeight:700,color:x.c}}>{x.d}</span>
+              <span style={{fontSize:10.5,fontWeight:700,color:x.c}}>{x.d}</span>
               <span style={{fontSize:5.5,color:t.textDim,marginLeft:4}}>{x.e}</span>
             </div>
             <div style={{textAlign:"right"}}>
-              <span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.r}</span>
+              <span style={{fontSize:10,color:x.c,fontWeight:700}}>{x.r}</span>
               <span style={{fontSize:5,color:t.textDim,display:"block"}}>{x.note}</span>
             </div>
           </div>
@@ -56,8 +56,8 @@ export function DataCollection({ t }: { t: T }) {
       </div>
       {[{flag:"🇷🇺",n:"Russia",avg:"$820K",intent:"Invest",pct:34,c:t.accent},{flag:"🇮🇳",n:"India",avg:"$310K",intent:"EOI",pct:28,c:t.green},{flag:"🇹🇷",n:"Turkey",avg:"$540K",intent:"Reloc",pct:18,c:t.amber}].map((x,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"0 0"}}>
-          <span style={{fontSize:8}}>{x.flag}</span>
-          <span style={{fontSize:6,color:t.textSec,flex:1}}>{x.n} · {x.avg} · {x.intent}</span>
+          <span style={{fontSize:10}}>{x.flag}</span>
+          <span style={{fontSize:10,color:t.textSec,flex:1}}>{x.n} · {x.avg} · {x.intent}</span>
           <div style={{width:40,height:3,background:t.border,borderRadius:2}}>
             <div style={{width:`${x.pct}%`,height:"100%",background:x.c,borderRadius:2}}/>
           </div>
@@ -72,8 +72,8 @@ export function DynamicHomepage({ t }: { t: T }) {
     <div style={{display:"flex",gap:4}}>
       {[{f:"🇷🇺",l:"Russian",a:"Marina · RUB",cta:"Golden Visa →",c:t.accent},{f:"🇮🇳",l:"Indian",a:"JVC · INR",cta:"EMI Calc →",c:t.green},{f:"🇹🇷",l:"Turkish",a:"Business Bay · TRY",cta:"Taksit →",c:t.amber}].map(v=>(
         <div key={v.l} style={{flex:1,background:t.surface,borderRadius:8,padding:"4px 4px",textAlign:"center"}}>
-          <span style={{fontSize:13}}>{v.f}</span>
-          <div style={{fontSize:6,fontWeight:700,color:v.c,marginTop:0}}>{v.l}</div>
+          <span style={{fontSize:15}}>{v.f}</span>
+          <div style={{fontSize:10,fontWeight:700,color:v.c,marginTop:0}}>{v.l}</div>
           <div style={{fontSize:5.5,color:t.textSec,marginTop:0}}>{v.a}</div>
           <div style={{fontSize:5,color:v.c,marginTop:4,fontWeight:600}}>{v.cta}</div>
         </div>
@@ -88,7 +88,7 @@ export function Newsletters({ t }: { t: T }) {
       {[{f:"🇷🇺",s:"Ruble -4% hedge angle",o:"38%",sent:"4.2K"},{f:"🇮🇳",s:"JVC under 400K — NRI guide",o:"42%",sent:"3.1K"},{f:"🇹🇷",s:"0% ödeme planı öne çıkar",o:"31%",sent:"1.8K"}].map((x,i)=>(
         <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 4px",marginBottom:4}}>
           <div style={{display:"flex",justifyContent:"space-between"}}>
-            <span style={{fontSize:6.5,color:t.textSec}}>{x.f} {x.s}</span>
+            <span style={{fontSize:10.5,color:t.textSec}}>{x.f} {x.s}</span>
           </div>
           <div style={{display:"flex",gap:4,marginTop:0}}>
             <span style={{fontSize:5.5,color:t.green}}>↗ {x.o} open</span>
@@ -106,8 +106,8 @@ export function GeoCampaigns({ t }: { t: T }) {
       {[{flag:"🇹🇷",title:"Turkey surge +47%",status:"Pending approval",budget:"$200/d",c:t.red},{flag:"🇷🇺",title:"Russia bounce -12%",status:"Paused",budget:"—",c:t.amber},{flag:"🇮🇳",title:"India steady +8%",status:"Running",budget:"$80/d",c:t.green}].map((x,i)=>(
         <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 4px",marginBottom:4,borderLeft:`2.5px solid ${x.c}`}}>
           <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-            <span style={{fontSize:7}}>{x.flag} <span style={{fontSize:6.5,fontWeight:600,color:t.text}}>{x.title}</span></span>
-            <span style={{fontSize:6,color:x.c,fontWeight:700}}>{x.budget}</span>
+            <span style={{fontSize:10}}>{x.flag} <span style={{fontSize:10.5,fontWeight:600,color:t.text}}>{x.title}</span></span>
+            <span style={{fontSize:10,color:x.c,fontWeight:700}}>{x.budget}</span>
           </div>
           <div style={{fontSize:5.5,color:x.c,marginTop:0,fontWeight:600}}>{x.status}</div>
         </div>

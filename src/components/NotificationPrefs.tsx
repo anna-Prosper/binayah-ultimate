@@ -58,7 +58,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
         <span
           style={{
-            fontSize: 9,
+            fontSize: 11,
             color: t.textDim,
             fontFamily: "var(--font-dm-mono), monospace",
             letterSpacing: 0.5,
@@ -105,7 +105,7 @@ export default function NotificationPrefs({ t }: NotificationPrefsProps) {
       {error && (
         <div
           style={{
-            fontSize: 8,
+            fontSize: 10,
             color: t.red ?? "#ff453a",
             fontFamily: "var(--font-dm-mono), monospace",
             marginTop: 4,

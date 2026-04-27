@@ -108,10 +108,10 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
             >
               {/* Column header */}
               <div className="bu-kb-col-header" style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 12, padding: "0 0" }}>
-                <span style={{ fontSize: 14 }}>{col.emoji}</span>
-                <span style={{ fontSize: 8, fontWeight: 800, color: stc.c, letterSpacing: 2, fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
+                <span style={{ fontSize: 15 }}>{col.emoji}</span>
+                <span style={{ fontSize: 10, fontWeight: 800, color: stc.c, letterSpacing: 0.5, fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
                 <div style={{ marginLeft: "auto", background: stc.c + "18", border: `1px solid ${stc.c}33`, borderRadius: 12, padding: "0 8px" }}>
-                  <span style={{ fontSize: 9, color: stc.c, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{stages.length}</span>
+                  <span style={{ fontSize: 11, color: stc.c, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{stages.length}</span>
                 </div>
               </div>
 
@@ -134,28 +134,28 @@ export default function KanbanView({ t, getStatus, setStageStatusDirect, claims,
                     >
                       {/* Pipeline tag */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 4 }}>
-                        <span style={{ fontSize: 9 }}>{s.pipelineIcon}</span>
-                        <span className="bu-kb-card-tag" style={{ fontSize: 7, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "0 4px", borderRadius: 8, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
+                        <span style={{ fontSize: 11 }}>{s.pipelineIcon}</span>
+                        <span className="bu-kb-card-tag" style={{ fontSize: 10, color: s.pipelineColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: s.pipelineColor + "15", padding: "0 4px", borderRadius: 8, maxWidth: 130, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.pipelineName}</span>
                       </div>
                       {/* Name */}
-                      <div className="bu-kb-card-name" style={{ fontSize: 11, fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.3 }}>{s.name}</div>
+                      <div className="bu-kb-card-name" style={{ fontSize: 13, fontWeight: 700, color: t.text, marginBottom: 4, lineHeight: 1.3 }}>{s.name}</div>
                       {/* Desc */}
-                      {def.desc && <div className="bu-kb-card-desc" style={{ fontSize: 8, color: t.textSec, lineHeight: 1.4, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>{def.desc}</div>}
+                      {def.desc && <div className="bu-kb-card-desc" style={{ fontSize: 10, color: t.textSec, lineHeight: 1.4, marginBottom: 8, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const }}>{def.desc}</div>}
                       {/* Footer */}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4 }}>
                         {claimedBy.length > 0
                           ? <div style={{ display: "flex" }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -3 }}><AvatarC user={u} size={18} /></div> : null; })}</div>
-                          : <span style={{ fontSize: 7, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>unowned</span>
+                          : <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>unowned</span>
                         }
-                        <span style={{ marginLeft: "auto", fontSize: 7, fontFamily: "var(--font-dm-mono), monospace", fontWeight: col.id === "active" ? 700 : 400, color: col.id === "active" ? t.amber : t.textDim }}>+{def.points}pts</span>
-                        {rxTotal > 0 && <span style={{ fontSize: 8, color: t.textMuted }}>· {rxTotal}</span>}
+                        <span style={{ marginLeft: "auto", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", fontWeight: col.id === "active" ? 700 : 400, color: col.id === "active" ? t.amber : t.textDim }}>+{def.points}pts</span>
+                        {rxTotal > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>· {rxTotal}</span>}
                       </div>
                     </div>
                   );
                 })}
 
                 {stages.length === 0 && (
-                  <div className="bu-kb-empty" style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 8, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 12, border: `2px dashed ${t.border}` }} />
+                  <div className="bu-kb-empty" style={{ textAlign: "center", padding: "40px 8px", color: t.textDim, fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", borderRadius: 12, border: `2px dashed ${t.border}` }} />
                 )}
               </div>
             </div>
