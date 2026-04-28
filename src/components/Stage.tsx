@@ -1,16 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem } from "@/lib/data";
+import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, USERS_DEFAULT } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
 import ClaimChip from "@/components/ui/ClaimChip";
 import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
-import { useModel } from "@/lib/contexts/ModelContext";
+import { useModel, commentTypingState } from "@/lib/contexts/ModelContext";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { lsGet, lsSet } from "@/lib/storage";
 
@@ -170,6 +170,8 @@ export default function Stage({
     setStageDescOverride, setStageNameOverride,
     addStageImage, removeStageImage, archiveStage,
     getStatus, sc,
+    commentReactions, handleCommentReact,
+    pendingNewComments, flushPendingComments,
   } = useModel();
   const { reactOpen, setReactOpen, copied, setCopied, claimAnim, setClaimAnim } = useEphemeral();
 
@@ -199,6 +201,15 @@ export default function Stage({
   const [seenAtMount, setSeenAtMount] = useState<number | undefined>(undefined);
   // Ref to card for edit-mode click-outside
   const cardRef = useRef<HTMLDivElement>(null);
+  // Comment list scroll ref (for flush-to-bottom)
+  const commentListRef = useRef<HTMLDivElement>(null);
+  // Emoji picker open state for comment reactions (commentId → boolean)
+  const [commentReactPickerOpen, setCommentReactPickerOpen] = useState<number | null>(null);
+
+  // @mention autocomplete state
+  const [mentionDropdown, setMentionDropdown] = useState<{
+    query: string; matches: typeof USERS_DEFAULT; selectedIdx: number;
+  } | null>(null);
 
   // Reset editing name when name prop changes (e.g. after rename is applied)
   useEffect(() => { setEditingName(name); }, [name]);
@@ -246,6 +257,69 @@ export default function Stage({
       document.removeEventListener("keydown", keyHandler);
     };
   }, [stageEditMode, commitEditMode]);
+
+  // ── @mention autocomplete helpers ─────────────────────────────────────────
+  const detectMention = useCallback((val: string): { query: string; start: number } | null => {
+    // Detect `@` preceded by space or start-of-string, followed by word chars
+    const match = val.match(/(^|\s)@(\w*)$/);
+    if (!match) return null;
+    const query = match[2] || "";
+    return { query, start: val.lastIndexOf("@") };
+  }, []);
+
+  const handleCommentInputChange = useCallback((val: string) => {
+    setCommentInputVal(val);
+    // Update typing state for anti-jump buffering
+    commentTypingState.openStageId = name;
+    commentTypingState.hasInput[name] = val.trim().length > 0;
+    // Auto-flush pending if input becomes empty
+    if (val.trim().length === 0 && (pendingNewComments[name] || []).length > 0) {
+      flushPendingComments(name);
+    }
+    // Mention detection
+    const mention = detectMention(val);
+    if (mention) {
+      const q = mention.query.toLowerCase();
+      const matches = USERS_DEFAULT.filter(u =>
+        u.name.split(" ")[0].toLowerCase().startsWith(q)
+      ).slice(0, 6);
+      setMentionDropdown({ query: q, matches, selectedIdx: 0 });
+    } else {
+      setMentionDropdown(null);
+    }
+  }, [name, pendingNewComments, flushPendingComments, detectMention]);
+
+  const insertMention = useCallback((user: typeof USERS_DEFAULT[number]) => {
+    const firstName = user.name.split(" ")[0];
+    const mention = detectMention(commentInputVal);
+    if (mention) {
+      const before = commentInputVal.slice(0, mention.start);
+      const newVal = `${before}@${firstName} `;
+      setCommentInputVal(newVal);
+      commentTypingState.hasInput[name] = newVal.trim().length > 0;
+    }
+    setMentionDropdown(null);
+  }, [commentInputVal, detectMention, name]);
+
+  // On collapse: clear typing state
+  useEffect(() => {
+    if (!isE) {
+      // Flush pending on close
+      if ((pendingNewComments[name] || []).length > 0) flushPendingComments(name);
+      commentTypingState.openStageId = null;
+      commentTypingState.hasInput[name] = false;
+      setMentionDropdown(null);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isE, name]);
+
+  const pendingCount = (pendingNewComments[name] || []).length;
+
+  // Precomputed list of visible comment reactions for memoization
+  const getCommentReactions = useMemo(() => (commentId: number) => {
+    const key = `${name}::${commentId}`;
+    return commentReactions[key] || {};
+  }, [name, commentReactions]);
 
   const shareStage = (stageName: string, text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -587,13 +661,15 @@ export default function Stage({
                           {liveNotifs[name]?.comment && (
                             <div style={{ fontSize: 10, color: t.green, marginBottom: 4, fontWeight: 700 }}>{liveNotifs[name].comment} just commented</div>
                           )}
-                          <div style={{ maxHeight: 120, overflowY: "auto" }}>
+                          <div ref={commentListRef} style={{ maxHeight: 140, overflowY: "auto" }}>
                             {cmts.map((c, idx) => {
                               const u = users.find(x => x.id === c.by);
-                              // "Since you were here" divider — show above first unseen comment
+                              // "Since you were here" divider
                               const isFirstUnseen = seenAtMount !== undefined && c.id > seenAtMount && (idx === 0 || cmts[idx - 1].id <= seenAtMount);
+                              const cRxs = getCommentReactions(c.id);
+                              const cRxEntries = Object.entries(cRxs).filter(([, arr]) => arr.length > 0);
                               return (
-                                <div key={c.id}>
+                                <div key={c.id} style={{ marginBottom: 6 }}>
                                   {isFirstUnseen && (
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0" }}>
                                       <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
@@ -601,7 +677,7 @@ export default function Stage({
                                       <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
                                     </div>
                                   )}
-                                  <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                                  <div style={{ display: "flex", gap: 4 }}>
                                     {u && <AvatarC user={u} size={16} />}
                                     <div style={{ flex: 1 }}>
                                       <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
@@ -611,13 +687,119 @@ export default function Stage({
                                       <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
                                     </div>
                                   </div>
+                                  {/* Comment-level reactions */}
+                                  <div style={{ display: "flex", gap: 3, flexWrap: "wrap", paddingLeft: 20, marginTop: 3, alignItems: "center", position: "relative" }}>
+                                    {cRxEntries.map(([emoji, arr]) => {
+                                      const mine = currentUser ? arr.includes(currentUser) : false;
+                                      return (
+                                        <button
+                                          key={emoji}
+                                          onClick={() => handleCommentReact(name, c.id, emoji)}
+                                          style={{ background: mine ? t.accent + "20" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 2, lineHeight: 1 }}
+                                        >
+                                          {emoji} <span style={{ fontSize: 9, fontWeight: 700 }}>{arr.length}</span>
+                                        </button>
+                                      );
+                                    })}
+                                    {/* + button for emoji picker */}
+                                    <div style={{ position: "relative" }}>
+                                      <button
+                                        onClick={() => setCommentReactPickerOpen(commentReactPickerOpen === c.id ? null : c.id)}
+                                        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1 }}
+                                      >+</button>
+                                      {commentReactPickerOpen === c.id && (
+                                        <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
+                                          {REACTIONS.map(emoji => (
+                                            <button
+                                              key={emoji}
+                                              onClick={() => { handleCommentReact(name, c.id, emoji); setCommentReactPickerOpen(null); }}
+                                              style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 14, padding: "3px 4px", borderRadius: 6 }}
+                                            >{emoji}</button>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               );
                             })}
                           </div>
-                          <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(name, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                            <button onClick={() => addComment(name, commentInputVal, () => setCommentInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"↵"}</button>
+
+                          {/* Anti-jump pending pill */}
+                          {pendingCount > 0 && (
+                            <button
+                              onClick={() => { flushPendingComments(name); setTimeout(() => { if (commentListRef.current) commentListRef.current.scrollTop = commentListRef.current.scrollHeight; }, 30); }}
+                              style={{ display: "block", width: "100%", background: t.accent, border: "none", borderRadius: 8, padding: "4px 0", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" as const, marginTop: 4, marginBottom: 2, transition: "opacity 0.15s" }}
+                            >↓ {pendingCount} new — show</button>
+                          )}
+
+                          {/* Comment input with @mention autocomplete */}
+                          <div style={{ position: "relative", marginTop: 8 }}>
+                            {/* @mention dropdown */}
+                            {mentionDropdown && mentionDropdown.matches.length > 0 && (
+                              <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
+                                {mentionDropdown.matches.map((u, i) => (
+                                  <div
+                                    key={u.id}
+                                    onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
+                                  >
+                                    <AvatarC user={u} size={16} />
+                                    <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
+                                    <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            <div style={{ display: "flex", gap: 4 }}>
+                              <input
+                                value={commentInputVal}
+                                onChange={e => handleCommentInputChange(e.target.value)}
+                                onKeyDown={e => {
+                                  if (mentionDropdown && mentionDropdown.matches.length > 0) {
+                                    if (e.key === "ArrowDown") {
+                                      e.preventDefault();
+                                      setMentionDropdown(d => d ? { ...d, selectedIdx: Math.min(d.selectedIdx + 1, d.matches.length - 1) } : d);
+                                      return;
+                                    }
+                                    if (e.key === "ArrowUp") {
+                                      e.preventDefault();
+                                      setMentionDropdown(d => d ? { ...d, selectedIdx: Math.max(d.selectedIdx - 1, 0) } : d);
+                                      return;
+                                    }
+                                    if (e.key === "Tab" || (e.key === "Enter" && mentionDropdown.matches.length > 0)) {
+                                      e.preventDefault();
+                                      const selected = mentionDropdown.matches[mentionDropdown.selectedIdx];
+                                      if (selected) insertMention(selected);
+                                      return;
+                                    }
+                                    if (e.key === "Escape") {
+                                      e.preventDefault();
+                                      setMentionDropdown(null);
+                                      return;
+                                    }
+                                  }
+                                  if (e.key === "Enter" && !mentionDropdown) {
+                                    addComment(name, commentInputVal, () => {
+                                      setCommentInputVal("");
+                                      commentTypingState.hasInput[name] = false;
+                                    });
+                                  }
+                                }}
+                                placeholder="comment... (@name to mention)"
+                                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }}
+                              />
+                              <button
+                                onClick={() => {
+                                  addComment(name, commentInputVal, () => {
+                                    setCommentInputVal("");
+                                    commentTypingState.hasInput[name] = false;
+                                  });
+                                  setMentionDropdown(null);
+                                }}
+                                style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}
+                              >{"↵"}</button>
+                            </div>
                           </div>
                         </>
                       ) : (

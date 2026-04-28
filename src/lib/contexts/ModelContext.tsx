@@ -12,7 +12,7 @@ import {
 } from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { patchState, pushMessage, pushComment, pushActivity, type SharedState } from "@/lib/apiSync";
+import { patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type SharedState } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 
@@ -68,6 +68,14 @@ interface ModelContextValue {
   archivedSubtasks: string[];
   archived: { stages: string[]; pipelines: string[]; subtasks: string[] };
   stageImages: Record<string, string[]>;
+
+  // Comment reactions: key = `${stageId}::${commentId}`, value = emoji → userIds[]
+  commentReactions: Record<string, Record<string, string[]>>;
+  handleCommentReact: (stageId: string, commentId: number, emoji: string) => void;
+
+  // Anti-jump pending comments (buffered when user is typing)
+  pendingNewComments: Record<string, CommentItem[]>;
+  flushPendingComments: (stageId: string) => void;
 
   // Chat state
   chatMessages: ChatMsg[];
@@ -141,6 +149,13 @@ interface ModelContextValue {
   t: T;
 }
 
+// Module-level mutable ref: stageId → whether user is actively typing in that stage's comment box.
+// Updated by the comment input onChange handler so the poll merge can check without circular deps.
+export const commentTypingState: { openStageId: string | null; hasInput: Record<string, boolean> } = {
+  openStageId: null,
+  hasInput: {},
+};
+
 const ModelContext = createContext<ModelContextValue | null>(null);
 
 interface ModelProviderProps {
@@ -201,6 +216,8 @@ export function ModelProvider({
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
+  const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, string[]>>>({});
+  const [pendingNewComments, setPendingNewComments] = useState<Record<string, CommentItem[]>>({});
 
   // ── Chat state ────────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -320,6 +337,7 @@ export function ModelProvider({
     if (s.comments) {
       let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
       let pendingLiveNotif: { stage: string; name: string } | null = null;
+      const newPending: Record<string, CommentItem[]> = {};
       setComments(prev => {
         const remote = s.comments as Record<string, CommentItem[]>;
         let changed = false;
@@ -329,25 +347,49 @@ export function ModelProvider({
           const existingIds = new Set(existing.map(m => m.id));
           const incoming = msgs.filter(m => !existingIds.has(m.id));
           if (incoming.length > 0) {
-            merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
-            changed = true;
-            const foreign = incoming.find(m => m.by !== currentUser);
-            if (foreign) {
-              const sender = users.find(u => u.id === foreign.by);
-              pendingCommentNotif = { name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage };
-              pendingLiveNotif = { stage, name: sender?.name || foreign.by };
+            // Anti-jump: if user is currently typing in this stage's comment box, buffer the incoming
+            const isTypingHere =
+              commentTypingState.openStageId === stage &&
+              commentTypingState.hasInput[stage];
+            if (isTypingHere) {
+              newPending[stage] = incoming;
+            } else {
+              merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
+              changed = true;
+              const foreign = incoming.find(m => m.by !== currentUser);
+              if (foreign) {
+                const sender = users.find(u => u.id === foreign.by);
+                pendingCommentNotif = { name: sender?.name || foreign.by, text: foreign.text, isComment: true, stage };
+                pendingLiveNotif = { stage, name: sender?.name || foreign.by };
+              }
+              knownCommentsRef.current[stage] = merged[stage].length;
             }
-            knownCommentsRef.current[stage] = merged[stage].length;
           }
         }
         return changed ? merged : prev;
       });
+      // Buffer pending for stages where user is typing
+      if (Object.keys(newPending).length > 0) {
+        setPendingNewComments(prev => {
+          const next = { ...prev };
+          for (const [stage, incoming] of Object.entries(newPending)) {
+            const prevPending = prev[stage] || [];
+            const prevIds = new Set(prevPending.map(m => m.id));
+            const fresh = incoming.filter(m => !prevIds.has(m.id));
+            if (fresh.length > 0) next[stage] = [...prevPending, ...fresh];
+          }
+          return next;
+        });
+      }
       if (pendingCommentNotif) { setChatNotif(pendingCommentNotif); playNotifSound(); setTimeout(() => setChatNotif(null), 5000); }
       if (pendingLiveNotif) {
         const { stage: stg, name } = pendingLiveNotif;
         setLiveNotifs(prev => ({ ...prev, [stg]: { ...prev[stg], comment: name } }));
         setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stg]) { delete n[stg].comment; if (!Object.keys(n[stg]).length) delete n[stg]; } return n; }), 4000);
       }
+    }
+    if (s.commentReactions) {
+      setCommentReactions(s.commentReactions as Record<string, Record<string, string[]>>);
     }
     if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
     if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
@@ -540,6 +582,45 @@ export function ModelProvider({
       }
     });
   };
+
+  // ── flushPendingComments — merge buffered comments into main list ──────────
+  const flushPendingComments = useCallback((stageId: string) => {
+    setPendingNewComments(prev => {
+      const pending = prev[stageId];
+      if (!pending || pending.length === 0) return prev;
+      setComments(c => {
+        const existing = c[stageId] || [];
+        const existingIds = new Set(existing.map(m => m.id));
+        const fresh = pending.filter(m => !existingIds.has(m.id));
+        if (fresh.length === 0) return c;
+        return { ...c, [stageId]: [...existing, ...fresh].sort((a, b) => a.id - b.id) };
+      });
+      const next = { ...prev };
+      delete next[stageId];
+      return next;
+    });
+  }, []);
+
+  // ── handleCommentReact — optimistic toggle + server sync ──────────────────
+  const handleCommentReact = useCallback((stageId: string, commentId: number, emoji: string) => {
+    if (!currentUser) return;
+    const key = `${stageId}::${commentId}`;
+    const prevReactions = commentReactions;
+    setCommentReactions(prev => {
+      const entry = { ...(prev[key] || {}) };
+      const arr = [...(entry[emoji] || [])];
+      const idx = arr.indexOf(currentUser);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(currentUser);
+      entry[emoji] = arr;
+      return { ...prev, [key]: entry };
+    });
+    pushCommentReaction({ stageId, commentId, emoji }).then(result => {
+      if (!result.ok) {
+        setCommentReactions(prevReactions);
+        showToast("// reaction failed", t.amber);
+      }
+    });
+  }, [currentUser, commentReactions, t.amber, showToast]);
 
   const archiveStage = (sid: string) => {
     if (archivedStages.includes(sid)) return;
@@ -734,6 +815,8 @@ export function ModelProvider({
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
     claims, reactions, comments, subtasks, assignments, ownership,
+    commentReactions, handleCommentReact,
+    pendingNewComments, flushPendingComments,
     stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
@@ -803,4 +886,21 @@ export function useModel() {
   const ctx = useContext(ModelContext);
   if (!ctx) throw new Error("useModel must be used within ModelProvider");
   return ctx;
+}
+
+/**
+ * Returns the current user's role in the given workspace.
+ * "captain" | "firstMate" | "crew" | null (null = not a member)
+ */
+export function useRole(workspaceId?: string): "captain" | "firstMate" | "crew" | null {
+  const { workspaces, currentUser } = useModel();
+  return useMemo(() => {
+    if (!workspaceId || !currentUser) return null;
+    const ws = workspaces.find(w => w.id === workspaceId);
+    if (!ws) return null;
+    if (ws.captains.includes(currentUser)) return "captain";
+    if (ws.firstMates.includes(currentUser)) return "firstMate";
+    if (ws.members.includes(currentUser)) return "crew";
+    return null;
+  }, [workspaceId, workspaces, currentUser]);
 }

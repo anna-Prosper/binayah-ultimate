@@ -21,6 +21,8 @@ export type SharedState = {
   archivedStages?: string[];
   archivedPipelines?: string[];
   archivedSubtasks?: string[];
+  // commentReactions: key = `${stageId}::${commentId}`, value = emoji → userIds[]
+  commentReactions?: Record<string, Record<string, string[]>>;
   updatedAt?: number;
 };
 
@@ -49,8 +51,11 @@ export async function patchState(patch: Partial<SharedState>): Promise<SyncResul
       body: JSON.stringify({ ...patch, updatedAt: Date.now() }),
     });
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
+      const data = await res.json().catch(() => ({})) as { error?: string; reason?: string };
+      const errMsg = data.reason
+        ? `${data.error || "ERROR"}: ${data.reason}`
+        : data.error || `HTTP ${res.status}`;
+      return { ok: false, error: errMsg, status: res.status };
     }
     return { ok: true };
   } catch (err) {
@@ -83,6 +88,24 @@ export async function pushComment(stage: string, comment: { id: number; text: st
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage, comment }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
+}
+
+// Toggle a comment reaction atomically
+export async function pushCommentReaction(payload: { stageId: string; commentId: number; emoji: string }): Promise<SyncResult> {
+  try {
+    const res = await fetch(`${API_BASE}/comment-reactions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

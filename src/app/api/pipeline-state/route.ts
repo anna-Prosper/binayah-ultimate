@@ -96,6 +96,40 @@ export async function PATCH(req: NextRequest) {
   const session = await getServerSession(authOptions);
   const actorUserId = session?.user?.fixedUserId ?? "unknown";
 
+  // ── Role-based permission gate for destructive structural operations ────────
+  // Keys that require captain or firstMate role in at least one workspace.
+  const DESTRUCTIVE_KEYS = new Set([
+    "archivedStages", "archivedPipelines", "archivedSubtasks",
+    "customPipelines", // pipeline deletions
+    "workspaces",      // member changes
+  ]);
+  const touchedDestructive = Object.keys(cleanPatch).some(k => DESTRUCTIVE_KEYS.has(k));
+  if (touchedDestructive) {
+    // Must be authenticated
+    if (!session?.user?.fixedUserId) {
+      logApi(ROUTE, "forbidden_unauthenticated");
+      return NextResponse.json(
+        { error: "FORBIDDEN", reason: "authentication required for destructive operations" },
+        { status: 401 }
+      );
+    }
+    // Read workspaces from current state to check role
+    const stateDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
+    const workspacesData = (stateDoc?.state?.workspaces as Array<{
+      id: string; captains: string[]; firstMates: string[]; members: string[];
+    }> | undefined) ?? [];
+    const isOfficer = workspacesData.some(
+      ws => ws.captains?.includes(actorUserId) || ws.firstMates?.includes(actorUserId)
+    );
+    if (!isOfficer) {
+      logApi(ROUTE, "forbidden_insufficient_role", { userId: actorUserId });
+      return NextResponse.json(
+        { error: "FORBIDDEN", reason: "captain or first-mate role required" },
+        { status: 403 }
+      );
+    }
+  }
+
   // Capture pre-patch state for notification diffing (claims + statuses only)
   let prePatchClaims: Record<string, string[]> = {};
   let prePatchStatuses: Record<string, string> = {};

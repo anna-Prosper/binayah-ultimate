@@ -6,6 +6,7 @@ import { checkContentLength, validateStageKey, validateText } from "@/lib/valida
 import { logApi } from "@/lib/log";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { notifyMentions } from "@/lib/mentions";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -80,6 +81,13 @@ export async function POST(req: NextRequest) {
       { new: true }
     );
     logApi(ROUTE, "success", { stage });
+    // Fire-and-forget mention notifications
+    const commentText = (comment.text as string) || "";
+    if (commentText && authoredUser) {
+      void notifyMentions(commentText, authoredUser, "comment", stage as string).catch(e =>
+        console.warn("[comment-mention] notifyMentions failed:", e)
+      );
+    }
     return NextResponse.json({ ok: true });
   } catch (err) {
     logApi(ROUTE, "db_error", { message: (err as Error).message });

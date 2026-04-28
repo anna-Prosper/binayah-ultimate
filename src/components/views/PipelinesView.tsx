@@ -2,13 +2,14 @@
 
 import { Suspense, useState, useRef, useEffect, useCallback } from "react";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
-import { useModel } from "@/lib/contexts/ModelContext";
+import { useModel, useRole } from "@/lib/contexts/ModelContext";
 import { Chev } from "@/components/ui/primitives";
 import { AvatarC } from "@/components/ui/Avatar";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { KanbanSkeleton, OverviewSkeleton } from "@/components/ui/Skeletons";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import dynamic from "next/dynamic";
 import { REACTIONS } from "@/lib/data";
 
@@ -54,9 +55,13 @@ export default function PipelinesView({
   const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" });
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Per-pipeline edit mode (pencil toggle)
-  // TODO(stage-2): replace canEditPipeline with useRole-based check
   const [pipelineEditMode, setPipelineEditMode] = useState<string | null>(null);
   const pipelineEditRef = useRef<HTMLDivElement | null>(null);
+  // Confirm modal state for destructive pipeline ops
+  const [confirmModal, setConfirmModal] = useState<{
+    open: boolean; pipelineId: string; title: string; body: string;
+  }>({ open: false, pipelineId: "", title: "", body: "" });
+
   const {
     users, currentUser, me,
     claims, reactions,
@@ -71,9 +76,23 @@ export default function PipelinesView({
     t,
   } = useModel();
 
-  // TODO(stage-2): replace canEditPipeline with useRole-based check
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const canEditPipeline = (_pipelineId: string) => true;
+  // Derive workspace ID for a given pipeline (the workspace whose pipelineIds includes it)
+  const getPipelineWorkspaceId = useCallback((pipelineId: string): string | undefined => {
+    return workspaces.find(w => w.pipelineIds.includes(pipelineId))?.id ?? currentWorkspaceId ?? undefined;
+  }, [workspaces, currentWorkspaceId]);
+
+  // Role in the current workspace (for pipeline edit gating)
+  const roleInCurrentWs = useRole(currentWorkspaceId || undefined);
+  const canEditPipeline = useCallback((pipelineId: string): boolean => {
+    const wsId = getPipelineWorkspaceId(pipelineId);
+    if (!wsId) {
+      // Fallback: if pipeline not in any workspace, use current workspace role
+      return roleInCurrentWs === "captain" || roleInCurrentWs === "firstMate";
+    }
+    const ws = workspaces.find(w => w.id === wsId);
+    if (!ws || !currentUser) return false;
+    return ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
+  }, [getPipelineWorkspaceId, workspaces, currentUser, roleInCurrentWs]);
 
   // Click-outside + Escape handler for pipelineEditMode
   const closePipelineEditMode = useCallback(() => {
@@ -129,6 +148,21 @@ export default function PipelinesView({
 
   return (
     <div style={{ marginTop: 16 }}>
+      <ConfirmModal
+        open={confirmModal.open}
+        title={confirmModal.title}
+        body={confirmModal.body}
+        confirmLabel="archive"
+        cancelLabel="cancel"
+        danger
+        onConfirm={() => {
+          archivePipeline(confirmModal.pipelineId);
+          closePipelineEditMode();
+          setConfirmModal(prev => ({ ...prev, open: false }));
+        }}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, open: false }))}
+        t={t}
+      />
       {/* Search + view toggle */}
       <div className="bu-search-row" style={{ display: "flex", gap: 8, marginBottom: 16, alignItems: "stretch" }}>
         <div style={{ flex: 1 }}><SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} /></div>
@@ -296,7 +330,16 @@ export default function PipelinesView({
                       ))}
                     </div>
                     <button
-                      onClick={() => { archivePipeline(p.id); closePipelineEditMode(); }}
+                      onClick={() => {
+                        const allPStagesForConfirm = [...p.stages, ...(customStages[p.id] || [])];
+                        const unclaimed = allPStagesForConfirm.filter(s => (claims[s] || []).length === 0).length;
+                        setConfirmModal({
+                          open: true,
+                          pipelineId: p.id,
+                          title: `archive "${pipeMetaOverrides[p.id]?.name ?? p.name}"?`,
+                          body: `this pipeline has ${allPStagesForConfirm.length} stage${allPStagesForConfirm.length !== 1 ? "s" : ""}${unclaimed > 0 ? `, ${unclaimed} unclaimed` : ""}. archive anyway?`,
+                        });
+                      }}
                       style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
                     >📦 archive pipeline</button>
                   </div>
