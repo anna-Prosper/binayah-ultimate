@@ -115,6 +115,7 @@ interface ModelContextValue {
   renameSubtask: (sid: string, taskId: number, text: string) => void;
   lockSubtask: (sid: string, taskId: number) => void;
   removeSubtask: (sid: string, taskId: number) => void;
+  setSubtaskPoints: (sid: string, taskId: number, points: number) => void;
   archiveStage: (sid: string) => void;
   restoreStage: (sid: string) => void;
   archivePipeline: (pid: string) => void;
@@ -660,12 +661,38 @@ export function ModelProvider({
   const MAX_SUBTASKS = 20; const MAX_SUBTASK_LEN = 200;
   const addSubtask = (sid: string, val: string, clearInput: () => void) => {
     if (!val || !currentUser) return;
-    if (val.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return; }
+    const trimmed = val.trim();
+    if (trimmed.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return; }
     if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast("// max 20 subtasks per stage", t.amber); return; }
     const taskId = Date.now();
     markLocalWrite("subtasks");
-    setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: val, done: false, by: currentUser }] }));
+    setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
     clearInput();
+    // Fire-and-forget LLM points suggestion — falls back to DEFAULT_SUBTASK_POINTS if it fails
+    fetch("/api/suggest-points", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "subtask", title: trimmed, context: sid }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { points?: number } | null) => {
+        if (data && typeof data.points === "number") {
+          markLocalWrite("subtasks");
+          setSubtasks(prev => ({
+            ...prev,
+            [sid]: (prev[sid] || []).map(s => s.id === taskId ? { ...s, points: data.points! } : s),
+          }));
+        }
+      })
+      .catch(() => { /* silent — leaves subtask without explicit points (uses default) */ });
+  };
+
+  const setSubtaskPoints = (sid: string, taskId: number, points: number) => {
+    markLocalWrite("subtasks");
+    setSubtasks(prev => ({
+      ...prev,
+      [sid]: (prev[sid] || []).map(s => s.id === taskId ? { ...s, points } : s),
+    }));
   };
 
   const toggleSubtask = (sid: string, taskId: number) => {
@@ -1078,7 +1105,7 @@ export function ModelProvider({
     getStatus, getPoints, sc, ck, pr,
     allPipelinesGlobal,
     handleClaim, handleReact, addComment, addSubtask, toggleSubtask, renameSubtask,
-    lockSubtask, removeSubtask,
+    lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
     setStageStatusDirect, cycleStatus, approveStage,

@@ -1,29 +1,15 @@
 import { type SubtaskItem } from "@/lib/data";
 
-/** Default points for a subtask when no explicit points are set. */
 export const DEFAULT_SUBTASK_POINTS = 5;
 
 /**
- * Derive the "natural" points for a stage from its live subtasks.
- * - If there are live (non-archived) subtasks: sum of their points.
- * - If no live subtasks: fall back to stageDefaultPoints.
- */
-export function deriveStagePoints(
-  stageName: string,
-  subtasks: SubtaskItem[] | undefined,
-  archivedSubtaskKeys: Set<string>,
-  stageDefaultPoints: number,
-): number {
-  const live = (subtasks || []).filter(
-    s => !archivedSubtaskKeys.has(`${stageName}::${s.id}`)
-  );
-  if (live.length === 0) return stageDefaultPoints;
-  return live.reduce((sum, s) => sum + (s.points ?? DEFAULT_SUBTASK_POINTS), 0);
-}
-
-/**
- * Derive the display points for a stage, respecting user overrides.
- * Override takes priority over the derived subtask sum.
+ * Subtask-ledger model:
+ *   - Stage WITH live subtasks: sum of their points (pure ledger).
+ *   - Stage WITHOUT live subtasks (a leaf): its own points, taken from
+ *     stagePointsOverride[name] if set, else stageDefaultPoints.
+ *
+ * Subtasks dominate when present — there's no override-vs-sum ambiguity:
+ * decomposing a stage replaces the leaf estimate with the real ledger.
  */
 export function deriveStageDisplayPoints(
   stageName: string,
@@ -32,16 +18,30 @@ export function deriveStageDisplayPoints(
   stageDefaultPoints: number,
   stagePointsOverride: Record<string, number>,
 ): number {
+  const live = (subtasks || []).filter(
+    s => !archivedSubtaskKeys.has(`${stageName}::${s.id}`)
+  );
+  if (live.length > 0) {
+    return live.reduce((sum, s) => sum + (s.points ?? DEFAULT_SUBTASK_POINTS), 0);
+  }
+  // Leaf stage — use override (set by LLM on creation, or by user) or default
   if (stagePointsOverride[stageName] !== undefined) {
     return stagePointsOverride[stageName];
   }
-  return deriveStagePoints(stageName, subtasks, archivedSubtaskKeys, stageDefaultPoints);
+  return stageDefaultPoints;
 }
 
-/**
- * Derive the total points for a pipeline by summing display points of all
- * non-archived stages.
- */
+/** Back-compat alias — same logic without override (used for "natural" sum displays). */
+export function deriveStagePoints(
+  stageName: string,
+  subtasks: SubtaskItem[] | undefined,
+  archivedSubtaskKeys: Set<string>,
+  stageDefaultPoints: number,
+): number {
+  return deriveStageDisplayPoints(stageName, subtasks, archivedSubtaskKeys, stageDefaultPoints, {});
+}
+
+/** Pipeline total = sum of stage display points across non-archived stages. */
 export function derivePipelinePoints(
   stageNames: string[],
   archivedStages: string[],

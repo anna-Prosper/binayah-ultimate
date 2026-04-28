@@ -1,7 +1,7 @@
 {
   "forwardEdges": {
     "next-env.d.ts": [
-      ".next/dev/types/routes.d.ts"
+      ".next/types/routes.d.ts"
     ],
     "src/app/layout.tsx": [
       "src/app/globals.css",
@@ -98,6 +98,7 @@
     "src/components/TasksView.tsx": [
       "src/lib/themes.ts",
       "src/lib/data.ts",
+      "src/lib/points.ts",
       "src/components/ui/Avatar.tsx",
       "src/components/ui/ClaimChip.tsx",
       "src/lib/contexts/EphemeralContext.tsx",
@@ -426,7 +427,7 @@
     ]
   },
   "reverseEdges": {
-    ".next/dev/types/routes.d.ts": [
+    ".next/types/routes.d.ts": [
       "next-env.d.ts"
     ],
     "src/app/globals.css": [
@@ -659,6 +660,11 @@
       "src/components/mockups/WebToolsMockups.tsx",
       "src/components/views/PipelinesView.tsx"
     ],
+    "src/lib/points.ts": [
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
     "src/components/ui/ClaimChip.tsx": [
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx"
@@ -673,10 +679,6 @@
     ],
     "src/components/mockups/mockupsMap.tsx": [
       "src/components/Stage.tsx"
-    ],
-    "src/lib/points.ts": [
-      "src/components/Stage.tsx",
-      "src/lib/contexts/ModelContext.tsx"
     ],
     "src/lib/email.ts": [
       "src/lib/mentions.ts",
@@ -855,6 +857,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-28T11:32:38.353535+00:00",
+  "builtAt": "2026-04-28T11:58:07.109244+00:00",
   "fileCount": 115
 }
