@@ -26,6 +26,7 @@ import ActivityView from "@/components/views/ActivityView";
 import ChatView from "@/components/views/ChatView";
 import HomeViewRoute from "@/components/views/HomeViewRoute";
 import TeamBar from "@/components/views/TeamBar";
+import WhileAwayDigest from "@/components/WhileAwayDigest";
 const CreateWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.CreateWorkspaceModal), { ssr: false });
 const ManageWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.ManageWorkspaceModal), { ssr: false });
 const DocumentsPanel = dynamic(() => import("@/components/DocumentsPanel"), { ssr: false, loading: () => null });
@@ -131,6 +132,8 @@ function DashboardInner({
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
+  const [showDigest, setShowDigest] = useState(false);
+  const [digestLastSession, setDigestLastSession] = useState(0);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0)); const [showArchive, setShowArchive] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => { if (typeof window === "undefined" || !initialUserId) return false; return !localStorage.getItem(`binayah_welcomed_${initialUserId}`); });
   const prevMyPtsRef = useRef(0); const prevApprovedRef = useRef<string[]>([]);
@@ -142,6 +145,24 @@ function DashboardInner({
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
+
+  // "While you were away" digest: check on mount, update on unmount
+  useEffect(() => {
+    if (typeof window === "undefined" || !currentUser || activityLog.length === 0) return;
+    const lsKey = `binayah_lastSession_${currentUser}`;
+    const raw = localStorage.getItem(lsKey);
+    const last = raw ? parseInt(raw, 10) : 0;
+    setDigestLastSession(last);
+    const TWELVE_HOURS = 12 * 60 * 60 * 1000;
+    if (!raw || Date.now() - last > TWELVE_HOURS) {
+      setShowDigest(true);
+    }
+    return () => {
+      // Always write on unmount so a quick refresh doesn't trigger digest
+      try { localStorage.setItem(lsKey, String(Date.now())); } catch { /* quota */ }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUser]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -257,6 +278,13 @@ function DashboardInner({
   const handlePaletteOpenPerson = useCallback((userId: string) => {
     setViewingUser(userId); setTimeout(() => { const el = document.querySelector(`[data-user-id='${userId}']`) as HTMLElement | null; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
   }, []);
+
+  const handleDigestDismiss = useCallback(() => {
+    if (typeof window !== "undefined" && currentUser) {
+      try { localStorage.setItem(`binayah_lastSession_${currentUser}`, String(Date.now())); } catch { /* quota */ }
+    }
+    setShowDigest(false);
+  }, [currentUser]);
 
   const handleWelcomeDismiss = useCallback(({ avatar, aiAvatar }: { avatar: string | null; aiAvatar: string | null }) => {
     if (initialUserId) { try { localStorage.setItem(`binayah_welcomed_${initialUserId}`, Date.now().toString()); } catch { /* noop */ } }
@@ -387,6 +415,19 @@ function DashboardInner({
 
       {/* Welcome Modal */}
       {showWelcome && initialUserId && me && (<WelcomeModal user={me} t={t} themeId={themeId} setThemeId={setThemeId} isDark={isDark} setIsDark={setIsDark} onDismiss={handleWelcomeDismiss} />)}
+
+      {/* While You Were Away Digest */}
+      {showDigest && currentUser && me && !showWelcome && (
+        <WhileAwayDigest
+          t={t}
+          currentUser={currentUser}
+          users={users}
+          activityLog={activityLog}
+          claims={claims}
+          lastSession={digestLastSession}
+          onDismiss={handleDigestDismiss}
+        />
+      )}
 
       {/* Toast stack */}
       <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />

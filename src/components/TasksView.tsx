@@ -8,6 +8,8 @@ import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
+import { useIsMobile } from "@/hooks/useIsMobile";
+import TodayView from "@/components/TodayView";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -52,6 +54,7 @@ export default function TasksView(props: Props) {
     stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
     archivedStages,
     addComment: modelAddComment,
+    migrateSubtask,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
 
@@ -72,10 +75,15 @@ export default function TasksView(props: Props) {
     modelAddComment(sid, val, () => setCommentInput(prev => ({ ...prev, [sid]: "" })));
   }, [commentInput, modelAddComment]);
 
+  const isMobile = useIsMobile(640);
+
   const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
+  // Track active subtask drag for stage-card migration targets
+  const [draggingSubtaskKey, setDraggingSubtaskKey] = useState<string | null>(null);
+  const [stageDropOver, setStageDropOver] = useState<string | null>(null);
   const [reactOpen, setReactOpen] = useState<string | null>(null);
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
@@ -207,6 +215,23 @@ export default function TasksView(props: Props) {
 
   const pendingCount = stageTasks.filter(s => s.status === "active" && !approvedStages.includes(s.stageId)).length;
 
+  // Stage-card drop target handlers for subtask migration
+  const handleStageDragOver = useCallback((stageId: string, e: React.DragEvent) => {
+    if (!e.dataTransfer.types.includes("subtaskkey")) return;
+    e.preventDefault();
+    setStageDropOver(stageId);
+  }, []);
+  const handleStageDragLeave = useCallback((stageId: string) => {
+    setStageDropOver(prev => prev === stageId ? null : prev);
+  }, []);
+  const handleStageDrop = useCallback((stageId: string, e: React.DragEvent) => {
+    e.preventDefault();
+    setStageDropOver(null);
+    const key = e.dataTransfer.getData("subtaskKey");
+    if (!key || !SubtaskKey.isValid(key)) return;
+    migrateSubtask(key as Parameters<typeof migrateSubtask>[0], stageId);
+  }, [migrateSubtask]);
+
   const cardShared = {
     t, users, currentUser, reactions, comments,
     reactOpen, setReactOpen, commentOpen, setCommentOpen,
@@ -217,7 +242,47 @@ export default function TasksView(props: Props) {
     setStageNameOverride,
     editMode, onPipelineClick,
     handleClaim, claims,
+    // Stage migration drop target props
+    draggingSubtaskKey, stageDropOver,
+    onStageDragOver: handleStageDragOver,
+    onStageDragLeave: handleStageDragLeave,
+    onStageDrop: handleStageDrop,
   };
+
+  // Mobile today view: filter to claimed/assigned, sort by status priority
+  const STATUS_PRIORITY: Record<string, number> = {
+    "in-progress": 0, "planned": 1, "active": 2, "concept": 3, "blocked": 4,
+  };
+
+  if (isMobile) {
+    const todayStages = allStageTasks
+      .filter(s => {
+        if (!currentUser) return false;
+        return (claims[s.stageId] || []).includes(currentUser) || assignments[s.stageId] === currentUser;
+      })
+      .sort((a, b) => (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99));
+
+    return (
+      <div style={{ padding: "12px 0" }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>
+          // your tasks today
+        </div>
+        <TodayView
+          t={t}
+          stages={todayStages.map(s => ({
+            stageId: s.stageId,
+            displayName: s.displayName,
+            status: s.status,
+            pipelineName: s.pipelineName,
+            pipelineColor: s.pipelineColor,
+          }))}
+          currentUser={currentUser || ""}
+          users={users}
+          ck={ck}
+        />
+      </div>
+    );
+  }
 
   return (
     <div style={{ padding: "20px 0" }}>
@@ -283,10 +348,17 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "background 0.15s", padding: 0 }}
-                onDragOver={e => { e.preventDefault(); setDragOver(col.status); }}
+                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0, opacity: draggingSubtaskKey ? 0.55 : 1 }}
+                onDragOver={e => {
+                  // Only handle column drag if NOT a subtask being migrated to a stage
+                  if (e.dataTransfer.types.includes("subtaskkey")) return;
+                  e.preventDefault(); setDragOver(col.status);
+                }}
                 onDragLeave={() => setDragOver(null)}
-                onDrop={e => handleDrop(col.status, e)}
+                onDrop={e => {
+                  if (e.dataTransfer.types.includes("subtaskkey")) return;
+                  handleDrop(col.status, e);
+                }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, padding: "4px 4px", borderBottom: `1px solid ${stColor}33` }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
@@ -298,7 +370,7 @@ export default function TasksView(props: Props) {
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
                 </div>
@@ -363,6 +435,12 @@ interface SharedCardProps {
   setAssignOpen: (v: string | null) => void;
   assignments: Record<string, string>;
   assignTask: (sid: string, userId: string | null) => void;
+  // Stage migration drop target props
+  draggingSubtaskKey?: string | null;
+  stageDropOver?: string | null;
+  onStageDragOver?: (stageId: string, e: React.DragEvent) => void;
+  onStageDragLeave?: (stageId: string) => void;
+  onStageDrop?: (stageId: string, e: React.DragEvent) => void;
 }
 
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
@@ -373,7 +451,7 @@ function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...sh
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <TaskCard task={task} isMine={isMine} onClaim={onClaim} draggable={isDraggable} {...shared} />
+      <TaskCard task={task} isMine={isMine} onClaim={onClaim} draggable={isDraggable} draggingSubtaskKey={shared.draggingSubtaskKey} stageDropOver={shared.stageDropOver} onStageDragOver={shared.onStageDragOver} onStageDragLeave={shared.onStageDragLeave} onStageDrop={shared.onStageDrop} {...shared} />
       {showSubs && taskSubs.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingLeft: 16, borderLeft: `2px solid ${task.pipelineColor}33`, marginLeft: 4 }}>
           {taskSubs.map(sub => (
@@ -405,6 +483,7 @@ function TaskCard({
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
+  draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority } = useModel();
   const [editOpen, setEditOpen] = useState(false);
@@ -443,11 +522,22 @@ function TaskCard({
   const subDone = (subtasks[task.stageId] || []).filter(s => s.done).length;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
 
+  const isStageDropTarget = !!draggingSubtaskKey;
+  const isDropHover = stageDropOver === task.stageId;
+
   return (
-    <div ref={cardRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div
+      ref={cardRef}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}
+      onDragLeave={isStageDropTarget ? () => onStageDragLeave?.(task.stageId) : undefined}
+      onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, e) : undefined}
+    >
       <CardShell
         t={t}
-        borderColor={isPending ? t.amber + "55" : t.border}
+        borderColor={isDropHover ? t.accent : (isPending ? t.amber + "55" : t.border)}
+        borderStyle={isDropHover ? "dashed" : "solid"}
         pipelineColor={task.pipelineColor}
         draggable={isDraggable}
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
@@ -751,13 +841,14 @@ function SubtaskCard({
 // ─── Subtask as first-class kanban item ──────────────────────────────────────
 
 function SubtaskKanbanCard({
-  sub, isMine, onDone, onRename,
+  sub, isMine, onDone, onRename, onDragSubtaskStart, onDragSubtaskEnd,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onDone: () => void; onRename?: (taskId: number, text: string) => void;
+  onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
@@ -804,7 +895,8 @@ function SubtaskKanbanCard({
         borderColor={isUnknownParent ? t.amber + "55" : t.border}
         pipelineColor={sub.pipelineColor}
         draggable={!editOpen}
-        onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; }}
+        onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; onDragSubtaskStart?.(); }}
+        onDragEnd={onDragSubtaskEnd}
       >
         {/* Top row — same structure as TaskCard */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -893,25 +985,26 @@ function SubtaskKanbanCard({
 
 // ─── Shared micro-components ─────────────────────────────────────────────────
 
-function CardShell({ t, borderColor, pipelineColor, compact, draggable: isDraggable, onDragStart, children }: {
-  t: T; borderColor: string; pipelineColor?: string; compact?: boolean;
-  draggable?: boolean; onDragStart?: (e: React.DragEvent) => void;
+function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, draggable: isDraggable, onDragStart, onDragEnd, children }: {
+  t: T; borderColor: string; borderStyle?: "solid" | "dashed"; pipelineColor?: string; compact?: boolean;
+  draggable?: boolean; onDragStart?: (e: React.DragEvent) => void; onDragEnd?: () => void;
   children: React.ReactNode;
 }) {
   return (
     <div
       draggable={isDraggable}
       onDragStart={onDragStart}
+      onDragEnd={onDragEnd}
       onClick={e => e.stopPropagation()}
       style={{
         background: t.bgCard,
-        border: `1px solid ${borderColor}`,
+        border: `1px ${borderStyle || "solid"} ${borderColor}`,
         borderRadius: compact ? 10 : 12,
         padding: compact ? "10px 12px" : "14px 16px",
         display: "flex", flexDirection: "column", gap: compact ? 6 : 8,
         cursor: isDraggable ? "grab" : "default",
         userSelect: "none",
-        transition: "border-color 0.15s",
+        transition: "border-color 0.15s, border-style 0.1s",
         position: "relative",
         boxShadow: pipelineColor ? `inset 3px 0 0 ${pipelineColor}` : undefined,
       }}

@@ -42,6 +42,9 @@ interface ModelContextValue {
   setCurrentUser: React.Dispatch<React.SetStateAction<string | null>>;
   me: UserType | undefined;
 
+  // Streaks (server-derived, never client-written)
+  streakByUser: Record<string, number>;
+
   // Model state
   claims: Record<string, string[]>;
   reactions: Record<string, Record<string, string[]>>;
@@ -132,6 +135,9 @@ interface ModelContextValue {
   loadMoreMessages: () => Promise<void>;
   logActivity: (type: string, target: string, detail: string) => void;
 
+  // Subtask migration
+  migrateSubtask: (oldKey: SubtaskKey, newParentStageId: string) => void;
+
   // Workspace handlers
   createWorkspace: (name: string, icon: string, colorKey: string) => void;
   addMemberToWorkspace: (workspaceId: string, userId: string) => void;
@@ -218,6 +224,9 @@ export function ModelProvider({
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
   const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [pendingNewComments, setPendingNewComments] = useState<Record<string, CommentItem[]>>({});
+
+  // Streaks — server-derived, set via mergePatch from GET response
+  const [streakByUser, setStreakByUser] = useState<Record<string, number>>({});
 
   // ── Chat state ────────────────────────────────────────────────────────────
   const [chatMessages, setChatMessages] = useState<ChatMsg[]>([]);
@@ -404,6 +413,8 @@ export function ModelProvider({
     if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
     if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
     if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
@@ -564,6 +575,64 @@ export function ModelProvider({
   const removeSubtask = (sid: string, taskId: number) => {
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) }));
   };
+
+  const migrateSubtask = useCallback((oldKey: SubtaskKey, newParentStageId: string) => {
+    const parsed = SubtaskKey.parse(oldKey);
+    if (!parsed) return;
+    const { parentStageId: oldParent, subtaskId } = parsed;
+    if (oldParent === newParentStageId) return; // no-op
+
+    const newKey = SubtaskKey.make(newParentStageId, subtaskId);
+
+    // Atomic local state updates
+    setSubtasks(prev => {
+      const oldList = prev[oldParent] || [];
+      const moving = oldList.find(s => s.id === subtaskId);
+      if (!moving) return prev;
+      const newOldList = oldList.filter(s => s.id !== subtaskId);
+      const newNewList = [...(prev[newParentStageId] || []), moving];
+      return { ...prev, [oldParent]: newOldList, [newParentStageId]: newNewList };
+    });
+
+    setReactions(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    setSubtaskStages(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    setAssignments(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    // Push to undo stack
+    undoStack.push({
+      label: `moved subtask to ${newParentStageId}`,
+      inverse: () => migrateSubtask(newKey as SubtaskKey, oldParent),
+    });
+
+    logActivity("subtask_migrated", newParentStageId, `subtask moved from ${oldParent}`);
+
+    // Schedule a server write after React has flushed the state batches
+    setTimeout(() => { scheduleWrite(); }, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [undoStack, logActivity]);
 
   const MAX_COMMENT_LEN = 1000;
   const addComment = (sid: string, val: string, clearInput: () => void) => {
@@ -818,6 +887,7 @@ export function ModelProvider({
 
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
+    streakByUser,
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
@@ -836,6 +906,7 @@ export function ModelProvider({
     setStageStatusDirect, cycleStatus, approveStage,
     addCustomStage, addCustomPipeline, cyclePriority,
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
+    migrateSubtask,
     createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,
     isOfficerOfWorkspace,
     undo: undoStack.undo,

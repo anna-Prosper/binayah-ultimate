@@ -23,6 +23,41 @@ async function ensureDoc() {
   );
 }
 
+/** Compute consecutive-day streaks for each user in the activity log. */
+function computeStreakByUser(activityLog: { type: string; user: string; time: number }[]): Record<string, number> {
+  const QUALIFYING = new Set(["claim", "comment", "status_change"]);
+
+  // Build: userId → Set<"YYYY-MM-DD">
+  const userDays = new Map<string, Set<string>>();
+  for (const entry of activityLog) {
+    if (!QUALIFYING.has(entry.type)) continue;
+    const day = new Date(entry.time).toISOString().slice(0, 10);
+    if (!userDays.has(entry.user)) userDays.set(entry.user, new Set());
+    userDays.get(entry.user)!.add(day);
+  }
+
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const result: Record<string, number> = {};
+
+  for (const [userId, days] of userDays.entries()) {
+    // Walk backward from today
+    let streak = 0;
+    const cursor = new Date(todayStr + "T00:00:00Z");
+    while (true) {
+      const dayKey = cursor.toISOString().slice(0, 10);
+      if (days.has(dayKey)) {
+        streak++;
+        cursor.setUTCDate(cursor.getUTCDate() - 1);
+      } else {
+        break;
+      }
+    }
+    result[userId] = streak;
+  }
+
+  return result;
+}
+
 export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
   const since = req.nextUrl.searchParams.get("since");
@@ -38,7 +73,12 @@ export async function GET(req: NextRequest) {
       return new NextResponse(null, { status: 304 });
     }
   }
-  return NextResponse.json(state);
+  // Compute server-derived streaks (not stored — always fresh)
+  const activityLog = Array.isArray(state.activityLog)
+    ? (state.activityLog as { type: string; user: string; time: number }[])
+    : [];
+  const streakByUser = computeStreakByUser(activityLog);
+  return NextResponse.json({ ...state, streakByUser });
 }
 
 export async function PATCH(req: NextRequest) {

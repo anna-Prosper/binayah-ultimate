@@ -14,7 +14,7 @@ interface TeamBarProps {
 }
 
 export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, currentWorkspaceId, onAvatarClick }: TeamBarProps) {
-  const { users, currentUser, claims, getStatus, getPoints, workspaces, t } = useModel();
+  const { users, currentUser, claims, getStatus, getPoints, workspaces, streakByUser, t } = useModel();
   const popupRef = useRef<HTMLDivElement>(null);
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
 
@@ -44,7 +44,12 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text }}>{u.name}</div>
-                <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none" }}>{uPts}pts</div>
+                <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", animation: isMe && ptsFlash ? "ptsCount 0.6s ease" : "none", display: "flex", alignItems: "center", gap: 4 }}>
+                  <span>{uPts}pts</span>
+                  {(streakByUser[u.id] ?? 0) >= 2 && (
+                    <span title={`${streakByUser[u.id]}-day streak`}>🔥{streakByUser[u.id]}</span>
+                  )}
+                </div>
               </div>
             </div>
             {viewingUser === u.id && (
