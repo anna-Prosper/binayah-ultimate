@@ -239,6 +239,8 @@ export function ModelProvider({
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
+  // pendingReactions: tracks in-flight reaction toggles so poll merges don't overwrite them
+  const pendingReactionsRef = useRef<Set<string>>(new Set());
 
   // ── LocalStorage persistence ──────────────────────────────────────────────
   useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
@@ -339,7 +341,10 @@ export function ModelProvider({
         }
       }
       prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>;
-      setReactions(s.reactions);
+      // Don't overwrite reactions if there are in-flight optimistic toggles pending
+      if (pendingReactionsRef.current.size === 0) {
+        setReactions(s.reactions);
+      }
     }
     if (s.activityLog) setActivityLog(s.activityLog);
     if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
@@ -546,8 +551,21 @@ export function ModelProvider({
     if (i >= 0) u.splice(i, 1); else u.push(currentUser);
     s[emoji] = u;
     const next = { ...prev, [sid]: s };
+    const pendingKey = `${sid}::${emoji}`;
+    pendingReactionsRef.current.add(pendingKey);
     setReactions(next);
-    patchState({ reactions: next }).catch(() => {
+    patchState({ reactions: next }).then(result => {
+      pendingReactionsRef.current.delete(pendingKey);
+      if (!result.ok) {
+        if (result.status === 423) {
+          showToast("// pipeline locked — can't react", t.amber);
+        } else {
+          setReactions(prev);
+          showToast("// reaction didn't land", t.amber);
+        }
+      }
+    }).catch(() => {
+      pendingReactionsRef.current.delete(pendingKey);
       setReactions(prev);
       showToast("// reaction didn't land", t.amber);
     });
