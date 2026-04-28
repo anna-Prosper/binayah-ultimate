@@ -80,8 +80,44 @@ export default function HomeView({
       {/* Optimized workspace header */}
       {myWorkspaces.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          {/* Workspace switcher row — only shown when there are 2+ workspaces */}
-          <div style={{ display: myWorkspaces.length > 1 ? "flex" : "none", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+          {/* Workspace switcher row — "All" tab + per-workspace tabs */}
+          <div style={{ display: "flex", gap: 8, marginBottom: 20, flexWrap: "wrap" }}>
+            {/* "All" tab — selected when no workspace filter is active */}
+            {(() => {
+              const isAllActive = homeWsFilter === null;
+              return (
+                <button
+                  key="__all__"
+                  onClick={() => setHomeWsFilter(null)}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    padding: "6px 12px",
+                    background: isAllActive ? t.accent + "18" : "transparent",
+                    border: isAllActive ? `2px solid ${t.accent}` : `1px solid ${t.border}`,
+                    borderRadius: 10,
+                    cursor: "pointer",
+                    color: isAllActive ? t.accent : t.textMuted,
+                    fontSize: 12,
+                    fontWeight: isAllActive ? 700 : 600,
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    if (!isAllActive) el.style.color = t.text;
+                  }}
+                  onMouseLeave={e => {
+                    const el = e.currentTarget as HTMLElement;
+                    if (!isAllActive) el.style.color = t.textMuted;
+                  }}
+                >
+                  <span style={{ fontSize: 14 }}>🌐</span>
+                  <span>All</span>
+                </button>
+              );
+            })()}
             {myWorkspaces.map(w => {
               const isActive = w.id === homeWsFilter;
               return (
@@ -123,15 +159,59 @@ export default function HomeView({
             })}
           </div>
 
-          {/* Active workspace header — reflects the selected tab (homeWsFilter), falls back to current workspace */}
-          {(() => {
-            const displayWsId = homeWsFilter || currentWorkspaceId;
-            return myWorkspaces.find(w => w.id === displayWsId);
-          })() && (
-            <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+          {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
+          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
               {(() => {
-                const displayWsId = homeWsFilter || currentWorkspaceId;
-                const activeWs = myWorkspaces.find(w => w.id === displayWsId);
+                // "All" mode: aggregate across every workspace the user is in
+                if (homeWsFilter === null) {
+                  const allPipelineIds = new Set<string>();
+                  for (const w of myWorkspaces) for (const pid of w.pipelineIds) allPipelineIds.add(pid);
+                  const allPipelines = allPipelinesGlobal.filter(p => allPipelineIds.has(p.id));
+                  const totalStages = allPipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
+                  const allMemberIds = new Set<string>();
+                  for (const w of myWorkspaces) for (const m of w.members) allMemberIds.add(m);
+                  const allTeamMembers = users.filter(u => allMemberIds.has(u.id));
+                  return (
+                    <>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ fontSize: 32, lineHeight: 1 }}>🌐</div>
+                        <div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, lineHeight: 1.2, marginBottom: 4 }}>All workspaces</div>
+                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", display: "flex", gap: 12, flexWrap: "wrap" }}>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.accent }}>◆ {myWorkspaces.length} workspaces</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.green }}>● {allPipelines.length} pipelines</span>
+                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.cyan || t.accent }}>• {totalStages} stages</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
+                          team ({allTeamMembers.length})
+                        </div>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          {allTeamMembers.map(u => {
+                            const uPts = modelGetPoints(u.id);
+                            const isMe = u.id === currentUser;
+                            return (
+                              <div key={u.id} onClick={() => onUserClick?.(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: onUserClick ? "pointer" : "default" }}>
+                                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                                  <AvatarC user={u} size={24} />
+                                </div>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</div>
+                                  <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </>
+                  );
+                }
+
+                // Specific workspace selected
+                const activeWs = myWorkspaces.find(w => w.id === homeWsFilter);
                 if (!activeWs) return null;
                 const activePipelines = allPipelinesGlobal.filter(p => activeWs.pipelineIds.includes(p.id));
                 const totalStages = activePipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
@@ -185,7 +265,6 @@ export default function HomeView({
                 );
               })()}
             </div>
-          )}
         </div>
       )}
 
