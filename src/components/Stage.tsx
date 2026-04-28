@@ -472,6 +472,37 @@ export default function Stage({
           )}
         </div>
 
+        {/* Edit mode: archive row — only visible in edit mode, bottom of header */}
+        {stageEditMode && !isMobile && archiveStage && (
+          <div style={{ paddingLeft: 32, paddingRight: 12, paddingBottom: 8, display: "flex", alignItems: "center", borderTop: `1px solid ${t.border}`, marginTop: 2, paddingTop: 6 }} onClick={e => e.stopPropagation()}>
+            <button
+              onClick={e => {
+                e.stopPropagation();
+                archiveStage(name);
+                setStageEditMode(false);
+              }}
+              title="Archive this stage"
+              style={{
+                background: "transparent",
+                border: `1px solid ${t.amber}55`,
+                borderRadius: 8,
+                cursor: "pointer",
+                fontSize: 10,
+                display: "flex",
+                alignItems: "center",
+                gap: 4,
+                color: t.amber,
+                padding: "2px 8px",
+                fontFamily: "var(--font-dm-mono), monospace",
+                fontWeight: 600,
+                transition: "all 0.15s",
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "15"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >📦 archive</button>
+          </div>
+        )}
+
         {/* Edit mode pencil button — bottom-right, appears on hover */}
         {(isHovered || stageEditMode) && !isMobile && (
           <button
@@ -505,37 +536,6 @@ export default function Stage({
               transition: "all 0.15s",
             }}
           >&#9998;</button>
-        )}
-
-        {/* Archive button — only in edit mode */}
-        {stageEditMode && !isMobile && archiveStage && (
-          <button
-            onClick={e => {
-              e.stopPropagation();
-              archiveStage(name);
-              setStageEditMode(false);
-            }}
-            title="Archive this stage"
-            style={{
-              position: "absolute",
-              bottom: 8,
-              right: 40,
-              height: 26,
-              borderRadius: 8,
-              background: "transparent",
-              border: `1px solid ${t.amber}55`,
-              cursor: "pointer",
-              fontSize: 10,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              color: t.amber,
-              padding: "0 8px",
-              fontFamily: "var(--font-dm-mono), monospace",
-              fontWeight: 600,
-              transition: "all 0.15s",
-            }}
-          >📦 archive</button>
         )}
 
         {/* Expanded content */}

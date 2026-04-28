@@ -598,12 +598,7 @@ function TaskCard({
               })}
             </div>
           )}
-          {/* Admin: always shows assign + approve when applicable */}
-          {isAdmin && (
-            <button onClick={e => { e.stopPropagation(); setAssignOpen(showAssignPicker ? null : task.stageId); }} style={btn(assignee ? assignee.color : t.textMuted, assignee ? assignee.color + "18" : "transparent", assignee ? assignee.color + "44" : t.border)} title={assignee ? `Assigned: ${assignee.name}` : "Assign to..."}>
-              {assignee ? `→ ${assignee.name.split(" ")[0]}` : "assign"}
-            </button>
-          )}
+          {/* assign is in ActionRow — no duplicate here */}
           {isPending && isAdmin && (
             <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
               ✓ approve

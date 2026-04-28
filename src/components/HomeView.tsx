@@ -193,7 +193,14 @@ export default function HomeView({
                             const uPts = modelGetPoints(u.id);
                             const isMe = u.id === currentUser;
                             return (
-                              <div key={u.id} onClick={() => onUserClick?.(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: onUserClick ? "pointer" : "default" }}>
+                              <button
+                                key={u.id}
+                                type="button"
+                                onClick={() => onUserClick?.(u.id)}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
+                              >
                                 <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
                                   <AvatarC user={u} size={24} />
                                 </div>
@@ -201,7 +208,7 @@ export default function HomeView({
                                   <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</div>
                                   <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
                                 </div>
-                              </div>
+                              </button>
                             );
                           })}
                         </div>
@@ -245,7 +252,14 @@ export default function HomeView({
                           const isMe = u.id === currentUser;
                           const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
                           return (
-                            <div key={u.id} onClick={() => onUserClick?.(u.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: onUserClick ? "pointer" : "default" }}>
+                            <button
+                              key={u.id}
+                              type="button"
+                              onClick={() => onUserClick?.(u.id)}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
+                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
+                            >
                               <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
                                 <AvatarC user={u} size={24} />
                               </div>
@@ -256,7 +270,7 @@ export default function HomeView({
                                 </div>
                                 <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
                               </div>
-                            </div>
+                            </button>
                           );
                         })}
                       </div>

@@ -18,16 +18,17 @@ export default function ClaimChip({ claimed, pipelineColor, t, onClaim, variant 
     ? "✓ mine"
     : variant === "subtask" ? "+ take" : "+ claim";
 
+  const isSubtask = variant === "subtask";
   const style: React.CSSProperties = {
-    background: claimed ? pipelineColor + "18" : "transparent",
-    border: `1px solid ${claimed ? pipelineColor + "55" : t.border}`,
+    background: claimed ? pipelineColor + "18" : pipelineColor + "15",
+    border: `1px solid ${claimed ? pipelineColor + "55" : pipelineColor + "66"}`,
     borderRadius: 8,
     padding: small ? "3px 7px" : "4px 9px",
     cursor: "pointer",
-    fontSize: 10,
+    fontSize: claimed ? 10 : (isSubtask ? 11 : 12),
     fontWeight: 700,
     fontFamily: "var(--font-dm-mono), monospace",
-    color: claimed ? pipelineColor : t.textMuted,
+    color: claimed ? pipelineColor : pipelineColor,
     whiteSpace: "nowrap" as const,
     flexShrink: 0,
     transition: "all 0.15s",
@@ -41,6 +42,20 @@ export default function ClaimChip({ claimed, pipelineColor, t, onClaim, variant 
       onClick={e => { e.stopPropagation(); onClaim(); }}
       style={style}
       title={claimed ? "Click to unclaim" : "Claim this"}
+      onMouseEnter={e => {
+        const el = e.currentTarget as HTMLElement;
+        if (!claimed) {
+          el.style.background = pipelineColor + "25";
+          el.style.transform = "scale(1.03)";
+        }
+      }}
+      onMouseLeave={e => {
+        const el = e.currentTarget as HTMLElement;
+        if (!claimed) {
+          el.style.background = pipelineColor + "15";
+          el.style.transform = "scale(1)";
+        }
+      }}
     >
       {label}
     </button>
