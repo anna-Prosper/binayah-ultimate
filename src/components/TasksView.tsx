@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "@/lib/themes";
-import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
@@ -52,7 +53,7 @@ export default function TasksView(props: Props) {
     handleClaim, handleReact, toggleSubtask, renameSubtask,
     setStageStatusDirect: setStageStatus, approveStage, assignTask,
     stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
-    archivedStages,
+    archivedStages, archivedSubtasks, stagePointsOverride,
     addComment: modelAddComment,
     migrateSubtask,
   } = useModel();
@@ -98,6 +99,8 @@ export default function TasksView(props: Props) {
     color: ck[p.colorKey] || t.accent,
   }));
 
+  const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks || []), [archivedSubtasks]);
+
   // Every non-concept stage becomes a task
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
@@ -115,6 +118,13 @@ export default function TasksView(props: Props) {
         workspaceIcon: ws?.icon,
         workspaceName: ws?.name,
         workspaceId: ws?.id,
+        points: deriveStageDisplayPoints(
+          s,
+          subtasks[s],
+          archivedSubtaskKeySet,
+          stageDefaults[s]?.points ?? 5,
+          stagePointsOverride || {},
+        ),
       }));
   });
 
@@ -165,6 +175,7 @@ export default function TasksView(props: Props) {
           status,
           done: sub.done,
           by: sub.by,
+          points: sub.points ?? 5,
         });
       }
     }
@@ -391,6 +402,7 @@ interface StageTask {
   pipelineId: string;
   status: string; claimers: string[];
   workspaceIcon?: string; workspaceName?: string; workspaceId?: string;
+  points: number;
 }
 
 interface SubtaskKanbanTask {
@@ -407,6 +419,7 @@ interface SubtaskKanbanTask {
   status: string;
   done: boolean;
   by: string;
+  points: number;
 }
 
 interface SharedCardProps {
@@ -591,6 +604,7 @@ function TaskCard({
               {task.pipelineIcon} {task.pipelineName}
             </span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
+            <span style={{ color: t.accent, fontWeight: 700 }} title="points (sum of subtasks, or override)">· {task.points}pts</span>
             {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
         </div>
@@ -928,6 +942,7 @@ function SubtaskKanbanCard({
               {isUnknownParent
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
                 : <>{sub.workspaceIcon && sub.workspaceName && <span style={{ marginRight: 3 }}>{sub.workspaceIcon} {sub.workspaceName} · </span>}{sub.pipelineIcon} {sub.parentStageName}</>}
+              <span style={{ color: t.accent, fontWeight: 700, marginLeft: 4 }}>· {sub.points}pts</span>
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
           </div>

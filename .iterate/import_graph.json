@@ -855,6 +855,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-28T11:25:35.509587+00:00",
+  "builtAt": "2026-04-28T11:32:38.353535+00:00",
   "fileCount": 115
 }

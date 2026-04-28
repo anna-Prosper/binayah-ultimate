@@ -11,7 +11,7 @@ import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, useRole, commentTypingState } from "@/lib/contexts/ModelContext";
-import { deriveStageDisplayPoints, deriveStagePoints } from "@/lib/points";
+import { deriveStageDisplayPoints, deriveStagePoints, DEFAULT_SUBTASK_POINTS } from "@/lib/points";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { lsGet, lsSet } from "@/lib/storage";
 
@@ -39,6 +39,8 @@ function actIcon(type: string): string {
 }
 
 // ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
+// Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
+// pencil-edit-mode pattern, just compact and nested under the parent stage.
 function StageSubtaskCard({
   task, stageId, pC, t,
   onToggle, onRemove,
@@ -47,27 +49,42 @@ function StageSubtaskCard({
   onToggle: () => void;
   onRemove: () => void;
 }) {
-  const { users, currentUser, reactions, comments, claims, handleClaim, handleReact, addComment } = useModel();
+  const {
+    users, currentUser, reactions, comments, claims, assignments,
+    handleClaim, handleReact, addComment, assignTask, renameSubtask,
+  } = useModel();
   const { copied, setCopied } = useEphemeral();
   const key = SubtaskKey.make(stageId, task.id);
   const [reactOpen, setReactOpen] = useState(false);
   const [commentOpen, setCommentOpen] = useState(false);
+  const [assignOpen, setAssignOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editVal, setEditVal] = useState(task.text);
   const [commentInputVal, setCommentInputVal] = useState("");
   const ref = useRef<HTMLDivElement>(null);
 
+  const isAnyOpen = reactOpen || commentOpen || assignOpen || editOpen;
   useEffect(() => {
+    if (!isAnyOpen) return;
     const h = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) {
-        setReactOpen(false); setCommentOpen(false);
+        setReactOpen(false); setCommentOpen(false); setAssignOpen(false);
+        if (editOpen) {
+          // commit on outside click
+          if (editVal.trim() && editVal.trim() !== task.text) {
+            renameSubtask(stageId, task.id, editVal.trim());
+          }
+          setEditOpen(false);
+        }
       }
     };
     document.addEventListener("mousedown", h);
     return () => document.removeEventListener("mousedown", h);
-  }, []);
+  }, [isAnyOpen, editOpen, editVal, task.text, task.id, stageId, renameSubtask]);
 
-  const shareSubtask = (name: string, text: string) => {
+  const shareSubtask = (k: string, text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
-    setCopied(name); setTimeout(() => setCopied(null), 2000);
+    setCopied(k); setTimeout(() => setCopied(null), 2000);
   };
 
   const rxs = reactions[key] || {};
@@ -76,6 +93,9 @@ function StageSubtaskCard({
   const isClaimed = currentUser ? claimers.includes(currentUser) : false;
   const creator = users.find(u => u.id === task.by);
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
+  const assigneeIds = assignments[key] || [];
+  const assigneeList = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as Array<NonNullable<ReturnType<typeof users.find>>>;
+  const points = task.points ?? DEFAULT_SUBTASK_POINTS;
 
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
@@ -84,24 +104,53 @@ function StageSubtaskCard({
   };
 
   return (
-    <div ref={ref} style={{ background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : t.border}`, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div ref={ref} style={{ position: "relative", background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : isClaimed ? pC + "55" : t.border}`, boxShadow: `inset 3px 0 0 ${pC}`, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
       {/* Top row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div onClick={onToggle} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", marginTop: 2 }}>
           {task.done && <span style={{ fontSize: 10, color: "#fff" }}>✓</span>}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
-          {creator && <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4 }}><AvatarC user={creator} size={12} /> {creator.name.split(" ")[0]}</div>}
+          {editOpen ? (
+            <input
+              autoFocus
+              value={editVal}
+              onChange={e => setEditVal(e.target.value)}
+              onClick={e => e.stopPropagation()}
+              onKeyDown={e => {
+                if (e.key === "Enter") {
+                  if (editVal.trim() && editVal.trim() !== task.text) renameSubtask(stageId, task.id, editVal.trim());
+                  setEditOpen(false);
+                } else if (e.key === "Escape") {
+                  setEditVal(task.text); setEditOpen(false);
+                }
+              }}
+              style={{ width: "100%", fontSize: 13, fontWeight: 700, color: t.text, border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", background: t.accent + "08", fontFamily: "inherit" }}
+            />
+          ) : (
+            <div style={{ fontSize: 13, fontWeight: 700, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
+          )}
+          <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+            {creator && <><AvatarC user={creator} size={12} /><span>{creator.name.split(" ")[0]}</span></>}
+            <span style={{ color: t.accent, fontWeight: 700 }}>· {points}pts</span>
+            {assigneeList[0] && <span style={{ color: assigneeList[0].color, fontWeight: 700 }}>→ {assigneeList[0].name}{assigneeList.length > 1 ? ` +${assigneeList.length - 1}` : ""}</span>}
+          </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
           <ClaimChip claimed={isClaimed} pipelineColor={pC} t={t} onClaim={() => handleClaim(key)} variant="subtask" small />
-          <button onClick={onRemove} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: t.textDim, padding: "0 2px", opacity: 0.4 }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.opacity = "1"; (e.currentTarget as HTMLElement).style.color = t.red; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.opacity = "0.4"; (e.currentTarget as HTMLElement).style.color = t.textDim; }}>×</button>
         </div>
       </div>
+
+      {/* Edit-mode archive button */}
+      {editOpen && (
+        <button
+          onClick={e => { e.stopPropagation(); onRemove(); setEditOpen(false); }}
+          style={{ alignSelf: "flex-start", background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}
+        >
+          📦 archive subtask
+        </button>
+      )}
 
       {/* Reaction pills */}
       {visibleReactions.length > 0 && (
@@ -114,17 +163,89 @@ function StageSubtaskCard({
       )}
 
       {/* Action row */}
-      <div style={{ display: "flex", gap: 4, borderTop: `1px solid ${t.border}`, paddingTop: 6 }}>
+      <div style={{ display: "flex", gap: 4, borderTop: `1px solid ${t.border}`, paddingTop: 6, alignItems: "center" }}>
         <div style={{ position: "relative" }}>
-          <button onClick={() => { setReactOpen(v => !v); setCommentOpen(false); }} style={iconBtn}>😀 +</button>
+          <button onClick={() => { setReactOpen(v => !v); setCommentOpen(false); setAssignOpen(false); }} style={iconBtn}>😀 +</button>
           {reactOpen && (
             <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
               {REACTIONS.map(emoji => <button key={emoji} onClick={() => { handleReact(key, emoji); setReactOpen(false); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 15, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>)}
             </div>
           )}
         </div>
-        <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); }} style={iconBtn}>💬 {cmts.length}</button>
+        <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); setAssignOpen(false); }} style={iconBtn}>💬 {cmts.length}</button>
+        {/* Assign chip — same pattern as TaskCard: avatars stacked, name + " +1" if 2 */}
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => { setAssignOpen(v => !v); setReactOpen(false); setCommentOpen(false); }}
+            style={{
+              ...iconBtn,
+              color: assigneeList[0]?.color || t.textMuted,
+              borderColor: assigneeList[0] ? assigneeList[0].color + "55" : t.border,
+              paddingLeft: assigneeList.length > 0 ? 4 : 8,
+              gap: 5,
+            }}
+            title={assigneeList.length > 0 ? `Assigned: ${assigneeList.map(u => u.name).join(", ")}` : "Assign"}
+          >
+            {assigneeList.length === 0 ? (
+              <><span style={{ fontSize: 11, opacity: 0.7 }}>👤</span><span style={{ fontSize: 10 }}>assign</span></>
+            ) : (
+              <>
+                <span style={{ display: "inline-flex" }}>
+                  {assigneeList.slice(0, 2).map((u, i) => (
+                    <span key={u.id} style={{ marginLeft: i === 0 ? 0 : -7, display: "inline-block", borderRadius: "50%", boxShadow: `0 0 0 1.5px ${t.bgCard}` }}>
+                      <AvatarC user={u} size={14} />
+                    </span>
+                  ))}
+                </span>
+                <span style={{ fontSize: 10 }}>{assigneeList.length === 1 ? assigneeList[0].name.toLowerCase() : `${assigneeList[0].name.toLowerCase()} +${assigneeList.length - 1}`}</span>
+              </>
+            )}
+          </button>
+          {assignOpen && (
+            <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 200 }}>
+              <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                assign — up to 2 ({assigneeList.length}/2)
+              </div>
+              {users.map(u => {
+                const isCurrent = assigneeList.some(a => a.id === u.id);
+                const atCap = assigneeList.length >= 2 && !isCurrent;
+                return (
+                  <button
+                    key={u.id}
+                    onClick={() => assignTask(key, u.id)}
+                    disabled={atCap}
+                    style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: atCap ? "not-allowed" : "pointer", padding: "6px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left", opacity: atCap ? 0.4 : 1 }}
+                  >
+                    <AvatarC user={u} size={20} />
+                    <span style={{ flex: 1 }}>{u.name}</span>
+                    {isCurrent && <span style={{ fontSize: 10 }}>✓</span>}
+                  </button>
+                );
+              })}
+              {assigneeList.length > 0 && (
+                <button onClick={() => assignTask(key, null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>× clear all</button>
+              )}
+            </div>
+          )}
+        </div>
         <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
+
+        {/* Pencil — bottom-right edit toggle, same pattern as TaskCard */}
+        <button
+          onClick={e => { e.stopPropagation(); if (!editOpen) setEditVal(task.text); setEditOpen(v => !v); setReactOpen(false); setCommentOpen(false); setAssignOpen(false); }}
+          title={editOpen ? "Exit edit mode" : "Edit"}
+          style={{
+            marginLeft: "auto",
+            background: editOpen ? t.accent + "22" : "transparent",
+            border: `1px solid ${editOpen ? t.accent + "88" : t.border}`,
+            borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 11,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            color: editOpen ? t.accent : t.textMuted,
+            transition: "all 0.15s",
+          }}
+        >
+          &#9998;
+        </button>
       </div>
 
       {/* Comment box */}
