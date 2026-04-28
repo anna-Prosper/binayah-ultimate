@@ -175,7 +175,7 @@ export default function TasksView(props: Props) {
       for (const sub of subtaskList) {
         if (sub.done) continue;
         const key = SubtaskKey.make(parentStageId, sub.id);
-        if ((archivedStages || []).includes(key)) continue;
+        if (archivedSubtaskKeySet.has(key)) continue;
         let parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
         let pipelineId = "";
         let pipelineIcon = "";
@@ -211,7 +211,7 @@ export default function TasksView(props: Props) {
       }
     }
     return tasks;
-  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, visibleStageIds, archivedStages, pipelineWorkspaceMap]);
+  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, visibleStageIds, archivedSubtaskKeySet, pipelineWorkspaceMap]);
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);

@@ -490,7 +490,8 @@ export default function Stage({
   const claimedBy = claims[name] || [];
   const claimedByMe = currentUser ? claimedBy.includes(currentUser) : false;
   const MockupComp = mockupsMap[name] ?? null;
-  const tasks = subtasks[name] || [];
+  const allTasks = subtasks[name] || [];
+  const tasks = allTasks.filter(x => !(archivedSubtasks || []).includes(SubtaskKey.make(name, x.id)));
   const cmts = comments[name] || [];
   const tasksDone = tasks.filter(x => x.done).length;
 
