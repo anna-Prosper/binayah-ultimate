@@ -193,6 +193,12 @@ export default function Stage({
   const [stageEditMode, setStageEditMode] = useState(false);
   const [editingName, setEditingName] = useState(name);
   const [isHovered, setIsHovered] = useState(false);
+  // Points override editing state
+  const [editingPoints, setEditingPoints] = useState<string>("");
+  const [suggestLoading, setSuggestLoading] = useState(false);
+  const [suggestedPoints, setSuggestedPoints] = useState<{ points: number; rationale: string } | null>(null);
+  const [revertLoading, setRevertLoading] = useState(false);
+  const [suggestError, setSuggestError] = useState<string | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [showMockup, setShowMockup] = useState(false);
@@ -328,6 +334,29 @@ export default function Stage({
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopied(stageName); setTimeout(() => setCopied(null), 2000);
   };
+
+  // // suggest — fetch LLM point suggestion for this stage
+  const fetchSuggestion = useCallback(async (stageName: string, stageDesc: string) => {
+    setSuggestLoading(true);
+    setSuggestedPoints(null);
+    setSuggestError(null);
+    try {
+      const res = await fetch("/api/suggest-points", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ kind: "stage", title: stageName, context: stageDesc || undefined }),
+      });
+      if (res.status === 401) { setSuggestError("sign in to use suggestions"); return; }
+      if (res.status === 429) { setSuggestError("// slow down"); return; }
+      if (!res.ok) { setSuggestError("// suggestion unavailable"); return; }
+      const data = await res.json() as { points: number; rationale: string };
+      setSuggestedPoints(data);
+    } catch {
+      setSuggestError("// suggestion unavailable");
+    } finally {
+      setSuggestLoading(false);
+    }
+  }, []);
 
   // Fallback for custom stages not in stageDefaults
   const s = stageDefaults[name] ?? { desc: "", points: 10, status: "concept" };
@@ -488,6 +517,86 @@ export default function Stage({
           )}
         </div>
 
+        {/* Edit mode: points override + // suggest */}
+        {stageEditMode && !isMobile && (
+          <div style={{ paddingLeft: 32, paddingRight: 48, paddingBottom: 4, paddingTop: 4, display: "flex", flexDirection: "column", gap: 4 }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>pts:</span>
+              <input
+                type="number"
+                value={editingPoints}
+                onChange={e => { setEditingPoints(e.target.value); setSuggestedPoints(null); setSuggestError(null); }}
+                onBlur={() => {
+                  const n = parseInt(editingPoints, 10);
+                  if (!isNaN(n) && n > 0) { setStagePointsOverride(name, n); }
+                  else if (editingPoints === "") { setStagePointsOverride(name, null); }
+                }}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { const n = parseInt(editingPoints, 10); if (!isNaN(n) && n > 0) setStagePointsOverride(name, n); else if (editingPoints === "") setStagePointsOverride(name, null); }
+                }}
+                placeholder={String(derivedPoints)}
+                style={{ width: 54, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+              />
+              <button
+                onClick={() => fetchSuggestion(name, stageDescOverrides[name] ?? s.desc)}
+                disabled={suggestLoading}
+                style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: suggestLoading ? "default" : "pointer", fontSize: 10, color: suggestLoading ? t.textDim : t.accent, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", opacity: suggestLoading ? 0.6 : 1 }}
+                onMouseEnter={e => { if (!suggestLoading) (e.currentTarget as HTMLElement).style.background = t.accent + "11"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >{suggestLoading ? "// thinking…" : "// suggest"}</button>
+              {/* revert button */}
+              {hasOverride && (
+                <button
+                  onClick={async () => {
+                    if (hasLiveSubtasks) {
+                      // Revert to subtask-derived sum
+                      setStagePointsOverride(name, null);
+                      setEditingPoints("");
+                    } else {
+                      // No subtasks — re-fetch suggestion
+                      setRevertLoading(true);
+                      try {
+                        const res = await fetch("/api/suggest-points", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ kind: "stage", title: name, context: stageDescOverrides[name] || undefined }) });
+                        if (res.ok) {
+                          const d = await res.json() as { points: number; rationale: string };
+                          setStagePointsOverride(name, d.points);
+                          setEditingPoints(String(d.points));
+                          setSuggestedPoints(d);
+                        } else {
+                          setStagePointsOverride(name, null);
+                          setEditingPoints("");
+                          setSuggestError("// suggestion unavailable, override cleared");
+                        }
+                      } catch {
+                        setStagePointsOverride(name, null);
+                        setEditingPoints("");
+                        setSuggestError("// suggestion unavailable, override cleared");
+                      } finally {
+                        setRevertLoading(false);
+                      }
+                    }
+                  }}
+                  disabled={revertLoading}
+                  style={{ background: "transparent", border: "none", cursor: revertLoading ? "default" : "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", padding: "0 4px", opacity: revertLoading ? 0.5 : 1 }}
+                >
+                  {revertLoading ? "↺ thinking…" : hasLiveSubtasks ? `↺ revert to ${naturalPoints}` : "↺ revert to suggested"}
+                </button>
+              )}
+            </div>
+            {/* suggestion result */}
+            {suggestedPoints && !suggestError && (
+              <button
+                onClick={() => { setEditingPoints(String(suggestedPoints.points)); setStagePointsOverride(name, suggestedPoints.points); setSuggestedPoints(null); }}
+                style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left", padding: 0 }}
+                title={suggestedPoints.rationale}
+              >↳ suggested: {suggestedPoints.points} — tap to use</button>
+            )}
+            {suggestError && (
+              <span style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{suggestError}</span>
+            )}
+          </div>
+        )}
+
         {/* Edit mode: archive row — only visible in edit mode, bottom of header */}
         {stageEditMode && !isMobile && archiveStage && (
           <div style={{ paddingLeft: 32, paddingRight: 12, paddingBottom: 8, display: "flex", alignItems: "center", borderTop: `1px solid ${t.border}`, marginTop: 2, paddingTop: 6 }} onClick={e => e.stopPropagation()}>
@@ -529,6 +638,10 @@ export default function Stage({
               if (next) {
                 setEditingShortDesc(true);
                 setEditingDesc(true);
+                // Pre-fill points input with current override if set
+                setEditingPoints(stagePointsOverride[name] !== undefined ? String(stagePointsOverride[name]) : "");
+                setSuggestedPoints(null);
+                setSuggestError(null);
               } else {
                 commitEditMode();
               }
