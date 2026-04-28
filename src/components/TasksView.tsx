@@ -554,18 +554,18 @@ function TaskCard({
                 if (e.key === "Enter") {
                   if (editingVal) setStageNameOverride?.(task.stageId, editingVal);
                   setEditingStage?.(null);
-                  setEditOpen(false);
                 } else if (e.key === "Escape") {
                   setEditingStage?.(null);
                   setEditOpen(false);
                 }
               }}
               onBlur={() => {
+                // Save name on blur but don't close edit mode — user may be clicking
+                // another field within the card
                 if (editingVal && editingVal !== (task.displayName || task.stageId)) {
                   setStageNameOverride?.(task.stageId, editingVal);
                 }
                 setEditingStage?.(null);
-                setEditOpen(false);
               }}
               style={{ fontSize: 15, fontWeight: 700, color: t.text, border: `2px solid ${t.accent}`, borderRadius: 6, padding: "2px 4px", width: "100%", fontFamily: "inherit" }}
             />

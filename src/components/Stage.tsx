@@ -386,16 +386,16 @@ export default function Stage({
                 onChange={e => setEditingName(e.target.value)}
                 onClick={e => e.stopPropagation()}
                 onBlur={() => {
+                  // Save name on blur but keep edit mode open — user may be clicking
+                  // another field within the card (textarea, priority cycler, etc.)
                   const trimmed = editingName.trim();
                   if (trimmed && trimmed !== name) setStageNameOverride(name, trimmed);
-                  setStageEditMode(false);
                 }}
                 onKeyDown={e => {
                   if (e.key === "Enter") {
                     e.stopPropagation();
                     const trimmed = editingName.trim();
                     if (trimmed && trimmed !== name) setStageNameOverride(name, trimmed);
-                    setStageEditMode(false);
                   } else if (e.key === "Escape") {
                     e.stopPropagation();
                     setEditingName(name);
