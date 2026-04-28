@@ -465,8 +465,7 @@ export default function Stage({
           ) : (
             <p
               onClick={e => { e.stopPropagation(); if (stageEditMode) setEditingShortDesc(true); }}
-              title={stageEditMode ? "Click to edit" : ""}
-              style={{ margin: 0, fontSize: 11, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: "text" }}
+              style={{ margin: 0, fontSize: 11, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: stageEditMode ? "text" : "default" }}
             >
               {currentDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add description...</span>}
             </p>
@@ -601,7 +600,7 @@ export default function Stage({
                   style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.6 }}
                 />
               ) : (
-                <div onClick={() => setEditingDesc(true)} title="Click to edit" style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, cursor: "text", display: "flex", alignItems: "flex-start", gap: 4 }}>
+                <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, display: "flex", alignItems: "flex-start", gap: 4 }}>
                   <span style={{ flex: 1 }}>{aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>Add a description...</span>}</span>
                 </div>
               )}
