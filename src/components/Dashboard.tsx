@@ -406,8 +406,9 @@ function DashboardInner({
         {(showChat && chatDefaultTab === "ai") ? "×" : "🤖"}
       </button>
 
-      {/* Archive FAB + panel — bottom-left, away from chat FABs on the right */}
-      {!isMobile && (<button onClick={e => { e.stopPropagation(); setShowArchive(v => !v); }} title="Archive" style={{ position: "fixed", bottom: 28, left: 28, width: 44, height: 44, borderRadius: "50%", background: showArchive ? t.amber + "22" : t.bgCard, border: `2px solid ${showArchive ? t.amber : t.border}`, color: showArchive ? t.amber : t.textMuted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.15)", zIndex: 500 }}>📦</button>)}
+      {/* Archive FAB + panel — bottom-left, away from chat FABs on the right.
+          Only officers (captain or firstMate of any workspace) see this. */}
+      {!isMobile && currentUser && workspaces.some(w => w.captains.includes(currentUser) || w.firstMates.includes(currentUser)) && (<button onClick={e => { e.stopPropagation(); setShowArchive(v => !v); }} title="Archive" style={{ position: "fixed", bottom: 28, left: 28, width: 44, height: 44, borderRadius: "50%", background: showArchive ? t.amber + "22" : t.bgCard, border: `2px solid ${showArchive ? t.amber : t.border}`, color: showArchive ? t.amber : t.textMuted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.15)", zIndex: 500 }}>📦</button>)}
       {showArchive && (<div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 80, left: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16 }}><ArchiveView /></div>)}
 
       {/* Activity (notification bell) panel — desktop only; mobile uses BottomSheet */}

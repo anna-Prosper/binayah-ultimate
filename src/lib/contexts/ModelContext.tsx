@@ -297,6 +297,23 @@ export function ModelProvider({
     setWorkspaces(prev => prev.map(w => w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Self-heal: ensure ADMIN_IDS users (Anna) are always captains of the default workspace.
+  // If state was synced from a server doc that lost the captain, this re-establishes it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWorkspaces(prev => prev.map(w => {
+      if (w.id !== DEFAULT_WORKSPACE_ID) return w;
+      const missing = ADMIN_IDS.filter(uid => !w.captains.includes(uid));
+      if (missing.length === 0) return w;
+      markLocalWrite("workspaces");
+      return {
+        ...w,
+        captains: [...w.captains, ...missing],
+        members: Array.from(new Set([...w.members, ...missing])),
+      };
+    }));
+  }, [workspaces.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Notification sound ────────────────────────────────────────────────────
   const playNotifSound = useCallback(() => {
     try {

@@ -6,7 +6,7 @@ import { REACTIONS, type SubtaskItem, type UserType, type CommentItem } from "@/
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
-import { useModel } from "@/lib/contexts/ModelContext";
+import { useModel, useRole } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
@@ -114,6 +114,7 @@ export default function TasksView(props: Props) {
         claimers: claims[s] || [],
         workspaceIcon: ws?.icon,
         workspaceName: ws?.name,
+        workspaceId: ws?.id,
       }));
   });
 
@@ -389,7 +390,7 @@ interface StageTask {
   stageId: string; displayName: string; pipelineName: string; pipelineIcon: string; pipelineColor: string;
   pipelineId: string;
   status: string; claimers: string[];
-  workspaceIcon?: string; workspaceName?: string;
+  workspaceIcon?: string; workspaceName?: string; workspaceId?: string;
 }
 
 interface SubtaskKanbanTask {
@@ -486,6 +487,8 @@ function TaskCard({
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority } = useModel();
+  const role = useRole(task.workspaceId);
+  const canArchive = role === "captain" || role === "firstMate";
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -647,7 +650,7 @@ function TaskCard({
               </div>
             );
           })()}
-          {archiveStage && (
+          {archiveStage && canArchive && (
             <button
               onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
               style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}

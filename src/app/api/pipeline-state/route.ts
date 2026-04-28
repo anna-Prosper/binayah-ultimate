@@ -58,13 +58,47 @@ function computeStreakByUser(activityLog: { type: string; user: string; time: nu
   return result;
 }
 
+// Hard-coded admin seed list — these users are guaranteed captain of the default workspace.
+// Mirror of ADMIN_IDS in src/lib/data.ts; replicated here so the server doesn't import client lib.
+const SEED_ADMIN_IDS = ["anna"];
+const SEED_DEFAULT_WORKSPACE_ID = "war-room";
+
 export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
   const since = req.nextUrl.searchParams.get("since");
   await connectMongo();
   await ensureDoc();
   const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string,unknown>; updatedAt?: Date } | null;
-  const state = doc?.state || {};
+  let state = doc?.state || {};
+
+  // Self-heal admin captaincy. If the default workspace exists but ADMIN_IDS users
+  // aren't in its captains array, repair before serving. Persists the fix back to
+  // Mongo so the next request doesn't have to repeat the work.
+  const wsArr = Array.isArray((state as Record<string, unknown>).workspaces)
+    ? ((state as Record<string, unknown>).workspaces as Array<{ id: string; captains: string[]; firstMates: string[]; members: string[] }>)
+    : [];
+  const defaultWs = wsArr.find(w => w.id === SEED_DEFAULT_WORKSPACE_ID);
+  if (defaultWs) {
+    const missing = SEED_ADMIN_IDS.filter(uid => !defaultWs.captains?.includes(uid));
+    if (missing.length > 0) {
+      const fixedWorkspaces = wsArr.map(w =>
+        w.id === SEED_DEFAULT_WORKSPACE_ID
+          ? {
+              ...w,
+              captains: [...(w.captains || []), ...missing],
+              members: Array.from(new Set([...(w.members || []), ...missing])),
+            }
+          : w
+      );
+      await PipelineState.findOneAndUpdate(
+        WORKSPACE,
+        { $set: { "state.workspaces": fixedWorkspaces, updatedAt: new Date() } }
+      );
+      state = { ...state, workspaces: fixedWorkspaces };
+      logApi(ROUTE, "self_heal_admin_captain", { added: missing });
+    }
+  }
+
   // If client is up-to-date, return 304
   if (since && doc?.updatedAt) {
     const sinceMs = parseInt(since, 10);
@@ -142,11 +176,8 @@ export async function PATCH(req: NextRequest) {
   // sends the entire state slice on each scheduleWrite (even unchanged ones), so a naive
   // "patch contains key" check rejects every routine save from a crew member, which
   // bricks subtask/archive/etc. writes via collateral damage.
-  // Note: archivedStages and archivedSubtasks are NOT in this set — anyone can archive
-  // their own work. archivedPipelines, customPipelines, and workspaces are workspace-level
-  // structural changes that need officer role.
   const DESTRUCTIVE_KEYS = new Set([
-    "archivedPipelines",
+    "archivedStages", "archivedPipelines", "archivedSubtasks",
     "customPipelines", // pipeline deletions
     "workspaces",      // member changes
   ]);
