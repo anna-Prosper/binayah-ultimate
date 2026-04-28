@@ -120,7 +120,7 @@ export default function TasksView(props: Props) {
 
   // Apply my/all filter when in cross-workspace mode
   const stageTasks = (showMyAllFilter && myAllFilter === "my")
-    ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || assignments[s.stageId] === currentUser) : false)
+    ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || (assignments[s.stageId] || []).includes(currentUser)) : false)
     : allStageTasks;
 
   // Build virtual subtask kanban tasks — ONLY from stages visible in current pipelines
@@ -259,7 +259,7 @@ export default function TasksView(props: Props) {
     const todayStages = allStageTasks
       .filter(s => {
         if (!currentUser) return false;
-        return (claims[s.stageId] || []).includes(currentUser) || assignments[s.stageId] === currentUser;
+        return (claims[s.stageId] || []).includes(currentUser) || (assignments[s.stageId] || []).includes(currentUser);
       })
       .sort((a, b) => (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99));
 
@@ -371,7 +371,7 @@ export default function TasksView(props: Props) {
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] === currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
                 </div>
@@ -434,7 +434,7 @@ interface SharedCardProps {
   subtasks: Record<string, SubtaskItem[]>;
   assignOpen: string | null;
   setAssignOpen: (v: string | null) => void;
-  assignments: Record<string, string>;
+  assignments: Record<string, string[]>;
   assignTask: (sid: string, userId: string | null) => void;
   // Stage migration drop target props
   draggingSubtaskKey?: string | null;
@@ -519,8 +519,9 @@ function TaskCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
-  const assigneeId = assignments[task.stageId];
-  const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
+  const assigneeIds = assignments[task.stageId] || [];
+  const assignees = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
+  const assignee = assignees[0] || null; // primary, kept for backwards-compat in render
   const subCount = (subtasks[task.stageId] || []).length;
   const subDone = (subtasks[task.stageId] || []).filter(s => s.done).length;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
@@ -590,7 +591,7 @@ function TaskCard({
               {task.pipelineIcon} {task.pipelineName}
             </span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -682,7 +683,7 @@ function TaskCard({
         showCommentPopover={showCommentPopover}
         showAssignPicker={showAssignPicker}
         commentCount={cmts.length}
-        assignee={assignee}
+        assignee={assignee} assignees={assignees}
         users={users}
         onReactToggle={() => { setReactOpen(showReactPicker ? null : task.stageId); setCommentOpen(null); setAssignOpen(null); setEditOpen(false); }}
         onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : task.stageId); setReactOpen(null); setAssignOpen(null); setEditOpen(false); }}
@@ -761,8 +762,9 @@ function SubtaskCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
-  const assigneeId = assignments[key];
-  const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
+  const assigneeIds = assignments[key] || [];
+  const assignees = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
+  const assignee = assignees[0] || null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
   const creator = users.find(u => u.id === taskSub.by);
   const isClaimed = (claims?.[key] || []).includes(currentUser || "");
@@ -779,7 +781,7 @@ function SubtaskCard({
           </div>
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {pipelineIcon} {parentStageName}
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
+            {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
         </div>
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
@@ -816,7 +818,7 @@ function SubtaskCard({
         showCommentPopover={showCommentPopover}
         showAssignPicker={showAssignPicker}
         commentCount={cmts.length}
-        assignee={assignee}
+        assignee={assignee} assignees={assignees}
         users={users}
         onReactToggle={() => { setReactOpen(showReactPicker ? null : key); setCommentOpen(null); setAssignOpen(null); }}
         onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : key); setReactOpen(null); setAssignOpen(null); }}
@@ -881,8 +883,9 @@ function SubtaskKanbanCard({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isAnyOpen, setReactOpen, setCommentOpen, setAssignOpen]);
-  const assigneeId = assignments[sub.key];
-  const assignee = assigneeId ? users.find(u => u.id === assigneeId) : null;
+  const assigneeIds = assignments[sub.key] || [];
+  const assignees = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
+  const assignee = assignees[0] || null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
   const creator = users.find(u => u.id === sub.by);
   const isUnknownParent = !sub.pipelineName;
@@ -925,7 +928,7 @@ function SubtaskKanbanCard({
               {isUnknownParent
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
                 : <>{sub.workspaceIcon && sub.workspaceName && <span style={{ marginRight: 3 }}>{sub.workspaceIcon} {sub.workspaceName} · </span>}{sub.pipelineIcon} {sub.parentStageName}</>}
-              {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}</span>}
+              {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -959,7 +962,7 @@ function SubtaskKanbanCard({
           showCommentPopover={showCommentPopover}
           showAssignPicker={showAssignPicker}
           commentCount={cmts.length}
-          assignee={assignee}
+          assignee={assignee} assignees={assignees}
           users={users}
           onReactToggle={() => { setReactOpen(showReactPicker ? null : sub.key); setCommentOpen(null); setAssignOpen(null); }}
           onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : sub.key); setReactOpen(null); setAssignOpen(null); }}
@@ -1019,13 +1022,20 @@ function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, dragga
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onEditToggle, showEditInput, showEditButton, compact }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onEditToggle, showEditInput, showEditButton, compact }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
-  commentCount: number; assignee: UserType | null | undefined; users: UserType[];
+  commentCount: number;
+  /** primary assignee — first in the list, kept for backwards compat label/color */
+  assignee: UserType | null | undefined;
+  /** full assignee list (max 2) — used to render stacked avatars */
+  assignees?: UserType[];
+  users: UserType[];
   onReactToggle: () => void; onCommentToggle: () => void; onAssignToggle: () => void;
+  /** toggle a userId in/out of the assignee list (max 2). null clears all. */
   onAssign: (userId: string | null) => void;
   onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean;
 }) {
+  const assigneeList = assignees && assignees.length > 0 ? assignees : (assignee ? [assignee] : []);
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
     padding: compact ? "3px 6px" : "3px 7px", cursor: "pointer",
@@ -1052,23 +1062,79 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         💬 <span style={{ fontSize: 10 }}>{commentCount}</span>
       </button>
       <div style={{ position: "relative" }}>
-        <button onClick={e => { e.stopPropagation(); onAssignToggle(); }} style={{ ...iconBtn, color: assignee ? assignee.color : t.textMuted, borderColor: assignee ? assignee.color + "55" : t.border }} title={assignee ? `Assigned to ${assignee.name}` : "Assign to someone"}>
-          👤 <span style={{ fontSize: 10 }}>{assignee ? assignee.name.toLowerCase() : "assign"}</span>
+        <button
+          onClick={e => { e.stopPropagation(); onAssignToggle(); }}
+          style={{
+            ...iconBtn,
+            color: assigneeList.length > 0 ? assigneeList[0].color : t.textMuted,
+            borderColor: assigneeList.length > 0 ? assigneeList[0].color + "55" : t.border,
+            paddingLeft: assigneeList.length > 0 ? 4 : (compact ? 6 : 7),
+            gap: 5,
+          }}
+          title={assigneeList.length > 0 ? `Assigned: ${assigneeList.map(u => u.name).join(", ")}` : "Assign to someone"}
+        >
+          {assigneeList.length === 0 ? (
+            <>
+              <span style={{ fontSize: 11, opacity: 0.7 }}>👤</span>
+              <span style={{ fontSize: 10 }}>assign</span>
+            </>
+          ) : (
+            <>
+              {/* Stacked avatars (overlap if 2) */}
+              <span style={{ display: "inline-flex", marginRight: 2 }}>
+                {assigneeList.slice(0, 2).map((u, i) => (
+                  <span key={u.id} style={{ marginLeft: i === 0 ? 0 : -7, display: "inline-block", borderRadius: "50%", boxShadow: `0 0 0 1.5px ${t.bgCard}` }}>
+                    <AvatarC user={u} size={16} />
+                  </span>
+                ))}
+              </span>
+              <span style={{ fontSize: 10 }}>
+                {assigneeList.length === 1
+                  ? assigneeList[0].name.toLowerCase()
+                  : `${assigneeList[0].name.toLowerCase()} +${assigneeList.length - 1}`}
+              </span>
+            </>
+          )}
         </button>
         {showAssignPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 160 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 200 }}>
+            <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              assign — up to 2 ({assigneeList.length}/2)
+            </div>
             {users.map(u => {
-              const isCurrent = assignee?.id === u.id;
+              const isCurrent = assigneeList.some(a => a.id === u.id);
+              const atCap = assigneeList.length >= 2 && !isCurrent;
               return (
-                <button key={u.id} onClick={() => onAssign(isCurrent ? null : u.id)} style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "6px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>
+                <button
+                  key={u.id}
+                  onClick={() => onAssign(u.id)}
+                  disabled={atCap}
+                  title={atCap ? "Max 2 assignees — remove one to add another" : undefined}
+                  style={{
+                    background: isCurrent ? u.color + "22" : "transparent",
+                    border: "none",
+                    cursor: atCap ? "not-allowed" : "pointer",
+                    padding: "6px 8px",
+                    borderRadius: 8,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 13,
+                    color: isCurrent ? u.color : t.text,
+                    fontWeight: isCurrent ? 700 : 500,
+                    fontFamily: "var(--font-dm-mono), monospace",
+                    textAlign: "left",
+                    opacity: atCap ? 0.4 : 1,
+                  }}
+                >
                   <AvatarC user={u} size={24} />
                   <span style={{ flex: 1 }}>{u.name}</span>
                   {isCurrent && <span style={{ fontSize: 10 }}>✓</span>}
                 </button>
               );
             })}
-            {assignee && (
-              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>× clear</button>
+            {assigneeList.length > 0 && (
+              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>× clear all</button>
             )}
           </div>
         )}

@@ -51,8 +51,8 @@ interface ModelContextValue {
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
   subtasks: Record<string, SubtaskItem[]>;
-  assignments: Record<string, string>;
-  ownership: Record<string, { claimedBy: string[]; assignedTo?: string }>;
+  assignments: Record<string, string[]>;
+  ownership: Record<string, { claimedBy: string[]; assignedTo: string[] }>;
   stageStatusOverrides: Record<string, string>;
   approvedStages: string[];
   stageDescOverrides: Record<string, string>;
@@ -207,7 +207,17 @@ export function ModelProvider({
   // ── Model state ───────────────────────────────────────────────────────────
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
   const [claims, setClaims] = useState<Record<string, string[]>>(() => lsGet("claims", {}));
-  const [assignments, setAssignments] = useState<Record<string, string>>(() => lsGet("assignments", {}));
+  // assignments is Record<stageId, userId[]> — max 2 assignees per task. Migrate older
+  // single-user shape (Record<stageId, userId>) by wrapping bare strings in arrays.
+  const [assignments, setAssignments] = useState<Record<string, string[]>>(() => {
+    const raw = lsGet("assignments", {} as Record<string, unknown>);
+    const out: Record<string, string[]> = {};
+    for (const [k, v] of Object.entries(raw)) {
+      if (Array.isArray(v)) out[k] = (v as unknown[]).filter(x => typeof x === "string") as string[];
+      else if (typeof v === "string" && v) out[k] = [v];
+    }
+    return out;
+  });
   const [subtasks, setSubtasks] = useState<Record<string, SubtaskItem[]>>(() => lsGet("subtasks", {}));
   const [comments, setComments] = useState<Record<string, CommentItem[]>>(() => lsGet("comments", {}));
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
@@ -514,10 +524,10 @@ export function ModelProvider({
   const pr: Record<string, { c: string }> = { NOW: { c: t.orange }, HIGH: { c: t.textMuted }, MEDIUM: { c: t.cyan || t.accent }, LOW: { c: t.textDim } };
 
   const ownership = useMemo(() => {
-    const map: Record<string, { claimedBy: string[]; assignedTo?: string }> = {};
-    for (const [k, v] of Object.entries(claims)) map[k] = { claimedBy: v };
+    const map: Record<string, { claimedBy: string[]; assignedTo: string[] }> = {};
+    for (const [k, v] of Object.entries(claims)) map[k] = { claimedBy: v, assignedTo: [] };
     for (const [k, v] of Object.entries(assignments)) {
-      if (!map[k]) map[k] = { claimedBy: [] };
+      if (!map[k]) map[k] = { claimedBy: [], assignedTo: [] };
       map[k].assignedTo = v;
     }
     return map;
@@ -556,28 +566,56 @@ export function ModelProvider({
     if (!alreadyClaimed) logActivity("claim", sid, "took ownership");
   };
 
+  // assignTask: toggle a single user on/off. If userId === null, clear all assignees.
+  // Cap at 2 assignees per task — adding a third silently bumps the oldest. The cap is
+  // intentional UX: claiming is the social motivation; assigning to many dilutes ownership.
+  const ASSIGN_CAP = 2;
   const assignTask = (sid: string, userId: string | null) => {
     if (!currentUser) return;
     const isSubtask = SubtaskKey.isValid(sid);
+    markLocalWrite("assignments");
     setAssignments(prev => {
-      const copy = { ...prev };
-      const prevTaskAssignee = copy[sid] || null;
-      if (!userId) { delete copy[sid]; } else { copy[sid] = userId; }
+      const copy: Record<string, string[]> = { ...prev };
+      const prevList = copy[sid] || [];
+
+      if (!userId) {
+        delete copy[sid];
+      } else {
+        const isCurrentlyAssigned = prevList.includes(userId);
+        let next: string[];
+        if (isCurrentlyAssigned) {
+          next = prevList.filter(u => u !== userId);
+        } else {
+          // Append; if at cap, drop the oldest (FIFO)
+          next = [...prevList, userId].slice(-ASSIGN_CAP);
+        }
+        if (next.length === 0) delete copy[sid]; else copy[sid] = next;
+      }
+
+      // Cascade to subtasks: when a stage's primary assignee is set/cleared, propagate to
+      // any subtask that has no explicit assignment (i.e., was inheriting parent's).
       if (!isSubtask && !sid.startsWith("_")) {
         const taskSubtasks = subtasks[sid] || [];
+        const newPrimaryList = copy[sid] || [];
         for (const sub of taskSubtasks) {
           const subKey = SubtaskKey.make(sid, sub.id);
-          const subAssignee = copy[subKey] || null;
-          if (!subAssignee || subAssignee === prevTaskAssignee) {
-            if (!userId) { delete copy[subKey]; } else { copy[subKey] = userId; }
+          const subList = copy[subKey] || [];
+          // Inherit only if subtask was unassigned OR subtask's list exactly matched the
+          // OLD parent list (i.e., truly inherited, not customised).
+          const wasInheriting = subList.length === 0 ||
+            (subList.length === prevList.length && subList.every(u => prevList.includes(u)));
+          if (wasInheriting) {
+            if (newPrimaryList.length === 0) delete copy[subKey];
+            else copy[subKey] = [...newPrimaryList];
           }
         }
       }
       return copy;
     });
+
     if (userId) {
       const assignee = users.find(u => u.id === userId);
-      logActivity("assign", sid, `→ ${assignee?.name || userId}`);
+      logActivity("assign", sid, `toggled ${assignee?.name || userId}`);
     } else {
       logActivity("assign", sid, "unassigned");
     }
@@ -1012,7 +1050,7 @@ export function useStage(stageId: string) {
     status: stageStatusOverrides?.[stageId],
     desc: stageDescOverrides?.[stageId],
     displayName: stageNameOverrides?.[stageId] || stageId,
-    assignedTo: assignments[stageId],
+    assignedTo: assignments[stageId] || [],
   }), [claims, reactions, comments, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, assignments, stageId]);
 }
 
@@ -1029,12 +1067,12 @@ export function usePipeline(pipelineId: string) {
 export function useOwnership(stageId: string) {
   const { ownership, currentUser } = useModel();
   return useMemo(() => {
-    const entry = ownership[stageId] || { claimedBy: [] };
+    const entry = ownership[stageId] || { claimedBy: [], assignedTo: [] };
     return {
       claimedBy: entry.claimedBy,
       isMine: currentUser ? entry.claimedBy.includes(currentUser) : false,
-      assignedTo: entry.assignedTo || null,
-      isAssignedToMe: currentUser ? entry.assignedTo === currentUser : false,
+      assignedTo: entry.assignedTo, // string[]
+      isAssignedToMe: currentUser ? entry.assignedTo.includes(currentUser) : false,
     };
   }, [ownership, currentUser, stageId]);
 }
