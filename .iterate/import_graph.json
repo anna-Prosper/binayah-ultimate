@@ -420,6 +420,9 @@
     ],
     "src/app/api/auth/[...nextauth]/route.ts": [
       "src/lib/auth.ts"
+    ],
+    "tests/behavioral/cards.spec.ts": [
+      "tests/behavioral/_helpers.ts"
     ]
   },
   "reverseEdges": {
@@ -819,6 +822,9 @@
     "src/lib/ChatMessage.ts": [
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/messages/stream/route.ts"
+    ],
+    "tests/behavioral/_helpers.ts": [
+      "tests/behavioral/cards.spec.ts"
     ]
   },
   "surfaceMap": {
@@ -849,6 +855,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-28T09:59:16.769419+00:00",
-  "fileCount": 112
+  "builtAt": "2026-04-28T10:31:25.318250+00:00",
+  "fileCount": 115
 }

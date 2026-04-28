@@ -62,6 +62,8 @@ function computeStreakByUser(activityLog: { type: string; user: string; time: nu
 // Mirror of ADMIN_IDS in src/lib/data.ts; replicated here so the server doesn't import client lib.
 const SEED_ADMIN_IDS = ["anna"];
 const SEED_DEFAULT_WORKSPACE_ID = "war-room";
+// Mirror of USERS_DEFAULT[*].id from src/lib/data.ts — used only for default-workspace bootstrap.
+const SEED_DEFAULT_USER_IDS = ["usama", "anna", "aakarshit", "ahsan", "abdallah", "prajeesh"];
 
 export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
@@ -71,17 +73,36 @@ export async function GET(req: NextRequest) {
   const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string,unknown>; updatedAt?: Date } | null;
   let state = doc?.state || {};
 
-  // Self-heal admin captaincy. If the default workspace exists but ADMIN_IDS users
-  // aren't in its captains array, repair before serving. Persists the fix back to
-  // Mongo so the next request doesn't have to repeat the work.
+  // Self-heal: ensure (a) the default workspace exists and (b) ADMIN_IDS users are in
+  // its captains array. Without (a) the destructive-keys gate creates a chicken-and-egg
+  // bootstrap deadlock — Anna can't write the seed workspace because the gate requires
+  // her to already be an officer somewhere, which requires the seed workspace to exist.
   const wsArr = Array.isArray((state as Record<string, unknown>).workspaces)
-    ? ((state as Record<string, unknown>).workspaces as Array<{ id: string; captains: string[]; firstMates: string[]; members: string[] }>)
+    ? ((state as Record<string, unknown>).workspaces as Array<{ id: string; name?: string; icon?: string; colorKey?: string; captains: string[]; firstMates: string[]; members: string[]; pipelineIds?: string[] }>)
     : [];
   const defaultWs = wsArr.find(w => w.id === SEED_DEFAULT_WORKSPACE_ID);
-  if (defaultWs) {
+  let healedWorkspaces: typeof wsArr | null = null;
+
+  if (!defaultWs) {
+    // (a) Bootstrap: create war-room with all default users as members and ADMIN_IDS as captains.
+    // pipelineIds is left empty here — clients seed the full pipeline list via patch on first hydrate.
+    const seeded = {
+      id: SEED_DEFAULT_WORKSPACE_ID,
+      name: "Binayah AI",
+      icon: "🤖",
+      colorKey: "purple",
+      captains: [...SEED_ADMIN_IDS],
+      firstMates: [],
+      members: [...SEED_DEFAULT_USER_IDS],
+      pipelineIds: [],
+    };
+    healedWorkspaces = [...wsArr, seeded];
+    logApi(ROUTE, "self_heal_seed_workspace", { id: SEED_DEFAULT_WORKSPACE_ID });
+  } else {
+    // (b) Existing default workspace — ensure all ADMIN_IDS are in captains and members.
     const missing = SEED_ADMIN_IDS.filter(uid => !defaultWs.captains?.includes(uid));
     if (missing.length > 0) {
-      const fixedWorkspaces = wsArr.map(w =>
+      healedWorkspaces = wsArr.map(w =>
         w.id === SEED_DEFAULT_WORKSPACE_ID
           ? {
               ...w,
@@ -90,13 +111,16 @@ export async function GET(req: NextRequest) {
             }
           : w
       );
-      await PipelineState.findOneAndUpdate(
-        WORKSPACE,
-        { $set: { "state.workspaces": fixedWorkspaces, updatedAt: new Date() } }
-      );
-      state = { ...state, workspaces: fixedWorkspaces };
       logApi(ROUTE, "self_heal_admin_captain", { added: missing });
     }
+  }
+
+  if (healedWorkspaces) {
+    await PipelineState.findOneAndUpdate(
+      WORKSPACE,
+      { $set: { "state.workspaces": healedWorkspaces, updatedAt: new Date() } }
+    );
+    state = { ...state, workspaces: healedWorkspaces };
   }
 
   // If client is up-to-date, return 304
