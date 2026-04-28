@@ -307,7 +307,7 @@ export default function HomeView({
         isAdmin={isCaptainOfAny}
         ck={ck}
         showMyAllFilter={true}
-        defaultMyAllFilter="all"
+        defaultMyAllFilter={isCaptainOfAny ? "all" : "my"}
         pipelineWorkspaceMap={pipelineWorkspaceMap}
         headerLabel="🏠 home"
         editMode={editMode}

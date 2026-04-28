@@ -167,7 +167,7 @@ export default function Stage({
     claims, reactions: rxns, comments, subtasks, users, currentUser, me,
     stageDescOverrides, stageImages, liveNotifs, activityLog,
     handleClaim, handleReact, cycleStatus,
-    addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
+    addSubtask, toggleSubtask, lockSubtask, archiveSubtask, addComment,
     setStageDescOverride, setStageNameOverride,
     addStageImage, removeStageImage, archiveStage,
     getStatus, sc,
@@ -752,7 +752,7 @@ export default function Stage({
                     pC={pC}
                     t={t}
                     onToggle={() => toggleSubtask(name, task.id)}
-                    onRemove={() => removeSubtask(name, task.id)}
+                    onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
                   />
                 ))}
                 </div>
@@ -1063,7 +1063,7 @@ export default function Stage({
                   pC={pC}
                   t={t}
                   onToggle={() => !task.locked && toggleSubtask(name, task.id)}
-                  onRemove={() => removeSubtask(name, task.id)}
+                  onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
                 />
               ))}
               </div>

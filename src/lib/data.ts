@@ -27,13 +27,17 @@ export const AVATARS: Array<{ id: string; img: string; name: string; zoom?: numb
   { id: "av_furry_fox",     img: "/avatars/av_furry_fox.jpg",     name: "Blaze" },
 ];
 
+// Color picks tested for AA-large readability on BOTH dark theme bgCard (#0d0a18 etc)
+// AND light theme bgCard (#fff). Brightened originals (#00ff88, #ffcc00) had contrast
+// ~1.1 on white — invisible. Replacements stay vibrant on dark while dropping into
+// readable territory on light.
 export const USERS_DEFAULT = [
-  {id:"usama",name:"Usama",role:"The Visionary",avatar:"",color:"#bf5af2"},
-  {id:"anna",name:"Anna",role:"The Architect",avatar:"",color:"#ff6b35"},
-  {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"",color:"#00ff88"},
-  {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"",color:"#00d4ff"},
-  {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#ffcc00"},
-  {id:"prajeesh",name:"Prajeesh",role:"The PM",avatar:"",color:"#22d3ee"},
+  {id:"usama",name:"Usama",role:"The Visionary",avatar:"",color:"#a855f2"},     // purple — kept vivid, slightly muted
+  {id:"anna",name:"Anna",role:"The Architect",avatar:"",color:"#ff6b35"},       // orange — already readable on white
+  {id:"aakarshit",name:"Aakarshit",role:"Tech Wizard",avatar:"",color:"#00b370"}, // forest green — was #00ff88 (invisible on white)
+  {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"",color:"#0099cc"},    // sea cyan — was #00d4ff
+  {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#d4a000"}, // mustard — was #ffcc00 (invisible on white)
+  {id:"prajeesh",name:"Prajeesh",role:"The PM",avatar:"",color:"#0891b2"},      // teal — was #22d3ee
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];

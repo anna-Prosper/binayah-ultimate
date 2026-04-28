@@ -50,7 +50,7 @@ export const mkTheme = (id: string, isDark: boolean) => {
 export type T = any;
 
 export const THEME_OPTIONS = [
-  {id:"warroom",name:"Binayah AI",icon:"🤖",desc:"Dark ops. Neon purple. Command center.",color:"#bf5af2",bg:"#08050f"},
+  {id:"warroom",name:"War Room",icon:"🎯",desc:"Dark ops. Neon purple. Command center.",color:"#bf5af2",bg:"#08050f"},
   {id:"lab",name:"The Lab",icon:"🧪",desc:"Bio-tech greens. Clinical but alive.",color:"#00e5a0",bg:"#050a0a"},
   {id:"engine",name:"Engine Room",icon:"⚙️",desc:"Industrial heat. Orange sparks. Raw power.",color:"#ff6b35",bg:"#0a0808"},
   {id:"nerve",name:"Nerve Center",icon:"🧠",desc:"Deep navy. Neural calm. Everything connected.",color:"#5b8cf8",bg:"#06060c"},
