@@ -20,12 +20,16 @@ export function useUndoStack() {
   }, []);
 
   const undo = useCallback(() => {
+    // Use functional read + side-effect outside the setter to avoid double-call
+    // under React 18 concurrent rendering / StrictMode.
+    let toInvoke: UndoOp | null = null;
     setStack(prev => {
       if (prev.length === 0) return prev;
-      const [head, ...rest] = prev;
-      head.inverse();
-      return rest;
+      toInvoke = prev[0];
+      return prev.slice(1);
     });
+    // Defer to next microtask so the setStack actually commits before inverse runs
+    queueMicrotask(() => { if (toInvoke) toInvoke.inverse(); });
   }, []);
 
   const removeById = useCallback((id: number) => {
