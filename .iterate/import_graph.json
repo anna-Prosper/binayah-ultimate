@@ -1,0 +1,840 @@
+{
+  "forwardEdges": {
+    "next-env.d.ts": [
+      ".next/dev/types/routes.d.ts"
+    ],
+    "src/app/layout.tsx": [
+      "src/app/globals.css",
+      "src/components/SessionProviderWrapper.tsx"
+    ],
+    "src/app/page.tsx": [
+      "src/lib/auth.ts",
+      "src/components/DashboardClient.tsx"
+    ],
+    "src/components/OverviewPanel.tsx": [
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/themes.ts"
+    ],
+    "src/components/NotificationPrefs.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/WelcomeModal.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/Onboarding.tsx"
+    ],
+    "src/components/Dashboard.tsx": [
+      "src/hooks/useIsMobile.ts",
+      "src/components/ui/BottomSheet.tsx",
+      "src/lib/storage.ts",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/Onboarding.tsx",
+      "src/components/WelcomeModal.tsx",
+      "src/components/ui/Toast.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/components/SearchPalette.tsx",
+      "src/components/ChromeShell.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/components/views/ArchiveView.tsx",
+      "src/components/views/ActivityView.tsx",
+      "src/components/views/ChatView.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/TeamBar.tsx",
+      "src/components/WhileAwayDigest.tsx"
+    ],
+    "src/components/WorkspaceAdmin.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/NotificationBell.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/WhileAwayDigest.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/data.ts"
+    ],
+    "src/components/SearchPalette.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/LoginClient.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/version.ts"
+    ],
+    "src/components/TodayView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/HomeView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/SearchFilter.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/Onboarding.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/TasksView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimChip.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts",
+      "src/hooks/useIsMobile.ts",
+      "src/components/TodayView.tsx"
+    ],
+    "src/components/ChatPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/data.ts"
+    ],
+    "src/components/DocumentsPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/Toast.tsx",
+      "src/lib/data.ts",
+      "src/hooks/useIsMobile.ts",
+      "src/components/SearchPalette.tsx"
+    ],
+    "src/components/LeftSidebar.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/Stage.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/subtaskKey.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/primitives.tsx",
+      "src/components/ui/ClaimChip.tsx",
+      "src/components/mockups/mockupsMap.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/points.ts",
+      "src/components/ui/BottomSheet.tsx",
+      "src/lib/storage.ts"
+    ],
+    "src/components/ActivityFeed.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/lib/generatePDF.ts": [
+      "src/lib/data.ts"
+    ],
+    "src/lib/mentions.ts": [
+      "src/lib/data.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts"
+    ],
+    "src/lib/storage.ts": [
+      "src/lib/version.ts"
+    ],
+    "src/lib/sendNotifications.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/notifyRateLimit.ts",
+      "src/lib/email.ts",
+      "src/lib/emailTemplates.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/data.ts"
+    ],
+    "src/lib/points.ts": [
+      "src/lib/data.ts"
+    ],
+    "src/lib/auth.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts"
+    ],
+    "src/lib/contexts/ModelContext.tsx": [
+      "src/lib/hooks/useUndoStack.ts",
+      "src/lib/storage.ts",
+      "src/lib/points.ts",
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/lib/subtaskKey.ts",
+      "src/lib/apiSync.ts",
+      "src/lib/hooks/useSync.ts",
+      "src/components/ChatPanel.tsx"
+    ],
+    "src/lib/hooks/useSync.ts": [
+      "src/lib/apiSync.ts"
+    ],
+    "src/components/ui/BottomSheet.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/ui/AvatarPicker.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/ui/primitives.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/ui/ClaimChip.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/ui/ConfirmModal.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/ui/Skeletons.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/ui/Avatar.tsx": [
+      "src/lib/data.ts"
+    ],
+    "src/components/ui/Toast.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/mockups/MultiMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/CoreMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/CommsMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/LeadMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/ResearchMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx"
+    ],
+    "src/components/mockups/DevMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx"
+    ],
+    "src/components/mockups/OutboundMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/ContentMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/WebToolsMockups.tsx": [
+      "src/lib/themes.ts",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    "src/components/mockups/MockupShells.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/mockups/mockupsMap.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Skeletons.tsx"
+    ],
+    "src/components/views/ArchiveView.tsx": [
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/views/TeamBar.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/NotificationPrefs.tsx"
+    ],
+    "src/components/views/ActivityView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx"
+    ],
+    "src/components/views/ChatView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx"
+    ],
+    "src/components/views/HomeViewRoute.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/LeftSidebar.tsx"
+    ],
+    "src/components/views/PipelinesView.tsx": [
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/primitives.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/SearchFilter.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/lib/data.ts"
+    ],
+    "src/app/login/page.tsx": [
+      "src/lib/auth.ts",
+      "src/components/LoginClient.tsx"
+    ],
+    "src/app/api/chat/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
+    ],
+    "src/app/api/pipeline-state/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/data.ts",
+      "src/lib/sendNotifications.ts",
+      "src/lib/auth.ts",
+      "src/lib/chatBus.ts"
+    ],
+    "src/app/api/unsubscribe/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts"
+    ],
+    "src/app/api/generate-pfp/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
+    ],
+    "src/app/api/documents/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts"
+    ],
+    "src/app/api/suggest-points/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/log.ts"
+    ],
+    "src/app/api/documents/[id]/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts"
+    ],
+    "src/app/api/documents/[id]/attachments/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/s3.ts",
+      "src/lib/rateLimit.ts"
+    ],
+    "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/s3.ts"
+    ],
+    "src/app/api/pipeline-state/comments/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/auth.ts",
+      "src/lib/mentions.ts"
+    ],
+    "src/app/api/pipeline-state/messages/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/ChatMessage.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/mentions.ts"
+    ],
+    "src/app/api/pipeline-state/activity/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/auth.ts"
+    ],
+    "src/app/api/pipeline-state/comment-reactions/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/auth.ts",
+      "src/lib/data.ts"
+    ],
+    "src/app/api/pipeline-state/messages/stream/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/ChatMessage.ts"
+    ],
+    "src/app/api/auth/prefs/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts"
+    ],
+    "src/app/api/auth/signup/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts"
+    ],
+    "src/app/api/auth/[...nextauth]/route.ts": [
+      "src/lib/auth.ts"
+    ]
+  },
+  "reverseEdges": {
+    ".next/dev/types/routes.d.ts": [
+      "next-env.d.ts"
+    ],
+    "src/app/globals.css": [
+      "src/app/layout.tsx"
+    ],
+    "src/components/SessionProviderWrapper.tsx": [
+      "src/app/layout.tsx"
+    ],
+    "src/lib/auth.ts": [
+      "src/app/page.tsx",
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts",
+      "src/app/login/page.tsx",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/suggest-points/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      "src/app/api/auth/prefs/route.ts",
+      "src/app/api/auth/signup/route.ts",
+      "src/app/api/auth/[...nextauth]/route.ts"
+    ],
+    "src/components/DashboardClient.tsx": [
+      "src/app/page.tsx"
+    ],
+    "src/lib/data.ts": [
+      "src/components/OverviewPanel.tsx",
+      "src/components/WelcomeModal.tsx",
+      "src/components/Dashboard.tsx",
+      "src/components/WorkspaceAdmin.tsx",
+      "src/components/NotificationBell.tsx",
+      "src/components/WhileAwayDigest.tsx",
+      "src/components/SearchPalette.tsx",
+      "src/components/TodayView.tsx",
+      "src/components/HomeView.tsx",
+      "src/components/Onboarding.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/ChatPanel.tsx",
+      "src/components/DocumentsPanel.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ActivityFeed.tsx",
+      "src/lib/generatePDF.ts",
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts",
+      "src/lib/points.ts",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/AvatarPicker.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts"
+    ],
+    "src/components/ui/Avatar.tsx": [
+      "src/components/OverviewPanel.tsx",
+      "src/components/Dashboard.tsx",
+      "src/components/WorkspaceAdmin.tsx",
+      "src/components/NotificationBell.tsx",
+      "src/components/WhileAwayDigest.tsx",
+      "src/components/SearchPalette.tsx",
+      "src/components/TodayView.tsx",
+      "src/components/HomeView.tsx",
+      "src/components/Onboarding.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/ChatPanel.tsx",
+      "src/components/DocumentsPanel.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ActivityFeed.tsx",
+      "src/components/ui/AvatarPicker.tsx",
+      "src/components/views/TeamBar.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/lib/themes.ts": [
+      "src/components/OverviewPanel.tsx",
+      "src/components/NotificationPrefs.tsx",
+      "src/components/WelcomeModal.tsx",
+      "src/components/Dashboard.tsx",
+      "src/components/WorkspaceAdmin.tsx",
+      "src/components/NotificationBell.tsx",
+      "src/components/WhileAwayDigest.tsx",
+      "src/components/SearchPalette.tsx",
+      "src/components/LoginClient.tsx",
+      "src/components/TodayView.tsx",
+      "src/components/HomeView.tsx",
+      "src/components/SearchFilter.tsx",
+      "src/components/Onboarding.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/ChatPanel.tsx",
+      "src/components/DocumentsPanel.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ActivityFeed.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/BottomSheet.tsx",
+      "src/components/ui/AvatarPicker.tsx",
+      "src/components/ui/primitives.tsx",
+      "src/components/ui/ClaimChip.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/components/ui/Toast.tsx",
+      "src/components/mockups/MultiMockups.tsx",
+      "src/components/mockups/CoreMockups.tsx",
+      "src/components/mockups/CommsMockups.tsx",
+      "src/components/mockups/LeadMockups.tsx",
+      "src/components/mockups/ResearchMockups.tsx",
+      "src/components/mockups/DevMockups.tsx",
+      "src/components/mockups/OutboundMockups.tsx",
+      "src/components/mockups/ContentMockups.tsx",
+      "src/components/mockups/WebToolsMockups.tsx",
+      "src/components/mockups/MockupShells.tsx",
+      "src/components/mockups/mockupsMap.tsx"
+    ],
+    "src/components/Onboarding.tsx": [
+      "src/components/WelcomeModal.tsx",
+      "src/components/Dashboard.tsx"
+    ],
+    "src/hooks/useIsMobile.ts": [
+      "src/components/Dashboard.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/DocumentsPanel.tsx"
+    ],
+    "src/components/ui/BottomSheet.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/Stage.tsx"
+    ],
+    "src/lib/storage.ts": [
+      "src/components/Dashboard.tsx",
+      "src/components/Stage.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/contexts/EphemeralContext.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/lib/contexts/ModelContext.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/TodayView.tsx",
+      "src/components/HomeView.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx",
+      "src/components/views/ArchiveView.tsx",
+      "src/components/views/TeamBar.tsx",
+      "src/components/views/ActivityView.tsx",
+      "src/components/views/ChatView.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/WelcomeModal.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/ui/Toast.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/DocumentsPanel.tsx"
+    ],
+    "src/components/ui/ErrorBoundary.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/Stage.tsx",
+      "src/components/views/ActivityView.tsx",
+      "src/components/views/ChatView.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/ui/Skeletons.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/mockups/mockupsMap.tsx",
+      "src/components/views/ActivityView.tsx",
+      "src/components/views/ChatView.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/LeftSidebar.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/views/HomeViewRoute.tsx"
+    ],
+    "src/components/SearchPalette.tsx": [
+      "src/components/Dashboard.tsx",
+      "src/components/DocumentsPanel.tsx"
+    ],
+    "src/components/ChromeShell.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/PipelinesView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/ArchiveView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/ActivityView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/ChatView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/HomeViewRoute.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/TeamBar.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/WhileAwayDigest.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/lib/version.ts": [
+      "src/components/LoginClient.tsx",
+      "src/lib/storage.ts"
+    ],
+    "src/components/ui/primitives.tsx": [
+      "src/components/Onboarding.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ActivityFeed.tsx",
+      "src/components/mockups/MultiMockups.tsx",
+      "src/components/mockups/CoreMockups.tsx",
+      "src/components/mockups/CommsMockups.tsx",
+      "src/components/mockups/LeadMockups.tsx",
+      "src/components/mockups/OutboundMockups.tsx",
+      "src/components/mockups/ContentMockups.tsx",
+      "src/components/mockups/WebToolsMockups.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/ui/ClaimChip.tsx": [
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx"
+    ],
+    "src/lib/subtaskKey.ts": [
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/TodayView.tsx": [
+      "src/components/TasksView.tsx"
+    ],
+    "src/components/mockups/mockupsMap.tsx": [
+      "src/components/Stage.tsx"
+    ],
+    "src/lib/points.ts": [
+      "src/components/Stage.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/email.ts": [
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts"
+    ],
+    "src/lib/mongo.ts": [
+      "src/lib/sendNotifications.ts",
+      "src/lib/auth.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      "src/app/api/auth/prefs/route.ts",
+      "src/app/api/auth/signup/route.ts"
+    ],
+    "src/lib/AuthUser.ts": [
+      "src/lib/sendNotifications.ts",
+      "src/lib/auth.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/app/api/auth/prefs/route.ts",
+      "src/app/api/auth/signup/route.ts"
+    ],
+    "src/lib/notifyRateLimit.ts": [
+      "src/lib/sendNotifications.ts"
+    ],
+    "src/lib/emailTemplates.ts": [
+      "src/lib/sendNotifications.ts"
+    ],
+    "src/app/api/unsubscribe/route.ts": [
+      "src/lib/sendNotifications.ts"
+    ],
+    "src/lib/hooks/useUndoStack.ts": [
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/apiSync.ts": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useSync.ts"
+    ],
+    "src/lib/hooks/useSync.ts": [
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/ChatPanel.tsx": [
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/mockups/MockupShells.tsx": [
+      "src/components/mockups/MultiMockups.tsx",
+      "src/components/mockups/CoreMockups.tsx",
+      "src/components/mockups/CommsMockups.tsx",
+      "src/components/mockups/LeadMockups.tsx",
+      "src/components/mockups/ResearchMockups.tsx",
+      "src/components/mockups/DevMockups.tsx",
+      "src/components/mockups/OutboundMockups.tsx",
+      "src/components/mockups/ContentMockups.tsx",
+      "src/components/mockups/WebToolsMockups.tsx"
+    ],
+    "src/components/NotificationPrefs.tsx": [
+      "src/components/views/TeamBar.tsx"
+    ],
+    "src/components/SearchFilter.tsx": [
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/Stage.tsx": [
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/ui/ConfirmModal.tsx": [
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/LoginClient.tsx": [
+      "src/app/login/page.tsx"
+    ],
+    "src/lib/rateLimit.ts": [
+      "src/app/api/chat/route.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/generate-pfp/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/suggest-points/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts"
+    ],
+    "src/lib/validate.ts": [
+      "src/app/api/chat/route.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/generate-pfp/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts"
+    ],
+    "src/lib/log.ts": [
+      "src/app/api/chat/route.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/generate-pfp/route.ts",
+      "src/app/api/suggest-points/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts"
+    ],
+    "src/lib/PipelineState.ts": [
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts"
+    ],
+    "src/lib/sendNotifications.ts": [
+      "src/app/api/pipeline-state/route.ts"
+    ],
+    "src/lib/chatBus.ts": [
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts"
+    ],
+    "src/lib/BinayahDocument.ts": [
+      "src/app/api/documents/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
+    ],
+    "src/lib/s3.ts": [
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
+    ],
+    "src/lib/mentions.ts": [
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts"
+    ],
+    "src/lib/ChatMessage.ts": [
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts"
+    ]
+  },
+  "surfaceMap": {
+    "src/app/robots.ts": "/robots.ts",
+    "src/app/layout.tsx": "/layout.tsx",
+    "src/app/error.tsx": "/error.tsx",
+    "src/app/loading.tsx": "/loading.tsx",
+    "src/app/page.tsx": "/page.tsx",
+    "src/app/global-error.tsx": "/global-error.tsx",
+    "src/app/not-found.tsx": "/not-found.tsx",
+    "src/app/dashboard/page.tsx": "/dashboard",
+    "src/app/login/page.tsx": "/login",
+    "src/app/api/chat/route.ts": "/api/chat",
+    "src/app/api/pipeline-state/route.ts": "/api/pipeline-state",
+    "src/app/api/unsubscribe/route.ts": "/api/unsubscribe",
+    "src/app/api/generate-pfp/route.ts": "/api/generate-pfp",
+    "src/app/api/documents/route.ts": "/api/documents",
+    "src/app/api/suggest-points/route.ts": "/api/suggest-points",
+    "src/app/api/documents/[id]/route.ts": "/api/documents/[id]",
+    "src/app/api/documents/[id]/attachments/route.ts": "/api/documents/[id]/attachments",
+    "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": "/api/documents/[id]/attachments/[attachmentId]",
+    "src/app/api/pipeline-state/comments/route.ts": "/api/pipeline-state/comments",
+    "src/app/api/pipeline-state/messages/route.ts": "/api/pipeline-state/messages",
+    "src/app/api/pipeline-state/activity/route.ts": "/api/pipeline-state/activity",
+    "src/app/api/pipeline-state/comment-reactions/route.ts": "/api/pipeline-state/comment-reactions",
+    "src/app/api/pipeline-state/messages/stream/route.ts": "/api/pipeline-state/messages/stream",
+    "src/app/api/auth/prefs/route.ts": "/api/auth/prefs",
+    "src/app/api/auth/signup/route.ts": "/api/auth/signup",
+    "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
+  },
+  "builtAt": "2026-04-28T09:27:52.448427+00:00",
+  "fileCount": 111
+}

@@ -713,7 +713,6 @@ function TaskCard({
         />
       )}
 
-
     </CardShell>
     </div>
   );
