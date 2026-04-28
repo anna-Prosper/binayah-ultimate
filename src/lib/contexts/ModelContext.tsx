@@ -130,6 +130,8 @@ interface ModelContextValue {
   approveStage: (name: string) => void;
   addCustomStage: (pid: string, val: string) => void;
   addCustomPipeline: (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }) => string | null;
+  addUnparentedStage: (title: string) => Promise<string | null>;
+  moveStageToPipeline: (stageName: string, fromPid: string, toPid: string) => void;
   cyclePriority: (pid: string, cur: string) => void;
   addStageImage: (sid: string, dataUrl: string) => void;
   removeStageImage: (sid: string, idx: number) => void;
@@ -160,6 +162,11 @@ interface ModelContextValue {
 
 // Module-level mutable ref: stageId → whether user is actively typing in that stage's comment box.
 // Updated by the comment input onChange handler so the poll merge can check without circular deps.
+// Sentinel pipeline ID for orphan / unparented stages — created via "+ new task"
+// and rendered as a virtual "Inbox" pipeline until the user assigns a real one in edit mode.
+export const INBOX_PIPELINE_ID_CONST = "__inbox__";
+export { INBOX_PIPELINE_ID_CONST as INBOX_PIPELINE_ID };
+
 export const commentTypingState: { openStageId: string | null; hasInput: Record<string, boolean> } = {
   openStageId: null,
   hasInput: {},
@@ -886,6 +893,57 @@ export function ModelProvider({
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
   };
 
+  // Inbox sentinel — used inline (also exported at module top for cross-file imports)
+  const INBOX_PIPELINE_ID = INBOX_PIPELINE_ID_CONST;
+
+  // Add a task with no parent pipeline. Calls /api/suggest-points with the title to derive
+  // an LLM-suggested point value, stored as stagePointsOverride. Optimistic — if the LLM
+  // call fails the stage still gets created with the default point fallback.
+  const addUnparentedStage = useCallback(async (title: string): Promise<string | null> => {
+    const trimmed = title.trim();
+    if (!trimmed) return null;
+    // Use trimmed title as the stage name (which is also the stage ID — names are IDs in this dashboard)
+    markLocalWrite("customStages");
+    setCustomStages(prev => ({
+      ...prev,
+      [INBOX_PIPELINE_ID]: [...(prev[INBOX_PIPELINE_ID] || []), trimmed],
+    }));
+    logActivity("create", trimmed, "added to inbox");
+    // Fire-and-forget LLM points suggestion
+    fetch("/api/suggest-points", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ kind: "stage", title: trimmed }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { points?: number } | null) => {
+        if (data && typeof data.points === "number") {
+          markLocalWrite("stagePointsOverride");
+          setStagePointsOverrideState(prev => ({ ...prev, [trimmed]: data.points! }));
+        }
+      })
+      .catch(() => { /* silent — fallback to default points */ });
+    return trimmed;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Move a stage between pipelines (e.g., from inbox to a real pipeline). Doesn't touch
+  // the stage's per-key state (claims/comments/etc.) since those are keyed by stage NAME,
+  // which doesn't change.
+  const moveStageToPipeline = useCallback((stageName: string, fromPid: string, toPid: string) => {
+    if (fromPid === toPid) return;
+    markLocalWrite("customStages");
+    setCustomStages(prev => {
+      const next = { ...prev };
+      next[fromPid] = (next[fromPid] || []).filter(s => s !== stageName);
+      if (next[fromPid].length === 0) delete next[fromPid];
+      next[toPid] = [...(next[toPid] || []), stageName];
+      return next;
+    });
+    logActivity("status", stageName, `→ moved to ${toPid}`);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const addCustomPipeline = (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }): string | null => {
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
@@ -1024,7 +1082,7 @@ export function ModelProvider({
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
     setStageStatusDirect, cycleStatus, approveStage,
-    addCustomStage, addCustomPipeline, cyclePriority,
+    addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
     migrateSubtask,
     createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,

@@ -7,7 +7,7 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
-import { useModel, useRole } from "@/lib/contexts/ModelContext";
+import { useModel, useRole, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
@@ -56,6 +56,7 @@ export default function TasksView(props: Props) {
     archivedStages, archivedSubtasks, stagePointsOverride,
     addComment: modelAddComment,
     migrateSubtask,
+    addUnparentedStage, moveStageToPipeline,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
 
@@ -89,6 +90,8 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
+  const [newTaskInput, setNewTaskInput] = useState<string | null>(null); // null = button shown, string = inline input
+  const [newTaskBusy, setNewTaskBusy] = useState(false);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -98,6 +101,22 @@ export default function TasksView(props: Props) {
     allStages: [...p.stages, ...(customStages[p.id] || [])],
     color: ck[p.colorKey] || t.accent,
   }));
+
+  // Virtual "inbox" pipeline — only rendered if it has unparented stages.
+  // Lets user-created tasks live without a real pipeline until they're assigned one.
+  const inboxStages = customStages[INBOX_PIPELINE_ID] || [];
+  if (inboxStages.length > 0) {
+    pipelines.unshift({
+      id: INBOX_PIPELINE_ID,
+      name: "Inbox",
+      icon: "📥",
+      colorKey: "amber",
+      stages: [],
+      displayName: "Inbox",
+      allStages: inboxStages,
+      color: t.amber,
+    });
+  }
 
   const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks || []), [archivedSubtasks]);
 
@@ -259,6 +278,9 @@ export default function TasksView(props: Props) {
     onStageDragOver: handleStageDragOver,
     onStageDragLeave: handleStageDragLeave,
     onStageDrop: handleStageDrop,
+    availablePipelines: pipelines
+      .filter(p => p.id !== INBOX_PIPELINE_ID)
+      .map(p => ({ id: p.id, name: p.displayName, icon: p.icon })),
   };
 
   // Mobile today view: filter to claimed/assigned, sort by status priority
@@ -320,6 +342,36 @@ export default function TasksView(props: Props) {
           )}
           <button style={flatBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
           <button style={flatBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
+          <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
+          {newTaskInput === null ? (
+            <button
+              onClick={() => setNewTaskInput("")}
+              style={{ ...flatBtn(false), color: t.accent, borderColor: t.accent + "55" }}
+              title="Add a task without a parent pipeline — assign one later in edit mode"
+            >+ new task</button>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+              <input
+                autoFocus
+                value={newTaskInput}
+                disabled={newTaskBusy}
+                onChange={e => setNewTaskInput(e.target.value)}
+                placeholder="task title…"
+                onKeyDown={async e => {
+                  if (e.key === "Escape") setNewTaskInput(null);
+                  if (e.key === "Enter" && newTaskInput?.trim()) {
+                    setNewTaskBusy(true);
+                    await addUnparentedStage(newTaskInput.trim());
+                    setNewTaskInput(null);
+                    setNewTaskBusy(false);
+                  }
+                }}
+                onBlur={() => { if (!newTaskBusy && !newTaskInput?.trim()) setNewTaskInput(null); }}
+                style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 200 }}
+              />
+              <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>↵ to add · esc to cancel</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -455,6 +507,8 @@ interface SharedCardProps {
   onStageDragOver?: (stageId: string, e: React.DragEvent) => void;
   onStageDragLeave?: (stageId: string) => void;
   onStageDrop?: (stageId: string, e: React.DragEvent) => void;
+  // For orphan task pipeline picker — shown only when task is in inbox
+  availablePipelines?: { id: string; name: string; icon: string }[];
 }
 
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
@@ -498,8 +552,9 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
+  availablePipelines,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority } = useModel();
+  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
   const role = useRole(task.workspaceId);
   const canArchive = role === "captain" || role === "firstMate";
   const [editOpen, setEditOpen] = useState(false);
@@ -666,6 +721,26 @@ function TaskCard({
               </div>
             );
           })()}
+          {task.pipelineId === INBOX_PIPELINE_ID && availablePipelines && availablePipelines.length > 0 && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to:</span>
+              <select
+                value=""
+                onChange={e => {
+                  const targetPid = e.target.value;
+                  if (!targetPid) return;
+                  moveStageToPipeline(task.stageId, INBOX_PIPELINE_ID, targetPid);
+                  setEditOpen(false);
+                }}
+                style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+              >
+                <option value="">choose pipeline…</option>
+                {availablePipelines.map(p => (
+                  <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
           {archiveStage && canArchive && (
             <button
               onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
