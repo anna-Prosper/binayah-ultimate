@@ -83,9 +83,20 @@ export async function GET(req: NextRequest) {
   const defaultWs = wsArr.find(w => w.id === SEED_DEFAULT_WORKSPACE_ID);
   let healedWorkspaces: typeof wsArr | null = null;
 
+  // Build the canonical pipeline-id list once: static pipelineData + any custom pipelines
+  // already stored. Used to seed AND to fix existing war-room with empty pipelineIds.
+  const customPipelines = Array.isArray((state as Record<string, unknown>).customPipelines)
+    ? ((state as Record<string, unknown>).customPipelines as Array<{ id: string }>)
+    : [];
+  const allKnownPipelineIds = Array.from(new Set([
+    ...pipelineData.map(p => p.id),
+    ...customPipelines.map(p => p.id),
+  ]));
+
   if (!defaultWs) {
-    // (a) Bootstrap: create war-room with all default users as members and ADMIN_IDS as captains.
-    // pipelineIds is left empty here — clients seed the full pipeline list via patch on first hydrate.
+    // (a) Bootstrap: create war-room with all default users as members, ADMIN_IDS as captains,
+    // and all known pipelines wired up. Without pipelineIds the workspace is functionally empty
+    // (0 pipelines / 0 stages on home), even though it exists.
     const seeded = {
       id: SEED_DEFAULT_WORKSPACE_ID,
       name: "Binayah AI",
@@ -94,24 +105,29 @@ export async function GET(req: NextRequest) {
       captains: [...SEED_ADMIN_IDS],
       firstMates: [],
       members: [...SEED_DEFAULT_USER_IDS],
-      pipelineIds: [],
+      pipelineIds: allKnownPipelineIds,
     };
     healedWorkspaces = [...wsArr, seeded];
-    logApi(ROUTE, "self_heal_seed_workspace", { id: SEED_DEFAULT_WORKSPACE_ID });
+    logApi(ROUTE, "self_heal_seed_workspace", { id: SEED_DEFAULT_WORKSPACE_ID, pipelines: allKnownPipelineIds.length });
   } else {
-    // (b) Existing default workspace — ensure all ADMIN_IDS are in captains and members.
-    const missing = SEED_ADMIN_IDS.filter(uid => !defaultWs.captains?.includes(uid));
-    if (missing.length > 0) {
+    // (b) Existing default workspace — ensure ADMIN_IDS are in captains and pipelineIds is populated.
+    const missingCaptains = SEED_ADMIN_IDS.filter(uid => !defaultWs.captains?.includes(uid));
+    const existingPids = defaultWs.pipelineIds || [];
+    const missingPids = allKnownPipelineIds.filter(pid => !existingPids.includes(pid));
+    const needsHeal = missingCaptains.length > 0 || (existingPids.length === 0 && allKnownPipelineIds.length > 0);
+    if (needsHeal) {
       healedWorkspaces = wsArr.map(w =>
         w.id === SEED_DEFAULT_WORKSPACE_ID
           ? {
               ...w,
-              captains: [...(w.captains || []), ...missing],
-              members: Array.from(new Set([...(w.members || []), ...missing])),
+              captains: [...(w.captains || []), ...missingCaptains],
+              members: Array.from(new Set([...(w.members || []), ...missingCaptains])),
+              // Only repopulate pipelineIds when it's empty — don't override an intentionally-curated list.
+              pipelineIds: existingPids.length === 0 ? allKnownPipelineIds : [...existingPids, ...missingPids.filter(() => false)],
             }
           : w
       );
-      logApi(ROUTE, "self_heal_admin_captain", { added: missing });
+      logApi(ROUTE, "self_heal_workspace", { addedCaptains: missingCaptains, repopulatedPipelines: existingPids.length === 0 });
     }
   }
 
