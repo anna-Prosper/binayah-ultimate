@@ -90,8 +90,20 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
-  const [newTaskInput, setNewTaskInput] = useState<string | null>(null); // null = button shown, string = inline input
-  const [newTaskBusy, setNewTaskBusy] = useState(false);
+  const [newTaskCol, setNewTaskCol] = useState<string | null>(null); // which column has its inline input open
+  const [newTaskColInput, setNewTaskColInput] = useState("");
+  const [newTaskColBusy, setNewTaskColBusy] = useState(false);
+
+  const submitNewColumnTask = useCallback(async (status: string, text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setNewTaskColBusy(true);
+    const stageName = await addUnparentedStage(trimmed);
+    if (stageName) setStageStatus(stageName, status);
+    setNewTaskCol(null);
+    setNewTaskColInput("");
+    setNewTaskColBusy(false);
+  }, [addUnparentedStage, setStageStatus]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -342,36 +354,6 @@ export default function TasksView(props: Props) {
           )}
           <button style={flatBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
           <button style={flatBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
-          <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
-          {newTaskInput === null ? (
-            <button
-              onClick={() => setNewTaskInput("")}
-              style={{ ...flatBtn(false), color: t.accent, borderColor: t.accent + "55" }}
-              title="Add a task without a parent pipeline — assign one later in edit mode"
-            >+ new task</button>
-          ) : (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-              <input
-                autoFocus
-                value={newTaskInput}
-                disabled={newTaskBusy}
-                onChange={e => setNewTaskInput(e.target.value)}
-                placeholder="task title…"
-                onKeyDown={async e => {
-                  if (e.key === "Escape") setNewTaskInput(null);
-                  if (e.key === "Enter" && newTaskInput?.trim()) {
-                    setNewTaskBusy(true);
-                    await addUnparentedStage(newTaskInput.trim());
-                    setNewTaskInput(null);
-                    setNewTaskBusy(false);
-                  }
-                }}
-                onBlur={() => { if (!newTaskBusy && !newTaskInput?.trim()) setNewTaskInput(null); }}
-                style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 200 }}
-              />
-              <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>↵ to add · esc to cancel</span>
-            </div>
-          )}
         </div>
       </div>
 
@@ -437,6 +419,32 @@ export default function TasksView(props: Props) {
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
+                  {newTaskCol === col.status ? (
+                    <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 4 }}>
+                      <input
+                        autoFocus
+                        value={newTaskColInput}
+                        disabled={newTaskColBusy}
+                        onChange={e => setNewTaskColInput(e.target.value)}
+                        placeholder="task title…"
+                        onKeyDown={e => {
+                          if (e.key === "Escape") { setNewTaskCol(null); setNewTaskColInput(""); }
+                          if (e.key === "Enter") submitNewColumnTask(col.status, newTaskColInput);
+                        }}
+                        onBlur={() => { if (!newTaskColBusy && !newTaskColInput.trim()) { setNewTaskCol(null); setNewTaskColInput(""); } }}
+                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+                      />
+                      <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>↵ to add · esc to cancel</span>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => { setNewTaskCol(col.status); setNewTaskColInput(""); }}
+                      style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
+                      title="Add a task in this column — assign a parent pipeline later"
+                    >+ new task</button>
+                  )}
                 </div>
               </div>
             );
