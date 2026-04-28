@@ -717,8 +717,8 @@ export default function Stage({
             <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}` }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 about
-                {!editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"✎"}</span>}
-                {editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 10, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
+                {stageEditMode && !editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"✎"}</span>}
+                {stageEditMode && editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 10, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
               </div>
               {editingDesc ? (
                 <textarea
