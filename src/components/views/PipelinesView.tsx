@@ -72,6 +72,7 @@ export default function PipelinesView({
     handleReact,
     setStageDescOverride,
     addCustomStage, addCustomPipeline, cyclePriority, archivePipeline,
+    archivedStages, archivedPipelines,
     activityLog,
     t,
   } = useModel();
@@ -193,9 +194,9 @@ export default function PipelinesView({
 
       {/* List */}
       {view === "list" && <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {allPipelines.filter(p => {
+        {allPipelines.filter(p => !archivedPipelines.includes(p.id)).filter(p => {
           const q = searchQ.toLowerCase();
-          const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+          const allPStages = [...p.stages, ...(customStages[p.id] || [])].filter(s => !archivedStages.includes(s));
           const matchesSearch = !q || p.name.toLowerCase().includes(q) || allPStages.some(s => s.toLowerCase().includes(q));
           const matchesFilter = !statusFilter || (statusFilter === "claimed" ? allPStages.some(s => (claims[s] || []).includes(currentUser!)) : allPStages.some(s => getStatus(s) === statusFilter));
           return matchesSearch && matchesFilter;
@@ -205,7 +206,7 @@ export default function PipelinesView({
           const pipeName = pipeMeta.name ?? p.name;
           const pipePriority = pipeMeta.priority ?? p.priority;
           const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
-          const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+          const allPStages = [...p.stages, ...(customStages[p.id] || [])].filter(s => !archivedStages.includes(s));
           const pC = ck[p.colorKey] || t.accent;
           const prC = pr[pipePriority as keyof typeof pr] || { c: t.textMuted };
           const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
