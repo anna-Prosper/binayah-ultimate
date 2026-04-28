@@ -5,6 +5,7 @@ import {
 } from "react";
 import { useUndoStack, type UndoOp } from "@/lib/hooks/useUndoStack";
 import { lsGet, lsSet } from "@/lib/storage";
+import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
@@ -18,7 +19,7 @@ import { type ChatMsg } from "@/components/ChatPanel";
 
 export type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
-  colorKey: string; priority: string; totalHours: string; points: number; stages: string[];
+  colorKey: string; priority: string; totalHours?: string; points: number; stages: string[];
 };
 
 // Always take name/role/avatar/color from USERS_DEFAULT — only preserve aiAvatar from saved state
@@ -56,6 +57,8 @@ interface ModelContextValue {
   approvedStages: string[];
   stageDescOverrides: Record<string, string>;
   stageNameOverrides: Record<string, string>;
+  stagePointsOverride: Record<string, number>;
+  setStagePointsOverride: (stageId: string, pts: number | null) => void;
   subtaskStages: Record<string, string>;
   pipeDescOverrides: Record<string, string>;
   setPipeDescOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
@@ -223,6 +226,7 @@ export function ModelProvider({
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
   const [stageImages, setStageImages] = useState<Record<string, string[]>>(() => lsGet("stageImages", {}));
   const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, string[]>>>({});
+  const [stagePointsOverride, setStagePointsOverrideState] = useState<Record<string, number>>(() => lsGet("stagePointsOverride", {}));
   const [pendingNewComments, setPendingNewComments] = useState<Record<string, CommentItem[]>>({});
 
   // Streaks — server-derived, set via mergePatch from GET response
@@ -263,6 +267,7 @@ export function ModelProvider({
   useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
   useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
+  useEffect(() => { lsSet("stagePointsOverride", stagePointsOverride) }, [stagePointsOverride]);
 
   // One-time workspace migration
   useEffect(() => {
@@ -418,6 +423,7 @@ export function ModelProvider({
     if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
     if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
     if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
+    if (s.stagePointsOverride) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
@@ -428,9 +434,11 @@ export function ModelProvider({
     claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
     subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+    stagePointsOverride,
   }), [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
        subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
-       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks]);
+       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+       stagePointsOverride]);
 
   const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState });
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
@@ -442,7 +450,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks]);
+  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -458,13 +466,17 @@ export function ModelProvider({
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
 
   const getPoints = useCallback((uid: string) => {
+    const archivedSubtaskKeySet = new Set(archivedSubtasks);
     let p = 0;
     Object.entries(claims).forEach(([s, claimers]) => {
-      if (claimers.includes(uid) && approvedStages.includes(s)) p += stageDefaults[s]?.points || 10;
+      if (claimers.includes(uid) && approvedStages.includes(s)) {
+        const stageDefaultPts = stageDefaults[s]?.points || 10;
+        p += deriveStageDisplayPoints(s, subtasks[s], archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+      }
     });
     Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
     return p;
-  }, [claims, approvedStages, reactions]);
+  }, [claims, approvedStages, reactions, subtasks, archivedSubtasks, stagePointsOverride]);
 
   const sc: Record<string, { l: string; c: string }> = {
     active: { l: "live", c: t.green }, "in-progress": { l: "building", c: t.amber },
@@ -758,6 +770,13 @@ export function ModelProvider({
 
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
   const setStageNameOverride = (name: string, val: string) => setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+  const setStagePointsOverride = (stageId: string, pts: number | null) => {
+    setStagePointsOverrideState(prev => {
+      const next = { ...prev };
+      if (pts === null) { delete next[stageId]; } else { next[stageId] = pts; }
+      return next;
+    });
+  };
   const setSubtaskStage = (key: string, status: string) => setSubtaskStages(prev => ({ ...prev, [key]: status }));
 
   const setStageStatusDirect = (name: string, status: string) => {
@@ -791,7 +810,7 @@ export function ModelProvider({
   const addCustomPipeline = (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }): string | null => {
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
-    setCustomPipelines(prev => [...prev, { ...form, id, totalHours: "?h", points: 0, stages: [] }]);
+    setCustomPipelines(prev => [...prev, { ...form, id, points: 0, stages: [] }]);
     if (currentWorkspaceId) {
       setWorkspaces(prev => prev.map(w => w.id === currentWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
     }
@@ -910,6 +929,7 @@ export function ModelProvider({
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
     stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
+    stagePointsOverride, setStagePointsOverride,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,

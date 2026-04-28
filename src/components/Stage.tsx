@@ -11,6 +11,7 @@ import mockupsMap from "@/components/mockups/mockupsMap";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, commentTypingState } from "@/lib/contexts/ModelContext";
+import { deriveStageDisplayPoints, deriveStagePoints } from "@/lib/points";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { lsGet, lsSet } from "@/lib/storage";
 
@@ -172,6 +173,8 @@ export default function Stage({
     getStatus, sc,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
+    stagePointsOverride, setStagePointsOverride,
+    archivedSubtasks,
   } = useModel();
   const { reactOpen, setReactOpen, copied, setCopied, claimAnim, setClaimAnim } = useEphemeral();
 
@@ -179,7 +182,7 @@ export default function Stage({
     const alreadyClaimed = currentUser ? (claims[sid] || []).includes(currentUser) : false;
     handleClaim(sid);
     if (!alreadyClaimed && currentUser) {
-      setClaimAnim({ stage: sid, pts: s.points || 10 });
+      setClaimAnim({ stage: sid, pts: derivedPoints || 10 });
       setTimeout(() => setClaimAnim(null), 1200);
     }
   };
@@ -336,6 +339,19 @@ export default function Stage({
   const tasks = subtasks[name] || [];
   const cmts = comments[name] || [];
   const tasksDone = tasks.filter(x => x.done).length;
+
+  // Derived points — sum of live subtask points, overridable
+  const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks), [archivedSubtasks]);
+  const derivedPoints = useMemo(
+    () => deriveStageDisplayPoints(name, tasks, archivedSubtaskKeySet, s.points, stagePointsOverride),
+    [name, tasks, archivedSubtaskKeySet, s.points, stagePointsOverride]
+  );
+  const naturalPoints = useMemo(
+    () => deriveStagePoints(name, tasks, archivedSubtaskKeySet, s.points),
+    [name, tasks, archivedSubtaskKeySet, s.points]
+  );
+  const hasOverride = stagePointsOverride[name] !== undefined;
+  const hasLiveSubtasks = tasks.filter(t => !archivedSubtaskKeySet.has(`${name}::${t.id}`)).length > 0;
   const isMockOpen = showMockup;
   void isMockOpen; // used implicitly via setShowMockup
   const currentDesc = stageDescOverrides[name] ?? s.desc;
@@ -446,7 +462,7 @@ export default function Stage({
             {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
             {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"💬"}{cmts.length}</span>}
-            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{s.points}</span>
+            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{derivedPoints}</span>
           </div>
         </div>
 
@@ -564,7 +580,7 @@ export default function Stage({
                     "Binayah AI  //  Stage",
                     "────────────────────────────────",
                     name,
-                    `Status: ${effectiveStatus.toUpperCase()}  ·  +${s.points} pts`,
+                    `Status: ${effectiveStatus.toUpperCase()}  ·  +${derivedPoints} pts`,
                   ];
                   if (currentDesc) { lines.push(""); lines.push(currentDesc); }
                   if (owners.length) { lines.push(""); lines.push(`Owned by: ${owners.join(", ")}`); }

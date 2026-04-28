@@ -7,7 +7,7 @@ import { type T } from "@/lib/themes";
 
 type Pipeline = {
   id: string; name: string; desc: string; icon: string;
-  colorKey: string; priority: string; totalHours: string; points: number; stages: string[];
+  colorKey: string; priority: string; totalHours?: string; points: number; stages: string[];
 };
 
 type UserType = { id: string; name: string; role: string; avatar: string; color: string; aiAvatar?: string };
@@ -355,7 +355,7 @@ export default function OverviewPanel({
                             style={{ fontSize: 10, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
                             title="Click to cycle priority"
                           >{pipePriority}</span>
-                          <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages · {p.totalHours}</span>
+                          <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages</span>
                           {liveCt > 0 && <span style={{ fontSize: 10, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
                           {buildCt > 0 && <span style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{buildCt} building</span>}
                         </div>

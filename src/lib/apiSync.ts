@@ -23,6 +23,8 @@ export type SharedState = {
   archivedSubtasks?: string[];
   // commentReactions: key = `${stageId}::${commentId}`, value = emoji → userIds[]
   commentReactions?: Record<string, Record<string, string[]>>;
+  // stagePointsOverride: user-set point overrides per stage name
+  stagePointsOverride?: Record<string, number>;
   updatedAt?: number;
 };
 

@@ -235,10 +235,10 @@ function DashboardInner({
   }, [approvedStages]);
 
   // sharePipeline uses model state + ephemeral copied
-  const sharePipeline = useCallback((pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => {
+  const sharePipeline = useCallback((pid: string, pname: string, pdesc: string, priority: string, stageList: string[]) => {
     const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
     const owners = [...new Set(stageList.flatMap(s => claims[s] || []))].map(uid => users.find(u => u.id === uid)?.name).filter(Boolean);
-    const lines = ["Binayah AI  //  Pipeline", "────────────────────────────────", pname, `Priority: ${priority}  ·  ${stageList.length} stages  ·  ${hours}`];
+    const lines = ["Binayah AI  //  Pipeline", "────────────────────────────────", pname, `Priority: ${priority}  ·  ${stageList.length} stages`];
     if (pdesc) { lines.push(""); lines.push(pdesc); }
     lines.push(""); lines.push("Stages:"); lines.push(stageLines);
     if (owners.length) { lines.push(""); lines.push(`Owners: ${owners.join(", ")}`); }

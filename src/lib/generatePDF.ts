@@ -152,7 +152,7 @@ function _generatePipelineReport(opts: PDFOptions): PDFResult {
     doc.setTextColor(textDim);
     doc.setFontSize(8);
     doc.text(`${p.priority} PRIORITY`, 20, 18);
-    doc.text(`${p.totalHours} \u00B7 ${p.points}pts`, w - 20, 18, { align: "right" });
+    doc.text(`${p.points}pts`, w - 20, 18, { align: "right" });
 
     doc.setTextColor(textMain);
     doc.setFontSize(22);

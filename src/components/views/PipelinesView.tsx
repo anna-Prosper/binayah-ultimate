@@ -37,7 +37,7 @@ interface PipelinesViewProps {
   isAdmin: boolean;
   showToast: (msg: string, color: string) => void;
   handleClaimWithAnim: (sid: string) => void;
-  sharePipeline: (pid: string, pname: string, pdesc: string, priority: string, hours: string, stageList: string[]) => void;
+  sharePipeline: (pid: string, pname: string, pdesc: string, priority: string, stageList: string[]) => void;
   onPipelineClick: (pid: string) => void;
 }
 
@@ -244,7 +244,7 @@ export default function PipelinesView({
                         </p>
                       )}
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, p.totalHours, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓ copied" : "📋 copy"}</button>
+                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓ copied" : "📋 copy"}</button>
                         <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
                           {reactOpen === pipeReactKey
                             ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
@@ -277,7 +277,6 @@ export default function PipelinesView({
                     </div>
                   )}
                   <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ fontSize: 13, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div></div>
                     <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>{allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}</div>
                     <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
                     {canEditPipeline(p.id) && (
