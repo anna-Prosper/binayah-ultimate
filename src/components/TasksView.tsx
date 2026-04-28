@@ -531,6 +531,7 @@ function TaskCard({
   return (
     <div
       ref={cardRef}
+      data-testid="task-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}

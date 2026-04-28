@@ -201,6 +201,7 @@ export default function HomeView({
                               <div key={u.id} style={{ position: "relative" }}>
                                 <button
                                   type="button"
+                                  data-testid="team-avatar"
                                   onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
                                   onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
                                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}

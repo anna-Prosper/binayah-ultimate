@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:behavioral": "playwright test --config=playwright.config.ts",
+    "test:behavioral:local": "BASE_URL=http://localhost:3000 playwright test --config=playwright.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",

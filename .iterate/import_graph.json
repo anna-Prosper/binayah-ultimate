@@ -83,6 +83,7 @@
       "src/lib/themes.ts",
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx",
+      "src/components/ui/UserPopup.tsx",
       "src/lib/contexts/ModelContext.tsx"
     ],
     "src/components/SearchFilter.tsx": [
@@ -200,6 +201,12 @@
     ],
     "src/components/ui/ConfirmModal.tsx": [
       "src/lib/themes.ts"
+    ],
+    "src/components/ui/UserPopup.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/NotificationPrefs.tsx",
+      "src/lib/data.ts"
     ],
     "src/components/ui/Skeletons.tsx": [
       "src/lib/themes.ts"
@@ -470,6 +477,7 @@
       "src/lib/points.ts",
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/AvatarPicker.tsx",
+      "src/components/ui/UserPopup.tsx",
       "src/components/ui/Avatar.tsx",
       "src/components/views/PipelinesView.tsx",
       "src/app/api/pipeline-state/route.ts",
@@ -491,6 +499,7 @@
       "src/components/Stage.tsx",
       "src/components/ActivityFeed.tsx",
       "src/components/ui/AvatarPicker.tsx",
+      "src/components/ui/UserPopup.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/PipelinesView.tsx"
@@ -565,6 +574,7 @@
       "src/components/HomeView.tsx",
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
+      "src/components/ui/UserPopup.tsx",
       "src/components/views/ArchiveView.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/ActivityView.tsx",
@@ -629,6 +639,9 @@
     "src/lib/version.ts": [
       "src/components/LoginClient.tsx",
       "src/lib/storage.ts"
+    ],
+    "src/components/ui/UserPopup.tsx": [
+      "src/components/HomeView.tsx"
     ],
     "src/components/ui/primitives.tsx": [
       "src/components/Onboarding.tsx",
@@ -712,6 +725,10 @@
     "src/components/ChatPanel.tsx": [
       "src/lib/contexts/ModelContext.tsx"
     ],
+    "src/components/NotificationPrefs.tsx": [
+      "src/components/ui/UserPopup.tsx",
+      "src/components/views/TeamBar.tsx"
+    ],
     "src/components/mockups/MockupShells.tsx": [
       "src/components/mockups/MultiMockups.tsx",
       "src/components/mockups/CoreMockups.tsx",
@@ -722,9 +739,6 @@
       "src/components/mockups/OutboundMockups.tsx",
       "src/components/mockups/ContentMockups.tsx",
       "src/components/mockups/WebToolsMockups.tsx"
-    ],
-    "src/components/NotificationPrefs.tsx": [
-      "src/components/views/TeamBar.tsx"
     ],
     "src/components/SearchFilter.tsx": [
       "src/components/views/PipelinesView.tsx"
@@ -835,6 +849,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-28T09:53:27.119035+00:00",
-  "fileCount": 111
+  "builtAt": "2026-04-28T09:59:16.769419+00:00",
+  "fileCount": 112
 }
