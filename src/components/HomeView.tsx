@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
@@ -26,12 +27,16 @@ interface Props {
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
   onUserClick?: (userId: string) => void;
+  viewingUser?: string | null;
+  setViewingUser?: (id: string | null) => void;
+  onChangeAvatar?: (userId: string, avatar: string) => void;
 }
 
 export default function HomeView({
   t, me, users, myWorkspaces, allPipelinesGlobal, pipeMetaOverrides,
   currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
   editMode, onPipelineClick, onUserClick, navbarSlot,
+  viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
     claims, reactions, approvedStages, customStages, getPoints: modelGetPoints,
@@ -193,22 +198,26 @@ export default function HomeView({
                             const uPts = modelGetPoints(u.id);
                             const isMe = u.id === currentUser;
                             return (
-                              <button
-                                key={u.id}
-                                type="button"
-                                onClick={() => onUserClick?.(u.id)}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
-                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
-                              >
-                                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
-                                  <AvatarC user={u} size={24} />
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</div>
-                                  <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
-                                </div>
-                              </button>
+                              <div key={u.id} style={{ position: "relative" }}>
+                                <button
+                                  type="button"
+                                  onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
+                                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
+                                >
+                                  <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                                    <AvatarC user={u} size={24} />
+                                  </div>
+                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</div>
+                                    <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                                  </div>
+                                </button>
+                                {viewingUser === u.id && setViewingUser && (
+                                  <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />
+                                )}
+                              </div>
                             );
                           })}
                         </div>
@@ -252,25 +261,29 @@ export default function HomeView({
                           const isMe = u.id === currentUser;
                           const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
                           return (
-                            <button
-                              key={u.id}
-                              type="button"
-                              onClick={() => onUserClick?.(u.id)}
-                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
-                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
-                              style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
-                            >
-                              <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
-                                <AvatarC user={u} size={24} />
-                              </div>
-                              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
-                                  {u.name.split(" ")[0]}
-                                  {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }}>{role === "captain" ? "👑" : "⚓"}</span>}
+                            <div key={u.id} style={{ position: "relative" }}>
+                              <button
+                                type="button"
+                                onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
+                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
+                              >
+                                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
+                                  <AvatarC user={u} size={24} />
                                 </div>
-                                <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
-                              </div>
-                            </button>
+                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
+                                    {u.name.split(" ")[0]}
+                                    {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }}>{role === "captain" ? "👑" : "⚓"}</span>}
+                                  </div>
+                                  <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
+                                </div>
+                              </button>
+                              {viewingUser === u.id && setViewingUser && (
+                                <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />
+                              )}
+                            </div>
                           );
                         })}
                       </div>
