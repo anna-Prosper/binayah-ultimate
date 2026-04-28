@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
 
   await connectMongo();
 
+  // NOTE: under concurrent toggles from the same user, the `action` response field is best-effort.
+  // Data correctness is preserved (Mongo $addToSet/$pull are atomic + idempotent),
+  // but the boolean "added"/"removed" status may not match the final stored state.
+  //
   // Atomic toggle: try $pull first; if it modified 0 docs, the user wasn't there → $addToSet
   const pullResult = await PipelineState.findOneAndUpdate(
     WORKSPACE,

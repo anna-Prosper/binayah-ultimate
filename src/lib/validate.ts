@@ -82,7 +82,6 @@ export const PATCH_KEY_WHITELIST = new Set([
   "archivedStages",
   "archivedPipelines",
   "archivedSubtasks",
-  "commentReactions",
   "updatedAt",
 ]);
 

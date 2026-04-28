@@ -605,8 +605,11 @@ export function ModelProvider({
   const handleCommentReact = useCallback((stageId: string, commentId: number, emoji: string) => {
     if (!currentUser) return;
     const key = `${stageId}::${commentId}`;
-    const prevReactions = commentReactions;
+    // Capture the pre-toggle snapshot synchronously inside the updater so it is
+    // never stale regardless of when React batches or schedules this callback.
+    let snapshot: Record<string, Record<string, string[]>> | null = null;
     setCommentReactions(prev => {
+      snapshot = prev; // exact state at the moment of this update
       const entry = { ...(prev[key] || {}) };
       const arr = [...(entry[emoji] || [])];
       const idx = arr.indexOf(currentUser);
@@ -616,11 +619,12 @@ export function ModelProvider({
     });
     pushCommentReaction({ stageId, commentId, emoji }).then(result => {
       if (!result.ok) {
-        setCommentReactions(prevReactions);
+        // Restore the snapshot captured at toggle time (not a closure variable)
+        setCommentReactions(snapshot!);
         showToast("// reaction failed", t.amber);
       }
     });
-  }, [currentUser, commentReactions, t.amber, showToast]);
+  }, [currentUser, t.amber, showToast]);
 
   const archiveStage = (sid: string) => {
     if (archivedStages.includes(sid)) return;
