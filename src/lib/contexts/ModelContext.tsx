@@ -55,6 +55,7 @@ interface ModelContextValue {
   ownership: Record<string, { claimedBy: string[]; assignedTo: string[] }>;
   stageStatusOverrides: Record<string, string>;
   approvedStages: string[];
+  approvedSubtasks: string[];
   stageDescOverrides: Record<string, string>;
   stageNameOverrides: Record<string, string>;
   stagePointsOverride: Record<string, number>;
@@ -129,6 +130,7 @@ interface ModelContextValue {
   setStageStatusDirect: (name: string, status: string) => void;
   cycleStatus: (name: string) => void;
   approveStage: (name: string) => void;
+  approveSubtask: (key: string) => void;
   addCustomStage: (pid: string, val: string) => void;
   addCustomPipeline: (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }) => string | null;
   addUnparentedStage: (title: string) => Promise<string | null>;
@@ -230,6 +232,7 @@ export function ModelProvider({
   const [comments, setComments] = useState<Record<string, CommentItem[]>>(() => lsGet("comments", {}));
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
   const [approvedStages, setApprovedStages] = useState<string[]>(() => lsGet("approvedStages", []));
+  const [approvedSubtasks, setApprovedSubtasks] = useState<string[]>(() => lsGet("approvedSubtasks", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
@@ -285,6 +288,7 @@ export function ModelProvider({
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
   useEffect(() => { lsSet("approvedStages", approvedStages) }, [approvedStages]);
+  useEffect(() => { lsSet("approvedSubtasks", approvedSubtasks) }, [approvedSubtasks]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
@@ -513,16 +517,31 @@ export function ModelProvider({
 
   const getPoints = useCallback((uid: string) => {
     const archivedSubtaskKeySet = new Set(archivedSubtasks);
+    const approvedSubtaskKeySet = new Set(approvedSubtasks);
     let p = 0;
-    Object.entries(claims).forEach(([s, claimers]) => {
-      if (claimers.includes(uid) && approvedStages.includes(s)) {
-        const stageDefaultPts = stageDefaults[s]?.points || 10;
-        p += deriveStageDisplayPoints(s, subtasks[s], archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+    Object.entries(claims).forEach(([key, claimers]) => {
+      if (!claimers.includes(uid)) return;
+      // Subtask claim — key is "stageId::subtaskId"
+      if (SubtaskKey.isValid(key)) {
+        if (!approvedSubtaskKeySet.has(key)) return;
+        const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+        if (!parsed) return;
+        const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
+        if (!sub) return;
+        p += sub.points ?? 5;
+        return;
       }
+      // Stage claim — only award stage-level points when stage is a leaf (no live subtasks).
+      // When stage has subtasks, points are earned through the subtask claims above.
+      if (!approvedStages.includes(key)) return;
+      const liveSubs = (subtasks[key] || []).filter(s => !archivedSubtaskKeySet.has(`${key}::${s.id}`));
+      if (liveSubs.length > 0) return;
+      const stageDefaultPts = stageDefaults[key]?.points || 10;
+      p += deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
     });
     Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
     return p;
-  }, [claims, approvedStages, reactions, subtasks, archivedSubtasks, stagePointsOverride]);
+  }, [claims, approvedStages, approvedSubtasks, reactions, subtasks, archivedSubtasks, stagePointsOverride]);
 
   const sc: Record<string, { l: string; c: string }> = {
     active: { l: "live", c: t.green }, "in-progress": { l: "building", c: t.amber },
@@ -914,6 +933,18 @@ export function ModelProvider({
     logActivity("status", name, "→ approved");
   };
 
+  const approveSubtask = (key: string) => {
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    if (!currentUser || !ws || !(ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser))) {
+      showToast("// only captain or first mate can approve", t.amber); return;
+    }
+    if (approvedSubtasks.includes(key)) return;
+    setApprovedSubtasks(prev => [...prev, key]);
+    const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+    const subText = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text : undefined;
+    logActivity("status", subText || key, "→ approved");
+  };
+
   const addCustomStage = (pid: string, val: string) => {
     if (!val) return;
     markLocalWrite("customStages");
@@ -1095,7 +1126,7 @@ export function ModelProvider({
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
-    stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides,
+    stageStatusOverrides, approvedStages, approvedSubtasks, stageDescOverrides, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
@@ -1108,7 +1139,7 @@ export function ModelProvider({
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
-    setStageStatusDirect, cycleStatus, approveStage,
+    setStageStatusDirect, cycleStatus, approveStage, approveSubtask,
     addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
     migrateSubtask,

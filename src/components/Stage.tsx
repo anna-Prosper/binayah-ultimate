@@ -42,16 +42,15 @@ function actIcon(type: string): string {
 // Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
 // pencil-edit-mode pattern, just compact and nested under the parent stage.
 function StageSubtaskCard({
-  task, stageId, pC, t,
-  onToggle, onRemove,
+  task, stageId, pC, t, onRemove,
 }: {
   task: SubtaskItem; stageId: string; pC: string; t: T;
-  onToggle: () => void;
   onRemove: () => void;
 }) {
   const {
     users, currentUser, reactions, comments, claims, assignments,
     handleClaim, handleReact, addComment, assignTask, renameSubtask, setSubtaskPoints,
+    toggleSubtask, approvedSubtasks, approveSubtask, workspaces,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
   const key = SubtaskKey.make(stageId, task.id);
@@ -96,6 +95,10 @@ function StageSubtaskCard({
   const assigneeIds = assignments[key] || [];
   const assigneeList = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as Array<NonNullable<ReturnType<typeof users.find>>>;
   const points = task.points ?? DEFAULT_SUBTASK_POINTS;
+  // Approval state — mirrors the stage TaskCard flow
+  const isApproved = approvedSubtasks.includes(key);
+  const isPending = task.done && !isApproved;
+  const canApprove = currentUser ? workspaces.some(w => w.captains.includes(currentUser) || w.firstMates.includes(currentUser)) : false;
 
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
@@ -104,12 +107,9 @@ function StageSubtaskCard({
   };
 
   return (
-    <div ref={ref} style={{ position: "relative", background: task.done ? t.green + "08" : t.bgCard, border: `1px solid ${task.done ? t.green + "33" : isClaimed ? pC + "55" : t.border}`, boxShadow: `inset 3px 0 0 ${pC}`, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+    <div ref={ref} style={{ position: "relative", background: isApproved ? t.green + "08" : isPending ? t.amber + "08" : t.bgCard, border: `1px solid ${isApproved ? t.green + "33" : isPending ? t.amber + "55" : isClaimed ? pC + "55" : t.border}`, boxShadow: `inset 3px 0 0 ${pC}`, borderRadius: 12, padding: "10px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
       {/* Top row */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-        <div onClick={onToggle} style={{ width: 18, height: 18, borderRadius: "50%", border: `1.5px solid ${task.done ? t.green : t.border}`, background: task.done ? t.green : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, cursor: "pointer", marginTop: 2 }}>
-          {task.done && <span style={{ fontSize: 10, color: "#fff" }}>✓</span>}
-        </div>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editOpen ? (
             <input
@@ -128,7 +128,7 @@ function StageSubtaskCard({
               style={{ width: "100%", fontSize: 13, fontWeight: 700, color: t.text, border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", background: t.accent + "08", fontFamily: "inherit" }}
             />
           ) : (
-            <div style={{ fontSize: 13, fontWeight: 700, color: task.done ? t.textDim : t.text, textDecoration: task.done ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: isApproved ? t.textDim : t.text, textDecoration: isApproved ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
           )}
           <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             {creator && <><AvatarC user={creator} size={12} /><span>{creator.name.split(" ")[0]}</span></>}
@@ -136,9 +136,31 @@ function StageSubtaskCard({
             {assigneeList[0] && <span style={{ color: assigneeList[0].color, fontWeight: 700 }}>→ {assigneeList[0].name}{assigneeList.length > 1 ? ` +${assigneeList.length - 1}` : ""}</span>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
-          <ClaimChip claimed={isClaimed} pipelineColor={pC} t={t} onClaim={() => handleClaim(key)} variant="subtask" small />
+          {!task.done && currentUser && (
+            <button
+              onClick={e => { e.stopPropagation(); toggleSubtask(stageId, task.id); }}
+              style={{ background: pC + "15", border: `1px solid ${pC}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}
+              title="Mark done — needs captain approval to award points"
+            >✓ done</button>
+          )}
+          {isPending && canApprove && (
+            <button
+              onClick={e => { e.stopPropagation(); approveSubtask(key); }}
+              style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}
+              title="Captain approval — awards points to claimers"
+            >✓ approve</button>
+          )}
+          {isPending && !canApprove && (
+            <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
+          )}
+          {isApproved && (
+            <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
+          )}
+          {currentUser && !task.done && !isApproved && (
+            <ClaimChip claimed={isClaimed} pipelineColor={pC} t={t} onClaim={() => handleClaim(key)} variant="subtask" small />
+          )}
         </div>
       </div>
 
@@ -816,7 +838,6 @@ export default function Stage({
                     stageId={name}
                     pC={pC}
                     t={t}
-                    onToggle={() => toggleSubtask(name, task.id)}
                     onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
                   />
                 ))}
@@ -1127,7 +1148,6 @@ export default function Stage({
                   stageId={name}
                   pC={pC}
                   t={t}
-                  onToggle={() => !task.locked && toggleSubtask(name, task.id)}
                   onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
                 />
               ))}

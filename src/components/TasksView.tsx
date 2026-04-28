@@ -945,15 +945,17 @@ function SubtaskCard({
 // ─── Subtask as first-class kanban item ──────────────────────────────────────
 
 function SubtaskKanbanCard({
-  sub, isMine, onDone, onRename, onDragSubtaskStart, onDragSubtaskEnd,
+  sub, onDone, onRename, onDragSubtaskStart, onDragSubtaskEnd,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+  isAdmin,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onDone: () => void; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
+  const { handleClaim, claims, approvedSubtasks, approveSubtask } = useModel();
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
@@ -1030,12 +1032,36 @@ function SubtaskKanbanCard({
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-            {creator && <AvatarC user={creator} size={20} />}
-            {currentUser && (
-              <button onClick={e => { e.stopPropagation(); onDone(); }} style={btn(sub.pipelineColor, sub.pipelineColor + "18", sub.pipelineColor + "55")}>
-                ✓ done
-              </button>
-            )}
+            {(() => {
+              const subClaimers = claims[sub.key] || [];
+              const isClaimedByMe = currentUser ? subClaimers.includes(currentUser) : false;
+              const isApproved = approvedSubtasks.includes(sub.key);
+              const isPending = sub.done && !isApproved;
+              return (
+                <>
+                  {subClaimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
+                  {!sub.done && currentUser && (
+                    <button onClick={e => { e.stopPropagation(); onDone(); }} style={btn(sub.pipelineColor, sub.pipelineColor + "18", sub.pipelineColor + "55")} title="Mark done — needs captain approval to award points">
+                      ✓ done
+                    </button>
+                  )}
+                  {isPending && isAdmin && (
+                    <button onClick={e => { e.stopPropagation(); approveSubtask(sub.key); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
+                      ✓ approve
+                    </button>
+                  )}
+                  {isPending && !isAdmin && (
+                    <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
+                  )}
+                  {isApproved && (
+                    <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
+                  )}
+                  {currentUser && !sub.done && !isApproved && (
+                    <ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small />
+                  )}
+                </>
+              );
+            })()}
           </div>
         </div>
 
