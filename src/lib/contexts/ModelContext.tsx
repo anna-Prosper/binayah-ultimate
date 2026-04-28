@@ -245,6 +245,17 @@ export function ModelProvider({
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
   // pendingReactions: tracks in-flight reaction toggles so poll merges don't overwrite them
   const pendingReactionsRef = useRef<Set<string>>(new Set());
+  // localWrites: timestamps of recent optimistic writes by slice — poll merges skip slices written within the window
+  // Window must comfortably exceed the scheduleWrite debounce (1.5s) + server round-trip (~500ms) so writes survive merge.
+  const localWritesRef = useRef<Record<string, number>>({});
+  const LOCAL_WRITE_PROTECT_MS = 4000;
+  const markLocalWrite = useCallback((slice: string) => {
+    localWritesRef.current[slice] = Date.now();
+  }, []);
+  const isProtected = (slice: string) => {
+    const t = localWritesRef.current[slice];
+    return t !== undefined && Date.now() - t < LOCAL_WRITE_PROTECT_MS;
+  };
 
   // ── LocalStorage persistence ──────────────────────────────────────────────
   useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
@@ -325,7 +336,7 @@ export function ModelProvider({
         }
       }
       prevClaimsRef.current = s.claims as Record<string, string[]>;
-      setClaims(s.claims);
+      if (!isProtected("claims")) setClaims(s.claims);
     }
     if (s.reactions) {
       const prev = prevReactionsRef.current;
@@ -352,7 +363,7 @@ export function ModelProvider({
       }
     }
     if (s.activityLog) setActivityLog(s.activityLog);
-    if (s.subtasks) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+    if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
     if (s.comments) {
       let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
       let pendingLiveNotif: { stage: string; name: string } | null = null;
@@ -410,20 +421,20 @@ export function ModelProvider({
     if (s.commentReactions) {
       setCommentReactions(s.commentReactions as Record<string, Record<string, string[]>>);
     }
-    if (s.stageStatusOverrides) setStageStatusOverrides(s.stageStatusOverrides);
-    if (s.stageDescOverrides) setStageDescOverrides(s.stageDescOverrides);
-    if (s.stageNameOverrides) setStageNameOverrides(s.stageNameOverrides);
-    if (s.subtaskStages) setSubtaskStages(s.subtaskStages);
-    if (s.pipeDescOverrides) setPipeDescOverrides(s.pipeDescOverrides);
-    if (s.pipeMetaOverrides) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
-    if (s.customStages) setCustomStages(s.customStages);
-    if (s.customPipelines) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+    if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) setStageStatusOverrides(s.stageStatusOverrides);
+    if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
+    if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
+    if (s.subtaskStages && !isProtected("subtaskStages")) setSubtaskStages(s.subtaskStages);
+    if (s.pipeDescOverrides && !isProtected("pipeDescOverrides")) setPipeDescOverrides(s.pipeDescOverrides);
+    if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides")) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+    if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
+    if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
     if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
-    if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0) setWorkspaces(s.workspaces as Workspace[]);
-    if (s.archivedStages) setArchivedStages(s.archivedStages as string[]);
-    if (s.archivedPipelines) setArchivedPipelines(s.archivedPipelines as string[]);
-    if (s.archivedSubtasks) setArchivedSubtasks(s.archivedSubtasks as string[]);
-    if (s.stagePointsOverride) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
+    if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(s.workspaces as Workspace[]);
+    if (s.archivedStages && !isProtected("archivedStages")) setArchivedStages(s.archivedStages as string[]);
+    if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(s.archivedPipelines as string[]);
+    if (s.archivedSubtasks && !isProtected("archivedSubtasks")) setArchivedSubtasks(s.archivedSubtasks as string[]);
+    if (s.stagePointsOverride && !isProtected("stagePointsOverride")) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
@@ -519,6 +530,7 @@ export function ModelProvider({
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
     const alreadyClaimed = (claims[sid] || []).includes(currentUser);
+    markLocalWrite("claims");
     setClaims(prev => {
       const c = prev[sid] || [];
       if (c.includes(currentUser)) return { ...prev, [sid]: c.filter(u => u !== currentUser) };
@@ -589,20 +601,25 @@ export function ModelProvider({
     if (val.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return; }
     if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast("// max 20 subtasks per stage", t.amber); return; }
     const taskId = Date.now();
+    markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: val, done: false, by: currentUser }] }));
     clearInput();
   };
 
   const toggleSubtask = (sid: string, taskId: number) => {
+    markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) }));
   };
   const renameSubtask = (sid: string, taskId: number, text: string) => {
+    markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) }));
   };
   const lockSubtask = (sid: string, taskId: number) => {
+    markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, locked: !t.locked } : t) }));
   };
   const removeSubtask = (sid: string, taskId: number) => {
+    markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) }));
   };
 
@@ -730,16 +747,17 @@ export function ModelProvider({
     const label = `archived "${stageNameOverrides[sid] || sid}"`;
     const op = undoStack.push({
       label,
-      inverse: () => setArchivedStages(prev => prev.filter(s => s !== sid)),
+      inverse: () => { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); },
     });
+    markLocalWrite("archivedStages");
     setArchivedStages(prev => [...prev, sid]);
     logActivity("claim", sid, "archived");
     showToast(label, t.textMuted, 8000, {
       label: "undo",
-      onClick: () => { undoStack.removeById(op.id); setArchivedStages(prev => prev.filter(s => s !== sid)); },
+      onClick: () => { undoStack.removeById(op.id); { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; },
     });
   };
-  const restoreStage = (sid: string) => { setArchivedStages(prev => prev.filter(s => s !== sid)); showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
+  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
   const archivePipeline = (pid: string) => {
     if (archivedPipelines.includes(pid)) return;
     const label = `archived pipeline "${pid}"`;
@@ -747,6 +765,7 @@ export function ModelProvider({
       label,
       inverse: () => setArchivedPipelines(prev => prev.filter(p => p !== pid)),
     });
+    markLocalWrite("archivedPipelines");
     setArchivedPipelines(prev => [...prev, pid]);
     showToast(label, t.textMuted, 8000, {
       label: "undo",
@@ -760,6 +779,7 @@ export function ModelProvider({
       label: `archived subtask`,
       inverse: () => setArchivedSubtasks(prev => prev.filter(k => k !== key)),
     });
+    markLocalWrite("archivedSubtasks");
     setArchivedSubtasks(prev => [...prev, key]);
     showToast(`archived subtask`, t.textMuted, 8000, {
       label: "undo",
@@ -768,18 +788,20 @@ export function ModelProvider({
   };
   const restoreSubtask = (key: string) => { setArchivedSubtasks(prev => prev.filter(k => k !== key)); };
 
-  const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
-  const setStageNameOverride = (name: string, val: string) => setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+  const setStageDescOverride = (name: string, val: string) => { markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val })); };
+  const setStageNameOverride = (name: string, val: string) => { markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val })); };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
+    markLocalWrite("stagePointsOverride");
     setStagePointsOverrideState(prev => {
       const next = { ...prev };
       if (pts === null) { delete next[stageId]; } else { next[stageId] = pts; }
       return next;
     });
   };
-  const setSubtaskStage = (key: string, status: string) => setSubtaskStages(prev => ({ ...prev, [key]: status }));
+  const setSubtaskStage = (key: string, status: string) => { markLocalWrite("subtaskStages"); setSubtaskStages(prev => ({ ...prev, [key]: status })); };
 
   const setStageStatusDirect = (name: string, status: string) => {
+    markLocalWrite("stageStatusOverrides");
     setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
     logActivity("status", name, `→ ${status}`);
   };
@@ -788,6 +810,7 @@ export function ModelProvider({
     const cur = getStatus(name);
     const idx = STATUS_ORDER.indexOf(cur);
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+    markLocalWrite("stageStatusOverrides");
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
     logActivity("status", name, `→ ${next}`);
   };
@@ -804,14 +827,17 @@ export function ModelProvider({
 
   const addCustomStage = (pid: string, val: string) => {
     if (!val) return;
+    markLocalWrite("customStages");
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
   };
 
   const addCustomPipeline = (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }): string | null => {
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
+    markLocalWrite("customPipelines");
     setCustomPipelines(prev => [...prev, { ...form, id, points: 0, stages: [] }]);
     if (currentWorkspaceId) {
+      markLocalWrite("workspaces");
       setWorkspaces(prev => prev.map(w => w.id === currentWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
     }
     return id;
@@ -819,6 +845,7 @@ export function ModelProvider({
 
   const cyclePriority = (pid: string, cur: string) => {
     const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(cur as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
+    markLocalWrite("pipeMetaOverrides");
     setPipeMetaOverrides(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), priority: next } }));
   };
 

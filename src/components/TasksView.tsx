@@ -612,6 +612,13 @@ function TaskCard({
         </div>
       </div>
 
+      {/* Read-mode description — visible whenever a description exists, even outside edit mode */}
+      {!editOpen && stageDescOverrides[task.stageId] && (
+        <div style={{ fontSize: 12, color: t.textSec || t.textMuted, lineHeight: 1.5, padding: "2px 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {stageDescOverrides[task.stageId]}
+        </div>
+      )}
+
       {/* Edit-mode extra fields: description + priority + archive */}
       {editOpen && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }} onClick={e => e.stopPropagation()}>
