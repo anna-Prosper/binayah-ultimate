@@ -138,35 +138,51 @@ export async function PATCH(req: NextRequest) {
 
   // ── Role-based permission gate for destructive structural operations ────────
   // Keys that require captain or firstMate role in at least one workspace.
+  // IMPORTANT: only fires when the value actually CHANGES vs current state. The client
+  // sends the entire state slice on each scheduleWrite (even unchanged ones), so a naive
+  // "patch contains key" check rejects every routine save from a crew member, which
+  // bricks subtask/archive/etc. writes via collateral damage.
+  // Note: archivedStages and archivedSubtasks are NOT in this set — anyone can archive
+  // their own work. archivedPipelines, customPipelines, and workspaces are workspace-level
+  // structural changes that need officer role.
   const DESTRUCTIVE_KEYS = new Set([
-    "archivedStages", "archivedPipelines", "archivedSubtasks",
+    "archivedPipelines",
     "customPipelines", // pipeline deletions
     "workspaces",      // member changes
   ]);
-  const touchedDestructive = Object.keys(cleanPatch).some(k => DESTRUCTIVE_KEYS.has(k));
-  if (touchedDestructive) {
-    // Must be authenticated
-    if (!session?.user?.fixedUserId) {
-      logApi(ROUTE, "forbidden_unauthenticated");
-      return NextResponse.json(
-        { error: "FORBIDDEN", reason: "authentication required for destructive operations" },
-        { status: 401 }
-      );
-    }
-    // Read workspaces from current state to check role
+  const candidateDestructiveKeys = Object.keys(cleanPatch).filter(k => DESTRUCTIVE_KEYS.has(k));
+  if (candidateDestructiveKeys.length > 0) {
+    // Compare each candidate key against current state; only count it as "destructive"
+    // if the value differs.
     const stateDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
-    const workspacesData = (stateDoc?.state?.workspaces as Array<{
-      id: string; captains: string[]; firstMates: string[]; members: string[];
-    }> | undefined) ?? [];
-    const isOfficer = workspacesData.some(
-      ws => ws.captains?.includes(actorUserId) || ws.firstMates?.includes(actorUserId)
-    );
-    if (!isOfficer) {
-      logApi(ROUTE, "forbidden_insufficient_role", { userId: actorUserId });
-      return NextResponse.json(
-        { error: "FORBIDDEN", reason: "captain or first-mate role required" },
-        { status: 403 }
+    const currentState = stateDoc?.state ?? {};
+    const actuallyChanged = candidateDestructiveKeys.filter(k => {
+      const incoming = JSON.stringify((cleanPatch as Record<string, unknown>)[k] ?? null);
+      const existing = JSON.stringify((currentState as Record<string, unknown>)[k] ?? null);
+      return incoming !== existing;
+    });
+
+    if (actuallyChanged.length > 0) {
+      if (!session?.user?.fixedUserId) {
+        logApi(ROUTE, "forbidden_unauthenticated", { changed: actuallyChanged });
+        return NextResponse.json(
+          { error: "FORBIDDEN", reason: "authentication required for destructive operations" },
+          { status: 401 }
+        );
+      }
+      const workspacesData = (currentState.workspaces as Array<{
+        id: string; captains: string[]; firstMates: string[]; members: string[];
+      }> | undefined) ?? [];
+      const isOfficer = workspacesData.some(
+        ws => ws.captains?.includes(actorUserId) || ws.firstMates?.includes(actorUserId)
       );
+      if (!isOfficer) {
+        logApi(ROUTE, "forbidden_insufficient_role", { userId: actorUserId, changed: actuallyChanged });
+        return NextResponse.json(
+          { error: "FORBIDDEN", reason: "captain or first-mate role required" },
+          { status: 403 }
+        );
+      }
     }
   }
 
