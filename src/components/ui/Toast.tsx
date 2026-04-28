@@ -7,6 +7,7 @@ export type ToastItem = {
   id: number;
   message: string;
   color: string;
+  action?: { label: string; onClick: () => void };
 };
 
 interface ToastContainerProps {
@@ -60,14 +61,33 @@ export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
               opacity: 1 - i * 0.15,
               pointerEvents: "auto",
               cursor: "pointer",
-              whiteSpace: "nowrap",
-              maxWidth: "min(360px, calc(100vw - 48px))",
-              overflow: "hidden",
-              textOverflow: "ellipsis",
+              maxWidth: "min(400px, calc(100vw - 48px))",
+              display: "flex",
+              alignItems: "center",
             }}
             onClick={() => onDismiss(toast.id)}
           >
-            {toast.message}
+            <span style={{ flex: 1 }}>{toast.message}</span>
+            {toast.action && (
+              <button
+                onClick={e => { e.stopPropagation(); toast.action!.onClick(); onDismiss(toast.id); }}
+                style={{
+                  background: "transparent",
+                  border: `1px solid currentColor`,
+                  borderRadius: 6,
+                  padding: "2px 8px",
+                  cursor: "pointer",
+                  fontSize: 11,
+                  color: "inherit",
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  fontWeight: 700,
+                  marginLeft: 8,
+                  flexShrink: 0,
+                }}
+              >
+                {toast.action.label}
+              </button>
+            )}
           </div>
         ))}
       </div>
@@ -89,9 +109,9 @@ export function useToasts() {
     };
   }, []);
 
-  const showToast = useCallback((message: string, color: string, durationMs = 3000) => {
+  const showToast = useCallback((message: string, color: string, durationMs = 3000, action?: { label: string; onClick: () => void }) => {
     const id = ++counterRef.current;
-    setToasts(prev => [...prev.slice(-2), { id, message, color }]); // max 3
+    setToasts(prev => [...prev.slice(-2), { id, message, color, action }]); // max 3
     const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
       timers.current.delete(id);

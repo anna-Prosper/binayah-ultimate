@@ -3,6 +3,7 @@
 import {
   createContext, useContext, useState, useEffect, useCallback, useRef, useMemo, type ReactNode,
 } from "react";
+import { useUndoStack, type UndoOp } from "@/lib/hooks/useUndoStack";
 import { lsGet, lsSet } from "@/lib/storage";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
@@ -131,6 +132,11 @@ interface ModelContextValue {
   deleteWorkspace: (workspaceId: string) => void;
   isOfficerOfWorkspace: (workspaceId: string) => boolean;
 
+  // Undo stack
+  undo: () => void;
+  peek: UndoOp | null;
+  stackLen: number;
+
   // Theme (re-exported so consumers don't need separate theme prop)
   t: T;
 }
@@ -142,12 +148,12 @@ interface ModelProviderProps {
   initialUserId?: string;
   themeId: string;
   isDark: boolean;
-  showToast?: (msg: string, color: string) => void;
+  showToast?: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
   currentWorkspaceId: string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-empty-function
-const noopToast = () => {};
+const noopToast = (_msg: string, _color: string, _durationMs?: number, _action?: { label: string; onClick: () => void }) => {};
 
 export function ModelProvider({
   children,
@@ -428,6 +434,9 @@ export function ModelProvider({
   const me = users.find(u => u.id === currentUser);
   const allPipelinesGlobal = [...pipelineData, ...customPipelines];
 
+  // ── Undo stack ────────────────────────────────────────────────────────────
+  const undoStack = useUndoStack();
+
   // ── isOfficerOfWorkspace ──────────────────────────────────────────────────
   const isOfficerOfWorkspace = useCallback((workspaceId: string) => {
     if (!currentUser) return false;
@@ -532,11 +541,47 @@ export function ModelProvider({
     });
   };
 
-  const archiveStage = (sid: string) => { setArchivedStages(prev => prev.includes(sid) ? prev : [...prev, sid]); showToast(`archived: ${stageNameOverrides[sid] || sid}`, t.textMuted); logActivity("claim", sid, "archived"); };
+  const archiveStage = (sid: string) => {
+    if (archivedStages.includes(sid)) return;
+    const label = `archived "${stageNameOverrides[sid] || sid}"`;
+    const op = undoStack.push({
+      label,
+      inverse: () => setArchivedStages(prev => prev.filter(s => s !== sid)),
+    });
+    setArchivedStages(prev => [...prev, sid]);
+    logActivity("claim", sid, "archived");
+    showToast(label, t.textMuted, 8000, {
+      label: "undo",
+      onClick: () => { undoStack.removeById(op.id); setArchivedStages(prev => prev.filter(s => s !== sid)); },
+    });
+  };
   const restoreStage = (sid: string) => { setArchivedStages(prev => prev.filter(s => s !== sid)); showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
-  const archivePipeline = (pid: string) => { setArchivedPipelines(prev => prev.includes(pid) ? prev : [...prev, pid]); showToast("pipeline archived", t.textMuted); };
+  const archivePipeline = (pid: string) => {
+    if (archivedPipelines.includes(pid)) return;
+    const label = `archived pipeline "${pid}"`;
+    const op = undoStack.push({
+      label,
+      inverse: () => setArchivedPipelines(prev => prev.filter(p => p !== pid)),
+    });
+    setArchivedPipelines(prev => [...prev, pid]);
+    showToast(label, t.textMuted, 8000, {
+      label: "undo",
+      onClick: () => { undoStack.removeById(op.id); setArchivedPipelines(prev => prev.filter(p => p !== pid)); },
+    });
+  };
   const restorePipeline = (pid: string) => { setArchivedPipelines(prev => prev.filter(p => p !== pid)); showToast("pipeline restored", t.green); };
-  const archiveSubtask = (key: string) => { setArchivedSubtasks(prev => prev.includes(key) ? prev : [...prev, key]); };
+  const archiveSubtask = (key: string) => {
+    if (archivedSubtasks.includes(key)) return;
+    const op = undoStack.push({
+      label: `archived subtask`,
+      inverse: () => setArchivedSubtasks(prev => prev.filter(k => k !== key)),
+    });
+    setArchivedSubtasks(prev => [...prev, key]);
+    showToast(`archived subtask`, t.textMuted, 8000, {
+      label: "undo",
+      onClick: () => { undoStack.removeById(op.id); setArchivedSubtasks(prev => prev.filter(k => k !== key)); },
+    });
+  };
   const restoreSubtask = (key: string) => { setArchivedSubtasks(prev => prev.filter(k => k !== key)); };
 
   const setStageDescOverride = (name: string, val: string) => setStageDescOverrides(prev => ({ ...prev, [name]: val }));
@@ -706,6 +751,9 @@ export function ModelProvider({
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
     createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,
     isOfficerOfWorkspace,
+    undo: undoStack.undo,
+    peek: undoStack.peek,
+    stackLen: undoStack.stack.length,
     t,
   };
 

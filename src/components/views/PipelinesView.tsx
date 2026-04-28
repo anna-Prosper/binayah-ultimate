@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useState, useRef, useEffect, useCallback } from "react";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { Chev } from "@/components/ui/primitives";
@@ -53,6 +53,10 @@ export default function PipelinesView({
   const [addingPipeline, setAddingPipeline] = useState(false);
   const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" });
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
+  // Per-pipeline edit mode (pencil toggle)
+  // TODO(stage-2): replace canEditPipeline with useRole-based check
+  const [pipelineEditMode, setPipelineEditMode] = useState<string | null>(null);
+  const pipelineEditRef = useRef<HTMLDivElement | null>(null);
   const {
     users, currentUser, me,
     claims, reactions,
@@ -62,10 +66,39 @@ export default function PipelinesView({
     getStatus, sc, ck, pr,
     handleReact,
     setStageDescOverride,
-    addCustomStage, addCustomPipeline, cyclePriority,
+    addCustomStage, addCustomPipeline, cyclePriority, archivePipeline,
     activityLog,
     t,
   } = useModel();
+
+  // TODO(stage-2): replace canEditPipeline with useRole-based check
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const canEditPipeline = (_pipelineId: string) => true;
+
+  // Click-outside + Escape handler for pipelineEditMode
+  const closePipelineEditMode = useCallback(() => {
+    setPipelineEditMode(null);
+    setEditingPipeName(null);
+    setEditingPipeDesc(null);
+  }, []);
+
+  useEffect(() => {
+    if (!pipelineEditMode) return;
+    const handler = (e: MouseEvent) => {
+      if (pipelineEditRef.current && !pipelineEditRef.current.contains(e.target as Node)) {
+        closePipelineEditMode();
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closePipelineEditMode();
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, [pipelineEditMode, closePipelineEditMode]);
   const { reactOpen, setReactOpen, copied } = useEphemeral();
 
   const allPipelines = currentWorkspaceId
@@ -149,7 +182,7 @@ export default function PipelinesView({
           const pipeReactions = reactions[pipeReactKey] || {};
           const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
           return (
-            <div key={p.id} style={{ background: t.bgCard, border: `1px solid ${isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s" }}>
+            <div key={p.id} ref={pipelineEditMode === p.id ? pipelineEditRef : null} style={{ background: t.bgCard, border: `1px solid ${pipelineEditMode === p.id ? pC + "55" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s", position: "relative" as const }}>
               <div style={{ height: 2, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} /></div>
               <div onClick={() => toggleExpand(p.id)} style={{ padding: "12px 16px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -212,6 +245,13 @@ export default function PipelinesView({
                     <div style={{ display: "flex", alignItems: "center", gap: 4 }}><div style={{ fontSize: 13, fontWeight: 900, color: pC, fontFamily: "var(--font-dm-mono), monospace" }}>{p.totalHours}</div></div>
                     <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>{allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}</div>
                     <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
+                    {canEditPipeline(p.id) && (
+                      <button
+                        onClick={e => { e.stopPropagation(); setPipelineEditMode(pipelineEditMode === p.id ? null : p.id); setEditingPipeName(p.id); setEditingPipeDesc(p.id); }}
+                        title={pipelineEditMode === p.id ? "Exit edit mode (Esc)" : "Edit pipeline"}
+                        style={{ background: pipelineEditMode === p.id ? pC + "22" : "transparent", border: `1px solid ${pipelineEditMode === p.id ? pC + "88" : t.border}`, borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", color: pipelineEditMode === p.id ? pC : t.textMuted, transition: "all 0.15s" }}
+                      >&#9998;</button>
+                    )}
                   </div>
                 </div>
                 {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, paddingLeft: 20 }}>
@@ -227,6 +267,42 @@ export default function PipelinesView({
                   })}
                 </div>}
               </div>
+              {/* Pipeline edit mode panel */}
+              {pipelineEditMode === p.id && (
+                <div style={{ padding: "12px 16px", borderTop: `1px solid ${pC}33`, background: pC + "05", animation: "fadeIn 0.15s ease" }} onClick={e => e.stopPropagation()}>
+                  <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>editing pipeline</div>
+                  <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                    <input
+                      value={pipeMetaOverrides[p.id]?.name ?? p.name}
+                      onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))}
+                      placeholder="Pipeline name"
+                      style={{ background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 13, color: t.text, fontFamily: "inherit", fontWeight: 700, outline: "none", width: "100%" }}
+                    />
+                    <textarea
+                      value={pipeDescOverrides[p.id] ?? p.desc}
+                      onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
+                      placeholder="Pipeline description..."
+                      rows={2}
+                      style={{ background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none" as const, lineHeight: 1.5, width: "100%" }}
+                    />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                      {(["NOW", "HIGH", "MEDIUM", "LOW"] as const).map(pri => (
+                        <button
+                          key={pri}
+                          onClick={() => cyclePriority(p.id, pipeMetaOverrides[p.id]?.priority ?? p.priority)}
+                          style={{ background: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "22" : "transparent", border: `1px solid ${(pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "88" : t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? pr[pri]?.c || t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+                        >{pri}</button>
+                      ))}
+                    </div>
+                    <button
+                      onClick={() => { archivePipeline(p.id); closePipelineEditMode(); }}
+                      style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
+                    >📦 archive pipeline</button>
+                  </div>
+                </div>
+              )}
+
               {isO && (
                 <div style={{ padding: "0 16px 16px", animation: "fadeIn 0.2s ease" }}>
                   <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 12 }}>

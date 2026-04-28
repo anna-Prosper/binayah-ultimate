@@ -406,6 +406,7 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
+  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority } = useModel();
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -525,6 +526,45 @@ function TaskCard({
           )}
         </div>
       </div>
+
+      {/* Edit-mode extra fields: description + priority + archive */}
+      {editOpen && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }} onClick={e => e.stopPropagation()}>
+          <textarea
+            value={stageDescOverrides[task.stageId] || ""}
+            onChange={e => setStageDescOverride(task.stageId, e.target.value)}
+            placeholder="Stage description..."
+            rows={2}
+            style={{ width: "100%", background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}
+          />
+          {(() => {
+            // Priority cycler — show if the pipeline has a priority set via pipeMetaOverrides
+            const pipePriority = pipeMetaOverrides[task.pipelineId]?.priority;
+            if (!pipePriority) return null;
+            const PRIORITY_CYCLE_VALS = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                <button
+                  onClick={() => cyclePriority(task.pipelineId, pipePriority)}
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+                  title={`Cycle priority (${PRIORITY_CYCLE_VALS.join(" → ")})`}
+                >
+                  {pipePriority} ↻
+                </button>
+              </div>
+            );
+          })()}
+          {archiveStage && (
+            <button
+              onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
+              style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
+            >
+              📦 archive stage
+            </button>
+          )}
+        </div>
+      )}
 
       {visibleReactions.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>

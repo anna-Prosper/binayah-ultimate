@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem } from "@/lib/data";
@@ -12,6 +12,30 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel } from "@/lib/contexts/ModelContext";
 import BottomSheet from "@/components/ui/BottomSheet";
+import { lsGet, lsSet } from "@/lib/storage";
+
+// ── Relative-time helper for activity tab ─────────────────────────────────────
+function relTime(ms: number): string {
+  const diff = Date.now() - ms;
+  const s = diff / 1000;
+  if (s < 60) return "just now";
+  const m = s / 60;
+  if (m < 60) return `${Math.floor(m)}m ago`;
+  const h = m / 60;
+  if (h < 24) return `${Math.floor(h)}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+// ── Activity type icon (text fallback) ───────────────────────────────────────
+function actIcon(type: string): string {
+  switch (type) {
+    case "claim": return "✋";
+    case "comment": return "💬";
+    case "status": return "→";
+    case "create": return "+";
+    default: return "·";
+  }
+}
 
 // ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
 function StageSubtaskCard({
@@ -140,7 +164,7 @@ export default function Stage({
 }: StageProps) {
   const {
     claims, reactions: rxns, comments, subtasks, users, currentUser, me,
-    stageDescOverrides, stageImages, liveNotifs,
+    stageDescOverrides, stageImages, liveNotifs, activityLog,
     handleClaim, handleReact, cycleStatus,
     addSubtask, toggleSubtask, lockSubtask, removeSubtask, addComment,
     setStageDescOverride, setStageNameOverride,
@@ -169,11 +193,59 @@ export default function Stage({
   const [showMockup, setShowMockup] = useState(false);
   const [subtaskInputVal, setSubtaskInputVal] = useState("");
   const [commentInputVal, setCommentInputVal] = useState("");
+  // Activity tab state
+  const [activeDetailTab, setActiveDetailTab] = useState<"comments" | "activity">("comments");
+  // "Since you were here" — snapshot taken at expand time
+  const [seenAtMount, setSeenAtMount] = useState<number | undefined>(undefined);
+  // Ref to card for edit-mode click-outside
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // Reset editing name when name prop changes (e.g. after rename is applied)
   useEffect(() => { setEditingName(name); }, [name]);
   const k = `${pId}-${idx}`;
   const isE = expS === k;
+
+  // "Since you were here" — snapshot lastSeenComments on expand, update on collapse
+  useEffect(() => {
+    if (isE) {
+      const stored = lsGet<Record<string, number>>("lastSeenComments", {});
+      setSeenAtMount(stored[name]);
+    } else {
+      // On collapse: update lastSeen timestamp
+      lsSet("lastSeenComments", {
+        ...lsGet<Record<string, number>>("lastSeenComments", {}),
+        [name]: Date.now(),
+      });
+    }
+  }, [isE, name]);
+
+  // Click-outside handler — exits edit mode when clicking outside the card
+  const commitEditMode = useCallback(() => {
+    if (editingName.trim() && editingName.trim() !== name) {
+      setStageNameOverride(name, editingName.trim());
+    }
+    setStageEditMode(false);
+    setEditingDesc(false);
+    setEditingShortDesc(false);
+  }, [editingName, name, setStageNameOverride]);
+
+  useEffect(() => {
+    if (!stageEditMode) return;
+    const handler = (e: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+        commitEditMode();
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") commitEditMode();
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
+  }, [stageEditMode, commitEditMode]);
 
   const shareStage = (stageName: string, text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
@@ -226,7 +298,7 @@ export default function Stage({
           }
         };
         return (
-      <div onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: stageEditMode ? t.bgCard : (isE ? t.bgHover : t.bgSoft), border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? t.accent + "44" : claimedByMe ? pC + "55" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.3s, background 0.15s", overflow: "hidden", boxShadow: hasLive ? `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : (stageEditMode ? `inset 3px 0 0 ${pC}, inset 0 0 0 9999px ${t.accent}08, ${isE ? t.shadowLg : t.shadow}` : `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}`), position: "relative" }}>
+      <div ref={cardRef} onClick={handleCardClick} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)} style={{ flex: 1, background: stageEditMode ? t.bgCard : (isE ? t.bgHover : t.bgSoft), border: `1px solid ${hasLive ? liveColor + "66" : stageEditMode ? t.accent + "44" : claimedByMe ? pC + "55" : isE ? pC + "33" : t.border}`, borderRadius: 16, marginBottom: idx < tot - 1 ? 6 : 0, cursor: "pointer", transition: "border-color 0.15s, box-shadow 0.3s, background 0.15s", overflow: "hidden", boxShadow: hasLive ? `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}, 0 0 16px ${liveColor}22` : (stageEditMode ? `inset 3px 0 0 ${pC}, inset 0 0 0 9999px ${t.accent}08, ${isE ? t.shadowLg : t.shadow}` : `inset 3px 0 0 ${pC}, ${isE ? t.shadowLg : t.shadow}`), position: "relative" }}>
 
         {/* Header row — on mobile: name+status on first line, meta on second */}
         <div style={{ padding: isMobile ? "10px 12px 4px" : "10px 14px 4px", display: "flex", flexDirection: isMobile ? "column" : "row", alignItems: isMobile ? "flex-start" : "center", gap: isMobile ? 4 : 8 }}>
@@ -330,8 +402,18 @@ export default function Stage({
         {/* Edit mode pencil button — bottom-right, appears on hover */}
         {(isHovered || stageEditMode) && !isMobile && (
           <button
-            onClick={e => { e.stopPropagation(); setStageEditMode(v => !v); }}
-            title={stageEditMode ? "Exit edit mode" : "Edit this stage"}
+            onClick={e => {
+              e.stopPropagation();
+              const next = !stageEditMode;
+              setStageEditMode(next);
+              if (next) {
+                setEditingShortDesc(true);
+                setEditingDesc(true);
+              } else {
+                commitEditMode();
+              }
+            }}
+            title={stageEditMode ? "Exit edit mode (Esc)" : "Edit this stage"}
             style={{
               position: "absolute",
               bottom: 8,
@@ -350,6 +432,37 @@ export default function Stage({
               transition: "all 0.15s",
             }}
           >&#9998;</button>
+        )}
+
+        {/* Archive button — only in edit mode */}
+        {stageEditMode && !isMobile && archiveStage && (
+          <button
+            onClick={e => {
+              e.stopPropagation();
+              archiveStage(name);
+              setStageEditMode(false);
+            }}
+            title="Archive this stage"
+            style={{
+              position: "absolute",
+              bottom: 8,
+              right: 40,
+              height: 26,
+              borderRadius: 8,
+              background: "transparent",
+              border: `1px solid ${t.amber}55`,
+              cursor: "pointer",
+              fontSize: 10,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              color: t.amber,
+              padding: "0 8px",
+              fontFamily: "var(--font-dm-mono), monospace",
+              fontWeight: 600,
+              transition: "all 0.15s",
+            }}
+          >📦 archive</button>
         )}
 
         {/* Expanded content */}
@@ -444,28 +557,95 @@ export default function Stage({
               </div>
 
               <div style={{ flex: 1, padding: "12px 16px", borderRadius: "0 0 14px 0", transition: "box-shadow 0.3s", animation: liveNotifs[name]?.comment ? "commentPulse 1.5s ease-in-out 2" : "none" }}>
-                <div style={{ fontSize: 10, color: liveNotifs[name]?.comment ? t.green : t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600, transition: "color 0.4s", display: "flex", alignItems: "center", gap: 4 }}>
-                  comments {cmts.length > 0 && `(${cmts.length})`}
-                  {liveNotifs[name]?.comment && <span style={{ fontSize: 10, color: t.green, fontWeight: 700, letterSpacing: 0 }}>· {liveNotifs[name].comment} just commented</span>}
-                </div>
-                <div style={{ maxHeight: 120, overflowY: "auto" }}>
-                  {cmts.map(c => { const u = users.find(x => x.id === c.by); return (
-                    <div key={c.id} style={{ display: "flex", gap: 4, marginBottom: 4 }}>
-                      {u && <AvatarC user={u} size={16} />}
-                      <div style={{ flex: 1 }}>
-                        <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                          <span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
-                          <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
-                        </div>
-                        <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
+                {/* Tab toggle */}
+                {(() => {
+                  const stageActivity = activityLog.filter(e => {
+                    if (e.target === name) return true;
+                    const parsed = SubtaskKey.isValid(e.target) ? SubtaskKey.parse(e.target as Parameters<typeof SubtaskKey.parse>[0]) : null;
+                    return parsed ? parsed.parentStageId === name : false;
+                  });
+                  return (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 8, borderBottom: `1px solid ${t.border}`, paddingBottom: 6 }}>
+                        <button
+                          onClick={() => setActiveDetailTab("comments")}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, fontWeight: activeDetailTab === "comments" ? 700 : 500, color: activeDetailTab === "comments" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, paddingRight: 10, borderRight: `1px solid ${t.border}`, marginRight: 10 }}
+                        >
+                          comments {cmts.length > 0 && `(${cmts.length})`}
+                          {liveNotifs[name]?.comment && <span style={{ color: t.green, marginLeft: 4 }}>·</span>}
+                        </button>
+                        <button
+                          onClick={() => setActiveDetailTab("activity")}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, fontWeight: activeDetailTab === "activity" ? 700 : 500, color: activeDetailTab === "activity" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const }}
+                        >
+                          activity {stageActivity.length > 0 && `(${stageActivity.length})`}
+                        </button>
                       </div>
-                    </div>
-                  ); })}
-                </div>
-                <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(name, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addComment(name, commentInputVal, () => setCommentInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"↵"}</button>
-                </div>
+
+                      {activeDetailTab === "comments" ? (
+                        <>
+                          {liveNotifs[name]?.comment && (
+                            <div style={{ fontSize: 10, color: t.green, marginBottom: 4, fontWeight: 700 }}>{liveNotifs[name].comment} just commented</div>
+                          )}
+                          <div style={{ maxHeight: 120, overflowY: "auto" }}>
+                            {cmts.map((c, idx) => {
+                              const u = users.find(x => x.id === c.by);
+                              // "Since you were here" divider — show above first unseen comment
+                              const isFirstUnseen = seenAtMount !== undefined && c.id > seenAtMount && (idx === 0 || cmts[idx - 1].id <= seenAtMount);
+                              return (
+                                <div key={c.id}>
+                                  {isFirstUnseen && (
+                                    <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0" }}>
+                                      <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
+                                      <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" as const, flexShrink: 0 }}>// since you were here</span>
+                                      <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
+                                    </div>
+                                  )}
+                                  <div style={{ display: "flex", gap: 4, marginBottom: 4 }}>
+                                    {u && <AvatarC user={u} size={16} />}
+                                    <div style={{ flex: 1 }}>
+                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
+                                        <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
+                                      </div>
+                                      <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
+                            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(name, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                            <button onClick={() => addComment(name, commentInputVal, () => setCommentInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>{"↵"}</button>
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ maxHeight: 160, overflowY: "auto" }}>
+                          {stageActivity.length === 0 ? (
+                            <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", textAlign: "center" as const, padding: "8px 0" }}>// no activity yet</div>
+                          ) : (
+                            stageActivity.map((entry, i) => {
+                              const u = users.find(u => u.id === entry.user);
+                              return (
+                                <div key={i} style={{ display: "flex", gap: 6, marginBottom: 6, alignItems: "flex-start" }}>
+                                  {u && <AvatarC user={u} size={16} />}
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+                                      <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>{actIcon(entry.type)}</span>
+                                      <span style={{ fontSize: 11, color: t.text, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{entry.detail}</span>
+                                    </div>
+                                    <span style={{ fontSize: 10, color: t.textDim }}>{relTime(entry.time)}</span>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             </div>
 

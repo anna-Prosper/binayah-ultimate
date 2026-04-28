@@ -19,7 +19,7 @@ import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw } from "lucide-react";
 import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
 import ActivityView from "@/components/views/ActivityView";
@@ -105,11 +105,11 @@ function DashboardInner({
   isDark: boolean; setIsDark: (v: boolean) => void;
   themeId: string; setThemeId: (v: string) => void;
   currentWorkspaceId: string; setCurrentWorkspaceId: (v: string) => void;
-  showToast: (msg: string, color: string) => void;
+  showToast: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
   toasts: ToastItem[];
   dismissToast: (id: number) => void;
 }) {
-  const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, t } = useModel();
+  const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, undo, peek, stackLen, t } = useModel();
   const { reactOpen, setReactOpen, copied, setCopied, setClaimAnim } = useEphemeral();
 
   // Navigation
@@ -148,10 +148,18 @@ function DashboardInner({
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowPalette(prev => !prev); }
       if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); }
+      // Undo: Cmd/Ctrl+Z — don't fire when focus is in an input/textarea
+      if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
+        const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
+        if (tag !== "input" && tag !== "textarea") {
+          e.preventDefault();
+          undo();
+        }
+      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [setReactOpen]);
+  }, [setReactOpen, undo]);
 
   // Click-outside viewingUser
   useEffect(() => {
@@ -301,6 +309,14 @@ function DashboardInner({
         )}
         <div className="bu-header-btns" style={{ display: activeNavItem === "home" ? "none" : "flex", alignItems: "stretch", gap: 4 }}>
           {me && (<div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "0 12px", cursor: "pointer" }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border} title="Change avatar"><AvatarC user={me} size={28} /><div><div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div><div style={{ fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div></div></div>)}
+          <button
+            onClick={e => { e.stopPropagation(); undo(); }}
+            disabled={stackLen === 0}
+            title={peek ? `undo: ${peek.label}` : "nothing to undo"}
+            style={{ ...hBtn, opacity: stackLen === 0 ? 0.35 : 1, cursor: stackLen === 0 ? "default" : "pointer" }}
+          >
+            <RotateCcw size={14} strokeWidth={2} />
+          </button>
           <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
           {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
