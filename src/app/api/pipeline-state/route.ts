@@ -257,14 +257,25 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  // Capture pre-patch state for notification diffing (claims + statuses only)
+  // Capture pre-patch state for notification diffing.
+  // We diff: claims, statuses, assignments, approvedStages, approvedSubtasks.
   let prePatchClaims: Record<string, string[]> = {};
   let prePatchStatuses: Record<string, string> = {};
-  const needsNotify = "claims" in cleanPatch || "stageStatusOverrides" in cleanPatch;
+  let prePatchAssignments: Record<string, string[]> = {};
+  let prePatchApprovedStages: string[] = [];
+  let prePatchApprovedSubtasks: string[] = [];
+  const NOTIFY_KEYS = new Set([
+    "claims", "stageStatusOverrides", "assignments",
+    "approvedStages", "approvedSubtasks",
+  ]);
+  const needsNotify = Object.keys(cleanPatch).some(k => NOTIFY_KEYS.has(k));
   if (needsNotify) {
     const preDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
     prePatchClaims = (preDoc?.state?.claims as Record<string, string[]> | undefined) ?? {};
     prePatchStatuses = (preDoc?.state?.stageStatusOverrides as Record<string, string> | undefined) ?? {};
+    prePatchAssignments = (preDoc?.state?.assignments as Record<string, string[]> | undefined) ?? {};
+    prePatchApprovedStages = (preDoc?.state?.approvedStages as string[] | undefined) ?? [];
+    prePatchApprovedSubtasks = (preDoc?.state?.approvedSubtasks as string[] | undefined) ?? [];
   }
 
   const $set: Record<string, unknown> = { updatedAt: new Date() };
@@ -332,9 +343,13 @@ export async function PATCH(req: NextRequest) {
   if (needsNotify) {
     const postState = (doc as { state?: Record<string, unknown> } | null)?.state ?? {};
     const postClaims = (postState.claims as Record<string, string[]> | undefined) ?? {};
-    const postStatuses = (postState.stageStatusOverrides as Record<string, string> | undefined) ?? {};
+    const postAssignments = (postState.assignments as Record<string, string[]> | undefined) ?? {};
+    const postWorkspaces = (postState.workspaces as Array<{
+      id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[];
+    }> | undefined) ?? [];
+    const postSubtasks = (postState.subtasks as Record<string, Array<{ id: number; text: string }>> | undefined) ?? {};
 
-    // Build stage→pipeline map
+    // Build stage → pipelineId map (covers static + custom stages)
     const stageToP = new Map<string, string>();
     for (const p of pipelineData) {
       for (const s of p.stages) stageToP.set(s, p.id);
@@ -343,51 +358,143 @@ export async function PATCH(req: NextRequest) {
     for (const [pid, stages] of Object.entries(dbCustomStages)) {
       for (const stageName of stages) stageToP.set(stageName, pid);
     }
+    // Pipeline → workspaceId map (so we can route a stage to its workspace)
+    const pipelineToWs = new Map<string, { id: string; name: string }>();
+    for (const w of postWorkspaces) {
+      for (const pid of w.pipelineIds) pipelineToWs.set(pid, { id: w.id, name: w.name });
+    }
 
-    // Detect newly-added claimers (claim event)
+    // Pipeline-level lookup helper
+    function resolveStageContext(stageKey: string) {
+      const pipelineId = stageToP.get(stageKey);
+      const pipeline = pipelineData.find(p => p.id === pipelineId);
+      const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
+      const ws = pipelineId ? pipelineToWs.get(pipelineId) : undefined;
+      return {
+        pipelineName,
+        workspaceId: ws?.id ?? "",
+        workspaceName: ws?.name ?? "",
+      };
+    }
+
+    // ── claimed (someone claimed a stage) ─────────────────────────────────
     if ("claims" in cleanPatch) {
-      const patchedClaims = cleanPatch.claims as Record<string, string[]>;
-      for (const [stageKey, newClaimers] of Object.entries(patchedClaims)) {
-        const prevClaimers = prePatchClaims[stageKey] ?? [];
-        const addedClaimers = newClaimers.filter(id => !prevClaimers.includes(id));
-        if (addedClaimers.length === 0) continue;
-
-        const pipelineId = stageToP.get(stageKey);
-        const pipeline = pipelineData.find(p => p.id === pipelineId);
-        const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
-
+      const patched = cleanPatch.claims as Record<string, string[]>;
+      for (const [stageKey, newClaimers] of Object.entries(patched)) {
+        const prev = prePatchClaims[stageKey] ?? [];
+        const added = newClaimers.filter(id => !prev.includes(id));
+        if (added.length === 0) continue;
+        const ctx = resolveStageContext(stageKey);
         void sendNotifications({
           eventType: "claimed",
           stageKey,
-          pipelineName,
-          recipientIds: addedClaimers,
-          actorName: addedClaimers[0], // best-effort; actor name resolved in helper
+          pipelineName: ctx.pipelineName,
+          workspaceId: ctx.workspaceId,
+          workspaceName: ctx.workspaceName,
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: newClaimers,
+          assignees: postAssignments[stageKey] ?? [],
+          newlyAssigned: added,
           points: stageDefaults[stageKey]?.points ?? 10,
+          detail: `${actorUserId} claimed ${stageKey}`,
         });
       }
     }
 
-    // Detect stages newly transitioned to "active" (active event)
-    if ("stageStatusOverrides" in cleanPatch) {
-      const patchedStatuses = cleanPatch.stageStatusOverrides as Record<string, string>;
-      for (const [stageKey, newStatus] of Object.entries(patchedStatuses)) {
-        if (newStatus !== "active") continue;
-        if (prePatchStatuses[stageKey] === "active") continue; // was already active
-
-        const claimers = postClaims[stageKey] ?? [];
-        if (claimers.length === 0) continue;
-
-        const pipelineId = stageToP.get(stageKey);
-        const pipeline = pipelineData.find(p => p.id === pipelineId);
-        const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
-
+    // ── assigned (someone was assigned to a stage) ────────────────────────
+    if ("assignments" in cleanPatch) {
+      const patched = cleanPatch.assignments as Record<string, string[]>;
+      for (const [stageKey, newAssignees] of Object.entries(patched)) {
+        const prev = prePatchAssignments[stageKey] ?? [];
+        const added = newAssignees.filter(id => !prev.includes(id));
+        if (added.length === 0) continue;
+        const ctx = resolveStageContext(stageKey);
         void sendNotifications({
-          eventType: "active",
+          eventType: "assigned",
           stageKey,
-          pipelineName,
-          recipientIds: claimers,
-          actorName: "",
+          pipelineName: ctx.pipelineName,
+          workspaceId: ctx.workspaceId,
+          workspaceName: ctx.workspaceName,
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: postClaims[stageKey] ?? [],
+          assignees: newAssignees,
+          newlyAssigned: added,
           points: stageDefaults[stageKey]?.points ?? 10,
+          detail: `${actorUserId} assigned ${added.join(", ")} to ${stageKey}`,
+        });
+      }
+    }
+
+    // ── status_change / active / blocked ──────────────────────────────────
+    if ("stageStatusOverrides" in cleanPatch) {
+      const patched = cleanPatch.stageStatusOverrides as Record<string, string>;
+      for (const [stageKey, newStatus] of Object.entries(patched)) {
+        const prev = prePatchStatuses[stageKey] ?? "concept";
+        if (prev === newStatus) continue;
+        const ctx = resolveStageContext(stageKey);
+        const eventType =
+          newStatus === "active" ? "active" :
+          newStatus === "blocked" ? "blocked" : "status_change";
+        void sendNotifications({
+          eventType,
+          stageKey,
+          pipelineName: ctx.pipelineName,
+          workspaceId: ctx.workspaceId,
+          workspaceName: ctx.workspaceName,
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: postClaims[stageKey] ?? [],
+          assignees: postAssignments[stageKey] ?? [],
+          points: stageDefaults[stageKey]?.points ?? 10,
+          detail: `${stageKey}: ${prev} → ${newStatus}`,
+        });
+      }
+    }
+
+    // ── approved (stage) ──────────────────────────────────────────────────
+    if ("approvedStages" in cleanPatch) {
+      const patched = cleanPatch.approvedStages as string[];
+      const added = patched.filter(s => !prePatchApprovedStages.includes(s));
+      for (const stageKey of added) {
+        const ctx = resolveStageContext(stageKey);
+        void sendNotifications({
+          eventType: "approved",
+          stageKey,
+          pipelineName: ctx.pipelineName,
+          workspaceId: ctx.workspaceId,
+          workspaceName: ctx.workspaceName,
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: postClaims[stageKey] ?? [],
+          assignees: postAssignments[stageKey] ?? [],
+          points: stageDefaults[stageKey]?.points ?? 10,
+          detail: `${stageKey} approved (+${stageDefaults[stageKey]?.points ?? 10}pts)`,
+        });
+      }
+    }
+
+    // ── subtask_approved ──────────────────────────────────────────────────
+    if ("approvedSubtasks" in cleanPatch) {
+      const patched = cleanPatch.approvedSubtasks as string[];
+      const added = patched.filter(s => !prePatchApprovedSubtasks.includes(s));
+      for (const subKey of added) {
+        // subKey is "parentStageId::subtaskId"
+        const [parentStage, subId] = subKey.split("::");
+        const ctx = resolveStageContext(parentStage);
+        const subText = (postSubtasks[parentStage] ?? []).find(s => String(s.id) === subId)?.text ?? subKey;
+        void sendNotifications({
+          eventType: "subtask_approved",
+          stageKey: subKey,
+          pipelineName: ctx.pipelineName,
+          workspaceId: ctx.workspaceId,
+          workspaceName: ctx.workspaceName,
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: postClaims[subKey] ?? [],
+          assignees: postAssignments[subKey] ?? [],
+          detail: `subtask "${subText}" approved`,
         });
       }
     }

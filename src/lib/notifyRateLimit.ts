@@ -1,33 +1,40 @@
 /**
- * In-memory rate limiter for email notifications.
+ * Persistent rate limiter for email notifications.
  *
  * Key: `${fixedUserId}:${stageKey}:${eventType}` (e.g. "anna:PM Agent:claimed")
- * Value: timestamp of last send (ms since epoch)
+ * Limit: 1 email per key per 5 minutes.
  *
- * Limit: 1 email per key per WINDOW_MS (5 minutes).
- *
- * Caveat: Vercel serverless instances are isolated — each lambda has its own Map.
- * For a 6-person team this is acceptable; at worst a user gets a second email
- * after a cold start. No external store needed at this scale.
+ * Backed by MongoDB with a TTL index on `sentAt` so docs auto-expire after
+ * the rate-limit window. Replaces the previous in-memory Map which reset
+ * on every Vercel cold start and allowed duplicate emails to slip through.
  */
-
-const WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-
-// Single module-level Map shared across requests on the same lambda instance
-const lastSent = new Map<string, number>();
+import { connectMongo } from "./mongo";
+import NotifyLog from "./NotifyLog";
 
 /**
- * Returns true if the notification should be sent (not rate-limited).
- * Records the current timestamp so the next call within WINDOW_MS returns false.
+ * Returns true if the notification should be sent. Records the send so
+ * the next call within the window returns false.
+ *
+ * Async: requires a DB roundtrip. Caller should `await`.
+ *
+ * Fail-open: any DB error short-circuits to `true` (better to risk a
+ * duplicate email than silently swallow a notification).
  */
-export function checkNotifyRateLimit(
+export async function checkNotifyRateLimit(
   fixedUserId: string,
   stageKey: string,
-  eventType: "claimed" | "active"
-): boolean {
+  eventType: string,
+): Promise<boolean> {
   const key = `${fixedUserId}:${stageKey}:${eventType}`;
-  const prev = lastSent.get(key) ?? 0;
-  if (Date.now() - prev < WINDOW_MS) return false;
-  lastSent.set(key, Date.now());
-  return true;
+  try {
+    await connectMongo();
+    // insertOne with unique index → fails if key already exists in window
+    await NotifyLog.create({ key, sentAt: new Date() });
+    return true;
+  } catch (err) {
+    const code = (err as { code?: number }).code;
+    if (code === 11000) return false; // duplicate key — already sent within window
+    console.error("[notifyRateLimit] DB error:", (err as Error).message);
+    return true; // fail-open
+  }
 }

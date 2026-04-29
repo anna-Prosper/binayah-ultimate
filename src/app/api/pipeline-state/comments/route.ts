@@ -6,7 +6,9 @@ import { checkContentLength, validateStageKey, validateText } from "@/lib/valida
 import { logApi } from "@/lib/log";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { notifyMentions } from "@/lib/mentions";
+import { notifyMentions, parseMentions } from "@/lib/mentions";
+import { sendNotifications } from "@/lib/sendNotifications";
+import { pipelineData, stageDefaults } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -81,12 +83,51 @@ export async function POST(req: NextRequest) {
       { new: true }
     );
     logApi(ROUTE, "success", { stage });
-    // Fire-and-forget mention notifications
+    // Fire-and-forget mention notifications (legacy path — immediate email)
     const commentText = (comment.text as string) || "";
     if (commentText && authoredUser) {
       void notifyMentions(commentText, authoredUser, "comment", stage as string).catch(e =>
         console.warn("[comment-mention] notifyMentions failed:", e)
       );
+    }
+
+    // Watcher notifications: queue a digest entry for the stage's claimers/assignees,
+    // and fan out to operators/root per the recipient resolver. Mentioned users
+    // are upgraded to immediate by getRecipients.
+    try {
+      const stateDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
+      const postState = stateDoc?.state ?? {};
+      const stageKey = stage as string;
+      const postClaims = (postState.claims as Record<string, string[]> | undefined)?.[stageKey] ?? [];
+      const postAssign = (postState.assignments as Record<string, string[]> | undefined)?.[stageKey] ?? [];
+      const postWorkspaces = (postState.workspaces as Array<{
+        id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[];
+      }> | undefined) ?? [];
+      // Resolve workspace for this stage
+      const stageToP = new Map<string, string>();
+      for (const p of pipelineData) for (const s of p.stages) stageToP.set(s, p.id);
+      const customStages = (postState.customStages as Record<string, string[]> | undefined) ?? {};
+      for (const [pid, stages] of Object.entries(customStages)) for (const s of stages) stageToP.set(s, pid);
+      const pipelineId = stageToP.get(stageKey);
+      const pipeline = pipelineData.find(p => p.id === pipelineId);
+      const ws = postWorkspaces.find(w => pipelineId && w.pipelineIds.includes(pipelineId));
+      const mentioned = parseMentions(commentText);
+      void sendNotifications({
+        eventType: mentioned.length > 0 ? "mentioned" : "commented",
+        stageKey,
+        pipelineName: pipeline?.name ?? pipelineId ?? stageKey,
+        workspaceId: ws?.id ?? "",
+        workspaceName: ws?.name ?? "",
+        workspaces: postWorkspaces,
+        actorId: authoredUser,
+        claimers: postClaims,
+        assignees: postAssign,
+        mentioned,
+        points: stageDefaults[stageKey]?.points ?? 0,
+        detail: `${authoredUser} commented on ${stageKey}: "${commentText.slice(0, 80)}"`,
+      });
+    } catch (e) {
+      console.warn("[comment-watch] sendNotifications failed:", e);
     }
     return NextResponse.json({ ok: true });
   } catch (err) {

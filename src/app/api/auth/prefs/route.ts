@@ -6,10 +6,23 @@ import AuthUser from "@/lib/AuthUser";
 
 export const dynamic = "force-dynamic";
 
+const ALLOWED_KEYS = new Set([
+  "emailNotifications",
+  "notifyMention",
+  "notifyApproved",
+  "notifyAssigned",
+  "notifyClaim",
+  "notifyStatus",
+  "notifyComment",
+  "notifySubtask",
+]);
+
 /**
  * PATCH /api/auth/prefs
- * Body: { emailNotifications: boolean }
- * Requires a valid session. Updates the AuthUser record for session.fixedUserId.
+ * Body: any subset of:
+ *   { emailNotifications, notifyMention, notifyApproved, notifyAssigned,
+ *     notifyClaim, notifyStatus, notifyComment, notifySubtask }
+ * All values must be booleans. Updates only the keys provided.
  */
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
@@ -24,18 +37,23 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  if (typeof body.emailNotifications !== "boolean") {
-    return NextResponse.json(
-      { error: "emailNotifications must be a boolean" },
-      { status: 400 }
-    );
+  const update: Record<string, boolean> = {};
+  for (const [key, val] of Object.entries(body)) {
+    if (!ALLOWED_KEYS.has(key)) continue;
+    if (typeof val !== "boolean") {
+      return NextResponse.json({ error: `${key} must be a boolean` }, { status: 400 });
+    }
+    update[key] = val;
+  }
+  if (Object.keys(update).length === 0) {
+    return NextResponse.json({ error: "no valid keys in body" }, { status: 400 });
   }
 
   try {
     await connectMongo();
     await AuthUser.findOneAndUpdate(
       { fixedUserId: session.user.fixedUserId },
-      { emailNotifications: body.emailNotifications },
+      { $set: update },
       { upsert: false }
     );
   } catch (err) {
@@ -43,12 +61,12 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "DB error" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, emailNotifications: body.emailNotifications });
+  return NextResponse.json({ ok: true, ...update });
 }
 
 /**
  * GET /api/auth/prefs
- * Returns the current email notification preference for the session user.
+ * Returns the full prefs object. Missing fields default to true.
  */
 export async function GET(): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
@@ -58,9 +76,14 @@ export async function GET(): Promise<NextResponse> {
 
   try {
     await connectMongo();
-    const user = await AuthUser.findOne({ fixedUserId: session.user.fixedUserId }).lean();
-    const emailNotifications = (user as { emailNotifications?: boolean } | null)?.emailNotifications ?? true;
-    return NextResponse.json({ emailNotifications });
+    const user = await AuthUser.findOne({ fixedUserId: session.user.fixedUserId }).lean() as
+      | Record<string, unknown> | null;
+    const result: Record<string, boolean> = {};
+    for (const key of ALLOWED_KEYS) {
+      const v = user?.[key];
+      result[key] = typeof v === "boolean" ? v : true; // default true
+    }
+    return NextResponse.json(result);
   } catch (err) {
     console.error("[auth/prefs] GET DB error:", err);
     return NextResponse.json({ error: "DB error" }, { status: 500 });
