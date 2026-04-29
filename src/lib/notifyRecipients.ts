@@ -43,7 +43,8 @@ export type EventType =
   | "commented"
   | "mentioned"
   | "subtask_added"
-  | "subtask_approved";
+  | "subtask_approved"
+  | "pipeline_completed";
 
 export interface RecipientContext {
   eventType: EventType;
@@ -64,8 +65,8 @@ export interface RecipientPlan {
   digest: string[];
 }
 
-const URGENT_FOR_AGENT = new Set<EventType>(["mentioned", "approved", "assigned"]);
-const URGENT_FOR_OPERATOR = new Set<EventType>(["mentioned", "approved"]);
+const URGENT_FOR_AGENT = new Set<EventType>(["mentioned", "approved", "assigned", "pipeline_completed"]);
+const URGENT_FOR_OPERATOR = new Set<EventType>(["mentioned", "approved", "pipeline_completed"]);
 
 export function getRecipients(
   ctx: RecipientContext,

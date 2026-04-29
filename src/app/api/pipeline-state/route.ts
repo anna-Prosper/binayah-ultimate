@@ -259,23 +259,34 @@ export async function PATCH(req: NextRequest) {
 
   // Capture pre-patch state for notification diffing.
   // We diff: claims, statuses, assignments, approvedStages, approvedSubtasks.
-  let prePatchClaims: Record<string, string[]> = {};
+  let prePatchOwners: Record<string, string[]> = {};
   let prePatchStatuses: Record<string, string> = {};
-  let prePatchAssignments: Record<string, string[]> = {};
   let prePatchApprovedStages: string[] = [];
   let prePatchApprovedSubtasks: string[] = [];
+  let prePatchApprovedPipelines: string[] = [];
   const NOTIFY_KEYS = new Set([
-    "claims", "stageStatusOverrides", "assignments",
-    "approvedStages", "approvedSubtasks",
+    "owners", "claims", "assignments",
+    "stageStatusOverrides",
+    "approvedStages", "approvedSubtasks", "approvedPipelines",
   ]);
   const needsNotify = Object.keys(cleanPatch).some(k => NOTIFY_KEYS.has(k));
   if (needsNotify) {
     const preDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
-    prePatchClaims = (preDoc?.state?.claims as Record<string, string[]> | undefined) ?? {};
+    // Pre-patch owners = union of (legacy claims + legacy assignments + owners).
+    // After this code path persists, all writes go through `owners` only.
+    const mergeInto = (target: Record<string, string[]>, src: Record<string, string[]> | undefined) => {
+      if (!src) return;
+      for (const [k, v] of Object.entries(src)) {
+        target[k] = Array.from(new Set([...(target[k] || []), ...(v || [])]));
+      }
+    };
+    mergeInto(prePatchOwners, preDoc?.state?.owners as Record<string, string[]> | undefined);
+    mergeInto(prePatchOwners, preDoc?.state?.claims as Record<string, string[]> | undefined);
+    mergeInto(prePatchOwners, preDoc?.state?.assignments as Record<string, string[]> | undefined);
     prePatchStatuses = (preDoc?.state?.stageStatusOverrides as Record<string, string> | undefined) ?? {};
-    prePatchAssignments = (preDoc?.state?.assignments as Record<string, string[]> | undefined) ?? {};
     prePatchApprovedStages = (preDoc?.state?.approvedStages as string[] | undefined) ?? [];
     prePatchApprovedSubtasks = (preDoc?.state?.approvedSubtasks as string[] | undefined) ?? [];
+    prePatchApprovedPipelines = (preDoc?.state?.approvedPipelines as string[] | undefined) ?? [];
   }
 
   const $set: Record<string, unknown> = { updatedAt: new Date() };
@@ -342,12 +353,23 @@ export async function PATCH(req: NextRequest) {
   // Fire notifications fire-and-forget — never await, never block the response
   if (needsNotify) {
     const postState = (doc as { state?: Record<string, unknown> } | null)?.state ?? {};
-    const postClaims = (postState.claims as Record<string, string[]> | undefined) ?? {};
-    const postAssignments = (postState.assignments as Record<string, string[]> | undefined) ?? {};
+    // Owners is the canonical post-patch ownership map (union of new owners + any
+    // legacy claims/assignments fields the doc may still contain pre-migration).
+    const postOwners: Record<string, string[]> = {};
+    const mergeOwners = (src: Record<string, string[]> | undefined) => {
+      if (!src) return;
+      for (const [k, v] of Object.entries(src)) {
+        postOwners[k] = Array.from(new Set([...(postOwners[k] || []), ...(v || [])]));
+      }
+    };
+    mergeOwners(postState.owners as Record<string, string[]> | undefined);
+    mergeOwners(postState.claims as Record<string, string[]> | undefined);
+    mergeOwners(postState.assignments as Record<string, string[]> | undefined);
     const postWorkspaces = (postState.workspaces as Array<{
       id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[];
     }> | undefined) ?? [];
     const postSubtasks = (postState.subtasks as Record<string, Array<{ id: number; text: string }>> | undefined) ?? {};
+    const postCustomStages = (postState.customStages as Record<string, string[]> | undefined) ?? {};
 
     // Build stage → pipelineId map (covers static + custom stages)
     const stageToP = new Map<string, string>();
@@ -377,52 +399,39 @@ export async function PATCH(req: NextRequest) {
       };
     }
 
-    // ── claimed (someone claimed a stage) ─────────────────────────────────
-    if ("claims" in cleanPatch) {
-      const patched = cleanPatch.claims as Record<string, string[]>;
-      for (const [stageKey, newClaimers] of Object.entries(patched)) {
-        const prev = prePatchClaims[stageKey] ?? [];
-        const added = newClaimers.filter(id => !prev.includes(id));
+    // ── claimed / assigned (owners gained members) ────────────────────────
+    // Both old `claims` and `assignments` patches plus the new `owners` patch
+    // funnel through here. We diff against the merged pre-state to detect new
+    // owners; if the patch came via `assignments` we tag it as "assigned",
+    // otherwise "claimed".
+    const ownerDeltaSource =
+      "owners" in cleanPatch ? "owners" :
+      "assignments" in cleanPatch ? "assignments" :
+      "claims" in cleanPatch ? "claims" : null;
+    if (ownerDeltaSource) {
+      const patched = cleanPatch[ownerDeltaSource] as Record<string, string[]>;
+      const eventType: "claimed" | "assigned" =
+        ownerDeltaSource === "assignments" ? "assigned" : "claimed";
+      for (const [stageKey, newOwners] of Object.entries(patched)) {
+        const prev = prePatchOwners[stageKey] ?? [];
+        const added = newOwners.filter(id => !prev.includes(id));
         if (added.length === 0) continue;
         const ctx = resolveStageContext(stageKey);
         void sendNotifications({
-          eventType: "claimed",
+          eventType,
           stageKey,
           pipelineName: ctx.pipelineName,
           workspaceId: ctx.workspaceId,
           workspaceName: ctx.workspaceName,
           workspaces: postWorkspaces,
           actorId: actorUserId,
-          claimers: newClaimers,
-          assignees: postAssignments[stageKey] ?? [],
+          claimers: postOwners[stageKey] ?? [],
+          assignees: postOwners[stageKey] ?? [],
           newlyAssigned: added,
           points: stageDefaults[stageKey]?.points ?? 10,
-          detail: `${actorUserId} claimed ${stageKey}`,
-        });
-      }
-    }
-
-    // ── assigned (someone was assigned to a stage) ────────────────────────
-    if ("assignments" in cleanPatch) {
-      const patched = cleanPatch.assignments as Record<string, string[]>;
-      for (const [stageKey, newAssignees] of Object.entries(patched)) {
-        const prev = prePatchAssignments[stageKey] ?? [];
-        const added = newAssignees.filter(id => !prev.includes(id));
-        if (added.length === 0) continue;
-        const ctx = resolveStageContext(stageKey);
-        void sendNotifications({
-          eventType: "assigned",
-          stageKey,
-          pipelineName: ctx.pipelineName,
-          workspaceId: ctx.workspaceId,
-          workspaceName: ctx.workspaceName,
-          workspaces: postWorkspaces,
-          actorId: actorUserId,
-          claimers: postClaims[stageKey] ?? [],
-          assignees: newAssignees,
-          newlyAssigned: added,
-          points: stageDefaults[stageKey]?.points ?? 10,
-          detail: `${actorUserId} assigned ${added.join(", ")} to ${stageKey}`,
+          detail: eventType === "assigned"
+            ? `${actorUserId} assigned ${added.join(", ")} to ${stageKey}`
+            : `${actorUserId} claimed ${stageKey}`,
         });
       }
     }
@@ -445,8 +454,8 @@ export async function PATCH(req: NextRequest) {
           workspaceName: ctx.workspaceName,
           workspaces: postWorkspaces,
           actorId: actorUserId,
-          claimers: postClaims[stageKey] ?? [],
-          assignees: postAssignments[stageKey] ?? [],
+          claimers: postOwners[stageKey] ?? [],
+          assignees: postOwners[stageKey] ?? [],
           points: stageDefaults[stageKey]?.points ?? 10,
           detail: `${stageKey}: ${prev} → ${newStatus}`,
         });
@@ -467,10 +476,38 @@ export async function PATCH(req: NextRequest) {
           workspaceName: ctx.workspaceName,
           workspaces: postWorkspaces,
           actorId: actorUserId,
-          claimers: postClaims[stageKey] ?? [],
-          assignees: postAssignments[stageKey] ?? [],
+          claimers: postOwners[stageKey] ?? [],
+          assignees: postOwners[stageKey] ?? [],
           points: stageDefaults[stageKey]?.points ?? 10,
           detail: `${stageKey} approved (+${stageDefaults[stageKey]?.points ?? 10}pts)`,
+        });
+      }
+    }
+
+    // ── pipeline_completed (last stage of pipeline approved) ──────────────
+    if ("approvedPipelines" in cleanPatch) {
+      const patched = cleanPatch.approvedPipelines as string[];
+      const added = patched.filter(p => !prePatchApprovedPipelines.includes(p));
+      for (const pipelineId of added) {
+        const pipe = pipelineData.find(p => p.id === pipelineId);
+        const allStages = [...(pipe?.stages ?? []), ...(postCustomStages[pipelineId] ?? [])];
+        const ownersUnion = new Set<string>();
+        for (const s of allStages) (postOwners[s] || []).forEach(o => ownersUnion.add(o));
+        const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? 10), 0);
+        const bonus = Math.floor(total * 0.25);
+        const ws = pipelineToWs.get(pipelineId);
+        void sendNotifications({
+          eventType: "pipeline_completed",
+          stageKey: pipelineId,
+          pipelineName: pipe?.name ?? pipelineId,
+          workspaceId: ws?.id ?? "",
+          workspaceName: ws?.name ?? "",
+          workspaces: postWorkspaces,
+          actorId: actorUserId,
+          claimers: [...ownersUnion],
+          assignees: [...ownersUnion],
+          points: bonus,
+          detail: `pipeline "${pipe?.name ?? pipelineId}" complete · +${bonus}pts shared`,
         });
       }
     }
@@ -492,8 +529,8 @@ export async function PATCH(req: NextRequest) {
           workspaceName: ctx.workspaceName,
           workspaces: postWorkspaces,
           actorId: actorUserId,
-          claimers: postClaims[subKey] ?? [],
-          assignees: postAssignments[subKey] ?? [],
+          claimers: postOwners[subKey] ?? [],
+          assignees: postOwners[subKey] ?? [],
           detail: `subtask "${subText}" approved`,
         });
       }

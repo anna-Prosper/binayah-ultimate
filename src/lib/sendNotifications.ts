@@ -20,6 +20,7 @@ import {
   activeEmailTemplate,
   approvedEmailTemplate,
   assignedEmailTemplate,
+  pipelineCompletedEmailTemplate,
 } from "@/lib/emailTemplates";
 import { buildUnsubscribeToken } from "@/app/api/unsubscribe/route";
 import { USERS_DEFAULT } from "@/lib/data";
@@ -75,6 +76,7 @@ function prefKeyForEvent(eventType: EventType): string {
     case "commented": return "notifyComment";
     case "subtask_added":
     case "subtask_approved": return "notifySubtask";
+    case "pipeline_completed": return "notifyApproved"; // routed under "approvals" pref bucket
     default: return "notifyOther";
   }
 }
@@ -104,6 +106,13 @@ function renderEmail(
       return approvedEmailTemplate(base);
     case "assigned":
       return assignedEmailTemplate(base);
+    case "pipeline_completed":
+      return pipelineCompletedEmailTemplate({
+        pipelineName: base.pipelineName,
+        bonusPoints: base.points,
+        appUrl: base.appUrl,
+        unsubscribeUrl: base.unsubscribeUrl,
+      });
     // Other event types only flow into the digest, never immediate email.
     default:
       return null;

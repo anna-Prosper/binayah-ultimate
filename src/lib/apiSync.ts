@@ -1,7 +1,22 @@
 const API_BASE = "/api/pipeline-state";
 
 export type SharedState = {
+  // owners is the canonical ownership field. Replaced the legacy split between
+  // `claims` (self-volunteers) and `assignments` (admin-assigned) with a single
+  // unified list. Both legacy fields are still in the type for one-cycle hydrate
+  // compatibility — server may still return them on existing docs; client merges
+  // them into owners on read, then writes only `owners` going forward.
+  owners?: Record<string, string[]>;
+  /** @deprecated use `owners`. Kept for legacy hydrate. */
   claims?: Record<string, string[]>;
+  /** @deprecated use `owners`. Kept for legacy hydrate. */
+  assignments?: Record<string, string[]>;
+  /** Stages that have been approved by an operator (points awarded). */
+  approvedStages?: string[];
+  /** Subtask keys that have been approved (points awarded). */
+  approvedSubtasks?: string[];
+  /** Pipelines that have already paid out the +25% completion bonus. */
+  approvedPipelines?: string[];
   reactions?: Record<string, Record<string, string[]>>;
   chatMessages?: { id: number; userId: string; text: string; time: string }[];
   activityLog?: { type: string; user: string; target: string; detail: string; time: number }[];

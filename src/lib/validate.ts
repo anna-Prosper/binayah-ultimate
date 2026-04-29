@@ -66,7 +66,17 @@ export function checkContentLength(req: { headers: { get(name: string): string |
 /** Whitelist of allowed PATCH keys for /api/pipeline-state */
 // v3 — removed lockedPipelines, trashedStages, trashedPipelines, trashedSubtasks
 export const PATCH_KEY_WHITELIST = new Set([
+  // Canonical ownership field — replaces claims+assignments split.
+  "owners",
+  // Legacy fields kept in the whitelist so old clients can still write during
+  // the migration window. The server merges them into owners on hydrate.
   "claims",
+  "assignments",
+  // Approval state — was previously client-only (localStorage). Now syncs so
+  // other users can see "this is approved" without a manual reload.
+  "approvedStages",
+  "approvedSubtasks",
+  "approvedPipelines",
   "reactions",
   "subtasks",
   "stageStatusOverrides",

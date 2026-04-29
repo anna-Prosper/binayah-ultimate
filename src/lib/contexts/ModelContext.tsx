@@ -47,15 +47,21 @@ interface ModelContextValue {
   streakByUser: Record<string, number>;
 
   // Model state
+  /** Canonical ownership map. Each entry is the union of self-claims + admin assignments. */
+  owners: Record<string, string[]>;
+  /** @deprecated alias of `owners` — every owner counts as a claimer. New code should use `owners`. */
   claims: Record<string, string[]>;
+  /** @deprecated empty record — assignments collapsed into `owners`. */
+  assignments: Record<string, string[]>;
   reactions: Record<string, Record<string, string[]>>;
   comments: Record<string, CommentItem[]>;
   subtasks: Record<string, SubtaskItem[]>;
-  assignments: Record<string, string[]>;
   ownership: Record<string, { claimedBy: string[]; assignedTo: string[] }>;
   stageStatusOverrides: Record<string, string>;
   approvedStages: string[];
   approvedSubtasks: string[];
+  /** Pipelines that have already paid the +25% completion bonus. */
+  approvedPipelines: string[];
   stageDescOverrides: Record<string, string>;
   stageNameOverrides: Record<string, string>;
   stagePointsOverride: Record<string, number>;
@@ -218,23 +224,34 @@ export function ModelProvider({
 
   // ── Model state ───────────────────────────────────────────────────────────
   const [reactions, setReactions] = useState<Record<string, Record<string, string[]>>>(() => lsGet("reactions", {}));
-  const [claims, setClaims] = useState<Record<string, string[]>>(() => lsGet("claims", {}));
-  // assignments is Record<stageId, userId[]> — max 2 assignees per task. Migrate older
-  // single-user shape (Record<stageId, userId>) by wrapping bare strings in arrays.
-  const [assignments, setAssignments] = useState<Record<string, string[]>>(() => {
-    const raw = lsGet("assignments", {} as Record<string, unknown>);
-    const out: Record<string, string[]> = {};
-    for (const [k, v] of Object.entries(raw)) {
-      if (Array.isArray(v)) out[k] = (v as unknown[]).filter(x => typeof x === "string") as string[];
-      else if (typeof v === "string" && v) out[k] = [v];
-    }
-    return out;
+  // owners is the canonical ownership field. Replaces the old claims+assignments
+  // split — both are now ways IN to the same list. Hydrate-merges any legacy
+  // localStorage values from claims/assignments into owners on first load.
+  const [owners, setOwners] = useState<Record<string, string[]>>(() => {
+    const fromOwners = lsGet("owners", {} as Record<string, unknown>);
+    const fromClaims = lsGet("claims", {} as Record<string, unknown>);
+    const fromAssign = lsGet("assignments", {} as Record<string, unknown>);
+    const merged: Record<string, string[]> = {};
+    const addList = (key: string, raw: unknown) => {
+      const list = Array.isArray(raw)
+        ? (raw as unknown[]).filter(x => typeof x === "string") as string[]
+        : typeof raw === "string" && raw ? [raw] : [];
+      if (list.length === 0) return;
+      merged[key] = Array.from(new Set([...(merged[key] || []), ...list]));
+    };
+    for (const [k, v] of Object.entries(fromOwners)) addList(k, v);
+    for (const [k, v] of Object.entries(fromClaims)) addList(k, v);
+    for (const [k, v] of Object.entries(fromAssign)) addList(k, v);
+    return merged;
   });
   const [subtasks, setSubtasks] = useState<Record<string, SubtaskItem[]>>(() => lsGet("subtasks", {}));
   const [comments, setComments] = useState<Record<string, CommentItem[]>>(() => lsGet("comments", {}));
   const [stageStatusOverrides, setStageStatusOverrides] = useState<Record<string, string>>(() => lsGet("stageStatusOverrides", {}));
   const [approvedStages, setApprovedStages] = useState<string[]>(() => lsGet("approvedStages", []));
   const [approvedSubtasks, setApprovedSubtasks] = useState<string[]>(() => lsGet("approvedSubtasks", []));
+  // Pipelines that have already paid out the +25% completion bonus. Idempotent —
+  // a pipeline only ever pays once even if its last stage gets re-approved.
+  const [approvedPipelines, setApprovedPipelines] = useState<string[]>(() => lsGet("approvedPipelines", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
@@ -284,8 +301,8 @@ export function ModelProvider({
   useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
   useEffect(() => { lsSet("users", users) }, [users]);
   useEffect(() => { lsSet("reactions", reactions) }, [reactions]);
-  useEffect(() => { lsSet("claims", claims) }, [claims]);
-  useEffect(() => { lsSet("assignments", assignments) }, [assignments]);
+  useEffect(() => { lsSet("owners", owners) }, [owners]);
+  useEffect(() => { lsSet("approvedPipelines", approvedPipelines) }, [approvedPipelines]);
   useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
   useEffect(() => { lsSet("comments", comments) }, [comments]);
   useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
@@ -376,20 +393,30 @@ export function ModelProvider({
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
     isPollUpdateRef.current = true;
-    if (s.claims) {
+    // Server may send `owners` (new) and/or `claims`/`assignments` (legacy).
+    // Merge any present fields into a single owners map and apply once.
+    if (s.owners || s.claims || s.assignments) {
+      const merged: Record<string, string[]> = {};
+      const addList = (key: string, list: string[]) => {
+        merged[key] = Array.from(new Set([...(merged[key] || []), ...list]));
+      };
+      for (const [k, v] of Object.entries(s.owners || {})) addList(k, v as string[]);
+      for (const [k, v] of Object.entries(s.claims || {})) addList(k, v as string[]);
+      for (const [k, v] of Object.entries(s.assignments || {})) addList(k, v as string[]);
+
       const prev = prevClaimsRef.current;
-      for (const [stage, claimers] of Object.entries(s.claims as Record<string, string[]>)) {
-        const prevClaimers = prev[stage] || [];
-        const newClaimers = claimers.filter(uid => !prevClaimers.includes(uid) && uid !== currentUser);
-        if (newClaimers.length > 0) {
-          const claimer = users.find(u => u.id === newClaimers[0]);
-          setChatNotif({ name: claimer?.name || newClaimers[0], text: `claimed "${stage}"`, isClaim: true });
+      for (const [stage, ownersList] of Object.entries(merged)) {
+        const prevOwners = prev[stage] || [];
+        const newOwners = ownersList.filter(uid => !prevOwners.includes(uid) && uid !== currentUser);
+        if (newOwners.length > 0) {
+          const owner = users.find(u => u.id === newOwners[0]);
+          setChatNotif({ name: owner?.name || newOwners[0], text: `claimed "${stage}"`, isClaim: true });
           playNotifSound();
           setTimeout(() => setChatNotif(null), 4000);
         }
       }
-      prevClaimsRef.current = s.claims as Record<string, string[]>;
-      if (!isProtected("claims")) setClaims(s.claims);
+      prevClaimsRef.current = merged;
+      if (!isProtected("owners")) setOwners(merged);
     }
     if (s.reactions) {
       const prev = prevReactionsRef.current;
@@ -488,6 +515,9 @@ export function ModelProvider({
     if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(s.archivedPipelines as string[]);
     if (s.archivedSubtasks && !isProtected("archivedSubtasks")) setArchivedSubtasks(s.archivedSubtasks as string[]);
     if (s.stagePointsOverride && !isProtected("stagePointsOverride")) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
+    if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
+    if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
+    if (s.approvedPipelines && !isProtected("approvedPipelines")) setApprovedPipelines(s.approvedPipelines as string[]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
@@ -495,11 +525,14 @@ export function ModelProvider({
   }, [currentUser, users]);
 
   const getCurrentState = useCallback((): Partial<SharedState> => ({
-    claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
+    owners,
+    approvedStages, approvedSubtasks, approvedPipelines,
+    subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
     subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     stagePointsOverride,
-  }), [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
+  }), [owners, approvedStages, approvedSubtasks, approvedPipelines,
+       subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
        subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
        stagePointsOverride]);
@@ -514,7 +547,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [claims, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -533,29 +566,55 @@ export function ModelProvider({
     const archivedSubtaskKeySet = new Set(archivedSubtasks);
     const approvedSubtaskKeySet = new Set(approvedSubtasks);
     let p = 0;
-    Object.entries(claims).forEach(([key, claimers]) => {
-      if (!claimers.includes(uid)) return;
-      // Subtask claim — key is "stageId::subtaskId"
+    Object.entries(owners).forEach(([key, ownersList]) => {
+      if (!ownersList.includes(uid)) return;
+      const ownerCount = Math.max(ownersList.length, 1);
+
+      // Subtask — key is "stageId::subtaskId"
       if (SubtaskKey.isValid(key)) {
         if (!approvedSubtaskKeySet.has(key)) return;
         const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
         if (!parsed) return;
         const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
         if (!sub) return;
-        p += sub.points ?? 5;
+        // Split subtask points among owners. Use Math.floor so totals are stable
+        // and never exceed the headline number on the card.
+        p += Math.floor((sub.points ?? 5) / ownerCount);
         return;
       }
-      // Stage claim — only award stage-level points when stage is a leaf (no live subtasks).
-      // When stage has subtasks, points are earned through the subtask claims above.
+      // Stage — only awards stage-level points when stage is a leaf (no live subtasks).
+      // Stages with live subtasks earn their points via the subtask branch above.
       if (!approvedStages.includes(key)) return;
       const liveSubs = (subtasks[key] || []).filter(s => !archivedSubtaskKeySet.has(`${key}::${s.id}`));
       if (liveSubs.length > 0) return;
       const stageDefaultPts = stageDefaults[key]?.points || 10;
-      p += deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+      const stagePts = deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+      p += Math.floor(stagePts / ownerCount);
     });
+
+    // Pipeline-completion bonus: +25% of the pipeline's total stage points,
+    // split equally among the union of owners across the pipeline's stages.
+    // Each pipeline pays exactly once (idempotent via approvedPipelines).
+    if (approvedPipelines.length > 0) {
+      const allPipes = [...pipelineData, ...customPipelines];
+      for (const pipelineId of approvedPipelines) {
+        const pipe = allPipes.find(pp => pp.id === pipelineId);
+        if (!pipe) continue;
+        const allStages = [...pipe.stages, ...(customStages[pipelineId] || [])];
+        const ownersUnion = new Set<string>();
+        for (const stage of allStages) {
+          (owners[stage] || []).forEach(o => ownersUnion.add(o));
+        }
+        if (ownersUnion.size === 0 || !ownersUnion.has(uid)) continue;
+        const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
+        const bonus = Math.floor(total * 0.25);
+        p += Math.floor(bonus / ownersUnion.size);
+      }
+    }
+
     Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
     return p;
-  }, [claims, approvedStages, approvedSubtasks, reactions, subtasks, archivedSubtasks, stagePointsOverride]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reactions, subtasks, archivedSubtasks, stagePointsOverride, customPipelines, customStages]);
 
   const sc: Record<string, { l: string; c: string }> = {
     active: { l: "live", c: t.green }, "in-progress": { l: "building", c: t.amber },
@@ -564,15 +623,17 @@ export function ModelProvider({
   const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
   const pr: Record<string, { c: string }> = { NOW: { c: t.orange }, HIGH: { c: t.textMuted }, MEDIUM: { c: t.cyan || t.accent }, LOW: { c: t.textDim } };
 
+  // Backwards-compat aliases — every owner counts as both "claimer" and "assignee"
+  // for legacy consumers (they used to be separate). New code should read `owners`
+  // directly; these are derived views only.
+  const claims = owners;
+  const assignments: Record<string, string[]> = useMemo(() => ({}), []);
+
   const ownership = useMemo(() => {
     const map: Record<string, { claimedBy: string[]; assignedTo: string[] }> = {};
-    for (const [k, v] of Object.entries(claims)) map[k] = { claimedBy: v, assignedTo: [] };
-    for (const [k, v] of Object.entries(assignments)) {
-      if (!map[k]) map[k] = { claimedBy: [], assignedTo: [] };
-      map[k].assignedTo = v;
-    }
+    for (const [k, v] of Object.entries(owners)) map[k] = { claimedBy: v, assignedTo: v };
     return map;
-  }, [claims, assignments]);
+  }, [owners]);
 
   const archived = useMemo(() => ({
     stages: archivedStages,
@@ -598,25 +659,32 @@ export function ModelProvider({
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
-    const alreadyClaimed = (claims[sid] || []).includes(currentUser);
-    markLocalWrite("claims");
-    setClaims(prev => {
+    const alreadyOwner = (owners[sid] || []).includes(currentUser);
+    markLocalWrite("owners");
+    setOwners(prev => {
       const c = prev[sid] || [];
-      if (c.includes(currentUser)) return { ...prev, [sid]: c.filter(u => u !== currentUser) };
+      if (c.includes(currentUser)) {
+        const next = c.filter(u => u !== currentUser);
+        const out = { ...prev };
+        if (next.length === 0) delete out[sid]; else out[sid] = next;
+        return out;
+      }
       return { ...prev, [sid]: [...c, currentUser] };
     });
-    if (!alreadyClaimed) logActivity("claim", sid, "took ownership");
+    if (!alreadyOwner) logActivity("claim", sid, "took ownership");
   };
 
-  // assignTask: toggle a single user on/off. If userId === null, clear all assignees.
-  // Cap at 2 assignees per task — adding a third silently bumps the oldest. The cap is
-  // intentional UX: claiming is the social motivation; assigning to many dilutes ownership.
+  // assignTask: admin-driven path to add/remove an owner. Same underlying
+  // `owners` state as claim — claim and assign are two doors into one list.
+  // Cap at 2 owners *via this action* — admin assigning to more than 2 dilutes
+  // accountability; if more people want in they can self-claim. The cap does
+  // NOT apply to claims (anyone helping should count).
   const ASSIGN_CAP = 2;
   const assignTask = (sid: string, userId: string | null) => {
     if (!currentUser) return;
     const isSubtask = SubtaskKey.isValid(sid);
-    markLocalWrite("assignments");
-    setAssignments(prev => {
+    markLocalWrite("owners");
+    setOwners(prev => {
       const copy: Record<string, string[]> = { ...prev };
       const prevList = copy[sid] || [];
 
@@ -782,7 +850,7 @@ export function ModelProvider({
       return next;
     });
 
-    setAssignments(prev => {
+    setOwners(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
       const next = { ...prev };
@@ -979,8 +1047,29 @@ export function ModelProvider({
       showToast("// only an operator can approve", t.amber); return;
     }
     if (approvedStages.includes(name)) return;
-    setApprovedStages(prev => [...prev, name]);
+    const nextApprovedStages = [...approvedStages, name];
+    setApprovedStages(nextApprovedStages);
     logActivity("status", name, "→ approved");
+
+    // Pipeline-completion check — award the +25% bonus the moment the LAST
+    // stage of a pipeline is approved. Idempotent (gated by approvedPipelines).
+    const allPipes = [...pipelineData, ...customPipelines];
+    const owningPipe = allPipes.find(pp => {
+      const stages = [...pp.stages, ...(customStages[pp.id] || [])];
+      return stages.includes(name);
+    });
+    if (!owningPipe) return;
+    if (approvedPipelines.includes(owningPipe.id)) return;
+    const allStages = [...owningPipe.stages, ...(customStages[owningPipe.id] || [])]
+      .filter(s => !archivedStages.includes(s));
+    if (allStages.length === 0) return;
+    const allApproved = allStages.every(s => nextApprovedStages.includes(s));
+    if (!allApproved) return;
+    setApprovedPipelines(prev => [...prev, owningPipe.id]);
+    const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
+    const bonus = Math.floor(total * 0.25);
+    logActivity("status", owningPipe.id, `pipeline complete · +${bonus} bonus`);
+    showToast(`// ${owningPipe.name || owningPipe.id} complete — +${bonus}pts bonus shared`, t.green);
   };
 
   const approveSubtask = (key: string) => {
@@ -1171,10 +1260,11 @@ export function ModelProvider({
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
+    owners,
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
-    stageStatusOverrides, approvedStages, approvedSubtasks, stageDescOverrides, stageNameOverrides,
+    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,

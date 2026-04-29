@@ -132,6 +132,28 @@ export function approvedEmailTemplate(opts: ApprovedOpts): { subject: string; ht
   };
 }
 
+interface PipelineCompletedOpts {
+  pipelineName: string;
+  bonusPoints: number;
+  appUrl: string;
+  unsubscribeUrl: string;
+}
+export function pipelineCompletedEmailTemplate(opts: PipelineCompletedOpts): { subject: string; html: string } {
+  const body = `
+    <p style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT_DIM};margin:0 0 6px 0;">
+      <span style="color:${TEXT_DIM}">//</span><span style="color:${ACCENT2};font-weight:700;"> pipeline complete</span>
+    </p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;color:${TEXT};margin:0 0 4px 0;word-break:break-word;">${escHtml(opts.pipelineName)}</p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:20px;font-weight:900;color:${ACCENT2};margin:0 0 16px 0;">+${opts.bonusPoints} bonus shared</p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT};margin:0 0 24px 0;"><span style="color:${TEXT_DIM}">// </span>every stage of this pipeline has been approved.<br/><span style="color:${TEXT_DIM}">// </span>bonus is +25% of pipeline total, split among owners.</p>
+    ${ctaLink(opts.appUrl, "open dashboard &rarr;", ACCENT2)}
+  `;
+  return {
+    subject: `[Binayah Dashboard] ${opts.pipelineName} complete (+${opts.bonusPoints}pts bonus)`,
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
 export function assignedEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
   const body = `
     <p style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT_DIM};margin:0 0 6px 0;">

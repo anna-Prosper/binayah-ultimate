@@ -98,8 +98,15 @@ export async function POST(req: NextRequest) {
       const stateDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
       const postState = stateDoc?.state ?? {};
       const stageKey = stage as string;
-      const postClaims = (postState.claims as Record<string, string[]> | undefined)?.[stageKey] ?? [];
-      const postAssign = (postState.assignments as Record<string, string[]> | undefined)?.[stageKey] ?? [];
+      // Merge any of owners + legacy claims + legacy assignments into one ownership list
+      const ownerLists: string[][] = [];
+      const o1 = (postState.owners as Record<string, string[]> | undefined)?.[stageKey];
+      const o2 = (postState.claims as Record<string, string[]> | undefined)?.[stageKey];
+      const o3 = (postState.assignments as Record<string, string[]> | undefined)?.[stageKey];
+      if (o1) ownerLists.push(o1);
+      if (o2) ownerLists.push(o2);
+      if (o3) ownerLists.push(o3);
+      const stageOwners = Array.from(new Set(ownerLists.flat()));
       const postWorkspaces = (postState.workspaces as Array<{
         id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[];
       }> | undefined) ?? [];
@@ -120,8 +127,8 @@ export async function POST(req: NextRequest) {
         workspaceName: ws?.name ?? "",
         workspaces: postWorkspaces,
         actorId: authoredUser,
-        claimers: postClaims,
-        assignees: postAssign,
+        claimers: stageOwners,
+        assignees: stageOwners,
         mentioned,
         points: stageDefaults[stageKey]?.points ?? 0,
         detail: `${authoredUser} commented on ${stageKey}: "${commentText.slice(0, 80)}"`,

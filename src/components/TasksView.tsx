@@ -661,18 +661,28 @@ function TaskCard({
             </span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
             <span style={{ color: t.accent, fontWeight: 700 }} title="points (sum of subtasks, or override)">· {task.points}pts</span>
-            {assignee && <span style={{ color: assignee.color, fontWeight: 700 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {task.claimers.length > 0 && (
-            <div style={{ display: "flex", gap: -4 }}>
-              {task.claimers.slice(0, 3).map(id => {
-                const u = users.find(u => u.id === id);
-                return u ? <AvatarC key={id} user={u} size={20} /> : null;
-              })}
-            </div>
-          )}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
+          {/* Owner pills — avatar + first name. First 2 shown explicitly, rest collapsed into +N. */}
+          {task.claimers.length > 0 && (() => {
+            const ownerUsers = task.claimers.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
+            const visible = ownerUsers.slice(0, 2);
+            const overflow = ownerUsers.length - visible.length;
+            return (
+              <>
+                {visible.map(u => (
+                  <span key={u.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: u.color + "18", border: `1px solid ${u.color}55`, borderRadius: 12, padding: "2px 8px 2px 2px" }}>
+                    <AvatarC user={u} size={18} />
+                    <span style={{ fontSize: 11, fontWeight: 700, color: u.color, fontFamily: "var(--font-dm-mono), monospace" }}>{u.name.split(" ")[0]}</span>
+                  </span>
+                ))}
+                {overflow > 0 && (
+                  <span title={ownerUsers.slice(2).map(u => u.name).join(", ")} style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: "2px 8px", fontFamily: "var(--font-dm-mono), monospace" }}>+{overflow}</span>
+                )}
+              </>
+            );
+          })()}
           {/* assign is in ActionRow — no duplicate here */}
           {isPending && isAdmin && (
             <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
