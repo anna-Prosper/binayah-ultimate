@@ -147,6 +147,12 @@ function DashboardInner({
   useEffect(() => { lsSet("view", view); }, [view]);
   useEffect(() => { lsSet("binayah_activeNav", activeNavItem); }, [activeNavItem]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
+  // On first ever visit (lastSeenActivity === 0 and activityLog loaded), mark everything as seen
+  // so the badge doesn't show "200+" to a new team member logging in for the first time.
+  useEffect(() => {
+    if (lastSeenActivity === 0 && activityLog.length > 0) setLastSeenActivity(activityLog.length);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activityLog.length]);
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
 

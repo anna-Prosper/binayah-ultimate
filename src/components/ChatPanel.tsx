@@ -183,8 +183,9 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
     const userMsg: AiMsg = { role: "user", content: text, time: now };
     const updated = [...aiMessages, userMsg];
     setAiMessages(updated);
-    setAiInput("");
+    // Don't clear input yet — restore it if the request fails so the user doesn't lose their message
     setAiLoading(true);
+    let succeeded = false;
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
@@ -210,11 +211,15 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         return;
       }
       setAiMessages(prev => [...prev, { role: "assistant", content: data.reply || "no response", time: replyTime }]);
+      succeeded = true;
+      setAiInput("");
     } catch {
       const errTime = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
       setAiMessages(prev => [...prev, { role: "assistant", content: "// ai is taking a nap — try again", time: errTime, error: true }]);
     } finally {
       setAiLoading(false);
+      // Restore user's message in the input if the request failed
+      if (!succeeded) setAiInput(text);
     }
   };
 

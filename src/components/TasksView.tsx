@@ -7,6 +7,7 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { useModel, useRole, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -842,6 +843,7 @@ function SubtaskCard({
   const [editVal, setEditVal] = useState("");
   const { renameSubtask, archiveSubtask } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
 
   const key = SubtaskKey.make(stageId, taskSub.id);
 
@@ -953,10 +955,20 @@ function SubtaskCard({
         onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
       />
       {editOpen && (
-        <button onClick={e => { e.stopPropagation(); archiveSubtask(key); setEditOpen(false); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+        <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
           📦 archive subtask
         </button>
       )}
+      <ConfirmModal
+        open={archiveConfirm}
+        title="archive this subtask?"
+        body="This subtask will be moved to the archive."
+        confirmLabel="archive"
+        danger={true}
+        onConfirm={() => { archiveSubtask(key); setEditOpen(false); setArchiveConfirm(false); }}
+        onCancel={() => setArchiveConfirm(false)}
+        t={t}
+      />
 
       {showCommentPopover && (
         <CommentPopover
@@ -990,6 +1002,7 @@ function SubtaskKanbanCard({
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
+  const [archiveConfirm, setArchiveConfirm] = useState(false);
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const rxs = reactions[sub.key] || {};
@@ -1127,10 +1140,20 @@ function SubtaskKanbanCard({
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
         {editOpen && (
-          <button onClick={e => { e.stopPropagation(); archiveSubtask(sub.key); setEditOpen(false); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+          <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
             📦 archive subtask
           </button>
         )}
+        <ConfirmModal
+          open={archiveConfirm}
+          title="archive this subtask?"
+          body="This subtask will be moved to the archive."
+          confirmLabel="archive"
+          danger={true}
+          onConfirm={() => { archiveSubtask(sub.key); setEditOpen(false); setArchiveConfirm(false); }}
+          onCancel={() => setArchiveConfirm(false)}
+          t={t}
+        />
 
         {showCommentPopover && (
           <CommentPopover

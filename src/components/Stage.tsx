@@ -13,6 +13,7 @@ import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, useRole, commentTypingState } from "@/lib/contexts/ModelContext";
 import { deriveStageDisplayPoints, DEFAULT_SUBTASK_POINTS } from "@/lib/points";
 import BottomSheet from "@/components/ui/BottomSheet";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 import { lsGet, lsSet } from "@/lib/storage";
 
 // ── Relative-time helper for activity tab ─────────────────────────────────────
@@ -367,6 +368,7 @@ export default function Stage({
   const [editingPoints, setEditingPoints] = useState<string>("");
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [lightboxImg, setLightboxImg] = useState<string | null>(null);
+  const [confirmPending, setConfirmPending] = useState<"stage" | string | null>(null); // "stage" or a subtask key
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [showMockup, setShowMockup] = useState(false);
   const [subtaskInputVal, setSubtaskInputVal] = useState("");
@@ -700,7 +702,7 @@ export default function Stage({
             <button
               onClick={e => {
                 e.stopPropagation();
-                archiveStage(name);
+                setConfirmPending("stage");
                 setStageEditMode(false);
               }}
               title="Archive this stage"
@@ -798,7 +800,7 @@ export default function Stage({
                   {copied === name ? "✓ copied" : "📋 copy"}
                 </button>
                 {archiveStage && canArchive && (
-                  <button onClick={() => archiveStage(name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                  <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.amber; (e.currentTarget as HTMLElement).style.color = t.amber; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
                     title="Archive this task">
@@ -842,7 +844,7 @@ export default function Stage({
                     stageId={name}
                     pC={pC}
                     t={t}
-                    onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
+                    onRemove={() => setConfirmPending(SubtaskKey.make(name, task.id))}
                   />
                 ))}
                 </div>
@@ -1117,6 +1119,28 @@ export default function Stage({
       })()}
 
 
+      {/* Archive confirmation */}
+      <ConfirmModal
+        open={confirmPending !== null}
+        title={confirmPending === "stage" ? "archive this stage?" : "archive this subtask?"}
+        body={confirmPending === "stage"
+          ? `"${name}" and all its subtasks will be moved to the archive. You can restore it from the archive view.`
+          : "This subtask will be moved to the archive."}
+        confirmLabel="archive"
+        cancelLabel="cancel"
+        danger={true}
+        onConfirm={() => {
+          if (confirmPending === "stage") {
+            archiveStage?.(name);
+          } else if (confirmPending) {
+            archiveSubtask(confirmPending);
+          }
+          setConfirmPending(null);
+        }}
+        onCancel={() => setConfirmPending(null)}
+        t={t}
+      />
+
       {/* Lightbox — fullscreen image viewer */}
       {lightboxImg && (
         <div
@@ -1164,7 +1188,7 @@ export default function Stage({
                   stageId={name}
                   pC={pC}
                   t={t}
-                  onRemove={() => archiveSubtask(SubtaskKey.make(name, task.id))}
+                  onRemove={() => setConfirmPending(SubtaskKey.make(name, task.id))}
                 />
               ))}
               </div>

@@ -9,6 +9,7 @@ import { useToasts, ToastContainer } from "@/components/ui/Toast";
 import { pipelineData, USERS_DEFAULT } from "@/lib/data";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { invalidateDocCache } from "@/components/SearchPalette";
+import ConfirmModal from "@/components/ui/ConfirmModal";
 
 // Color key → theme token helper (matching existing ck pattern in Dashboard)
 function colorFromKey(colorKey: string, t: T): string {
@@ -108,6 +109,8 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   // Attachment upload
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null); // doc id to delete
+  const [confirmDeleteAttach, setConfirmDeleteAttach] = useState<string | null>(null); // attachmentId to delete
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { toasts, showToast, dismissToast } = useToasts();
@@ -213,7 +216,10 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
   // Delete document
   const deleteDoc = useCallback(async (id: string) => {
-    if (!confirm("delete this document?")) return;
+    setConfirmDeleteDoc(id);
+  }, []);
+
+  const executeDeleteDoc = useCallback(async (id: string) => {
     try {
       const res = await fetch(`/api/documents/${id}`, { method: "DELETE" });
       if (!res.ok) return;
@@ -275,7 +281,10 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
   const deleteAttachment = useCallback(async (attachmentId: string) => {
     if (!activeId) return;
-    if (!confirm("Delete this attachment?")) return;
+    setConfirmDeleteAttach(attachmentId);
+  }, [activeId, showToast, t.red]);
+
+  const executeDeleteAttach = useCallback(async (attachmentId: string) => {
     try {
       const res = await fetch(`/api/documents/${activeId}/attachments/${attachmentId}`, { method: "DELETE" });
       if (!res.ok) {
@@ -771,6 +780,27 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
 
       {/* Toast container — rendered outside the panel so it's not clipped */}
       <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
+
+      <ConfirmModal
+        open={confirmDeleteDoc !== null}
+        title="delete this document?"
+        body="This will permanently delete the document and all its attachments. This cannot be undone."
+        confirmLabel="delete"
+        danger={true}
+        onConfirm={() => { if (confirmDeleteDoc) executeDeleteDoc(confirmDeleteDoc); setConfirmDeleteDoc(null); }}
+        onCancel={() => setConfirmDeleteDoc(null)}
+        t={t}
+      />
+      <ConfirmModal
+        open={confirmDeleteAttach !== null}
+        title="delete this attachment?"
+        body="The file will be permanently removed."
+        confirmLabel="delete"
+        danger={true}
+        onConfirm={() => { if (confirmDeleteAttach) executeDeleteAttach(confirmDeleteAttach); setConfirmDeleteAttach(null); }}
+        onCancel={() => setConfirmDeleteAttach(null)}
+        t={t}
+      />
     </>
   );
 }
