@@ -727,8 +727,8 @@ export default function Stage({
           </div>
         )}
 
-        {/* Edit mode pencil button — bottom-right, appears on hover */}
-        {(isHovered || stageEditMode) && !isMobile && (
+        {/* Edit mode pencil button — always visible on desktop; dims when not hovered */}
+        {!isMobile && (
           <button
             onClick={e => {
               e.stopPropagation();
@@ -759,6 +759,7 @@ export default function Stage({
               alignItems: "center",
               justifyContent: "center",
               color: stageEditMode ? pC : t.textMuted,
+              opacity: (isHovered || stageEditMode) ? 1 : 0.25,
               transition: "all 0.15s",
             }}
           >&#9998;</button>

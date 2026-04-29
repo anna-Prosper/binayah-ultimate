@@ -56,7 +56,15 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
                   <span style={{ fontSize: 10, color: t.textMuted }}>
-                    {" "}{a.type === "claim" ? "claimed" : a.type === "comment" ? "commented on" : a.type === "status" ? "updated" : a.type}{" "}
+                    {" "}{
+                      a.type === "claim" ? "claimed" :
+                      a.type === "comment" ? "commented on" :
+                      a.type === "status" ? "updated status of" :
+                      a.type === "assign" ? "assigned task in" :
+                      a.type === "create" ? "created" :
+                      a.type === "subtask_migrated" ? "moved subtask in" :
+                      a.type
+                    }{" "}
                   </span>
                   <span style={{ fontSize: 10, fontWeight: 600, color: t.text }}>{a.target}</span>
                   {a.detail && <span style={{ fontSize: 10, color: t.accent, marginLeft: 4 }}>{a.detail}</span>}

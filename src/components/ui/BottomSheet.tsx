@@ -123,9 +123,10 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
           willChange: "transform",
         }}
       >
-        {/* Drag handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "12px 0 4px", flexShrink: 0 }}>
+        {/* Drag handle + swipe hint */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: "12px 0 4px", flexShrink: 0, gap: 4 }}>
           <div style={{ width: 40, height: 4, borderRadius: 2, background: t.border }} />
+          <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, opacity: 0.6 }}>swipe down to close</span>
         </div>
 
         {/* Header row */}

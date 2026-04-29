@@ -403,6 +403,10 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             )}
             {aiMessages.map((msg, i) => {
               const isUser = msg.role === "user";
+              // For error messages, find the last user message before this one for retry
+              const prevUserMsg = !isUser && msg.error
+                ? [...aiMessages].slice(0, i).reverse().find(m => m.role === "user")
+                : null;
               return (
                 <div key={i} style={{ display: "flex", gap: 8, flexDirection: isUser ? "row-reverse" : "row", alignItems: "flex-end" }}>
                   {!isUser && (
@@ -423,7 +427,15 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                     }}>
                       {msg.content}
                     </div>
-                    <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, textAlign: isUser ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
+                    {prevUserMsg && (
+                      <button
+                        onClick={() => setAiInput(prevUserMsg.content)}
+                        style={{ marginTop: 4, paddingLeft: 4, background: "none", border: "none", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}
+                      >
+                        ↻ retry
+                      </button>
+                    )}
+                    <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, textAlign: isUser ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
                   </div>
                 </div>
               );
