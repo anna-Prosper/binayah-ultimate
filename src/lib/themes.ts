@@ -20,11 +20,11 @@ export const mkTheme = (id: string, isDark: boolean) => {
       accent: d?"#00e5a0":"#088a5a", accent2: d?"#00b4d8":"#0080a0", green: d?"#00ff88":"#0a9956", amber: d?"#d4c44a":"#8a7800", red: d?"#ff6b6b":"#cc4444", purple: d?"#00b4d8":"#0080a0", cyan: d?"#00d4ff":"#0088bb", orange: d?"#e0a050":"#a05a10",
       name: "The Lab", icon: "🧪", sub: "// experimental builds in progress"
     },
-    engine: {
-      bg: d?"#0a0808":"#f8f4f0", bgCard: d?"#141010":"#fff", bgHover: d?"#1a1414":"#faf6f2", bgSoft: d?"#100c0c":"#f0ece6",
-      border: d?"#382420":"#c4b0a0", text: d?"#fff0e8":"#1a1008", textSec: d?"#e0c0a8":"#3a2018", textMuted: d?"#9a7a68":"#6a4830", textDim: d?"#806858":"#9a7860", surface: d?"#100c0c":"#e8e0d8",
-      accent: d?"#ff6b35":"#c44d1a", accent2: d?"#ffcc00":"#a67c00", green: d?"#90d060":"#4a8a20", amber: d?"#ffcc00":"#a67c00", red: d?"#ff4444":"#cc2222", purple: d?"#d08040":"#9a5a20", cyan: d?"#ffd060":"#a07800", orange: d?"#ff6b35":"#c44d1a",
-      name: "Engine Room", icon: "⚙️", sub: "// we are the machine"
+    phosphor: {
+      bg: d?"#0a0700":"#fdf6e3", bgCard: d?"#14100a":"#fffaee", bgHover: d?"#1a1408":"#f6efd2", bgSoft: d?"#100b04":"#f0e8cc",
+      border: d?"#3a2a08":"#d4c088", text: d?"#ffcc60":"#2a2008", textSec: d?"#ffb840":"#3e2f00", textMuted: d?"#aa8030":"#6a5018", textDim: d?"#806020":"#8a6a30", surface: d?"#100b04":"#e8dfc0",
+      accent: d?"#ffb000":"#a07800", accent2: d?"#ff8800":"#a05a10", green: d?"#aaff40":"#5a8a00", amber: d?"#ffcc00":"#a07800", red: d?"#ff5050":"#cc2222", purple: d?"#cc88ff":"#7c3aed", cyan: d?"#88ddff":"#0888bb", orange: d?"#ff8800":"#c44d1a",
+      name: "Phosphor", icon: "📟", sub: "// burn the shell"
     },
     nerve: {
       bg: d?"#06060c":"#f4f6fa", bgCard: d?"#0c0c18":"#fff", bgHover: d?"#101020":"#f6f8fc", bgSoft: d?"#0a0a14":"#eef0f6",
@@ -52,7 +52,7 @@ export type T = any;
 export const THEME_OPTIONS = [
   {id:"warroom",name:"War Room",icon:"🎯",desc:"Dark ops. Neon purple. Command center.",color:"#bf5af2",bg:"#08050f"},
   {id:"lab",name:"The Lab",icon:"🧪",desc:"Bio-tech greens. Clinical but alive.",color:"#00e5a0",bg:"#050a0a"},
-  {id:"engine",name:"Engine Room",icon:"⚙️",desc:"Industrial heat. Orange sparks. Raw power.",color:"#ff6b35",bg:"#0a0808"},
+  {id:"phosphor",name:"Phosphor",icon:"📟",desc:"CRT amber. Burn-in glow. Mainframe ghosts.",color:"#ffb000",bg:"#0a0700"},
   {id:"nerve",name:"Nerve Center",icon:"🧠",desc:"Deep navy. Neural calm. Everything connected.",color:"#5b8cf8",bg:"#06060c"},
 ];
 

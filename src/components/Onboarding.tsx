@@ -73,7 +73,7 @@ export const FloatingBg = ({ colors, themeStyle }: { colors: string[]; themeStyl
   const shapesMap: Record<string, any> = {
     warroom: { grid: true, scanline: true, rings: true, particles: "dots", cornerGlow: ["#bf5af2", "#ff2d78"] },
     lab: { grid: false, scanline: false, rings: false, particles: "hexagons", cornerGlow: ["#00e5a0", "#00b4d8"], dna: true },
-    engine: { grid: true, scanline: true, rings: false, particles: "sparks", cornerGlow: ["#ff6b35", "#ffcc00"], gears: true },
+    phosphor: { grid: true, scanline: true, rings: false, particles: "dots", cornerGlow: ["#ffb000", "#ff8800"] },
     nerve: { grid: false, scanline: false, rings: true, particles: "neurons", cornerGlow: ["#5b8cf8", "#a78bfa"], waves: true },
   };
   const shapes = shapesMap[themeStyle || "warroom"] || shapesMap.warroom;
@@ -572,7 +572,7 @@ function CelebStep({
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 24px ${sessionUser.color}33`; }}
         >
           <span style={{ position: "relative", zIndex: 1 }}>
-            {t.themeId === "warroom" ? "enter the war room →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "engine" ? "start the engine →" : "enter the nerve center →"}
+            {t.themeId === "warroom" ? "enter the war room →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "phosphor" ? "boot the terminal →" : "enter the nerve center →"}
           </span>
           <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
         </button>

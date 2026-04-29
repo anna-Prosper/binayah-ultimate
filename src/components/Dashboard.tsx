@@ -51,7 +51,10 @@ function DashboardShell({ initialUserId }: { initialUserId?: string }) {
     if (!localStorage.getItem("binayah_themeV2")) return true;
     return lsGet("isDark", true);
   });
-  const [themeId, setThemeId] = useState(() => lsGet("themeId", "warroom"));
+  const [themeId, setThemeId] = useState<string>(() => {
+    const stored = lsGet<string>("themeId", "warroom");
+    return stored === "engine" ? "phosphor" : stored; // migrate retired theme
+  });
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>(() => lsGet("currentWorkspaceId", "war-room"));
   const { toasts, showToast, dismissToast } = useToasts();
 
