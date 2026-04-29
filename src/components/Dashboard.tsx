@@ -146,20 +146,31 @@ function DashboardInner({
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
 
-  // "While you were away" digest: check on mount, update on unmount
+  // "While you were away" digest: check on mount, heartbeat while active, persist on unmount
   useEffect(() => {
     if (typeof window === "undefined" || !currentUser || activityLog.length === 0) return;
     const lsKey = `binayah_lastSession_${currentUser}`;
     const raw = localStorage.getItem(lsKey);
-    const last = raw ? parseInt(raw, 10) : 0;
-    setDigestLastSession(last);
+    const parsed = raw ? parseInt(raw, 10) : NaN;
+    const last = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-    if (!raw || Date.now() - last > TWELVE_HOURS) {
+    // Only open digest when we have a *real* prior timestamp AND it's been >12h.
+    // First-time-on-this-device users have nothing to summarize — skip silently.
+    if (last !== null && Date.now() - last > TWELVE_HOURS) {
+      setDigestLastSession(last);
       setShowDigest(true);
     }
+    // Heartbeat — write current time every 60s so closing the tab unexpectedly
+    // (force quit, crash, Safari ITP) still leaves a recent marker.
+    const writeNow = () => { try { localStorage.setItem(lsKey, String(Date.now())); } catch { /* quota */ } };
+    writeNow();
+    const interval = setInterval(writeNow, 60_000);
+    const onBeforeUnload = () => writeNow();
+    window.addEventListener("beforeunload", onBeforeUnload);
     return () => {
-      // Always write on unmount so a quick refresh doesn't trigger digest
-      try { localStorage.setItem(lsKey, String(Date.now())); } catch { /* quota */ }
+      clearInterval(interval);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      writeNow();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);

@@ -16,7 +16,12 @@ interface WhileAwayDigestProps {
 }
 
 function relativeTime(ms: number): string {
+  // Guard against missing/zero/garbage timestamps (would otherwise render
+  // "20572d ago" — i.e., epoch → now).
+  if (!ms || !Number.isFinite(ms) || ms <= 0) return "recently";
   const diff = Date.now() - ms;
+  if (diff < 60_000) return "just now";
+  if (diff > 365 * 86400000) return "a while ago"; // anything >1y is almost certainly junk
   const mins = Math.floor(diff / 60000);
   if (mins < 60) return `${mins}m ago`;
   const hours = Math.floor(diff / 3600000);
