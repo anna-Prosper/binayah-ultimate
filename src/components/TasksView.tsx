@@ -793,7 +793,7 @@ function TaskCard({
             setEditingStage?.(null);
           }
         }}
-        showEditButton={isHovered || editOpen || editingStage === task.stageId}
+        showEditButton={true}
         showEditInput={editOpen || editingStage === task.stageId}
       />
 
@@ -828,9 +828,18 @@ function SubtaskCard({
   onToggle: () => void;
 } & SharedCardProps & { handleClaim?: (sid: string) => void; claims?: Record<string, string[]> }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editVal, setEditVal] = useState("");
+  const { renameSubtask } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const key = SubtaskKey.make(stageId, taskSub.id);
+
+  const commitEdit = () => {
+    const trimmed = editVal.trim();
+    if (trimmed && trimmed !== taskSub.text) renameSubtask(stageId, taskSub.id, trimmed);
+    setEditOpen(false);
+  };
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
   const showReactPicker = reactOpen === key;
@@ -866,8 +875,20 @@ function SubtaskCard({
       {/* Top row — identical structure to TaskCard */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3 }}>
-            <span style={{ color: pipelineColor, marginRight: 4 }}>⤷</span>{taskSub.text}
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4 }}>
+            <span style={{ color: pipelineColor }}>⤷</span>
+            {editOpen
+              ? <input
+                  autoFocus
+                  value={editVal}
+                  onChange={e => setEditVal(e.target.value)}
+                  onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditOpen(false); }}
+                  onBlur={commitEdit}
+                  onClick={e => e.stopPropagation()}
+                  style={{ flex: 1, fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", fontFamily: "inherit" }}
+                />
+              : <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</span>
+            }
           </div>
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {pipelineIcon} {parentStageName}
@@ -917,7 +938,9 @@ function SubtaskCard({
         onEmoji={emoji => { handleReact(key, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
-        showEditButton={isHovered}
+        showEditButton={true}
+        showEditInput={editOpen}
+        onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
       />
 
       {showCommentPopover && (
@@ -1084,7 +1107,7 @@ function SubtaskKanbanCard({
           onEmoji={emoji => { handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
-          showEditButton={isHovered || editOpen}
+          showEditButton={true}
           showEditInput={editOpen}
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
