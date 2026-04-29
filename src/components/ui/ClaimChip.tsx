@@ -16,7 +16,7 @@ interface ClaimChipProps {
 export default function ClaimChip({ claimed, pipelineColor, t, onClaim, variant = "stage", small = false, pulse = false }: ClaimChipProps) {
   const label = claimed
     ? "✓ mine"
-    : variant === "subtask" ? "+ take" : "+ claim";
+    : "+ claim";
 
   const isSubtask = variant === "subtask";
   const style: React.CSSProperties = {
