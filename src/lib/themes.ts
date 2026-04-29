@@ -20,11 +20,12 @@ export const mkTheme = (id: string, isDark: boolean) => {
       accent: d?"#00e5a0":"#088a5a", accent2: d?"#00b4d8":"#0080a0", green: d?"#00ff88":"#0a9956", amber: d?"#d4c44a":"#8a7800", red: d?"#ff6b6b":"#cc4444", purple: d?"#00b4d8":"#0080a0", cyan: d?"#00d4ff":"#0088bb", orange: d?"#e0a050":"#a05a10",
       name: "The Lab", icon: "🧪", sub: "// experimental builds in progress"
     },
-    phosphor: {
-      bg: d?"#0a0700":"#fdf6e3", bgCard: d?"#14100a":"#fffaee", bgHover: d?"#1a1408":"#f6efd2", bgSoft: d?"#100b04":"#f0e8cc",
-      border: d?"#3a2a08":"#d4c088", text: d?"#ffcc60":"#2a2008", textSec: d?"#ffb840":"#3e2f00", textMuted: d?"#aa8030":"#6a5018", textDim: d?"#806020":"#8a6a30", surface: d?"#100b04":"#e8dfc0",
-      accent: d?"#ffb000":"#a07800", accent2: d?"#ff8800":"#a05a10", green: d?"#aaff40":"#5a8a00", amber: d?"#ffcc00":"#a07800", red: d?"#ff5050":"#cc2222", purple: d?"#cc88ff":"#7c3aed", cyan: d?"#88ddff":"#0888bb", orange: d?"#ff8800":"#c44d1a",
-      name: "Phosphor", icon: "📟", sub: "// burn the shell"
+    matrix: {
+      bg: d?"#000000":"#f0fdf4", bgCard: d?"#0a140a":"#fff", bgHover: d?"#0e1a0c":"#e6fae8", bgSoft: d?"#050b03":"#dcf5e0",
+      border: d?"#1a3a18":"#a8d8b0", text: d?"#00ff41":"#063a10", textSec: d?"#22ee55":"#0a6028", textMuted: d?"#558844":"#3a8050", textDim: d?"#3a6a30":"#608a70", surface: d?"#050b03":"#dcf0e0",
+      accent: d?"#00ff41":"#0a8030", accent2: d?"#88ff88":"#2a9050",
+      green: d?"#00ff41":"#0a8030", amber: d?"#ccff66":"#7a9520", red: d?"#ff4060":"#cc2222", purple: d?"#44dd66":"#2a8040", cyan: d?"#66ffaa":"#108050", orange: d?"#ddff44":"#5a8a00",
+      name: "The Matrix", icon: "💊", sub: "// follow the white rabbit"
     },
     nerve: {
       bg: d?"#06060c":"#f4f6fa", bgCard: d?"#0c0c18":"#fff", bgHover: d?"#101020":"#f6f8fc", bgSoft: d?"#0a0a14":"#eef0f6",
@@ -52,7 +53,7 @@ export type T = any;
 export const THEME_OPTIONS = [
   {id:"warroom",name:"War Room",icon:"🎯",desc:"Dark ops. Neon purple. Command center.",color:"#bf5af2",bg:"#08050f"},
   {id:"lab",name:"The Lab",icon:"🧪",desc:"Bio-tech greens. Clinical but alive.",color:"#00e5a0",bg:"#050a0a"},
-  {id:"phosphor",name:"Phosphor",icon:"📟",desc:"CRT amber. Burn-in glow. Mainframe ghosts.",color:"#ffb000",bg:"#0a0700"},
+  {id:"matrix",name:"The Matrix",icon:"💊",desc:"Pixel-green on black. Neo's terminal.",color:"#00ff41",bg:"#000000"},
   {id:"nerve",name:"Nerve Center",icon:"🧠",desc:"Deep navy. Neural calm. Everything connected.",color:"#5b8cf8",bg:"#06060c"},
 ];
 

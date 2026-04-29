@@ -53,7 +53,8 @@ function DashboardShell({ initialUserId }: { initialUserId?: string }) {
   });
   const [themeId, setThemeId] = useState<string>(() => {
     const stored = lsGet<string>("themeId", "warroom");
-    return stored === "engine" ? "phosphor" : stored; // migrate retired theme
+    if (stored === "engine" || stored === "phosphor") return "matrix"; // migrate retired themes
+    return stored;
   });
   const [currentWorkspaceId, setCurrentWorkspaceId] = useState<string>(() => lsGet("currentWorkspaceId", "war-room"));
   const { toasts, showToast, dismissToast } = useToasts();
