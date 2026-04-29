@@ -50,7 +50,8 @@ function StageSubtaskCard({
   const {
     users, currentUser, reactions, comments, claims, assignments,
     handleClaim, handleReact, addComment, assignTask, renameSubtask, setSubtaskPoints,
-    toggleSubtask, approvedSubtasks, approveSubtask, workspaces,
+    approvedSubtasks, approveSubtask, workspaces,
+    getSubtaskStatus, cycleSubtaskStatus, sc,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
   const key = SubtaskKey.make(stageId, task.id);
@@ -95,10 +96,12 @@ function StageSubtaskCard({
   const assigneeIds = assignments[key] || [];
   const assigneeList = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as Array<NonNullable<ReturnType<typeof users.find>>>;
   const points = task.points ?? DEFAULT_SUBTASK_POINTS;
-  // Approval state — mirrors the stage TaskCard flow
+  // Approval + status — mirrors the stage TaskCard flow
   const isApproved = approvedSubtasks.includes(key);
   const isPending = task.done && !isApproved;
   const canApprove = currentUser ? workspaces.some(w => w.captains.includes(currentUser) || w.firstMates.includes(currentUser)) : false;
+  const subStatus = getSubtaskStatus(key);
+  const stPill = sc[subStatus] ?? { l: subStatus, c: t.textMuted };
 
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
@@ -138,12 +141,12 @@ function StageSubtaskCard({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
-          {!task.done && currentUser && (
-            <button
-              onClick={e => { e.stopPropagation(); toggleSubtask(stageId, task.id); }}
-              style={{ background: pC + "15", border: `1px solid ${pC}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}
-              title="Mark done — needs captain approval to award points"
-            >✓ done</button>
+          {!task.done && (
+            <span
+              onClick={e => { e.stopPropagation(); cycleSubtaskStatus(key); }}
+              style={{ fontSize: 10, fontWeight: 700, color: stPill.c, background: stPill.c + "15", padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+              title={`Status: ${stPill.l} · click to cycle (concept → planned → in-progress → live → blocked)`}
+            >{stPill.l}</span>
           )}
           {isPending && canApprove && (
             <button

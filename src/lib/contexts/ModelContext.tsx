@@ -126,6 +126,8 @@ interface ModelContextValue {
   setStageDescOverride: (name: string, val: string) => void;
   setStageNameOverride: (name: string, val: string) => void;
   setSubtaskStage: (key: string, status: string) => void;
+  getSubtaskStatus: (key: string) => string;
+  cycleSubtaskStatus: (key: string) => void;
   assignTask: (sid: string, userId: string | null) => void;
   setStageStatusDirect: (name: string, status: string) => void;
   cycleStatus: (name: string) => void;
@@ -906,7 +908,42 @@ export function ModelProvider({
       return next;
     });
   };
-  const setSubtaskStage = (key: string, status: string) => { markLocalWrite("subtaskStages"); setSubtaskStages(prev => ({ ...prev, [key]: status })); };
+  // Couples subtask kanban status with sub.done + approval:
+  //   - Setting status to "active" marks sub.done = true (entering pending state).
+  //   - Moving away from "active" clears sub.done AND any prior approval.
+  const setSubtaskStage = (key: string, status: string) => {
+    const parsed = SubtaskKey.isValid(key)
+      ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])
+      : null;
+    const prevStatus = subtaskStages[key] || "planned";
+    markLocalWrite("subtaskStages");
+    setSubtaskStages(prev => ({ ...prev, [key]: status }));
+    if (parsed && prevStatus !== status) {
+      const becameActive = status === "active";
+      const leftActive = prevStatus === "active" && status !== "active";
+      if (becameActive || leftActive) {
+        markLocalWrite("subtasks");
+        setSubtasks(prev => ({
+          ...prev,
+          [parsed.parentStageId]: (prev[parsed.parentStageId] || []).map(s =>
+            s.id === parsed.subtaskId ? { ...s, done: becameActive } : s
+          ),
+        }));
+        if (leftActive && approvedSubtasks.includes(key)) {
+          setApprovedSubtasks(prev => prev.filter(k => k !== key));
+        }
+      }
+    }
+  };
+
+  const getSubtaskStatus = useCallback((key: string) => subtaskStages[key] || "planned", [subtaskStages]);
+
+  const cycleSubtaskStatus = (key: string) => {
+    const cur = subtaskStages[key] || "planned";
+    const idx = STATUS_ORDER.indexOf(cur);
+    const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
+    setSubtaskStage(key, next);
+  };
 
   const setStageStatusDirect = (name: string, status: string) => {
     markLocalWrite("stageStatusOverrides");
@@ -1138,7 +1175,7 @@ export function ModelProvider({
     handleClaim, handleReact, addComment, addSubtask, toggleSubtask, renameSubtask,
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
-    setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask,
+    setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
     setStageStatusDirect, cycleStatus, approveStage, approveSubtask,
     addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,

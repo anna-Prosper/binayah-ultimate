@@ -173,7 +173,6 @@ export default function TasksView(props: Props) {
       // Only include subtasks whose parent stage is in a visible pipeline
       if (!visibleStageIds.has(parentStageId)) continue;
       for (const sub of subtaskList) {
-        if (sub.done) continue;
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
         let parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
@@ -228,14 +227,8 @@ export default function TasksView(props: Props) {
     if (stageId && getStatus(stageId) !== targetStatus) {
       setStageStatus(stageId, targetStatus);
     } else if (subtaskKey && setSubtaskStage) {
+      // setSubtaskStage couples sub.done with status === "active" automatically
       setSubtaskStage(subtaskKey, targetStatus);
-      // Auto-mark subtask as done when dragged to done column
-      if (targetStatus === "active") {
-        const parsed = SubtaskKey.isValid(subtaskKey) ? SubtaskKey.parse(subtaskKey as Parameters<typeof SubtaskKey.parse>[0]) : null;
-        const parentStageId = parsed?.parentStageId ?? "";
-        const subtaskId = parsed?.subtaskId ?? NaN;
-        if (!isNaN(subtaskId)) toggleSubtask(parentStageId, subtaskId);
-      }
     }
   };
 
