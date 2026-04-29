@@ -409,7 +409,7 @@ export default function TasksView(props: Props) {
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onDone={() => { const p = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]); if (p) toggleSubtask(sub.parentStageId, p.subtaskId); }} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
                   {newTaskCol === col.status ? (
@@ -938,14 +938,14 @@ function SubtaskCard({
 // ─── Subtask as first-class kanban item ──────────────────────────────────────
 
 function SubtaskKanbanCard({
-  sub, onDone, onRename, onDragSubtaskStart, onDragSubtaskEnd,
+  sub, onRename, onDragSubtaskStart, onDragSubtaskEnd,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
   isAdmin,
 }: {
-  sub: SubtaskKanbanTask; isMine: boolean; onDone: () => void; onRename?: (taskId: number, text: string) => void;
+  sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
   const { handleClaim, claims, approvedSubtasks, approveSubtask } = useModel();
@@ -1033,11 +1033,6 @@ function SubtaskKanbanCard({
               return (
                 <>
                   {subClaimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
-                  {!sub.done && currentUser && (
-                    <button onClick={e => { e.stopPropagation(); onDone(); }} style={btn(sub.pipelineColor, sub.pipelineColor + "18", sub.pipelineColor + "55")} title="Mark done — needs captain approval to award points">
-                      ✓ done
-                    </button>
-                  )}
                   {isPending && isAdmin && (
                     <button onClick={e => { e.stopPropagation(); approveSubtask(sub.key); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
                       ✓ approve
@@ -1049,7 +1044,8 @@ function SubtaskKanbanCard({
                   {isApproved && (
                     <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
                   )}
-                  {currentUser && !sub.done && !isApproved && (
+                  {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin) or already approved */}
+                  {currentUser && !(isPending && isAdmin) && !isApproved && (
                     <ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small />
                   )}
                 </>

@@ -141,13 +141,12 @@ function StageSubtaskCard({
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
-          {!task.done && (
-            <span
-              onClick={e => { e.stopPropagation(); cycleSubtaskStatus(key); }}
-              style={{ fontSize: 10, fontWeight: 700, color: stPill.c, background: stPill.c + "15", padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
-              title={`Status: ${stPill.l} · click to cycle (concept → planned → in-progress → live → blocked)`}
-            >{stPill.l}</span>
-          )}
+          {/* Status pill — always visible so user can cycle back from "live" too. Mirrors stage TaskCard pill. */}
+          <span
+            onClick={e => { e.stopPropagation(); cycleSubtaskStatus(key); }}
+            style={{ fontSize: 10, fontWeight: 700, color: stPill.c, background: stPill.c + "15", padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+            title={`Status: ${stPill.l} · click to cycle (concept → planned → in-progress → live → blocked)`}
+          >{stPill.l}</span>
           {isPending && canApprove && (
             <button
               onClick={e => { e.stopPropagation(); approveSubtask(key); }}
@@ -161,7 +160,8 @@ function StageSubtaskCard({
           {isApproved && (
             <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
           )}
-          {currentUser && !task.done && !isApproved && (
+          {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin shows approve) or already approved */}
+          {currentUser && !(isPending && canApprove) && !isApproved && (
             <ClaimChip claimed={isClaimed} pipelineColor={pC} t={t} onClaim={() => handleClaim(key)} variant="subtask" small />
           )}
         </div>
