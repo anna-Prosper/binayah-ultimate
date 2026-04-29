@@ -321,21 +321,26 @@ export function ModelProvider({
     setWorkspaces(prev => prev.map(w => w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Self-heal: ensure ADMIN_IDS users (Anna) are always captains of the default workspace.
-  // If state was synced from a server doc that lost the captain, this re-establishes it.
+  // Self-heal: ADMIN_IDS users (Anna) are super-admins — always captains of EVERY workspace.
+  // If state was synced from a server doc that lost the captaincy, or a new workspace was
+  // created without them, this re-establishes it.
   useEffect(() => {
     if (typeof window === "undefined") return;
-    setWorkspaces(prev => prev.map(w => {
-      if (w.id !== DEFAULT_WORKSPACE_ID) return w;
-      const missing = ADMIN_IDS.filter(uid => !w.captains.includes(uid));
-      if (missing.length === 0) return w;
-      markLocalWrite("workspaces");
-      return {
-        ...w,
-        captains: [...w.captains, ...missing],
-        members: Array.from(new Set([...w.members, ...missing])),
-      };
-    }));
+    setWorkspaces(prev => {
+      let changed = false;
+      const next = prev.map(w => {
+        const missing = ADMIN_IDS.filter(uid => !w.captains.includes(uid));
+        if (missing.length === 0) return w;
+        changed = true;
+        return {
+          ...w,
+          captains: [...w.captains, ...missing],
+          members: Array.from(new Set([...w.members, ...missing])),
+        };
+      });
+      if (changed) markLocalWrite("workspaces");
+      return changed ? next : prev;
+    });
   }, [workspaces.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Notification sound ────────────────────────────────────────────────────
@@ -577,6 +582,7 @@ export function ModelProvider({
   // ── isOfficerOfWorkspace ──────────────────────────────────────────────────
   const isOfficerOfWorkspace = useCallback((workspaceId: string) => {
     if (!currentUser) return false;
+    if (ADMIN_IDS.includes(currentUser)) return true;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return false;
     return ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
