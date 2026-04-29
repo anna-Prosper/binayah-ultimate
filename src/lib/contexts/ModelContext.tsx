@@ -152,7 +152,7 @@ interface ModelContextValue {
   createWorkspace: (name: string, icon: string, colorKey: string) => void;
   addMemberToWorkspace: (workspaceId: string, userId: string) => void;
   removeMemberFromWorkspace: (workspaceId: string, userId: string) => void;
-  setMemberRank: (workspaceId: string, userId: string, rank: "captain" | "firstMate" | "crew") => void;
+  setMemberRank: (workspaceId: string, userId: string, rank: "operator" | "agent") => void;
   deleteWorkspace: (workspaceId: string) => void;
   isOfficerOfWorkspace: (workspaceId: string) => boolean;
 
@@ -311,7 +311,7 @@ export function ModelProvider({
     const allIds = [...pipelineData.map(p => p.id), ...customPipelines.map(p => p.id)];
     const warRoom: Workspace = {
       id: DEFAULT_WORKSPACE_ID, name: "Binayah AI", icon: "🤖", colorKey: "purple",
-      members: USERS_DEFAULT.map(u => u.id), captains: [...ADMIN_IDS], firstMates: [], pipelineIds: allIds,
+      members: USERS_DEFAULT.map(u => u.id), captains: [...ADMIN_IDS], pipelineIds: allIds,
     };
     setWorkspaces([warRoom]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -321,20 +321,27 @@ export function ModelProvider({
     setWorkspaces(prev => prev.map(w => w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Self-heal: ADMIN_IDS users (Anna) are super-admins — always captains of EVERY workspace.
-  // If state was synced from a server doc that lost the captaincy, or a new workspace was
-  // created without them, this re-establishes it.
+  // Self-heal + legacy migration:
+  //   1. Drop the obsolete `firstMates` rank — merge any holdouts into `captains` (operators).
+  //   2. ADMIN_IDS (root) is auto-operator of every workspace, even after a server sync clears it.
   useEffect(() => {
     if (typeof window === "undefined") return;
     setWorkspaces(prev => {
       let changed = false;
       const next = prev.map(w => {
-        const missing = ADMIN_IDS.filter(uid => !w.captains.includes(uid));
-        if (missing.length === 0) return w;
+        const legacy = (w as unknown as { firstMates?: string[] }).firstMates;
+        const hasLegacy = Array.isArray(legacy) && legacy.length > 0;
+        const captainsAfterMerge = hasLegacy
+          ? Array.from(new Set([...w.captains, ...legacy!]))
+          : w.captains;
+        const missing = ADMIN_IDS.filter(uid => !captainsAfterMerge.includes(uid));
+        if (!hasLegacy && missing.length === 0 && !("firstMates" in w)) return w;
         changed = true;
+        const { ...rest } = w as Workspace & { firstMates?: string[] };
+        delete (rest as { firstMates?: string[] }).firstMates;
         return {
-          ...w,
-          captains: [...w.captains, ...missing],
+          ...rest,
+          captains: [...captainsAfterMerge, ...missing],
           members: Array.from(new Set([...w.members, ...missing])),
         };
       });
@@ -585,7 +592,7 @@ export function ModelProvider({
     if (ADMIN_IDS.includes(currentUser)) return true;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return false;
-    return ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
+    return ws.captains.includes(currentUser);
   }, [workspaces, currentUser]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -968,8 +975,8 @@ export function ModelProvider({
 
   const approveStage = (name: string) => {
     const ws = workspaces.find(w => w.id === currentWorkspaceId);
-    if (!currentUser || !ws || !(ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser))) {
-      showToast("// only captain or first mate can approve", t.amber); return;
+    if (!currentUser || !ws || !(ws.captains.includes(currentUser) || ADMIN_IDS.includes(currentUser))) {
+      showToast("// only an operator can approve", t.amber); return;
     }
     if (approvedStages.includes(name)) return;
     setApprovedStages(prev => [...prev, name]);
@@ -978,8 +985,8 @@ export function ModelProvider({
 
   const approveSubtask = (key: string) => {
     const ws = workspaces.find(w => w.id === currentWorkspaceId);
-    if (!currentUser || !ws || !(ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser))) {
-      showToast("// only captain or first mate can approve", t.amber); return;
+    if (!currentUser || !ws || !(ws.captains.includes(currentUser) || ADMIN_IDS.includes(currentUser))) {
+      showToast("// only an operator can approve", t.amber); return;
     }
     if (approvedSubtasks.includes(key)) return;
     setApprovedSubtasks(prev => [...prev, key]);
@@ -1110,11 +1117,11 @@ export function ModelProvider({
   // ── Workspace handlers ────────────────────────────────────────────────────
   const createWorkspace = (name: string, icon: string, colorKey: string) => {
     if (!currentUser) return;
-    if (!workspaces.some(w => w.captains.includes(currentUser))) { showToast("// only a captain can create a workspace", t.amber); return; }
+    if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can create a workspace", t.amber); return; }
     const trimmed = name.trim();
     if (!trimmed) { showToast("// workspace needs a name", t.amber); return; }
     const id = `ws-${Date.now()}`;
-    setWorkspaces(prev => [...prev, { id, name: trimmed, icon: icon || "🏴", colorKey: colorKey || "purple", members: [currentUser], captains: [currentUser], firstMates: [], pipelineIds: [] }]);
+    setWorkspaces(prev => [...prev, { id, name: trimmed, icon: icon || "🏴", colorKey: colorKey || "purple", members: [currentUser], captains: [currentUser], pipelineIds: [] }]);
     showToast(`// workspace "${trimmed}" created`, t.green);
     logActivity("claim", id, `created workspace ${trimmed}`);
   };
@@ -1123,7 +1130,7 @@ export function ModelProvider({
     if (!currentUser) return;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return;
-    if (!ws.captains.includes(currentUser) && !ws.firstMates.includes(currentUser)) { showToast("// only captain/first mate can manage members", t.amber); return; }
+    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", t.amber); return; }
     if (ws.members.includes(userId)) return;
     setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: [...w.members, userId] } : w));
   };
@@ -1132,24 +1139,22 @@ export function ModelProvider({
     if (!currentUser) return;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return;
-    if (!ws.captains.includes(currentUser) && !ws.firstMates.includes(currentUser)) { showToast("// only captain/first mate can manage members", t.amber); return; }
-    if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only captain", t.red); return; }
-    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: w.members.filter(id => id !== userId), captains: w.captains.filter(id => id !== userId), firstMates: w.firstMates.filter(id => id !== userId) } : w));
+    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", t.amber); return; }
+    if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only operator", t.red); return; }
+    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: w.members.filter(id => id !== userId), captains: w.captains.filter(id => id !== userId) } : w));
   };
 
-  const setMemberRank = (workspaceId: string, userId: string, rank: "captain" | "firstMate" | "crew") => {
+  const setMemberRank = (workspaceId: string, userId: string, rank: "operator" | "agent") => {
     if (!currentUser) return;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return;
-    if (!ws.captains.includes(currentUser)) { showToast("// only a captain can change ranks", t.amber); return; }
-    if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "captain") { showToast("// can't demote the only captain", t.red); return; }
+    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can change ranks", t.amber); return; }
+    if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "operator") { showToast("// can't demote the only operator", t.red); return; }
     setWorkspaces(prev => prev.map(w => {
       if (w.id !== workspaceId) return w;
       const captains = w.captains.filter(id => id !== userId);
-      const firstMates = w.firstMates.filter(id => id !== userId);
-      if (rank === "captain") captains.push(userId);
-      if (rank === "firstMate") firstMates.push(userId);
-      return { ...w, captains, firstMates, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
+      if (rank === "operator") captains.push(userId);
+      return { ...w, captains, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
     }));
   };
 
@@ -1157,7 +1162,7 @@ export function ModelProvider({
     if (!currentUser) return;
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return;
-    if (!ws.captains.includes(currentUser)) { showToast("// only a captain can delete", t.amber); return; }
+    if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can delete a workspace", t.amber); return; }
     if (workspaces.length === 1) { showToast("// can't delete your last workspace", t.red); return; }
     setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
     showToast(`// workspace "${ws.name}" deleted`, t.amber);
@@ -1244,17 +1249,17 @@ export function useModel() {
 
 /**
  * Returns the current user's role in the given workspace.
- * "captain" | "firstMate" | "crew" | null (null = not a member)
+ * "root" | "operator" | "agent" | null (null = not a member)
  */
-export function useRole(workspaceId?: string): "captain" | "firstMate" | "crew" | null {
+export function useRole(workspaceId?: string): "root" | "operator" | "agent" | null {
   const { workspaces, currentUser } = useModel();
   return useMemo(() => {
     if (!workspaceId || !currentUser) return null;
+    if (ADMIN_IDS.includes(currentUser)) return "root";
     const ws = workspaces.find(w => w.id === workspaceId);
     if (!ws) return null;
-    if (ws.captains.includes(currentUser)) return "captain";
-    if (ws.firstMates.includes(currentUser)) return "firstMate";
-    if (ws.members.includes(currentUser)) return "crew";
+    if (ws.captains.includes(currentUser)) return "operator";
+    if (ws.members.includes(currentUser)) return "agent";
     return null;
   }, [workspaceId, workspaces, currentUser]);
 }

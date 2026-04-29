@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, USERS_DEFAULT } from "@/lib/data";
+import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, USERS_DEFAULT, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Chev } from "@/components/ui/primitives";
 import ClaimChip from "@/components/ui/ClaimChip";
@@ -99,7 +99,7 @@ function StageSubtaskCard({
   // Approval + status — mirrors the stage TaskCard flow
   const isApproved = approvedSubtasks.includes(key);
   const isPending = task.done && !isApproved;
-  const canApprove = currentUser ? workspaces.some(w => w.captains.includes(currentUser) || w.firstMates.includes(currentUser)) : false;
+  const canApprove = currentUser ? (ADMIN_IDS.includes(currentUser) || workspaces.some(w => w.captains.includes(currentUser))) : false;
   const subStatus = getSubtaskStatus(key);
   const stPill = sc[subStatus] ?? { l: subStatus, c: t.textMuted };
 
@@ -345,7 +345,7 @@ export default function Stage({
   const { workspaces } = useModel();
   const stageWorkspaceId = workspaces.find(w => w.pipelineIds.includes(pId))?.id;
   const role = useRole(stageWorkspaceId);
-  const canArchive = role === "captain" || role === "firstMate";
+  const canArchive = role === "operator" || role === "root";
   const { reactOpen, setReactOpen, copied, setCopied, claimAnim, setClaimAnim } = useEphemeral();
 
   const handleClaimWithAnim = (sid: string) => {

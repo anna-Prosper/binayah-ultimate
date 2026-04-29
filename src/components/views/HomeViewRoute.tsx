@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { MessageSquare, Bell } from "lucide-react";
 import type { NavItem } from "@/components/LeftSidebar";
 import { THEME_OPTIONS } from "@/lib/themes";
+import { ADMIN_IDS } from "@/lib/data";
 
 const HomeView = dynamic(() => import("@/components/HomeView"), { ssr: false });
 
@@ -52,7 +53,7 @@ export default function HomeViewRoute({
   } = useModel();
 
   const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser!) : true);
-  const isCaptainOfAny = !!currentUser && workspaces.some(w => w.captains.includes(currentUser!));
+  const isCaptainOfAny = !!currentUser && (ADMIN_IDS.includes(currentUser!) || workspaces.some(w => w.captains.includes(currentUser!)));
 
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
 

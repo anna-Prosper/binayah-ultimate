@@ -11,7 +11,7 @@ import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { KanbanSkeleton, OverviewSkeleton } from "@/components/ui/Skeletons";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import dynamic from "next/dynamic";
-import { REACTIONS } from "@/lib/data";
+import { REACTIONS, ADMIN_IDS } from "@/lib/data";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 const OverviewPanel = dynamic(() => import("@/components/OverviewPanel"), { ssr: false });
@@ -85,14 +85,14 @@ export default function PipelinesView({
   // Role in the current workspace (for pipeline edit gating)
   const roleInCurrentWs = useRole(currentWorkspaceId || undefined);
   const canEditPipeline = useCallback((pipelineId: string): boolean => {
+    if (currentUser && ADMIN_IDS.includes(currentUser)) return true;
     const wsId = getPipelineWorkspaceId(pipelineId);
     if (!wsId) {
-      // Fallback: if pipeline not in any workspace, use current workspace role
-      return roleInCurrentWs === "captain" || roleInCurrentWs === "firstMate";
+      return roleInCurrentWs === "operator" || roleInCurrentWs === "root";
     }
     const ws = workspaces.find(w => w.id === wsId);
     if (!ws || !currentUser) return false;
-    return ws.captains.includes(currentUser) || ws.firstMates.includes(currentUser);
+    return ws.captains.includes(currentUser);
   }, [getPipelineWorkspaceId, workspaces, currentUser, roleInCurrentWs]);
 
   // Click-outside + Escape handler for pipelineEditMode

@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { AvatarC } from "@/components/ui/Avatar";
 import NotificationPrefs from "@/components/NotificationPrefs";
+import { ADMIN_IDS } from "@/lib/data";
 
 interface TeamBarProps {
   ptsFlash: boolean;
@@ -18,11 +19,11 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
   const popupRef = useRef<HTMLDivElement>(null);
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
 
-  const userRankInCurrent = (uid: string): "captain" | "firstMate" | "crew" | null => {
+  const userRankInCurrent = (uid: string): "root" | "operator" | "agent" | null => {
+    if (ADMIN_IDS.includes(uid)) return "root";
     if (!currentWorkspace) return null;
-    if (currentWorkspace.captains.includes(uid)) return "captain";
-    if (currentWorkspace.firstMates.includes(uid)) return "firstMate";
-    if (currentWorkspace.members.includes(uid)) return "crew";
+    if (currentWorkspace.captains.includes(uid)) return "operator";
+    if (currentWorkspace.members.includes(uid)) return "agent";
     return null;
   };
 
@@ -39,8 +40,8 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
             <div onClick={e => { e.stopPropagation(); setViewingUser(viewingUser === u.id ? null : u.id); }} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", borderRadius: 12, padding: "4px 4px", margin: "-4px -6px" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
               <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                 <AvatarC user={u} size={26} />
-                {userRankInCurrent(u.id) === "captain" && <span style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>👑</span>}
-                {userRankInCurrent(u.id) === "firstMate" && <span style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>⚓</span>}
+                {userRankInCurrent(u.id) === "root" && <span title="root" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>🔑</span>}
+                {userRankInCurrent(u.id) === "operator" && <span title="operator" style={{ position: "absolute", bottom: -2, right: -4, fontSize: 13, filter: "drop-shadow(0 1px 2px rgba(0,0,0,0.4))" }}>⚡</span>}
               </div>
               <div>
                 <div style={{ fontSize: 11, fontWeight: isMe ? 900 : 800, color: isMe ? u.color : t.text }}>{u.name}</div>

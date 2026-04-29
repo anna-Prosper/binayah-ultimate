@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace } from "@/lib/data";
+import { type UserType, type Workspace, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 
 const ICON_OPTIONS = ["🏴‍☠️", "🏴", "⚡", "🔬", "🏗️", "💎", "🎯", "🚀", "🧠", "🔥", "📡", "🛸", "⚙️", "🧪", "🌐", "🤖"];
@@ -75,14 +75,24 @@ interface ManageProps extends BaseProps {
   currentUser: string;
   onAddMember: (userId: string) => void;
   onRemoveMember: (userId: string) => void;
-  onSetRank: (userId: string, rank: "captain" | "firstMate" | "crew") => void;
+  onSetRank: (userId: string, rank: "operator" | "agent") => void;
   onDelete: () => void;
 }
 
+type Rank = "root" | "operator" | "agent";
+
 export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMember, onRemoveMember, onSetRank, onDelete, onClose }: ManageProps) {
-  const amCaptain = workspace.captains.includes(currentUser);
-  const canManage = amCaptain || workspace.firstMates.includes(currentUser);
-  const rankOf = (uid: string) => workspace.captains.includes(uid) ? "captain" : workspace.firstMates.includes(uid) ? "firstMate" : "crew";
+  const amRoot = ADMIN_IDS.includes(currentUser);
+  const amOperator = workspace.captains.includes(currentUser) || amRoot;
+  const canManage = amOperator;
+  const rankOf = (uid: string): Rank =>
+    ADMIN_IDS.includes(uid) ? "root"
+    : workspace.captains.includes(uid) ? "operator"
+    : "agent";
+
+  const rankLabel = (r: Rank) => r === "root" ? "ROOT" : r === "operator" ? "OPERATOR" : "AGENT";
+  const rankIcon = (r: Rank) => r === "root" ? "🔑" : r === "operator" ? "⚡" : "👤";
+  const rankColor = (r: Rank) => r === "root" ? t.accent : r === "operator" ? t.amber : t.textDim;
   const memberIds = new Set(workspace.members);
   const nonMembers = users.filter(u => !memberIds.has(u.id));
 
@@ -107,7 +117,9 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
             if (!u) return null;
             const rank = rankOf(uid);
             const isMe = uid === currentUser;
-            const onlyCaptain = workspace.captains.length === 1 && workspace.captains[0] === uid;
+            const isRoot = rank === "root";
+            const onlyOperator = workspace.captains.length === 1 && workspace.captains[0] === uid;
+            const lockRank = isRoot || onlyOperator; // root rank is global, can't be edited per-workspace
             return (
               <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12 }}>
                 <AvatarC user={u} size={24} />
@@ -115,23 +127,21 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
                   <div style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name} {isMe && <span style={{ fontSize: 10, color: t.textDim }}>(you)</span>}</div>
                   <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>{u.role}</div>
                 </div>
-                {amCaptain ? (
+                {amOperator && !lockRank ? (
                   <select
                     value={rank}
-                    onChange={e => onSetRank(uid, e.target.value as "captain" | "firstMate" | "crew")}
-                    disabled={onlyCaptain}
-                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 4px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: onlyCaptain ? "not-allowed" : "pointer" }}
+                    onChange={e => onSetRank(uid, e.target.value as "operator" | "agent")}
+                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 4px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer" }}
                   >
-                    <option value="captain">👑 captain</option>
-                    <option value="firstMate">⚓ first mate</option>
-                    <option value="crew">🏴‍☠️ crew</option>
+                    <option value="operator">⚡ operator</option>
+                    <option value="agent">👤 agent</option>
                   </select>
                 ) : (
-                  <span style={{ fontSize: 10, color: rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: (rank === "captain" ? t.amber : rank === "firstMate" ? (t.cyan || t.accent) : t.textDim) + "18", padding: "0 4px", borderRadius: 8 }}>
-                    {rank === "captain" ? "CAPTAIN" : rank === "firstMate" ? "FIRST MATE" : "CREW"}
+                  <span style={{ fontSize: 10, color: rankColor(rank), fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: rankColor(rank) + "18", padding: "0 4px", borderRadius: 8 }}>
+                    {rankIcon(rank)} {rankLabel(rank)}
                   </span>
                 )}
-                {canManage && !onlyCaptain && (
+                {canManage && !lockRank && (
                   <button onClick={() => onRemoveMember(uid)} title="Remove from workspace" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>×</button>
                 )}
               </div>
@@ -169,7 +179,7 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
         </div>
       )}
 
-      {amCaptain && (
+      {amRoot && (
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>
           {!confirmDelete ? (
             <button onClick={() => setConfirmDelete(true)} style={{ background: "transparent", border: `1px solid ${t.red}55`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>🗑 delete workspace</button>

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace } from "@/lib/data";
+import { type UserType, type Workspace, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
@@ -260,7 +260,10 @@ export default function HomeView({
                         {wsTeamMembers.map((u) => {
                           const uPts = modelGetPoints(u.id);
                           const isMe = u.id === currentUser;
-                          const role = activeWs.captains.includes(u.id) ? "captain" : activeWs.firstMates.includes(u.id) ? "first mate" : null;
+                          const role: "root" | "operator" | null =
+                            ADMIN_IDS.includes(u.id) ? "root"
+                            : activeWs.captains.includes(u.id) ? "operator"
+                            : null;
                           return (
                             <div key={u.id} style={{ position: "relative" }}>
                               <button
@@ -276,7 +279,7 @@ export default function HomeView({
                                 <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                                   <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
                                     {u.name.split(" ")[0]}
-                                    {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }}>{role === "captain" ? "👑" : "⚓"}</span>}
+                                    {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }} title={role}>{role === "root" ? "🔑" : "⚡"}</span>}
                                   </div>
                                   <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
                                 </div>

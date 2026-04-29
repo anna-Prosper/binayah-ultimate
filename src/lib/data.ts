@@ -41,16 +41,15 @@ export const USERS_DEFAULT = [
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
-export const ADMIN_IDS = ["anna"]; // seed captain for migration; runtime ranks live in workspaces
+export const ADMIN_IDS = ["anna"]; // root (super-admin) — auto-operator of every workspace, only role allowed to create/delete workspaces
 
 export interface Workspace {
   id: string;
   name: string;
   icon: string;
   colorKey: string;
-  members: string[];    // user IDs who belong here (includes captains + first mates)
-  captains: string[];   // can create workspaces, add/remove members, promote, approve
-  firstMates: string[]; // can add/remove members and approve in this workspace
+  members: string[];    // user IDs who belong here (includes operators)
+  captains: string[];   // operators — approve, manage members, change ranks (legacy field name kept for state compat)
   pipelineIds: string[]; // which pipelines live in this workspace
 }
 
