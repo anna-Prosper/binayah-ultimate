@@ -36,7 +36,7 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
         const rank = [...users].sort((a, b) => getPoints(b.id) - getPoints(a.id)).findIndex(x => x.id === u.id) + 1;
         const rankEmoji = rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : `#${rank}`;
         return (
-          <div key={u.id} style={{ position: "relative" }}>
+          <div key={u.id} style={{ position: "relative", minWidth: 110 }}>
             <div onClick={e => { e.stopPropagation(); setViewingUser(viewingUser === u.id ? null : u.id); }} style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", borderRadius: 12, padding: "4px 4px", margin: "-4px -6px" }} onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "12"; }} onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
               <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0, position: "relative" }}>
                 <AvatarC user={u} size={26} />

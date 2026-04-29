@@ -132,6 +132,7 @@ export async function POST(req: NextRequest) {
         mentioned,
         points: stageDefaults[stageKey]?.points ?? 0,
         detail: `${authoredUser} commented on ${stageKey}: "${commentText.slice(0, 80)}"`,
+        commentText,
       });
     } catch (e) {
       console.warn("[comment-watch] sendNotifications failed:", e);

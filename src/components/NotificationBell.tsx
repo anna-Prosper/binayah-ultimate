@@ -137,9 +137,10 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
             lastActivityIdRef.current = item.time;
           }
           setNotifications(prev => [item, ...prev].slice(0, MAX_NOTIFICATIONS));
-          // Only increment unread if dropdown is closed — use ref to avoid
-          // calling setState inside another setState updater (React error #310)
-          if (!openRef.current) {
+          // Only increment unread if dropdown is closed AND item is newer than last seen.
+          // Without the time check, SSE catch-up events on reconnect/reload would inflate
+          // the badge for notifications the user already dismissed.
+          if (!openRef.current && item.time > seenAtRef.current) {
             setUnreadCount(c => c + 1);
             setPulse(true);
             setTimeout(() => setPulse(false), 300);

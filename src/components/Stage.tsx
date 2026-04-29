@@ -302,8 +302,8 @@ function StageSubtaskCard({
             </div>
           )}
           <div style={{ display: "flex", gap: 4 }}>
-            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(key, commentInputVal, () => setCommentInputVal("")); setCommentOpen(false); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-            <button onClick={() => { addComment(key, commentInputVal, () => setCommentInputVal("")); setCommentOpen(false); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(key, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+            <button onClick={() => { addComment(key, commentInputVal, () => setCommentInputVal("")); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
           </div>
         </div>
       )}
@@ -366,6 +366,7 @@ export default function Stage({
   // Leaf-stage points override input — only meaningful when stage has no subtasks
   const [editingPoints, setEditingPoints] = useState<string>("");
   const [galleryOpen, setGalleryOpen] = useState(false);
+  const [lightboxImg, setLightboxImg] = useState<string | null>(null);
   const [mobileSheetOpen, setMobileSheetOpen] = useState(false);
   const [showMockup, setShowMockup] = useState(false);
   const [subtaskInputVal, setSubtaskInputVal] = useState("");
@@ -761,8 +762,8 @@ export default function Stage({
           >&#9998;</button>
         )}
 
-        {/* Expanded content */}
-        <div style={{ overflow: "hidden", maxHeight: isE ? "2000px" : "0px", transition: "max-height 300ms ease" }} onClick={e => e.stopPropagation()}>
+        {/* Expanded content — overflow must be visible when open so absolute dropdowns (assign, emoji) aren't clipped */}
+        <div style={{ overflow: isE ? "visible" : "hidden", maxHeight: isE ? "2000px" : "0px", transition: "max-height 300ms ease" }} onClick={e => e.stopPropagation()}>
           <div style={{ borderTop: isE ? `1px solid ${t.border}` : "none" }}>
 
             {/* Action bar */}
@@ -1095,9 +1096,9 @@ export default function Stage({
                             </div>
                           )}
                           {imgs.map((src, i) => (
-                            <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface }}>
+                            <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface, cursor: "zoom-in" }} onClick={() => setLightboxImg(src)}>
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-                              <button onClick={() => removeStageImage(name, i)} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
+                              <button onClick={e => { e.stopPropagation(); removeStageImage(name, i); }} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                             </div>
                           ))}
                         </div>
@@ -1115,6 +1116,18 @@ export default function Stage({
         );
       })()}
 
+
+      {/* Lightbox — fullscreen image viewer */}
+      {lightboxImg && (
+        <div
+          onClick={() => setLightboxImg(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.92)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <button onClick={() => setLightboxImg(null)} style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+          <a href={lightboxImg} download="image" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: 16, right: 60, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }} title="Save image">↓</a>
+          <img src={lightboxImg} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 48px rgba(0,0,0,0.6)" }} />
+        </div>
+      )}
       {/* Mobile BottomSheet — expanded stage detail */}
       {isMobile && (
         <BottomSheet

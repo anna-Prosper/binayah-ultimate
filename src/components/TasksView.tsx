@@ -840,7 +840,7 @@ function SubtaskCard({
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask } = useModel();
+  const { renameSubtask, archiveSubtask } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const key = SubtaskKey.make(stageId, taskSub.id);
@@ -952,6 +952,11 @@ function SubtaskCard({
         showEditInput={editOpen}
         onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
       />
+      {editOpen && (
+        <button onClick={e => { e.stopPropagation(); archiveSubtask(key); setEditOpen(false); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+          📦 archive subtask
+        </button>
+      )}
 
       {showCommentPopover && (
         <CommentPopover
@@ -981,7 +986,7 @@ function SubtaskKanbanCard({
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask } = useModel();
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
@@ -1121,6 +1126,11 @@ function SubtaskKanbanCard({
           showEditInput={editOpen}
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
+        {editOpen && (
+          <button onClick={e => { e.stopPropagation(); archiveSubtask(sub.key); setEditOpen(false); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+            📦 archive subtask
+          </button>
+        )}
 
         {showCommentPopover && (
           <CommentPopover
@@ -1197,7 +1207,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           😀 <span style={{ fontSize: 10 }}>+</span>
         </button>
         {showReactPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
             {REACTIONS.map(emoji => (
               <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 15, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>
             ))}
@@ -1243,7 +1253,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           )}
         </button>
         {showAssignPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 200 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 200 }}>
             <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
               assign — up to 2 ({assigneeList.length}/2)
             </div>

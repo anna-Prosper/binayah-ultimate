@@ -20,6 +20,7 @@ import {
   activeEmailTemplate,
   approvedEmailTemplate,
   assignedEmailTemplate,
+  mentionEmailTemplate,
   pipelineCompletedEmailTemplate,
 } from "@/lib/emailTemplates";
 import { buildUnsubscribeToken } from "@/app/api/unsubscribe/route";
@@ -54,6 +55,8 @@ export interface NotifyOpts {
   points?: number;
   /** human-readable digest line, e.g. "Anna marked Foo → active" */
   detail?: string;
+  /** original comment text (used for mention email body) */
+  commentText?: string;
 }
 
 function resolveDisplayName(fixedUserId: string | null): string {
@@ -95,7 +98,7 @@ async function userOptedIn(fixedUserId: string, eventType: EventType): Promise<b
 
 function renderEmail(
   eventType: EventType,
-  base: { stageName: string; pipelineName: string; actorName: string; appUrl: string; unsubscribeUrl: string; points: number },
+  base: { stageName: string; pipelineName: string; actorName: string; appUrl: string; unsubscribeUrl: string; points: number; commentText?: string },
 ): { subject: string; html: string } | null {
   switch (eventType) {
     case "claimed":
@@ -106,6 +109,8 @@ function renderEmail(
       return approvedEmailTemplate(base);
     case "assigned":
       return assignedEmailTemplate(base);
+    case "mentioned":
+      return mentionEmailTemplate({ ...base, commentText: base.commentText ?? "" });
     case "pipeline_completed":
       return pipelineCompletedEmailTemplate({
         pipelineName: base.pipelineName,
@@ -156,6 +161,7 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
         appUrl,
         unsubscribeUrl: `${appUrl}/api/unsubscribe?t=${buildUnsubscribeToken(fixedUserId)}`,
         points: opts.points ?? 0,
+        commentText: opts.commentText,
       });
       if (!tmpl) continue;
 

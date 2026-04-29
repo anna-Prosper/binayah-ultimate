@@ -170,6 +170,28 @@ export function assignedEmailTemplate(opts: BaseOpts): { subject: string; html: 
   };
 }
 
+
+interface MentionOpts extends BaseOpts {
+  commentText: string;
+}
+export function mentionEmailTemplate(opts: MentionOpts): { subject: string; html: string } {
+  const safeText = escHtml(opts.commentText.slice(0, 400));
+  const body = `
+    <p style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT_DIM};margin:0 0 6px 0;">
+      <span style="color:${TEXT_DIM}">//</span><span style="color:${AMBER};font-weight:700;"> you were mentioned</span>
+    </p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:22px;font-weight:700;color:${TEXT};margin:0 0 4px 0;word-break:break-word;">${escHtml(opts.stageName)}</p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:11px;color:${TEXT_DIM};margin:0 0 16px 0;">pipeline: <span style="color:${TEXT}">${escHtml(opts.pipelineName)}</span></p>
+    <p style="font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT};margin:0 0 8px 0;"><span style="color:${TEXT_DIM}">// </span>${escHtml(opts.actorName)} mentioned you:</p>
+    <blockquote style="margin:0 0 24px;padding:12px 16px;background:#1a0533;border-left:3px solid ${AMBER};border-radius:0 6px 6px 0;font-family:'Courier New',Courier,monospace;font-size:13px;color:${TEXT};line-height:1.5;">${safeText}</blockquote>
+    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "view stage &rarr;", AMBER)}
+  `;
+  return {
+    subject: `[Binayah Dashboard] ${opts.actorName} mentioned you in ${opts.stageName}`,
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
 interface DigestRow {
   eventType: string;
   detail: string;
