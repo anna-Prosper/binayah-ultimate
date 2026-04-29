@@ -283,6 +283,8 @@ export function ModelProvider({
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
+  // True during the initial hydrate call — suppress claim/reaction notifications on load
+  const isInitialHydrateRef = useRef(true);
   // pendingReactions: tracks in-flight reaction toggles so poll merges don't overwrite them
   const pendingReactionsRef = useRef<Set<string>>(new Set());
   // localWrites: timestamps of recent optimistic writes by slice — poll merges skip slices written within the window
@@ -405,14 +407,16 @@ export function ModelProvider({
       for (const [k, v] of Object.entries(s.assignments || {})) addList(k, v as string[]);
 
       const prev = prevClaimsRef.current;
-      for (const [stage, ownersList] of Object.entries(merged)) {
-        const prevOwners = prev[stage] || [];
-        const newOwners = ownersList.filter(uid => !prevOwners.includes(uid) && uid !== currentUser);
-        if (newOwners.length > 0) {
-          const owner = users.find(u => u.id === newOwners[0]);
-          setChatNotif({ name: owner?.name || newOwners[0], text: `claimed "${stage}"`, isClaim: true });
-          playNotifSound();
-          setTimeout(() => setChatNotif(null), 4000);
+      if (!isInitialHydrateRef.current) {
+        for (const [stage, ownersList] of Object.entries(merged)) {
+          const prevOwners = prev[stage] || [];
+          const newOwners = ownersList.filter(uid => !prevOwners.includes(uid) && uid !== currentUser);
+          if (newOwners.length > 0) {
+            const owner = users.find(u => u.id === newOwners[0]);
+            setChatNotif({ name: owner?.name || newOwners[0], text: `claimed "${stage}"`, isClaim: true });
+            playNotifSound();
+            setTimeout(() => setChatNotif(null), 4000);
+          }
         }
       }
       prevClaimsRef.current = merged;
@@ -420,19 +424,21 @@ export function ModelProvider({
     }
     if (s.reactions) {
       const prev = prevReactionsRef.current;
-      outer: for (const [stage, emojiMap] of Object.entries(s.reactions as Record<string, Record<string, string[]>>)) {
-        const prevStage = prev[stage] || {};
-        for (const [emoji, reactors] of Object.entries(emojiMap)) {
-          const prevReactors = prevStage[emoji] || [];
-          const newReactors = reactors.filter(uid => !prevReactors.includes(uid) && uid !== currentUser);
-          if (newReactors.length > 0) {
-            const reactor = users.find(u => u.id === newReactors[0]);
-            setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
-            playNotifSound();
-            setTimeout(() => setChatNotif(null), 4000);
-            setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], reaction: emoji } }));
-            setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].reaction; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 3500);
-            break outer;
+      if (!isInitialHydrateRef.current) {
+        outer: for (const [stage, emojiMap] of Object.entries(s.reactions as Record<string, Record<string, string[]>>)) {
+          const prevStage = prev[stage] || {};
+          for (const [emoji, reactors] of Object.entries(emojiMap)) {
+            const prevReactors = prevStage[emoji] || [];
+            const newReactors = reactors.filter(uid => !prevReactors.includes(uid) && uid !== currentUser);
+            if (newReactors.length > 0) {
+              const reactor = users.find(u => u.id === newReactors[0]);
+              setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
+              playNotifSound();
+              setTimeout(() => setChatNotif(null), 4000);
+              setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], reaction: emoji } }));
+              setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].reaction; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 3500);
+              break outer;
+            }
           }
         }
       }
@@ -521,6 +527,8 @@ export function ModelProvider({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
+    // Mark initial hydrate complete — subsequent calls will fire claim/reaction notifications
+    isInitialHydrateRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
