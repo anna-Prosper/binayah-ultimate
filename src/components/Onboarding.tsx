@@ -71,7 +71,7 @@ function useTypewriter(text: string, speed = 35, delay = 200) {
 export const FloatingBg = ({ colors, themeStyle }: { colors: string[]; themeStyle: string }) => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const shapesMap: Record<string, any> = {
-    warroom: { grid: true, scanline: true, rings: true, particles: "dots", cornerGlow: ["#bf5af2", "#ff2d78"] },
+    warroom: { grid: true, scanline: true, rings: true, particles: "dots", cornerGlow: ["#ff0080", "#00ffff"] },
     lab: { grid: false, scanline: false, rings: false, particles: "hexagons", cornerGlow: ["#00e5a0", "#00b4d8"], dna: true },
     matrix: { grid: true, scanline: true, rings: false, particles: "dots", cornerGlow: ["#00ff41", "#88ff88"] },
     nerve: { grid: false, scanline: false, rings: true, particles: "neurons", cornerGlow: ["#5b8cf8", "#a78bfa"], waves: true },
@@ -572,7 +572,7 @@ function CelebStep({
           onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = ""; (e.currentTarget as HTMLElement).style.boxShadow = `0 4px 24px ${sessionUser.color}33`; }}
         >
           <span style={{ position: "relative", zIndex: 1 }}>
-            {t.themeId === "warroom" ? "enter the war room →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "matrix" ? "jack in →" : "enter the nerve center →"}
+            {t.themeId === "warroom" ? "enter night city →" : t.themeId === "lab" ? "enter the lab →" : t.themeId === "matrix" ? "jack in →" : "enter the nerve center →"}
           </span>
           <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
         </button>
