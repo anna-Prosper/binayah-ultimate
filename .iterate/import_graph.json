@@ -350,6 +350,9 @@
       "src/lib/mongo.ts",
       "src/lib/AuthUser.ts"
     ],
+    "src/app/api/test-email/route.ts": [
+      "src/lib/email.ts"
+    ],
     "src/app/api/generate-pfp/route.ts": [
       "src/lib/rateLimit.ts",
       "src/lib/validate.ts",
@@ -736,6 +739,7 @@
     "src/lib/email.ts": [
       "src/lib/mentions.ts",
       "src/lib/sendNotifications.ts",
+      "src/app/api/test-email/route.ts",
       "src/app/api/cron/digest/route.ts"
     ],
     "src/lib/mongo.ts": [
@@ -910,6 +914,7 @@
     "src/app/api/chat/route.ts": "/api/chat",
     "src/app/api/pipeline-state/route.ts": "/api/pipeline-state",
     "src/app/api/unsubscribe/route.ts": "/api/unsubscribe",
+    "src/app/api/test-email/route.ts": "/api/test-email",
     "src/app/api/generate-pfp/route.ts": "/api/generate-pfp",
     "src/app/api/documents/route.ts": "/api/documents",
     "src/app/api/suggest-points/route.ts": "/api/suggest-points",
@@ -926,6 +931,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-30T08:05:42.822511+00:00",
-  "fileCount": 120
+  "builtAt": "2026-04-30T08:18:11.953605+00:00",
+  "fileCount": 121
 }

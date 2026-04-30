@@ -4,7 +4,7 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
 import { logApi } from "@/lib/log";
-import { pipelineData, stageDefaults } from "@/lib/data";
+import { pipelineData, stageDefaults, ADMIN_IDS } from "@/lib/data";
 import { sendNotifications } from "@/lib/sendNotifications";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -233,7 +233,10 @@ export async function PATCH(req: NextRequest) {
       return incoming !== existing;
     });
 
-    if (actuallyChanged.length > 0) {
+    // Root admins bypass the destructive-key gate entirely.
+    const isRootAdmin = ADMIN_IDS.includes(actorUserId);
+
+    if (actuallyChanged.length > 0 && !isRootAdmin) {
       if (!session?.user?.fixedUserId) {
         logApi(ROUTE, "forbidden_unauthenticated", { changed: actuallyChanged });
         return NextResponse.json(
