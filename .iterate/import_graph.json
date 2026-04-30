@@ -288,7 +288,8 @@
       "src/components/ui/Skeletons.tsx"
     ],
     "src/components/views/ArchiveView.tsx": [
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts"
     ],
     "src/components/views/TeamBar.tsx": [
       "src/lib/contexts/ModelContext.tsx",
@@ -728,7 +729,8 @@
     "src/lib/subtaskKey.ts": [
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/views/ArchiveView.tsx"
     ],
     "src/components/TodayView.tsx": [
       "src/components/TasksView.tsx"
@@ -931,6 +933,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-30T08:18:11.953605+00:00",
+  "builtAt": "2026-04-30T08:22:06.190115+00:00",
   "fileCount": 121
 }

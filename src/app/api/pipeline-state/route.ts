@@ -5,6 +5,7 @@ import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 import { pipelineData, stageDefaults, ADMIN_IDS } from "@/lib/data";
+import { ADMIN_EMAIL_MAP } from "@/lib/auth";
 import { sendNotifications } from "@/lib/sendNotifications";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -234,9 +235,23 @@ export async function PATCH(req: NextRequest) {
     });
 
     // Root admins bypass the destructive-key gate entirely.
-    const isRootAdmin = ADMIN_IDS.includes(actorUserId);
+    // Resolve admin status via TWO paths for robustness:
+    //   1. session.user.fixedUserId in ADMIN_IDS (clean path)
+    //   2. session.user.email maps via ADMIN_EMAIL_MAP to an ID in ADMIN_IDS
+    //      (handles stale JWTs that have email but not fixedUserId)
+    const sessionEmail = (session?.user?.email || "").toLowerCase();
+    const fixedIdFromEmail = sessionEmail ? ADMIN_EMAIL_MAP[sessionEmail] : undefined;
+    const isRootAdmin =
+      ADMIN_IDS.includes(actorUserId) ||
+      (fixedIdFromEmail !== undefined && ADMIN_IDS.includes(fixedIdFromEmail));
 
     if (actuallyChanged.length > 0 && !isRootAdmin) {
+      logApi(ROUTE, "destructive_gate_check", {
+        actorUserId,
+        sessionEmail,
+        hasFixedUserId: !!session?.user?.fixedUserId,
+        changed: actuallyChanged,
+      });
       if (!session?.user?.fixedUserId) {
         logApi(ROUTE, "forbidden_unauthenticated", { changed: actuallyChanged });
         return NextResponse.json(
