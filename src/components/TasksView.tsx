@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "@/lib/themes";
-import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+import { ADMIN_IDS, REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
@@ -365,14 +365,17 @@ export default function TasksView(props: Props) {
   const handleStageDragLeave = useCallback((stageId: string) => {
     setStageDropOver(prev => prev === stageId ? null : prev);
   }, []);
-  const handleStageDrop = useCallback((stageId: string, e: React.DragEvent) => {
+  const handleStageDrop = useCallback((stageId: string, targetStatus: string, e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation(); // prevent bubbling to column onDrop (which would also setSubtaskStage)
     setStageDropOver(null);
     const key = e.dataTransfer.getData("subtaskKey");
     if (!key || !SubtaskKey.isValid(key)) return;
     migrateSubtask(key as Parameters<typeof migrateSubtask>[0], stageId);
-  }, [migrateSubtask]);
+    const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+    const statusKey = parsed ? SubtaskKey.make(stageId, parsed.subtaskId) : key;
+    setSubtaskStage(statusKey, targetStatus);
+  }, [migrateSubtask, setSubtaskStage]);
 
   const cardShared = {
     t, users, currentUser, reactions, comments,
@@ -496,9 +499,12 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0 }}
-                onDragOver={e => {
+                style={{ flex: "1 1 280px", minWidth: 260, minHeight: 220, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0 }}
+                onDragEnter={e => {
                   e.preventDefault(); setDragOver(col.status);
+                }}
+                onDragOver={e => {
+                  e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status);
                 }}
                 onDragLeave={() => setDragOver(null)}
                 onDrop={e => handleDrop(col.status, e)}
@@ -518,8 +524,9 @@ export default function TasksView(props: Props) {
                   }
                   {/* Drop zone at bottom so dragging over the last card still highlights the column */}
                   <div
-                    style={{ minHeight: 40, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, transition: "all 0.15s" }}
-                  />
+                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
+                    style={{ minHeight: 48, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isOver ? t.accent : "transparent", fontFamily: "var(--font-dm-mono), monospace" }}
+                  >drop here</div>
                   {newTaskCol === col.status ? (
                     /* Dynamic creation form — workspace (if cross-ws) → optional pipeline → optional parent task */
                     <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
@@ -735,7 +742,7 @@ interface SharedCardProps {
   stageDropOver?: string | null;
   onStageDragOver?: (stageId: string, e: React.DragEvent) => void;
   onStageDragLeave?: (stageId: string) => void;
-  onStageDrop?: (stageId: string, e: React.DragEvent) => void;
+  onStageDrop?: (stageId: string, targetStatus: string, e: React.DragEvent) => void;
   // For orphan task pipeline picker — shown only when task is in inbox
   availablePipelines?: { id: string; name: string; icon: string }[];
   getPoints?: (uid: string) => number;
@@ -788,7 +795,7 @@ function TaskCard({
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
   const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
   const role = useRole(task.workspaceId);
-  const canArchive = role === "operator" || role === "root";
+  const canArchive = role === "operator" || role === "root" || (!!currentUser && ADMIN_IDS.includes(currentUser));
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -844,7 +851,7 @@ function TaskCard({
       onMouseLeave={() => setIsHovered(false)}
       onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}
       onDragLeave={isStageDropTarget ? () => onStageDragLeave?.(task.stageId) : undefined}
-      onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, e) : undefined}
+      onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, task.status, e) : undefined}
     >
       <CardShell
         t={t}
@@ -925,7 +932,7 @@ function TaskCard({
         </div>
       )}
 
-      {/* Edit-mode extra fields: description + priority + archive */}
+      {/* Edit-mode extra fields: description + priority + pipeline */}
       {editOpen && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }} onClick={e => e.stopPropagation()}>
           <textarea
@@ -988,14 +995,6 @@ function TaskCard({
               </div>
             </div>
           )}
-          {archiveStage && canArchive && (
-            <button
-              onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
-              style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
-            >
-              📦 archive stage
-            </button>
-          )}
         </div>
       )}
 
@@ -1028,6 +1027,8 @@ function TaskCard({
         onEmoji={emoji => { handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
+        onArchive={canArchive ? () => { archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); } : undefined}
+        archiveLabel="archive"
         onEditToggle={() => {
           const next = !editOpen;
           setEditOpen(next);
@@ -1254,9 +1255,6 @@ function SubtaskCard({
               );
             })()}
           </div>
-          <button onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setArchiveConfirm(true); }} data-no-close style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
-            📦 archive subtask
-          </button>
         </div>
       )}
       <ConfirmModal
@@ -1510,9 +1508,6 @@ function SubtaskKanbanCard({
                 );
               })()}
             </div>
-            <button onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setArchiveConfirm(true); }} data-no-close style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
-              📦 archive subtask
-            </button>
           </div>
         )}
         <ConfirmModal

@@ -222,7 +222,7 @@ function StageSubtaskCard({
         </div>
       </div>
 
-      {/* Edit-mode: points editor + archive */}
+      {/* Edit-mode: points editor */}
       {editOpen && (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pts:</span>
@@ -243,12 +243,6 @@ function StageSubtaskCard({
             }}
             style={{ width: 50, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
-          <button
-            onClick={e => { e.stopPropagation(); onRemove(); setEditOpen(false); }}
-            style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}
-          >
-            📦 archive subtask
-          </button>
         </div>
       )}
 
