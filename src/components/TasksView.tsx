@@ -426,7 +426,7 @@ export default function TasksView(props: Props) {
                   {totalCount === 0
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
                     : <>
-                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable subtaskStages={subtaskStages} {...cardShared} />)}
+                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable hideSubs subtaskStages={subtaskStages} {...cardShared} />)}
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
@@ -531,12 +531,12 @@ interface SharedCardProps {
   getPoints?: (uid: string) => number;
 }
 
-function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
+function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, hideSubs, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean; hideSubs?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
   const { subtasks, toggleSubtask, subtaskStages } = shared as SharedCardProps & { subtaskStages?: Record<string, string> };
   const taskSubs = (subtasks[task.stageId] || []).filter(s => !s.done && !subtaskStages?.[SubtaskKey.make(task.stageId, s.id)]);
   // Don't show subtasks under "done" stages — completion is implied
   // Show subtasks even when parent stage is done — user may need to change assignment / archive
-  const showSubs = true;
+  const showSubs = !hideSubs;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
