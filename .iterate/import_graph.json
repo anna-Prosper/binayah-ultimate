@@ -343,6 +343,7 @@
       "src/lib/validate.ts",
       "src/lib/log.ts",
       "src/lib/data.ts",
+      "src/lib/auth.ts",
       "src/lib/sendNotifications.ts",
       "src/lib/auth.ts",
       "src/lib/chatBus.ts"
@@ -479,6 +480,7 @@
       "src/lib/mentions.ts",
       "src/lib/sendNotifications.ts",
       "src/app/login/page.tsx",
+      "src/app/api/pipeline-state/route.ts",
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/suggest-points/route.ts",
@@ -933,6 +935,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-30T08:22:06.190115+00:00",
+  "builtAt": "2026-04-30T08:25:52.769039+00:00",
   "fileCount": 121
 }
