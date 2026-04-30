@@ -271,7 +271,7 @@ export async function PATCH(req: NextRequest) {
 
   // Capture pre-patch state for notification diffing.
   // We diff: claims, statuses, assignments, approvedStages, approvedSubtasks.
-  let prePatchOwners: Record<string, string[]> = {};
+  const prePatchOwners: Record<string, string[]> = {};
   let prePatchStatuses: Record<string, string> = {};
   let prePatchApprovedStages: string[] = [];
   let prePatchApprovedSubtasks: string[] = [];
