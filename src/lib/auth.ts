@@ -9,8 +9,6 @@ import AuthUser from "@/lib/AuthUser";
 // Hardcoded (not solely env-var driven) per spec — multiple emails map to same user.
 export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "anna@prosper-fi.com": "anna",
-  "dev@prosper-fi.com": "anna",
-  "anna@gmail.com": "anna",
   "aakarshit@prosper-fi.com": "aakarshit",
   "uk@prosper-fi.com": "usama",
   "mamr@binayah.com": "ahsan",
