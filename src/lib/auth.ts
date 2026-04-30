@@ -36,6 +36,26 @@ export function getFixedUserIdForEmail(email: string): string | undefined {
   return ADMIN_EMAIL_MAP[email.toLowerCase()];
 }
 
+/**
+ * Centralized root-admin check. Resolves a session to a fixedUserId via
+ * (1) session.user.fixedUserId, (2) session.user.email → ADMIN_EMAIL_MAP,
+ * then checks against ADMIN_IDS. Returns true ONLY for global root admins.
+ *
+ * Use this anywhere a root user must always pass through a permission gate.
+ */
+import { ADMIN_IDS } from "@/lib/data";
+export function isRootAdminFromSession(
+  session: { user?: { fixedUserId?: string; email?: string | null } } | null | undefined
+): boolean {
+  if (!session?.user) return false;
+  const fid = session.user.fixedUserId;
+  if (fid && ADMIN_IDS.includes(fid)) return true;
+  const email = (session.user.email || "").toLowerCase();
+  if (!email) return false;
+  const derived = ADMIN_EMAIL_MAP[email];
+  return !!derived && ADMIN_IDS.includes(derived);
+}
+
 // ─── NextAuth options ─────────────────────────────────────────────────────────
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -102,12 +122,22 @@ export const authOptions: NextAuthOptions = {
         token.fixedUserId = ADMIN_EMAIL_MAP[email];
         token.email = email;
       }
+      // Fallback: stale tokens without fixedUserId — derive from email so the
+      // server always knows the actor identity (especially for ADMIN_IDS root).
+      if (!token.fixedUserId && token.email) {
+        const derived = ADMIN_EMAIL_MAP[(token.email as string).toLowerCase()];
+        if (derived) token.fixedUserId = derived;
+      }
       return token;
     },
 
     async session({ session, token }) {
       if (token.fixedUserId) {
         session.user.fixedUserId = token.fixedUserId;
+      } else if (session.user?.email) {
+        // Defense in depth: derive at session-build time if token didn't have it.
+        const derived = ADMIN_EMAIL_MAP[session.user.email.toLowerCase()];
+        if (derived) session.user.fixedUserId = derived;
       }
       return session;
     },
