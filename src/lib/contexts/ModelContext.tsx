@@ -560,7 +560,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1228,6 +1228,7 @@ export function ModelProvider({
     const trimmed = name.trim();
     if (!trimmed) { showToast("// workspace needs a name", t.amber); return; }
     const id = `ws-${Date.now()}`;
+    markLocalWrite("workspaces");
     setWorkspaces(prev => [...prev, { id, name: trimmed, icon: icon || "🏴", colorKey: colorKey || "purple", members: [currentUser], captains: [currentUser], pipelineIds: [] }]);
     showToast(`// workspace "${trimmed}" created`, t.green);
     logActivity("claim", id, `created workspace ${trimmed}`);
