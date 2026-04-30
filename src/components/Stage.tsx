@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, USERS_DEFAULT, ADMIN_IDS } from "@/lib/data";
+import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type UserType, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimerPills from "@/components/ui/ClaimerPills";
 import { Chev } from "@/components/ui/primitives";
@@ -40,6 +40,27 @@ function actIcon(type: string): string {
   }
 }
 
+function resolveCommentUser(users: UserType[], by: string): UserType {
+  const normalized = by.toLowerCase();
+  return users.find(u =>
+    u.id.toLowerCase() === normalized ||
+    u.name.toLowerCase() === normalized ||
+    u.name.split(" ")[0].toLowerCase() === normalized
+  ) ?? {
+    id: by,
+    name: by || "Unknown",
+    role: "Team",
+    avatar: "",
+    color: "#8b5cf6",
+  };
+}
+
+function detectMention(val: string): { query: string; start: number } | null {
+  const match = val.match(/(^|\s)@([\w-]*)$/);
+  if (!match) return null;
+  return { query: match[2] || "", start: val.lastIndexOf("@") };
+}
+
 // ─── Full-featured subtask card (used inside Stage expanded / mobile views) ──
 // Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
 // pencil-edit-mode pattern, just compact and nested under the parent stage.
@@ -64,6 +85,9 @@ function StageSubtaskCard({
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState(task.text);
   const [commentInputVal, setCommentInputVal] = useState("");
+  const [mentionDropdown, setMentionDropdown] = useState<{
+    matches: UserType[]; selectedIdx: number;
+  } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   const isAnyOpen = reactOpen || commentOpen || assignOpen || editOpen;
@@ -89,6 +113,34 @@ function StageSubtaskCard({
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopied(k); setTimeout(() => setCopied(null), 2000);
   };
+
+  const handleSubtaskCommentInputChange = useCallback((val: string) => {
+    setCommentInputVal(val);
+    const mention = detectMention(val);
+    if (!mention) {
+      setMentionDropdown(null);
+      return;
+    }
+    const q = mention.query.toLowerCase();
+    const matches = users.filter(u =>
+      u.name.split(" ")[0].toLowerCase().startsWith(q) ||
+      u.id.toLowerCase().startsWith(q)
+    ).slice(0, 6);
+    setMentionDropdown({ matches, selectedIdx: 0 });
+  }, [users]);
+
+  const insertSubtaskMention = useCallback((user: UserType) => {
+    const mention = detectMention(commentInputVal);
+    if (!mention) return;
+    const firstName = user.name.split(" ")[0];
+    setCommentInputVal(`${commentInputVal.slice(0, mention.start)}@${firstName} `);
+    setMentionDropdown(null);
+  }, [commentInputVal]);
+
+  const sendSubtaskComment = useCallback(() => {
+    addComment(key, commentInputVal, () => setCommentInputVal(""));
+    setMentionDropdown(null);
+  }, [addComment, key, commentInputVal]);
 
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
@@ -301,12 +353,37 @@ function StageSubtaskCard({
         <div style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
           {cmts.length > 0 && (
             <div style={{ maxHeight: 100, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-              {cmts.slice(-4).map(c => { const u = users.find(u => u.id === c.by); return <div key={c.id} style={{ display: "flex", gap: 4 }}>{u && <AvatarC user={u} size={14} />}<div style={{ flex: 1 }}><span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name} </span><span style={{ fontSize: 11, color: t.text }}>{c.text}</span></div></div>; })}
+              {cmts.slice(-4).map(c => { const u = resolveCommentUser(users, c.by); return <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}><AvatarC user={u} size={14} /><div style={{ flex: 1 }}><span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name} </span><span style={{ fontSize: 11, color: t.text }}>{c.text}</span></div></div>; })}
             </div>
           )}
-          <div style={{ display: "flex", gap: 4 }}>
-            <input value={commentInputVal} onChange={e => setCommentInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addComment(key, commentInputVal, () => setCommentInputVal("")); } }} placeholder="comment..." style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-            <button onClick={() => { addComment(key, commentInputVal, () => setCommentInputVal("")); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+          <div style={{ position: "relative" }}>
+            {mentionDropdown && mentionDropdown.matches.length > 0 && (
+              <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+                {mentionDropdown.matches.map((u, i) => (
+                  <div
+                    key={u.id}
+                    onMouseDown={e => { e.preventDefault(); insertSubtaskMention(u); }}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
+                  >
+                    <AvatarC user={u} size={16} />
+                    <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
+                    <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 4 }}>
+              <input value={commentInputVal} onChange={e => handleSubtaskCommentInputChange(e.target.value)} onKeyDown={e => {
+                if (mentionDropdown && mentionDropdown.matches.length > 0) {
+                  if (e.key === "ArrowDown") { e.preventDefault(); setMentionDropdown(d => d ? { ...d, selectedIdx: Math.min(d.selectedIdx + 1, d.matches.length - 1) } : d); return; }
+                  if (e.key === "ArrowUp") { e.preventDefault(); setMentionDropdown(d => d ? { ...d, selectedIdx: Math.max(d.selectedIdx - 1, 0) } : d); return; }
+                  if (e.key === "Tab" || e.key === "Enter") { e.preventDefault(); insertSubtaskMention(mentionDropdown.matches[mentionDropdown.selectedIdx]); return; }
+                  if (e.key === "Escape") { e.preventDefault(); setMentionDropdown(null); return; }
+                }
+                if (e.key === "Enter") { e.preventDefault(); sendSubtaskComment(); }
+              }} placeholder="comment... (@name to mention)" style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+              <button onClick={sendSubtaskComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+            </div>
           </div>
         </div>
       )}
@@ -389,7 +466,7 @@ export default function Stage({
 
   // @mention autocomplete state
   const [mentionDropdown, setMentionDropdown] = useState<{
-    query: string; matches: typeof USERS_DEFAULT; selectedIdx: number;
+    query: string; matches: UserType[]; selectedIdx: number;
   } | null>(null);
 
   // Reset editing name when name prop changes (e.g. after rename is applied)
@@ -440,14 +517,6 @@ export default function Stage({
   }, [stageEditMode, commitEditMode]);
 
   // ── @mention autocomplete helpers ─────────────────────────────────────────
-  const detectMention = useCallback((val: string): { query: string; start: number } | null => {
-    // Detect `@` preceded by space or start-of-string, followed by word chars
-    const match = val.match(/(^|\s)@(\w*)$/);
-    if (!match) return null;
-    const query = match[2] || "";
-    return { query, start: val.lastIndexOf("@") };
-  }, []);
-
   const handleCommentInputChange = useCallback((val: string) => {
     setCommentInputVal(val);
     // Update typing state for anti-jump buffering
@@ -461,16 +530,17 @@ export default function Stage({
     const mention = detectMention(val);
     if (mention) {
       const q = mention.query.toLowerCase();
-      const matches = USERS_DEFAULT.filter(u =>
-        u.name.split(" ")[0].toLowerCase().startsWith(q)
+      const matches = users.filter(u =>
+        u.name.split(" ")[0].toLowerCase().startsWith(q) ||
+        u.id.toLowerCase().startsWith(q)
       ).slice(0, 6);
       setMentionDropdown({ query: q, matches, selectedIdx: 0 });
     } else {
       setMentionDropdown(null);
     }
-  }, [name, pendingNewComments, flushPendingComments, detectMention]);
+  }, [name, pendingNewComments, flushPendingComments, users]);
 
-  const insertMention = useCallback((user: typeof USERS_DEFAULT[number]) => {
+  const insertMention = useCallback((user: UserType) => {
     const firstName = user.name.split(" ")[0];
     const mention = detectMention(commentInputVal);
     if (mention) {
@@ -480,7 +550,7 @@ export default function Stage({
       commentTypingState.hasInput[name] = newVal.trim().length > 0;
     }
     setMentionDropdown(null);
-  }, [commentInputVal, detectMention, name]);
+  }, [commentInputVal, name]);
 
   // On collapse: clear typing state
   useEffect(() => {
@@ -891,7 +961,7 @@ export default function Stage({
                           )}
                           <div ref={commentListRef} style={{ maxHeight: 140, overflowY: "auto" }}>
                             {cmts.map((c, idx) => {
-                              const u = users.find(x => x.id === c.by);
+                              const u = resolveCommentUser(users, c.by);
                               // "Since you were here" divider
                               const isFirstUnseen = seenAtMount !== undefined && c.id > seenAtMount && (idx === 0 || cmts[idx - 1].id <= seenAtMount);
                               const cRxs = getCommentReactions(c.id);
@@ -906,10 +976,10 @@ export default function Stage({
                                     </div>
                                   )}
                                   <div style={{ display: "flex", gap: 4 }}>
-                                    {u && <AvatarC user={u} size={16} />}
+                                    <AvatarC user={u} size={16} />
                                     <div style={{ flex: 1 }}>
                                       <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                                        <span style={{ fontSize: 10, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
+                                        <span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name}</span>
                                         <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
                                       </div>
                                       <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
@@ -1206,12 +1276,12 @@ export default function Stage({
             <div style={{ padding: "12px 16px" }}>
               <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
               <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 8 }}>
-                {cmts.map(c => { const u = users.find(x => x.id === c.by); return (
+                {cmts.map(c => { const u = resolveCommentUser(users, c.by); return (
                   <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
-                    {u && <AvatarC user={u} size={22} />}
+                    <AvatarC user={u} size={22} />
                     <div style={{ flex: 1 }}>
                       <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: u?.color || t.text }}>{u?.name}</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
                         <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
                       </div>
                       <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>

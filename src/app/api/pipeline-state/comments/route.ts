@@ -6,7 +6,7 @@ import { checkContentLength, validateStageKey, validateText } from "@/lib/valida
 import { logApi } from "@/lib/log";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { notifyMentions, parseMentions } from "@/lib/mentions";
+import { parseMentions } from "@/lib/mentions";
 import { sendNotifications } from "@/lib/sendNotifications";
 import { pipelineData, stageDefaults } from "@/lib/data";
 
@@ -83,13 +83,7 @@ export async function POST(req: NextRequest) {
       { new: true }
     );
     logApi(ROUTE, "success", { stage });
-    // Fire-and-forget mention notifications (legacy path — immediate email)
     const commentText = (comment.text as string) || "";
-    if (commentText && authoredUser) {
-      void notifyMentions(commentText, authoredUser, "comment", stage as string).catch(e =>
-        console.warn("[comment-mention] notifyMentions failed:", e)
-      );
-    }
 
     // Watcher notifications: queue a digest entry for the stage's claimers/assignees,
     // and fan out to operators/root per the recipient resolver. Mentioned users

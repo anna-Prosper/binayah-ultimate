@@ -1,11 +1,10 @@
 "use client";
 
 import { Suspense, useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, useRole } from "@/lib/contexts/ModelContext";
 import { Chev } from "@/components/ui/primitives";
-import { AvatarC } from "@/components/ui/Avatar";
+import ClaimerPills from "@/components/ui/ClaimerPills";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -58,8 +57,6 @@ export default function PipelinesView({
   // Per-pipeline edit mode (pencil toggle)
   const [pipelineEditMode, setPipelineEditMode] = useState<string | null>(null);
   const pipelineEditRef = useRef<HTMLDivElement | null>(null);
-  // Tracks which claimer avatar tooltip is open: { uid, pipelineId, anchorRect }
-  const [claimerTooltip, setClaimerTooltip] = useState<{ uid: string; pipelineId: string; anchorRect: { left: number; top: number; bottom: number; width: number } } | null>(null);
   // Confirm modal state for destructive pipeline ops
   const [confirmModal, setConfirmModal] = useState<{
     open: boolean; pipelineId: string; title: string; body: string;
@@ -122,17 +119,6 @@ export default function PipelinesView({
       document.removeEventListener("keydown", keyHandler);
     };
   }, [pipelineEditMode, closePipelineEditMode]);
-  // Close claimerTooltip on any outside click
-  useEffect(() => {
-    if (!claimerTooltip) return;
-    const handler = (e: MouseEvent) => {
-      const el = (e.target as HTMLElement);
-      if (!el.closest("[data-claimer-tooltip]")) setClaimerTooltip(null);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [claimerTooltip]);
-
   const { reactOpen, setReactOpen, copied } = useEphemeral();
 
   const allPipelines = currentWorkspaceId
@@ -273,34 +259,8 @@ export default function PipelinesView({
                           <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
                         )}
                         {uClaim.length > 0 && (
-                        <div style={{ display: "flex", marginLeft: 4, alignItems: "center" }}>
-                          {uClaim.slice(0, 5).map(uid => {
-                            const u = users.find(u => u.id === uid);
-                            if (!u) return null;
-                            const isOpen = claimerTooltip?.uid === uid && claimerTooltip?.pipelineId === p.id;
-                            return (
-                              <div
-                                key={uid}
-                                onClick={e => {
-                                  e.stopPropagation();
-                                  if (isOpen) { setClaimerTooltip(null); return; }
-                                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                                  setClaimerTooltip({ uid, pipelineId: p.id, anchorRect: { left: rect.left, top: rect.top, bottom: rect.bottom, width: rect.width } });
-                                }}
-                                style={{ position: "relative", marginLeft: -6, cursor: "pointer", borderRadius: "50%", boxShadow: `0 0 0 2px ${t.bgCard}`, transition: "transform 0.12s", transform: isOpen ? "scale(1.15)" : "scale(1)", zIndex: isOpen ? 10 : 1 }}
-                                title={u.name}
-                              >
-                                <AvatarC user={u} size={26} />
-                              </div>
-                            );
-                          })}
-                          {uClaim.length > 5 && (
-                            <div style={{ marginLeft: -6, width: 26, height: 26, borderRadius: "50%", background: t.bgHover, border: `2px solid ${t.bgCard}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 9, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>
-                              +{uClaim.length - 5}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                          <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="pill" size={16} maxVisible={2} />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -440,41 +400,6 @@ export default function PipelinesView({
           </div>
         )}
       </div>}
-
-      {/* Claimer tooltip — rendered via portal so it escapes parent overflow:hidden */}
-      {claimerTooltip && typeof document !== "undefined" && (() => {
-        const u = users.find(uu => uu.id === claimerTooltip.uid);
-        if (!u) return null;
-        const allClaimersForPipeline = (() => {
-          const pipe = allPipelinesGlobal.find(pp => pp.id === claimerTooltip.pipelineId);
-          if (!pipe) return [];
-          const stages = [...pipe.stages, ...(customStages[pipe.id] || [])].filter(s => !archivedStages.includes(s));
-          return [...new Set(stages.flatMap(s => claims[s] || []))];
-        })();
-        const r = claimerTooltip.anchorRect;
-        return createPortal(
-          <div
-            data-claimer-tooltip
-            onClick={e => e.stopPropagation()}
-            style={{ position: "fixed", top: r.bottom + 8, left: r.left + r.width / 2, transform: "translateX(-50%)", background: t.bgCard, border: `1.5px solid ${u.color}44`, borderRadius: 12, padding: "10px 14px", minWidth: 160, boxShadow: t.shadowLg, zIndex: 9999, animation: "fadeIn 0.12s ease", whiteSpace: "nowrap" as const }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-              <AvatarC user={u} size={32} />
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: u.color }}>{u.name}</div>
-                <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
-              </div>
-            </div>
-            <div style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{getPoints(claimerTooltip.uid)}pts total</div>
-            {allClaimersForPipeline.length > 1 && (
-              <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>
-                ÷ split between {allClaimersForPipeline.length} co-owners
-              </div>
-            )}
-          </div>,
-          document.body
-        );
-      })()}
     </div>
   );
 }

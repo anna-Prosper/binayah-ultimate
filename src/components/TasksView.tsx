@@ -52,6 +52,21 @@ const ALL_COLS = [
   { status: "blocked",     label: "blocked",     colorKey: "red"   },
 ];
 
+function resolveCommentUser(users: UserType[], by: string): UserType {
+  const normalized = by.toLowerCase();
+  return users.find(u =>
+    u.id.toLowerCase() === normalized ||
+    u.name.toLowerCase() === normalized ||
+    u.name.split(" ")[0].toLowerCase() === normalized
+  ) ?? {
+    id: by,
+    name: by || "Unknown",
+    role: "Team",
+    avatar: "",
+    color: "#8b5cf6",
+  };
+}
+
 export default function TasksView(props: Props) {
   const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces } = props;
   const {
@@ -1725,12 +1740,12 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
       {comments.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>
           {comments.slice(-5).map(c => {
-            const u = users.find(u => u.id === c.by);
+            const u = resolveCommentUser(users, c.by);
             return (
               <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
-                {u && <AvatarC user={u} size={18} />}
+                <AvatarC user={u} size={18} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: u?.color || t.text, fontWeight: 700 }}>{u?.name || c.by}</div>
+                  <div style={{ fontSize: 10, color: u.color, fontWeight: 700 }}>{u.name}</div>
                   <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word" }}>{c.text}</div>
                 </div>
               </div>

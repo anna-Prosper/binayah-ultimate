@@ -7,7 +7,8 @@
  *   agent    (workspace.members)      → only events where they are: mentioned,
  *                                       a claimer, an assignee, or the new
  *                                       assignee on an `assigned` event
- *   actor                             → never notified about their own action
+ *   actor                             → never notified about their own action,
+ *                                       unless they explicitly @mention themself
  *
  * Delivery channels:
  *   `immediate` — email is sent now. Reserved for high-urgency: mentions,
@@ -80,8 +81,6 @@ export function getRecipients(
   // If the stage's workspace is unknown, only mentioned/assigned/claimers can be reached.
   // Root still gets it.
   for (const userId of allUserIds) {
-    if (userId === ctx.actorId) continue;
-
     const isRoot = ADMIN_IDS.includes(userId);
     const isOperator = !!ws && ws.captains.includes(userId);
     const isAgent = !!ws && ws.members.includes(userId) && !isOperator;
@@ -89,6 +88,7 @@ export function getRecipients(
       ctx.claimers.includes(userId) || ctx.assignees.includes(userId);
     const isMentioned = ctx.mentioned.includes(userId);
     const isNewlyAssigned = (ctx.newlyAssigned ?? []).includes(userId);
+    if (userId === ctx.actorId && !isMentioned) continue;
 
     let notify = false;
     let urgent = false;
@@ -126,7 +126,6 @@ export function getRecipients(
   // Mentioned users always get immediate, even if not a workspace member.
   // (Edge case: someone mentioned outside their workspace — still notify.)
   for (const userId of ctx.mentioned) {
-    if (userId === ctx.actorId) continue;
     if (!immediate.has(userId)) {
       digest.delete(userId);
       immediate.add(userId);
