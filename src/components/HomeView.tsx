@@ -26,6 +26,14 @@ function timeAgo(timestamp: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+function timeAgoFrom(now: number, timestamp: number): string {
+  const diff = now - timestamp;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
 function toneColor(t: T, tone: AttentionTone): string {
   if (tone === "green") return t.green;
   if (tone === "amber") return t.amber;
@@ -42,6 +50,7 @@ function AttentionOverview({ t, attention }: {
     summary: string;
     stats: Array<{ label: string; value: number; tone: AttentionTone }>;
     actions: Array<{ title: string; meta: string; body: string; tone: AttentionTone }>;
+    people: Array<{ user: UserType; title: string; meta: string; body: string; tone: AttentionTone }>;
   };
 }) {
   return (
@@ -70,6 +79,25 @@ function AttentionOverview({ t, attention }: {
         </div>
       </div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+        {attention.people.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
+            {attention.people.map(person => {
+              const color = toneColor(t, person.tone);
+              return (
+                <div key={person.user.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", border: `1px solid ${color}3d`, background: color + "0d", borderRadius: 10, minWidth: 0 }}>
+                  <AvatarC user={person.user} size={24} />
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
+                      <span style={{ fontSize: 12, color: t.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{person.title}</span>
+                      <span style={{ fontSize: 10, color, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>{person.meta}</span>
+                    </div>
+                    <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{person.body}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
         {attention.actions.length === 0 ? (
           <div style={{ minHeight: 132, border: `1px dashed ${t.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace" }}>
             no urgent signals
@@ -122,7 +150,7 @@ export default function HomeView({
 }: Props) {
   const {
     claims, comments, approvedStages, approvedSubtasks, customStages, getPoints: modelGetPoints,
-    owners, assignments, subtasks, subtaskStages, activityLog,
+    owners, assignments, subtasks, subtaskStages, activityLog, chatMessages,
     getStatus, ck,
   } = useModel();
 
@@ -235,6 +263,8 @@ export default function HomeView({
     const allItems = [...stageItems, ...subtaskItems].filter(item => item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId));
     const myItems = allItems.filter(item => item.owners.includes(currentUser));
     const freshActivity = activityLog.filter(a => a.time > dayAgo && a.user !== currentUser);
+    const scopedMemberIds = new Set(scopedWorkspaces.flatMap(w => w.members));
+    const scopedUsers = users.filter(u => scopedMemberIds.has(u.id));
     const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
     const reviewItems = allItems.filter(item =>
       (item.kind === "task" && item.status === "active" && !item.approved) ||
@@ -262,6 +292,64 @@ export default function HomeView({
     const mineBlocked = blockedItems.filter(item => item.owners.includes(currentUser));
     const mineHot = hotItems.filter(item => item.owners.includes(currentUser));
     const minePlanned = myItems.filter(item => item.status === "planned" || item.status === "concept");
+    const chatMentions = (chatMessages || [])
+      .filter(msg => msg.userId !== currentUser && mentionNeedles.some(n => msg.text.toLowerCase().includes(n)))
+      .slice(-4)
+      .reverse();
+    const activeUpdates = freshActivity
+      .filter(a => a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
+      .slice(0, 4);
+    const people = roleLabel === "agent" ? [] : scopedUsers
+      .filter(u => u.id !== currentUser)
+      .map(u => {
+        const openItems = allItems.filter(item => item.owners.includes(u.id) && item.status !== "active");
+        const userActivity = activityLog.filter(a => a.user === u.id);
+        const userComments = Object.entries(comments || {}).flatMap(([target, list]) =>
+          list.filter(c => c.by === u.id).map(c => ({ target, text: c.text }))
+        );
+        const userChat = (chatMessages || []).filter(m => m.userId === u.id);
+        const lastActivity = Math.max(
+          0,
+          ...userActivity.map(a => a.time),
+          ...userChat.map(m => m.id),
+        );
+        const recentActive = userActivity
+          .filter(a => a.time > dayAgo && a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
+          .slice(0, 1)[0];
+        const recentComment = userComments.slice(-1)[0];
+        const stale = openItems.length > 0 && (!lastActivity || overviewNow - lastActivity > 48 * 60 * 60 * 1000);
+        const title = u.name.split(" ")[0];
+        if (stale) {
+          return {
+            user: u,
+            title,
+            meta: lastActivity ? `${timeAgoFrom(overviewNow, lastActivity)} quiet` : "no updates",
+            body: `${openItems.length} open item${openItems.length === 1 ? "" : "s"} without recent movement`,
+            tone: "amber" as AttentionTone,
+          };
+        }
+        if (recentActive) {
+          return {
+            user: u,
+            title,
+            meta: "in progress",
+            body: `${stageNameLabel(recentActive.target)} moved forward`,
+            tone: "green" as AttentionTone,
+          };
+        }
+        return {
+          user: u,
+          title,
+          meta: lastActivity ? timeAgoFrom(overviewNow, lastActivity) : "quiet",
+          body: recentComment ? truncate(recentComment.text, 70) : `${openItems.length} open item${openItems.length === 1 ? "" : "s"}`,
+          tone: openItems.length > 0 ? "cyan" as AttentionTone : "accent" as AttentionTone,
+        };
+      })
+      .sort((a, b) => {
+        const priority = { amber: 0, green: 1, cyan: 2, accent: 3, red: 4 } as Record<AttentionTone, number>;
+        return priority[a.tone] - priority[b.tone];
+      })
+      .slice(0, 6);
 
     const stats = roleLabel === "agent"
       ? [
@@ -287,11 +375,14 @@ export default function HomeView({
     const actions = roleLabel === "agent"
       ? [
           ...mentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
+          ...chatMentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.userId)} messaged you`, meta: "chat", body: truncate(m.text, 92) })),
           ...mineBlocked.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
           ...mineHot.slice(0, 3).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: `${item.priority} priority`, body: item.pipelineName })),
           ...newOwned.slice(0, 2).map(a => ({ tone: "cyan" as AttentionTone, title: a.detail, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
         ]
       : [
+          ...chatMentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.userId)} messaged you`, meta: "chat", body: truncate(m.text, 92) })),
+          ...activeUpdates.map(a => ({ tone: "green" as AttentionTone, title: `${commentUserLabel(a.user)} marked work in progress`, meta: timeAgoFrom(overviewNow, a.time), body: stageNameLabel(a.target) })),
           ...reviewItems.slice(0, 4).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: "ready for review", body: item.pipelineName })),
           ...blockedItems.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
           ...unownedItems.slice(0, 3).map(item => ({ tone: "amber" as AttentionTone, title: item.title, meta: "no owner", body: item.pipelineName })),
@@ -323,11 +414,12 @@ export default function HomeView({
       roleLabel,
       stats,
       actions: actions.slice(0, 6),
+      people,
       summary,
       scopeLabel: homeWsFilter ? (myWorkspaces.find(w => w.id === homeWsFilter)?.name || "workspace") : "all workspaces",
     };
   }, [
-    activityLog, approvedStages, approvedSubtasks, assignments, claims, comments, currentUser,
+    activityLog, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
     customStages, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
