@@ -117,12 +117,8 @@ function DashboardInner({
   const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, undo, peek, stackLen, t } = useModel();
   const { reactOpen, setReactOpen, copied, setCopied, setClaimAnim } = useEphemeral();
 
-  // Navigation
-  const [activeNavItem, setActiveNavItem] = useState<NavItem>(() => {
-    const saved = lsGet("binayah_activeNav", "home");
-    const valid: NavItem[] = ["home", "pipelines", "documents", "activity", "chat"];
-    return (valid.includes(saved as NavItem) ? saved : "home") as NavItem;
-  });
+  // Navigation — always start at "home" on each page load (per user request)
+  const [activeNavItem, setActiveNavItem] = useState<NavItem>("home");
   const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "kanban" | "overview">("list");
   const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
@@ -145,7 +141,6 @@ function DashboardInner({
 
   useEffect(() => { lsSet("expanded", expanded); }, [expanded]);
   useEffect(() => { lsSet("view", view); }, [view]);
-  useEffect(() => { lsSet("binayah_activeNav", activeNavItem); }, [activeNavItem]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
   // On first ever visit (lastSeenActivity === 0 and activityLog loaded), mark everything as seen
   // so the badge doesn't show "200+" to a new team member logging in for the first time.

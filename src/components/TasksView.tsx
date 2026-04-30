@@ -165,6 +165,8 @@ export default function TasksView(props: Props) {
     ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || (assignments[s.stageId] || []).includes(currentUser)) : false)
     : allStageTasks;
 
+  // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
+
   // Build virtual subtask kanban tasks — ONLY from stages visible in current pipelines
   const visibleStageIds = useMemo(() => new Set(pipelines.flatMap(p => p.allStages)), [pipelines]);
 
@@ -212,6 +214,11 @@ export default function TasksView(props: Props) {
     }
     return tasks;
   }, [subtasks, subtaskStages, stageNameOverrides, pipelines, visibleStageIds, archivedSubtaskKeySet, pipelineWorkspaceMap]);
+
+  // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
+  const filteredSubtaskKanbanTasks = (showMyAllFilter && myAllFilter === "my" && currentUser)
+    ? subtaskKanbanTasks.filter(s => (claims[s.key] || []).includes(currentUser) || (assignments[s.key] || []).includes(currentUser))
+    : subtaskKanbanTasks;
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);
@@ -380,7 +387,7 @@ export default function TasksView(props: Props) {
         <div style={{ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
           {COLS.map(col => {
             const colTasks = stageTasks.filter(s => s.status === col.status);
-            const colSubtasks = subtaskKanbanTasks.filter(s => s.status === col.status);
+            const colSubtasks = filteredSubtaskKanbanTasks.filter(s => s.status === col.status);
             const totalCount = colTasks.length + colSubtasks.length;
             if (totalCount === 0 && col.status === "blocked") return null;
             const stColor = statusColor(col.status);
@@ -517,7 +524,8 @@ function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...sh
   const { subtasks, toggleSubtask, subtaskStages } = shared as SharedCardProps & { subtaskStages?: Record<string, string> };
   const taskSubs = (subtasks[task.stageId] || []).filter(s => !s.done && !subtaskStages?.[SubtaskKey.make(task.stageId, s.id)]);
   // Don't show subtasks under "done" stages — completion is implied
-  const showSubs = task.status !== "active";
+  // Show subtasks even when parent stage is done — user may need to change assignment / archive
+  const showSubs = true;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -1444,6 +1452,19 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
   t: T; users: UserType[]; comments: CommentItem[];
   inputValue: string; onInputChange: (v: string) => void; onSend: () => void;
 }) {
+  // @mention autocomplete: detect "@word" at cursor and surface user matches
+  const mentionMatch = inputValue.match(/(^|\s)@(\w*)$/);
+  const mentionQuery = mentionMatch ? (mentionMatch[2] || "").toLowerCase() : null;
+  const mentionMatches = mentionQuery !== null
+    ? users.filter(u => u.name.split(" ")[0].toLowerCase().startsWith(mentionQuery)).slice(0, 6)
+    : [];
+  const insertMention = (u: UserType) => {
+    if (!mentionMatch) return;
+    const firstName = u.name.split(" ")[0];
+    const idx = inputValue.lastIndexOf("@");
+    const before = inputValue.slice(0, idx);
+    onInputChange(`${before}@${firstName} `);
+  };
   return (
     <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
       {comments.length > 0 && (
@@ -1462,15 +1483,41 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
           })}
         </div>
       )}
-      <div style={{ display: "flex", gap: 4 }}>
-        <input
-          value={inputValue}
-          onChange={e => onInputChange(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onSend(); } }}
-          placeholder="// add a comment..."
-          style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
-        />
-        <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+      <div style={{ position: "relative" as const }}>
+        {mentionQuery !== null && mentionMatches.length > 0 && (
+          <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+            {mentionMatches.map(u => (
+              <div
+                key={u.id}
+                onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12, color: t.text }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.accent + "22"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+              >
+                <AvatarC user={u} size={16} />
+                <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
+                <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: "flex", gap: 4 }}>
+          <input
+            value={inputValue}
+            onChange={e => onInputChange(e.target.value)}
+            onKeyDown={e => {
+              if (e.key === "Enter" && mentionQuery !== null && mentionMatches.length > 0) {
+                e.preventDefault();
+                insertMention(mentionMatches[0]);
+                return;
+              }
+              if (e.key === "Enter") { e.preventDefault(); onSend(); }
+            }}
+            placeholder="// add a comment... (@name to mention)"
+            style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+          />
+          <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+        </div>
       </div>
     </div>
   );
