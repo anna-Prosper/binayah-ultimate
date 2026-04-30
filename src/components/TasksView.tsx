@@ -556,7 +556,8 @@ function TaskCard({
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
   availablePipelines,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
+  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
+  const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
   const role = useRole(task.workspaceId);
   const canArchive = role === "operator" || role === "root";
   const [editOpen, setEditOpen] = useState(false);
@@ -734,24 +735,69 @@ function TaskCard({
             );
           })()}
           {task.pipelineId === INBOX_PIPELINE_ID && availablePipelines && availablePipelines.length > 0 && (
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to:</span>
-              <select
-                value=""
-                onChange={e => {
-                  const targetPid = e.target.value;
-                  if (!targetPid) return;
-                  moveStageToPipeline(task.stageId, INBOX_PIPELINE_ID, targetPid);
-                  setEditOpen(false);
-                }}
-                style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-              >
-                <option value="">choose pipeline…</option>
-                {availablePipelines.map(p => (
-                  <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
-                ))}
-              </select>
-            </div>
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to pipeline:</span>
+                <select
+                  value=""
+                  onChange={e => {
+                    const targetPid = e.target.value;
+                    if (!targetPid) return;
+                    moveStageToPipeline(task.stageId, INBOX_PIPELINE_ID, targetPid);
+                    setEditOpen(false);
+                  }}
+                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+                >
+                  <option value="">choose pipeline…</option>
+                  {availablePipelines.map(p => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                  ))}
+                </select>
+              </div>
+              {/* OR — convert to a subtask of an existing task */}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>or attach as subtask of:</span>
+                {subtaskTargetPipeline === "" ? (
+                  <select
+                    value=""
+                    onChange={e => setSubtaskTargetPipeline(e.target.value)}
+                    style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+                  >
+                    <option value="">choose pipeline…</option>
+                    {availablePipelines.map(p => (
+                      <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                    ))}
+                  </select>
+                ) : (() => {
+                  const pipe = pipelinesAll.find((p: { id: string }) => p.id === subtaskTargetPipeline);
+                  const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[subtaskTargetPipeline] || [])].filter((s: string) => !(archStages || []).includes(s)) : [];
+                  return (
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                      <button onClick={() => setSubtaskTargetPipeline("")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
+                      <select
+                        value=""
+                        onChange={e => {
+                          const targetStage = e.target.value;
+                          if (!targetStage) return;
+                          // Create a subtask on the chosen stage with the inbox item's display name,
+                          // then archive the inbox stage.
+                          modelAddSubtask(targetStage, task.displayName, () => {});
+                          archiveStage(task.stageId);
+                          setSubtaskTargetPipeline("");
+                          setEditOpen(false);
+                        }}
+                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+                      >
+                        <option value="">choose task…</option>
+                        {pipeStages.map((s: string) => (
+                          <option key={s} value={s}>{nameOverrides?.[s] || s}</option>
+                        ))}
+                      </select>
+                    </div>
+                  );
+                })()}
+              </div>
+            </>
           )}
           {archiveStage && canArchive && (
             <button
