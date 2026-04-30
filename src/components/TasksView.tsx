@@ -40,9 +40,9 @@ interface Props {
 
 // Columns in the now-tab kanban — these map 1:1 to stage statuses
 const ALL_COLS = [
-  { status: "concept",     label: "concept",     colorKey: "slate" },
-  { status: "planned",     label: "planned",     colorKey: "cyan"  },
   { status: "in-progress", label: "in progress", colorKey: "amber" },
+  { status: "planned",     label: "planned",     colorKey: "cyan"  },
+  { status: "concept",     label: "concept",     colorKey: "slate" },
   { status: "active",      label: "done",        colorKey: "green" },
   { status: "blocked",     label: "blocked",     colorKey: "red"   },
 ];
@@ -998,11 +998,12 @@ function SubtaskKanbanCard({
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages } = useModel();
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [moveToStage, setMoveToStage] = useState<string>(""); // selected pipeline for 2-step move
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const rxs = reactions[sub.key] || {};
@@ -1140,9 +1141,51 @@ function SubtaskKanbanCard({
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
         {editOpen && (
-          <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
-            📦 archive subtask
-          </button>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {/* Move to a different parent stage */}
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to stage:</span>
+              {moveToStage === "" ? (
+                <select
+                  value=""
+                  onChange={e => setMoveToStage(e.target.value)}
+                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+                >
+                  <option value="">choose pipeline…</option>
+                  {allPipelinesGlobal.map((p: { id: string; name: string; icon: string }) => (
+                    <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                  ))}
+                </select>
+              ) : (() => {
+                const pipe = allPipelinesGlobal.find((p: { id: string }) => p.id === moveToStage);
+                const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(customStages[moveToStage] || [])].filter((s: string) => !(archivedStages || []).includes(s) && s !== sub.parentStageId) : [];
+                return (
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                    <button onClick={() => setMoveToStage("")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
+                    <select
+                      value=""
+                      onChange={e => {
+                        const targetStage = e.target.value;
+                        if (!targetStage) return;
+                        migrateSubtask(sub.key as Parameters<typeof migrateSubtask>[0], targetStage);
+                        setMoveToStage("");
+                        setEditOpen(false);
+                      }}
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
+                    >
+                      <option value="">choose stage…</option>
+                      {pipeStages.map((s: string) => (
+                        <option key={s} value={s}>{stageNameOverrides?.[s] || s}</option>
+                      ))}
+                    </select>
+                  </div>
+                );
+              })()}
+            </div>
+            <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+              📦 archive subtask
+            </button>
+          </div>
         )}
         <ConfirmModal
           open={archiveConfirm}

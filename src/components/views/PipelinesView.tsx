@@ -288,18 +288,24 @@ export default function PipelinesView({
                     )}
                   </div>
                 </div>
-                {!isO && <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, paddingLeft: 20 }}>
-                  {allPStages.map((s, i) => {
-                    const stC = sc[getStatus(s)] || { c: t.textDim };
-                    const isClaimed = (claims[s] || []).length > 0;
-                    return (
-                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 0 }}>
-                        <span style={{ fontSize: 10, color: stC.c, background: stC.c + "0a", padding: "0 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
-                        {i < allPStages.length - 1 && <span style={{ color: t.textDim, fontSize: 10 }}>{"→"}</span>}
-                      </div>
-                    );
-                  })}
-                </div>}
+                {!isO && (() => {
+                  const STATUS_SORT: Record<string, number> = { "in-progress": 0, planned: 1, concept: 2, blocked: 3, active: 4 };
+                  const sorted = [...allPStages].sort((a, b) => (STATUS_SORT[getStatus(a)] ?? 5) - (STATUS_SORT[getStatus(b)] ?? 5));
+                  return (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8, paddingLeft: 20 }}>
+                      {sorted.map((s, i) => {
+                        const stC = sc[getStatus(s)] || { c: t.textDim };
+                        const isClaimed = (claims[s] || []).length > 0;
+                        return (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 0 }}>
+                            <span style={{ fontSize: 10, color: stC.c, background: stC.c + "0a", padding: "0 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: isClaimed ? `1px solid ${stC.c}22` : "1px solid transparent" }}>{s}</span>
+                            {i < sorted.length - 1 && <span style={{ color: t.textDim, fontSize: 10 }}>{"·"}</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
               </div>
               {/* Pipeline edit mode panel */}
               {pipelineEditMode === p.id && (
