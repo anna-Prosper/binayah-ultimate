@@ -109,9 +109,18 @@ export default function TasksView(props: Props) {
   const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = orphan
   const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = no parent (task-level)
 
-  // Workspace context: explicit prop wins, else fall back to "must pick" mode
-  const formWsId = currentWorkspaceId || newSubWsId;
+  // Workspace context: explicit prop > user pick > auto-pick if only 1 available
+  const formWsId = currentWorkspaceId
+    || newSubWsId
+    || (availableWorkspaces?.length === 1 ? availableWorkspaces[0].id : "");
+  // Picker only needed when 2+ workspaces available and none is auto-implied
   const needsWorkspacePick = !currentWorkspaceId && (availableWorkspaces?.length || 0) > 1;
+  // Display label for the auto/implicit workspace (shown read-only in form)
+  const formWsLabel = formWsId
+    ? availableWorkspaces?.find(w => w.id === formWsId)?.name
+      || workspaces.find(w => w.id === formWsId)?.name
+      || ""
+    : "";
 
   const resetNewSub = useCallback(() => {
     setNewTaskCol(null); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage("");
@@ -512,8 +521,8 @@ export default function TasksView(props: Props) {
                         data-no-close
                         style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
                       />
-                      {/* Workspace picker — only shown in cross-workspace mode */}
-                      {needsWorkspacePick && (
+                      {/* Workspace picker — visible when 2+ workspaces; otherwise show implicit ws label */}
+                      {needsWorkspacePick ? (
                         <>
                           <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                             {newSubWsId
@@ -532,6 +541,10 @@ export default function TasksView(props: Props) {
                             })}
                           </div>
                         </>
+                      ) : formWsLabel && (
+                        <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                          → workspace: {formWsLabel}
+                        </div>
                       )}
                       {/* Pipeline picker — optional, gated on workspace pick if cross-ws */}
                       {(!needsWorkspacePick || newSubWsId) && (() => {
