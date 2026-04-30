@@ -870,9 +870,11 @@ function SubtaskCard({
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
+  const [descVal, setDescVal] = useState("");
+  const [moveToStageSSC, setMoveToStageSSC] = useState<string>(""); // selected pipeline for 2-step move
 
   const key = SubtaskKey.make(stageId, taskSub.id);
 
@@ -939,6 +941,9 @@ function SubtaskCard({
             {pipelineIcon} {parentStageName}
             {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
+          {subtaskDescOverrides[key] && (
+            <div style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[key]}</div>
+          )}
         </div>
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -981,12 +986,70 @@ function SubtaskCard({
         copied={copied === key}
         showEditButton={true}
         showEditInput={editOpen}
-        onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+        onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setDescVal(subtaskDescOverrides[key] || ""); setMoveToStageSSC(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
       />
       {editOpen && (
-        <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
-          📦 archive subtask
-        </button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
+          {/* Description */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
+            <textarea
+              value={descVal}
+              onChange={e => setDescVal(e.target.value)}
+              onBlur={() => { setSubtaskDescOverride(key, descVal.trim() || null); }}
+              placeholder="Add a description..."
+              rows={2}
+              data-no-close
+              style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+            />
+          </div>
+          {/* Move to a different parent stage */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStageSSC === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
+            {moveToStageSSC === "" ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
+                  <button
+                    key={p.id}
+                    onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStageSSC(p.id); }}
+                    data-no-close
+                    style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                  >{p.icon} {p.name}</button>
+                ))}
+              </div>
+            ) : (() => {
+              const pipe = allPipelinesGlobal.find((p: { id: string }) => p.id === moveToStageSSC);
+              const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[moveToStageSSC] || [])].filter((s: string) => !(archivedStages || []).includes(s) && s !== stageId) : [];
+              return (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                  <button
+                    onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStageSSC(""); }}
+                    data-no-close
+                    style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+                  >← back</button>
+                  {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
+                  {pipeStages.map((s: string) => (
+                    <button
+                      key={s}
+                      onMouseDown={e => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        migrateSubtask(key as Parameters<typeof migrateSubtask>[0], s);
+                        setMoveToStageSSC("");
+                        setEditOpen(false);
+                      }}
+                      data-no-close
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                    >{stageNameOverrides?.[s] || s}</button>
+                  ))}
+                </div>
+              );
+            })()}
+          </div>
+          <button onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setArchiveConfirm(true); }} data-no-close style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+            📦 archive subtask
+          </button>
+        </div>
       )}
       <ConfirmModal
         open={archiveConfirm}
@@ -1027,12 +1090,13 @@ function SubtaskKanbanCard({
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride } = useModel();
   const [isHovered, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [moveToStage, setMoveToStage] = useState<string>(""); // selected pipeline for 2-step move
+  const [descVal, setDescVal] = useState("");
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const rxs = reactions[sub.key] || {};
@@ -1108,6 +1172,9 @@ function SubtaskKanbanCard({
               <span style={{ color: t.accent, fontWeight: 700, marginLeft: 4 }}>· {sub.points}pts</span>
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
+            {subtaskDescOverrides[sub.key] && (
+              <div style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[sub.key]}</div>
+            )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             {(() => {
@@ -1171,10 +1238,23 @@ function SubtaskKanbanCard({
           copied={copied === sub.key}
           showEditButton={true}
           showEditInput={editOpen}
-          onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+          onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setDescVal(subtaskDescOverrides[sub.key] || ""); setMoveToStage(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
         {editOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
+            {/* Description */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
+              <textarea
+                value={descVal}
+                onChange={e => setDescVal(e.target.value)}
+                onBlur={() => { setSubtaskDescOverride(sub.key, descVal.trim() || null); }}
+                placeholder="Add a description..."
+                rows={2}
+                data-no-close
+                style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+              />
+            </div>
             {/* Move to a different parent stage — button-based to avoid native-select click-outside issues */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
               <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStage === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>

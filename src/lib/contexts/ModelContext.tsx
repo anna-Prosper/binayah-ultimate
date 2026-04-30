@@ -67,6 +67,8 @@ interface ModelContextValue {
   stagePointsOverride: Record<string, number>;
   setStagePointsOverride: (stageId: string, pts: number | null) => void;
   subtaskStages: Record<string, string>;
+  subtaskDescOverrides: Record<string, string>;
+  setSubtaskDescOverride: (key: string, desc: string | null) => void;
   pipeDescOverrides: Record<string, string>;
   setPipeDescOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   pipeMetaOverrides: Record<string, { name?: string; priority?: string }>;
@@ -255,6 +257,7 @@ export function ModelProvider({
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
+  const [subtaskDescOverrides, setSubtaskDescOverrides] = useState<Record<string, string>>(() => lsGet("subtaskDescOverrides", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
   const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
@@ -312,6 +315,7 @@ export function ModelProvider({
   useEffect(() => { lsSet("approvedSubtasks", approvedSubtasks) }, [approvedSubtasks]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
+  useEffect(() => { lsSet("subtaskDescOverrides", subtaskDescOverrides) }, [subtaskDescOverrides]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
   useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
   useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
@@ -511,6 +515,7 @@ export function ModelProvider({
     if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
     if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
     if (s.subtaskStages && !isProtected("subtaskStages")) setSubtaskStages(s.subtaskStages);
+    if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides")) setSubtaskDescOverrides(s.subtaskDescOverrides as Record<string, string>);
     if (s.pipeDescOverrides && !isProtected("pipeDescOverrides")) setPipeDescOverrides(s.pipeDescOverrides);
     if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides")) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
     if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
@@ -536,12 +541,12 @@ export function ModelProvider({
     owners,
     approvedStages, approvedSubtasks, approvedPipelines,
     subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
-    subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+    subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     stagePointsOverride,
   }), [owners, approvedStages, approvedSubtasks, approvedPipelines,
        subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
-       subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+       subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
        stagePointsOverride]);
 
@@ -555,7 +560,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -988,6 +993,10 @@ export function ModelProvider({
   const restoreSubtask = (key: string) => { setArchivedSubtasks(prev => prev.filter(k => k !== key)); };
 
   const setStageDescOverride = (name: string, val: string) => { markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val })); };
+  const setSubtaskDescOverride = (key: string, desc: string | null) => {
+    markLocalWrite("subtaskDescOverrides");
+    setSubtaskDescOverrides(prev => { const next = { ...prev }; if (desc === null) delete next[key]; else next[key] = desc; return next; });
+  };
   const setStageNameOverride = (name: string, val: string) => { markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val })); };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
     markLocalWrite("stagePointsOverride");
@@ -1274,7 +1283,7 @@ export function ModelProvider({
     pendingNewComments, flushPendingComments,
     stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
-    subtaskStages, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
+    subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,

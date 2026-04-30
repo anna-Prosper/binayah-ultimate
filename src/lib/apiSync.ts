@@ -26,6 +26,7 @@ export type SharedState = {
   stageDescOverrides?: Record<string, string>;
   stageNameOverrides?: Record<string, string>;
   subtaskStages?: Record<string, string>;
+  subtaskDescOverrides?: Record<string, string>;
   pipeDescOverrides?: Record<string, string>;
   pipeMetaOverrides?: Record<string, { name?: string; priority?: string }>;
   customStages?: Record<string, string[]>;
