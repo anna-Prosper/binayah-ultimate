@@ -749,8 +749,8 @@ function TaskCard({
           })()}
           {/* Pipeline switcher for tasks — select which pipeline this task belongs to */}
           {availablePipelines && availablePipelines.length > 0 && (
-            <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pipeline:</span>
+            <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }}>
+              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// pipeline</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {availablePipelines.map(p => {
                   const isCurrent = p.id === task.pipelineId;
@@ -1174,18 +1174,19 @@ function SubtaskKanbanCard({
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
         {editOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
             {/* Move to a different parent stage — button-based to avoid native-select click-outside issues */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{moveToStage === "" ? "move to stage — pick pipeline:" : "move to stage — pick task:"}</span>
+              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStage === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
               {moveToStage === "" ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {allPipelinesGlobal.map((p: { id: string; name: string; icon: string }) => (
+                  {(allPipelinesGlobal || []).length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no pipelines available</span>}
+                  {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
                     <button
                       key={p.id}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(p.id); }}
                       data-no-close
-                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
                     >{p.icon} {p.name}</button>
                   ))}
                 </div>
