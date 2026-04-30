@@ -263,11 +263,11 @@ function StageSubtaskCard({
       )}
 
       {/* Action row */}
-      <div style={{ display: "flex", gap: 4, borderTop: `1px solid ${t.border}`, paddingTop: 6, alignItems: "center" }}>
+      <div style={{ display: "flex", gap: 4, borderTop: `1px solid ${t.border}`, paddingTop: 6, alignItems: "center", flexWrap: "wrap" }}>
         <div style={{ position: "relative" }}>
           <button onClick={() => { setReactOpen(v => !v); setCommentOpen(false); setAssignOpen(false); }} style={iconBtn}>😀 +</button>
           {reactOpen && (
-            <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
+            <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100 }}>
               {REACTIONS.map(emoji => <button key={emoji} onClick={() => { handleReact(key, emoji); setReactOpen(false); }} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 15, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>)}
             </div>
           )}
@@ -329,6 +329,20 @@ function StageSubtaskCard({
           )}
         </div>
         <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
+        <button
+          onClick={e => {
+            e.stopPropagation();
+            onRemove();
+            setReactOpen(false);
+            setCommentOpen(false);
+            setAssignOpen(false);
+            setEditOpen(false);
+          }}
+          style={{ ...iconBtn, background: t.amber + "10", borderColor: t.amber + "55", color: t.amber }}
+          title="Archive subtask"
+        >
+          📦 archive
+        </button>
 
         {/* Pencil — bottom-right edit toggle, same pattern as TaskCard */}
         <button
@@ -350,7 +364,7 @@ function StageSubtaskCard({
 
       {/* Comment box */}
       {commentOpen && (
-        <div style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
+        <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
           {cmts.length > 0 && (
             <div style={{ maxHeight: 100, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
               {cmts.slice(-4).map(c => { const u = resolveCommentUser(users, c.by); return <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}><AvatarC user={u} size={14} /><div style={{ flex: 1 }}><span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name} </span><span style={{ fontSize: 11, color: t.text }}>{c.text}</span></div></div>; })}
@@ -358,11 +372,12 @@ function StageSubtaskCard({
           )}
           <div style={{ position: "relative" }}>
             {mentionDropdown && mentionDropdown.matches.length > 0 && (
-              <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+              <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
                 {mentionDropdown.matches.map((u, i) => (
                   <div
                     key={u.id}
-                    onMouseDown={e => { e.preventDefault(); insertSubtaskMention(u); }}
+                    data-no-close
+                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertSubtaskMention(u); }}
                     style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
                   >
                     <AvatarC user={u} size={16} />
@@ -373,7 +388,7 @@ function StageSubtaskCard({
               </div>
             )}
             <div style={{ display: "flex", gap: 4 }}>
-              <input value={commentInputVal} onChange={e => handleSubtaskCommentInputChange(e.target.value)} onKeyDown={e => {
+              <input data-no-close value={commentInputVal} onChange={e => handleSubtaskCommentInputChange(e.target.value)} onKeyDown={e => {
                 if (mentionDropdown && mentionDropdown.matches.length > 0) {
                   if (e.key === "ArrowDown") { e.preventDefault(); setMentionDropdown(d => d ? { ...d, selectedIdx: Math.min(d.selectedIdx + 1, d.matches.length - 1) } : d); return; }
                   if (e.key === "ArrowUp") { e.preventDefault(); setMentionDropdown(d => d ? { ...d, selectedIdx: Math.max(d.selectedIdx - 1, 0) } : d); return; }
@@ -382,7 +397,7 @@ function StageSubtaskCard({
                 }
                 if (e.key === "Enter") { e.preventDefault(); sendSubtaskComment(); }
               }} placeholder="comment... (@name to mention)" style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-              <button onClick={sendSubtaskComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+              <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={sendSubtaskComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
             </div>
           </div>
         </div>
@@ -1032,14 +1047,15 @@ export default function Stage({
                           )}
 
                           {/* Comment input with @mention autocomplete */}
-                          <div style={{ position: "relative", marginTop: 8 }}>
+                          <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "relative", marginTop: 8 }}>
                             {/* @mention dropdown */}
                             {mentionDropdown && mentionDropdown.matches.length > 0 && (
-                              <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
+                              <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
                                 {mentionDropdown.matches.map((u, i) => (
                                   <div
                                     key={u.id}
-                                    onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                                    data-no-close
+                                    onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertMention(u); }}
                                     style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
                                   >
                                     <AvatarC user={u} size={16} />
@@ -1051,6 +1067,7 @@ export default function Stage({
                             )}
                             <div style={{ display: "flex", gap: 4 }}>
                               <input
+                                data-no-close
                                 value={commentInputVal}
                                 onChange={e => handleCommentInputChange(e.target.value)}
                                 onKeyDown={e => {
@@ -1088,6 +1105,8 @@ export default function Stage({
                                 style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }}
                               />
                               <button
+                                data-no-close
+                                onMouseDown={e => e.stopPropagation()}
                                 onClick={() => {
                                   addComment(name, commentInputVal, () => {
                                     setCommentInputVal("");

@@ -22,6 +22,7 @@ import {
   assignedEmailTemplate,
   mentionEmailTemplate,
   pipelineCompletedEmailTemplate,
+  subtaskApprovedEmailTemplate,
 } from "@/lib/emailTemplates";
 import { buildUnsubscribeToken } from "@/app/api/unsubscribe/route";
 import { USERS_DEFAULT } from "@/lib/data";
@@ -98,7 +99,7 @@ async function userOptedIn(fixedUserId: string, eventType: EventType): Promise<b
 
 function renderEmail(
   eventType: EventType,
-  base: { stageName: string; pipelineName: string; actorName: string; appUrl: string; unsubscribeUrl: string; points: number; commentText?: string },
+  base: { stageName: string; pipelineName: string; actorName: string; appUrl: string; unsubscribeUrl: string; points: number; commentText?: string; detail?: string },
 ): { subject: string; html: string } | null {
   switch (eventType) {
     case "claimed":
@@ -111,6 +112,8 @@ function renderEmail(
       return assignedEmailTemplate(base);
     case "mentioned":
       return mentionEmailTemplate({ ...base, commentText: base.commentText ?? "" });
+    case "subtask_approved":
+      return subtaskApprovedEmailTemplate(base);
     case "pipeline_completed":
       return pipelineCompletedEmailTemplate({
         pipelineName: base.pipelineName,
@@ -162,6 +165,7 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
         unsubscribeUrl: `${appUrl}/api/unsubscribe?t=${buildUnsubscribeToken(fixedUserId)}`,
         points: opts.points ?? 0,
         commentText: opts.commentText,
+        detail: opts.detail,
       });
       if (!tmpl) continue;
 

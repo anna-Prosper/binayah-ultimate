@@ -149,6 +149,24 @@ export function approvedEmailTemplate(opts: ApprovedOpts): { subject: string; ht
   };
 }
 
+interface SubtaskApprovedOpts extends BaseOpts {
+  detail?: string;
+}
+export function subtaskApprovedEmailTemplate(opts: SubtaskApprovedOpts): { subject: string; html: string } {
+  const readableTitle = opts.detail?.replace(/^subtask\s+/i, "") || opts.stageName;
+  const body = `
+    ${eyebrow("Subtask approved", GREEN)}
+    ${title(readableTitle)}
+    ${meta(opts.pipelineName)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> approved this subtask.`)}
+    ${ctaLink(opts.appUrl, "Open dashboard", GREEN)}
+  `;
+  return {
+    subject: `[Binayah Dashboard] subtask approved in ${opts.pipelineName}`,
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
 interface PipelineCompletedOpts {
   pipelineName: string;
   bonusPoints: number;

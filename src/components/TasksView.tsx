@@ -1190,6 +1190,8 @@ function SubtaskCard({
         onEmoji={emoji => { handleReact(key, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
+        onArchive={() => setArchiveConfirm(true)}
+        archiveLabel="archive"
         showEditButton={true}
         showEditInput={editOpen}
         onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setDescVal(subtaskDescOverrides[key] || ""); setMoveToStageSSC(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
@@ -1443,6 +1445,8 @@ function SubtaskKanbanCard({
           onEmoji={emoji => { handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
+          onArchive={() => setArchiveConfirm(true)}
+          archiveLabel="archive"
           showEditButton={true}
           showEditInput={editOpen}
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setDescVal(subtaskDescOverrides[sub.key] || ""); setMoveToStage(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
@@ -1568,7 +1572,7 @@ function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, dragga
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onEditToggle, showEditInput, showEditButton, compact }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
   commentCount: number;
   /** primary assignee — first in the list, kept for backwards compat label/color */
@@ -1579,7 +1583,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   onReactToggle: () => void; onCommentToggle: () => void; onAssignToggle: () => void;
   /** toggle a userId in/out of the assignee list (max 2). null clears all. */
   onAssign: (userId: string | null) => void;
-  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean;
+  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onArchive?: () => void; archiveLabel?: string; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean;
 }) {
   const assigneeList = assignees && assignees.length > 0 ? assignees : (assignee ? [assignee] : []);
   const iconBtn: React.CSSProperties = {
@@ -1588,32 +1592,40 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
     fontSize: compact ? 9 : 10, color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4,
     whiteSpace: "nowrap" as const,
+    minHeight: compact ? 26 : 30,
+    transition: "background 0.15s, border-color 0.15s, color 0.15s",
   };
+  const activeBtn = (active: boolean, color = t.accent): React.CSSProperties => ({
+    ...iconBtn,
+    background: active ? color + "16" : "transparent",
+    borderColor: active ? color + "66" : t.border,
+    color: active ? color : t.textMuted,
+  });
 
   return (
     <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 0, flexWrap: "wrap" }}>
       <div style={{ position: "relative" }}>
-        <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={iconBtn} title="Add reaction">
+        <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={activeBtn(showReactPicker)} title="Add reaction">
           😀 <span style={{ fontSize: 10 }}>+</span>
         </button>
         {showReactPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
+          <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
             {REACTIONS.map(emoji => (
               <button key={emoji} onClick={() => onEmoji(emoji)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 15, padding: "4px 4px", borderRadius: 8 }}>{emoji}</button>
             ))}
           </div>
         )}
       </div>
-      <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={iconBtn} title="Comments">
+      <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={activeBtn(showCommentPopover)} title="Comments">
         💬 <span style={{ fontSize: 10 }}>{commentCount}</span>
       </button>
       <div style={{ position: "relative" }}>
         <button
           onClick={e => { e.stopPropagation(); onAssignToggle(); }}
           style={{
-            ...iconBtn,
-            color: assigneeList.length > 0 ? assigneeList[0].color : t.textMuted,
-            borderColor: assigneeList.length > 0 ? assigneeList[0].color + "55" : t.border,
+            ...activeBtn(showAssignPicker, assigneeList[0]?.color || t.accent),
+            color: assigneeList.length > 0 ? assigneeList[0].color : (showAssignPicker ? t.accent : t.textMuted),
+            borderColor: assigneeList.length > 0 ? assigneeList[0].color + "55" : (showAssignPicker ? t.accent + "66" : t.border),
             paddingLeft: assigneeList.length > 0 ? 4 : (compact ? 6 : 7),
             gap: 5,
           }}
@@ -1643,7 +1655,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           )}
         </button>
         {showAssignPicker && (
-          <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 200 }}>
+          <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 200 }}>
             <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
               assign — up to 2 ({assigneeList.length}/2)
             </div>
@@ -1688,6 +1700,15 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
       <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title="Copy">
         {copied ? "✓ copied" : "📋 copy"}
       </button>
+      {onArchive && (
+        <button
+          onClick={e => { e.stopPropagation(); onArchive(); }}
+          style={{ ...iconBtn, background: t.amber + "10", borderColor: t.amber + "55", color: t.amber }}
+          title="Archive subtask"
+        >
+          📦 {archiveLabel || "archive"}
+        </button>
+      )}
       {onEditToggle && showEditButton && (
         <button
           onClick={e => { e.stopPropagation(); onEditToggle(); }}
@@ -1723,10 +1744,13 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
   inputValue: string; onInputChange: (v: string) => void; onSend: () => void;
 }) {
   // @mention autocomplete: detect "@word" at cursor and surface user matches
-  const mentionMatch = inputValue.match(/(^|\s)@(\w*)$/);
+  const mentionMatch = inputValue.match(/(^|\s)@([\w-]*)$/);
   const mentionQuery = mentionMatch ? (mentionMatch[2] || "").toLowerCase() : null;
   const mentionMatches = mentionQuery !== null
-    ? users.filter(u => u.name.split(" ")[0].toLowerCase().startsWith(mentionQuery)).slice(0, 6)
+    ? users.filter(u => {
+        const firstName = u.name.split(" ")[0].toLowerCase();
+        return firstName.startsWith(mentionQuery) || u.id.toLowerCase().startsWith(mentionQuery);
+      }).slice(0, 6)
     : [];
   const insertMention = (u: UserType) => {
     if (!mentionMatch) return;
@@ -1736,8 +1760,11 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
     onInputChange(`${before}@${firstName} `);
   };
   return (
-    <div onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
-      {comments.length > 0 && (
+    <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
+      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6, textTransform: "uppercase" as const }}>
+        comments ({comments.length})
+      </div>
+      {comments.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: 150, overflowY: "auto", marginBottom: 8 }}>
           {comments.slice(-5).map(c => {
             const u = resolveCommentUser(users, c.by);
@@ -1752,14 +1779,17 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
             );
           })}
         </div>
+      ) : (
+        <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", marginBottom: 8 }}>no comments yet</div>
       )}
       <div style={{ position: "relative" as const }}>
         {mentionQuery !== null && mentionMatches.length > 0 && (
-          <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+          <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
             {mentionMatches.map(u => (
               <div
                 key={u.id}
-                onMouseDown={e => { e.preventDefault(); insertMention(u); }}
+                data-no-close
+                onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertMention(u); }}
                 style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12, color: t.text }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.accent + "22"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
@@ -1773,6 +1803,7 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
         )}
         <div style={{ display: "flex", gap: 4 }}>
           <input
+            data-no-close
             value={inputValue}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => {
@@ -1786,7 +1817,7 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
             placeholder="// add a comment... (@name to mention)"
             style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
-          <button onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+          <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
         </div>
       </div>
     </div>
