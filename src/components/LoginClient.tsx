@@ -100,7 +100,11 @@ export default function LoginClient() {
     setAuthState("loading_google");
     clearError();
     try {
-      await signIn("google", { callbackUrl: "/" });
+      await signIn(
+        "google",
+        { callbackUrl: "/" },
+        { prompt: "select_account" }
+      );
     } catch {
       setAuthState("idle");
       setError("NETWORK_ERROR");
