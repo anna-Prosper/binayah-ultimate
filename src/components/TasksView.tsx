@@ -281,6 +281,7 @@ export default function TasksView(props: Props) {
   }, []);
   const handleStageDrop = useCallback((stageId: string, e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation(); // prevent bubbling to column onDrop (which would also setSubtaskStage)
     setStageDropOver(null);
     const key = e.dataTransfer.getData("subtaskKey");
     if (!key || !SubtaskKey.isValid(key)) return;
@@ -409,17 +410,12 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0, opacity: draggingSubtaskKey ? 0.55 : 1 }}
+                style={{ flex: "1 1 280px", minWidth: 260, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0 }}
                 onDragOver={e => {
-                  // Only handle column drag if NOT a subtask being migrated to a stage
-                  if (e.dataTransfer.types.includes("subtaskkey")) return;
                   e.preventDefault(); setDragOver(col.status);
                 }}
                 onDragLeave={() => setDragOver(null)}
-                onDrop={e => {
-                  if (e.dataTransfer.types.includes("subtaskkey")) return;
-                  handleDrop(col.status, e);
-                }}
+                onDrop={e => handleDrop(col.status, e)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, padding: "4px 4px", borderBottom: `1px solid ${stColor}33` }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
