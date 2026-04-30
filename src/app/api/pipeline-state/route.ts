@@ -439,7 +439,7 @@ export async function PATCH(req: NextRequest) {
           actorId: actorUserId,
           claimers: postOwners[stageKey] ?? [],
           assignees: postOwners[stageKey] ?? [],
-          newlyAssigned: added,
+          newlyAssigned: eventType === "assigned" ? added : undefined,
           points: stageDefaults[stageKey]?.points ?? 10,
           detail: eventType === "assigned"
             ? `${actorUserId} assigned ${added.join(", ")} to ${stageKey}`

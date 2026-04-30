@@ -33,8 +33,9 @@ function escapeHtml(s: string): string {
 }
 
 /**
- * Fire-and-forget email notification to all mentioned users (excluding sender).
- * Call without await — errors are swallowed.
+ * Fire-and-forget email notification to all mentioned users.
+ * Explicit self-mentions are delivered too; ordinary self-actions are filtered
+ * by the routed notification layer instead.
  */
 export async function notifyMentions(
   text: string,
@@ -51,20 +52,37 @@ export async function notifyMentions(
     ? `in a comment on <strong>${escapeHtml(stageName)}</strong>`
     : "in the team chat";
   const linkLabel = context === "comment" ? "Open dashboard →" : "Open chat →";
-  const html = `<div style="font-family:system-ui,sans-serif;color:#222;max-width:520px;margin:0 auto;padding:24px;">
-    <div style="font-size:12px;color:#999;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">// Binayah Dashboard</div>
-    <h2 style="margin:0 0 16px;font-size:18px;">${escapeHtml(senderName)} mentioned you ${contextLine}</h2>
-    <blockquote style="margin:0;padding:14px 18px;background:#f5f5f5;border-left:3px solid #bf5af2;border-radius:6px;font-size:14px;line-height:1.5;color:#333;">${safeText}</blockquote>
-    <p style="margin-top:24px;"><a href="${APP_URL}" style="display:inline-block;background:#bf5af2;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:13px;">${linkLabel}</a></p>
-    <p style="margin-top:24px;font-size:11px;color:#999;">You're receiving this because you were mentioned.</p>
-  </div>`;
+  const html = `<!DOCTYPE html>
+  <html lang="en">
+  <body style="margin:0;padding:0;background:#f6f3fb;font-family:Arial,Helvetica,sans-serif;color:#211236;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f6f3fb;min-height:100vh;">
+      <tr>
+        <td align="center" style="padding:36px 16px;">
+          <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+            <tr><td style="padding:0 4px 14px;font-size:13px;font-weight:800;color:#c00072;letter-spacing:.08em;text-transform:uppercase;">Binayah Ultimate</td></tr>
+            <tr>
+              <td style="background:#ffffff;border:1px solid #eadff4;border-radius:18px;padding:30px 28px;box-shadow:0 18px 45px rgba(50,30,70,0.08);">
+                <p style="font-size:12px;color:#b45309;font-weight:800;letter-spacing:.08em;text-transform:uppercase;margin:0 0 8px 0;">You were mentioned</p>
+                <h1 style="font-size:24px;line-height:1.22;color:#211236;font-weight:800;margin:0 0 16px 0;">${escapeHtml(senderName)} mentioned you</h1>
+                <p style="font-size:15px;line-height:1.6;color:#6f5b86;margin:0 0 12px 0;">${contextLine}</p>
+                <div style="margin:0 0 24px;padding:14px 16px;background:#faf7ff;border:1px solid #eadff4;border-left:4px solid #b45309;border-radius:12px;font-size:14px;color:#211236;line-height:1.55;">${safeText}</div>
+                <table cellpadding="0" cellspacing="0" border="0"><tr><td style="background:#b45309;border-radius:10px;padding:12px 20px;"><a href="${APP_URL}" style="font-size:14px;font-weight:800;color:#ffffff;text-decoration:none;">${linkLabel}</a></td></tr></table>
+                <p style="margin:30px 0 0;padding-top:16px;border-top:1px solid #eadff4;font-size:12px;color:#9a8aaa;">You're receiving this because you were mentioned.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+  </html>`;
 
   const subject = context === "comment" && stageName
     ? `${senderName} mentioned you in a comment on "${stageName}"`
     : `${senderName} mentioned you in chat`;
 
   await Promise.allSettled(
-    mentioned.filter(id => id !== senderUserId).map(uid => {
+    mentioned.map(uid => {
       const to = getEmailForUser(uid);
       if (!to) return Promise.resolve();
       return sendStageEmail({ to, subject, html }).catch(e => {

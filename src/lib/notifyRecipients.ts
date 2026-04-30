@@ -2,8 +2,10 @@
  * notifyRecipients — resolves who gets notified for a given event, and how.
  *
  * Routing rules:
- *   root     (ADMIN_IDS)              → every event, every workspace
- *   operator (workspace.captains)     → every event in their workspace(s)
+ *   root     (ADMIN_IDS)              → every event, every workspace, digest by
+ *                                       default unless directly involved
+ *   operator (workspace.captains)     → every event in their workspace(s), digest
+ *                                       by default unless directly involved
  *   agent    (workspace.members)      → only events where they are: mentioned,
  *                                       a claimer, an assignee, or the new
  *                                       assignee on an `assigned` event
@@ -12,7 +14,7 @@
  *
  * Delivery channels:
  *   `immediate` — email is sent now. Reserved for high-urgency: mentions,
- *                 approvals on your own stage/subtask, being assigned to
+ *                 approvals/completions on your own work, and being assigned
  *                 something. These are interruptions worth your attention.
  *   `digest`    — accumulated and emailed once per day. Everything else.
  *
@@ -66,8 +68,7 @@ export interface RecipientPlan {
   digest: string[];
 }
 
-const URGENT_FOR_AGENT = new Set<EventType>(["mentioned", "approved", "assigned", "pipeline_completed"]);
-const URGENT_FOR_OPERATOR = new Set<EventType>(["mentioned", "approved", "pipeline_completed"]);
+const OWNED_WORK_EVENTS = new Set<EventType>(["active", "approved", "subtask_approved", "pipeline_completed"]);
 
 export function getRecipients(
   ctx: RecipientContext,
@@ -88,6 +89,8 @@ export function getRecipients(
       ctx.claimers.includes(userId) || ctx.assignees.includes(userId);
     const isMentioned = ctx.mentioned.includes(userId);
     const isNewlyAssigned = (ctx.newlyAssigned ?? []).includes(userId);
+    const isDirectAssignment = ctx.eventType === "assigned" && isNewlyAssigned;
+    const isOwnedWorkEvent = OWNED_WORK_EVENTS.has(ctx.eventType) && isClaimerOrAssignee;
     if (userId === ctx.actorId && !isMentioned) continue;
 
     let notify = false;
@@ -95,25 +98,19 @@ export function getRecipients(
 
     if (isRoot) {
       notify = true;
-      urgent =
-        isMentioned ||
-        (ctx.eventType === "approved" && isClaimerOrAssignee) ||
-        isNewlyAssigned;
+      urgent = isMentioned || isDirectAssignment || isOwnedWorkEvent;
     } else if (isOperator) {
       notify = true;
-      urgent =
-        isMentioned ||
-        URGENT_FOR_OPERATOR.has(ctx.eventType) && isClaimerOrAssignee ||
-        isNewlyAssigned;
+      urgent = isMentioned || isDirectAssignment || isOwnedWorkEvent;
     } else if (isAgent) {
       // Agents only get events related to them
       if (isMentioned) {
         notify = true; urgent = true;
-      } else if (isNewlyAssigned) {
+      } else if (isDirectAssignment) {
         notify = true; urgent = true;
       } else if (isClaimerOrAssignee) {
         notify = true;
-        urgent = URGENT_FOR_AGENT.has(ctx.eventType);
+        urgent = isOwnedWorkEvent;
       }
     }
 
