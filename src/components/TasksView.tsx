@@ -58,6 +58,8 @@ export default function TasksView(props: Props) {
     archivedStages, archivedSubtasks, stagePointsOverride,
     addComment: modelAddComment,
     addSubtask: modelAddSubtask,
+    addCustomStage: modelAddCustomStage,
+    addUnparentedStage,
     migrateSubtask,
     moveStageToPipeline,
   } = useModel();
@@ -93,26 +95,37 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
-  // ── Kanban "new subtask" inline form ─────────────────────────────────────────
+  // ── Kanban dynamic creation form ─────────────────────────────────────────────
+  // None selected → orphan task (inbox). Pipeline only → task. Both → subtask.
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
-  const [newSubStep, setNewSubStep] = useState<"title" | "pipeline" | "stage">("title");
-  const [newSubPipeId, setNewSubPipeId] = useState("");
+  const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = none
+  const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = none
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubStep("title"); setNewSubPipeId("");
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubPipeId(""); setNewSubParentStage("");
   }, []);
 
-  const submitNewSubtask = useCallback((colStatus: string, parentStageId: string) => {
-    const trimmed = newSubTitle.trim();
-    if (!trimmed || !parentStageId) return;
-    modelAddSubtask(parentStageId, trimmed, () => {});
-    // set the new subtask's kanban status after a tick (it gets id = Date.now())
-    const approxId = Date.now();
-    const key = `${parentStageId}::${approxId}`;
-    if (colStatus !== "planned") setSubtaskStage(key, colStatus);
+  const submitNewItem = useCallback(async (colStatus: string) => {
+    const title = newSubTitle.trim();
+    if (!title) return;
+    if (newSubPipeId && newSubParentStage) {
+      // Both selected → subtask
+      const approxId = Date.now();
+      const key = `${newSubParentStage}::${approxId}`;
+      modelAddSubtask(newSubParentStage, title, () => {});
+      if (colStatus !== "planned") setTimeout(() => setSubtaskStage(key, colStatus), 50);
+    } else if (newSubPipeId) {
+      // Pipeline only → task
+      modelAddCustomStage(newSubPipeId, title);
+      if (colStatus !== "planned") setStageStatus(title, colStatus);
+    } else {
+      // Nothing selected → orphan task in inbox
+      const stageName = await addUnparentedStage(title);
+      if (stageName && colStatus !== "planned") setStageStatus(stageName, colStatus);
+    }
     resetNewSub();
-  }, [newSubTitle, modelAddSubtask, setSubtaskStage, resetNewSub]);
+  }, [newSubTitle, newSubPipeId, newSubParentStage, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, resetNewSub]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -192,28 +205,33 @@ export default function TasksView(props: Props) {
 
   // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
 
-  // Build virtual subtask kanban tasks — ONLY from stages visible in current pipelines
+  // visibleStageIds is still needed for stage drop targets (task-card migration)
   const visibleStageIds = useMemo(() => new Set(pipelines.flatMap(p => p.allStages)), [pipelines]);
 
+  // For the kanban subtask list we use allPipelinesGlobal so subtasks whose parent
+  // pipeline is outside the current workspace still appear — no disappearing on sync.
   const subtaskKanbanTasks = useMemo(() => {
     const tasks: SubtaskKanbanTask[] = [];
     for (const [parentStageId, subtaskList] of Object.entries(subtasks || {})) {
-      // Only include subtasks whose parent stage is in a visible pipeline
-      if (!visibleStageIds.has(parentStageId)) continue;
+      // Show ALL non-archived subtasks in kanban — no workspace/pipeline filter.
+      // This is the core fix: subtasks should be independent of their parent's visibility.
       for (const sub of subtaskList) {
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
-        let parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
+        const parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
         let pipelineId = "";
         let pipelineIcon = "";
         let pipelineName = "";
         let pipelineColor = "";
-        for (const p of pipelines) {
-          if (p.allStages.includes(parentStageId)) {
+        // Look up pipeline from ALL pipelines, not just workspace-visible ones
+        for (const p of [...pipelines, ...(allPipelines || []).filter(ap => !pipelines.find(vp => vp.id === ap.id))]) {
+          const pCustom = customStages[p.id] || [];
+          const pStages = [...(p.stages || []), ...pCustom];
+          if (pStages.includes(parentStageId)) {
             pipelineId = p.id;
             pipelineIcon = p.icon;
-            pipelineName = p.displayName;
-            pipelineColor = p.color;
+            pipelineName = (p as { displayName?: string }).displayName || p.name;
+            pipelineColor = ck[p.colorKey] || t.accent;
             break;
           }
         }
@@ -238,7 +256,7 @@ export default function TasksView(props: Props) {
       }
     }
     return tasks;
-  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, visibleStageIds, archivedSubtaskKeySet, pipelineWorkspaceMap]);
+  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, allPipelines, customStages, ck, t, archivedSubtaskKeySet, pipelineWorkspaceMap]);
 
   // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
   const filteredSubtaskKanbanTasks = (showMyAllFilter && myAllFilter === "my" && currentUser)
@@ -453,65 +471,101 @@ export default function TasksView(props: Props) {
                     style={{ minHeight: 40, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, transition: "all 0.15s" }}
                   />
                   {newTaskCol === col.status ? (
+                    /* Dynamic creation form — none→orphan, pipeline→task, both→subtask */
                     <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
-                      {newSubStep === "title" && (
-                        <>
-                          <input
-                            autoFocus
-                            value={newSubTitle}
-                            onChange={e => setNewSubTitle(e.target.value)}
-                            placeholder="subtask title…"
-                            onKeyDown={e => {
-                              if (e.key === "Escape") resetNewSub();
-                              if (e.key === "Enter" && newSubTitle.trim()) setNewSubStep("pipeline");
-                            }}
-                            onBlur={() => { if (!newSubTitle.trim()) resetNewSub(); }}
-                            style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
-                          />
-                          <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>↵ to continue · esc to cancel</span>
-                        </>
-                      )}
-                      {newSubStep === "pipeline" && (
-                        <>
-                          <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>pick pipeline for "{newSubTitle}"</span>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {pipelines.filter(p => p.id !== INBOX_PIPELINE_ID).map(p => (
-                              <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(p.id); setNewSubStep("stage"); }}
-                                style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>
-                                {p.icon} {p.displayName}
-                              </button>
-                            ))}
-                          </div>
-                          <button onMouseDown={resetNewSub} style={{ fontSize: 10, color: t.textDim, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>← back</button>
-                        </>
-                      )}
-                      {newSubStep === "stage" && (() => {
-                        const pipe = pipelines.find(p => p.id === newSubPipeId);
-                        const stagesInPipe = (pipe?.allStages || []).filter(s => !(archivedStages || []).includes(s));
+                      <input
+                        autoFocus
+                        value={newSubTitle}
+                        onChange={e => setNewSubTitle(e.target.value)}
+                        placeholder="title…"
+                        onKeyDown={e => {
+                          if (e.key === "Escape") resetNewSub();
+                          if (e.key === "Enter" && newSubTitle.trim()) submitNewItem(col.status);
+                        }}
+                        onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage) resetNewSub(); }}
+                        data-no-close
+                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+                      />
+                      {/* Pipeline picker — optional */}
+                      <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                        {newSubPipeId
+                          ? `pipeline: ${allPipelines.find(p => p.id === newSubPipeId)?.name || newSubPipeId}`
+                          : "// pipeline (optional)"}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {newSubPipeId && (
+                          <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubParentStage(""); }}
+                            data-no-close
+                            style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
+                            ✕ clear pipeline
+                          </button>
+                        )}
+                        {allPipelines.filter(p => p.id !== INBOX_PIPELINE_ID).map(p => {
+                          const sel = newSubPipeId === p.id;
+                          return (
+                            <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(p.id); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }}
+                              data-no-close
+                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                              {p.icon} {(p as { displayName?: string }).displayName || p.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Parent task picker — optional, only shown when pipeline selected */}
+                      {newSubPipeId && (() => {
+                        const pipe = allPipelines.find(p => p.id === newSubPipeId);
+                        const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s));
                         return (
                           <>
-                            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>pick parent task</span>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                              {stagesInPipe.map(s => (
-                                <button key={s} onMouseDown={e => { e.preventDefault(); submitNewSubtask(col.status, s); }}
-                                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>
-                                  {stageNameOverrides?.[s] || s}
-                                </button>
-                              ))}
-                              {stagesInPipe.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
+                            <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                              {newSubParentStage ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}` : "// parent task (optional — skip to create as task)"}
                             </div>
-                            <button onMouseDown={() => setNewSubStep("pipeline")} style={{ fontSize: 10, color: t.textDim, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>← back</button>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {newSubParentStage && (
+                                <button onMouseDown={e => { e.preventDefault(); setNewSubParentStage(""); }} data-no-close
+                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                  ✕ clear parent
+                                </button>
+                              )}
+                              {stagesInPipe.map(s => {
+                                const sel = newSubParentStage === s;
+                                return (
+                                  <button key={s} onMouseDown={e => { e.preventDefault(); setNewSubParentStage(sel ? "" : s); }} data-no-close
+                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                    {stageNameOverrides?.[s] || s}
+                                  </button>
+                                );
+                              })}
+                              {stagesInPipe.length === 0 && <span style={{ fontSize: 9, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
+                            </div>
                           </>
                         );
                       })()}
+                      {/* Status line + action */}
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
+                        <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                          {newSubPipeId && newSubParentStage ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}
+                          {" · "}↵ or click create
+                        </span>
+                        <div style={{ display: "flex", gap: 4 }}>
+                          <button onMouseDown={resetNewSub} data-no-close
+                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                            cancel
+                          </button>
+                          <button onMouseDown={e => { e.preventDefault(); if (newSubTitle.trim()) submitNewItem(col.status); }} data-no-close
+                            style={{ background: t.accent + "22", border: `1px solid ${t.accent}88`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>
+                            create
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubStep("title"); setNewSubPipeId(""); }}
+                      onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubPipeId(""); setNewSubParentStage(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
-                    >+ new subtask</button>
+                    >+ new</button>
                   )}
                 </div>
               </div>
