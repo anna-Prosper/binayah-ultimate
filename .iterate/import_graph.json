@@ -102,6 +102,8 @@
       "src/components/ui/Avatar.tsx",
       "src/components/ui/ClaimChip.tsx",
       "src/lib/contexts/EphemeralContext.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/components/ui/ClaimerPills.tsx",
       "src/lib/contexts/ModelContext.tsx",
       "src/lib/subtaskKey.ts",
       "src/hooks/useIsMobile.ts",
@@ -118,7 +120,8 @@
       "src/components/ui/Toast.tsx",
       "src/lib/data.ts",
       "src/hooks/useIsMobile.ts",
-      "src/components/SearchPalette.tsx"
+      "src/components/SearchPalette.tsx",
+      "src/components/ui/ConfirmModal.tsx"
     ],
     "src/components/LeftSidebar.tsx": [
       "src/lib/themes.ts"
@@ -128,6 +131,7 @@
       "src/lib/subtaskKey.ts",
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimerPills.tsx",
       "src/components/ui/primitives.tsx",
       "src/components/ui/ClaimChip.tsx",
       "src/components/mockups/mockupsMap.tsx",
@@ -136,6 +140,7 @@
       "src/lib/contexts/ModelContext.tsx",
       "src/lib/points.ts",
       "src/components/ui/BottomSheet.tsx",
+      "src/components/ui/ConfirmModal.tsx",
       "src/lib/storage.ts"
     ],
     "src/components/ActivityFeed.tsx": [
@@ -155,6 +160,10 @@
     "src/lib/storage.ts": [
       "src/lib/version.ts"
     ],
+    "src/lib/notifyRateLimit.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/NotifyLog.ts"
+    ],
     "src/lib/sendNotifications.ts": [
       "src/lib/mongo.ts",
       "src/lib/AuthUser.ts",
@@ -163,6 +172,11 @@
       "src/lib/email.ts",
       "src/lib/emailTemplates.ts",
       "src/app/api/unsubscribe/route.ts",
+      "src/lib/data.ts",
+      "src/lib/notifyRecipients.ts",
+      "src/lib/DigestEntry.ts"
+    ],
+    "src/lib/notifyRecipients.ts": [
       "src/lib/data.ts"
     ],
     "src/lib/points.ts": [
@@ -217,6 +231,11 @@
     ],
     "src/components/ui/Toast.tsx": [
       "src/lib/themes.ts"
+    ],
+    "src/components/ui/ClaimerPills.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
     ],
     "src/components/mockups/MultiMockups.tsx": [
       "src/lib/themes.ts",
@@ -274,7 +293,8 @@
     "src/components/views/TeamBar.tsx": [
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/Avatar.tsx",
-      "src/components/NotificationPrefs.tsx"
+      "src/components/NotificationPrefs.tsx",
+      "src/lib/data.ts"
     ],
     "src/components/views/ActivityView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
@@ -290,7 +310,9 @@
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Avatar.tsx",
-      "src/components/LeftSidebar.tsx"
+      "src/components/LeftSidebar.tsx",
+      "src/lib/themes.ts",
+      "src/lib/data.ts"
     ],
     "src/components/views/PipelinesView.tsx": [
       "src/lib/contexts/EphemeralContext.tsx",
@@ -345,6 +367,16 @@
       "src/lib/rateLimit.ts",
       "src/lib/log.ts"
     ],
+    "src/app/api/cron/digest/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/DigestEntry.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts",
+      "src/lib/emailTemplates.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/log.ts"
+    ],
     "src/app/api/documents/[id]/route.ts": [
       "src/lib/auth.ts",
       "src/lib/mongo.ts",
@@ -372,7 +404,9 @@
       "src/lib/validate.ts",
       "src/lib/log.ts",
       "src/lib/auth.ts",
-      "src/lib/mentions.ts"
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts",
+      "src/lib/data.ts"
     ],
     "src/app/api/pipeline-state/messages/route.ts": [
       "src/lib/auth.ts",
@@ -444,6 +478,7 @@
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/suggest-points/route.ts",
+      "src/app/api/cron/digest/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
@@ -478,13 +513,18 @@
       "src/lib/generatePDF.ts",
       "src/lib/mentions.ts",
       "src/lib/sendNotifications.ts",
+      "src/lib/notifyRecipients.ts",
       "src/lib/points.ts",
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/AvatarPicker.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimerPills.tsx",
+      "src/components/views/TeamBar.tsx",
+      "src/components/views/HomeViewRoute.tsx",
       "src/components/views/PipelinesView.tsx",
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
     "src/components/ui/Avatar.tsx": [
@@ -504,6 +544,7 @@
       "src/components/ActivityFeed.tsx",
       "src/components/ui/AvatarPicker.tsx",
       "src/components/ui/UserPopup.tsx",
+      "src/components/ui/ClaimerPills.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/PipelinesView.tsx"
@@ -536,6 +577,7 @@
       "src/components/ui/ConfirmModal.tsx",
       "src/components/ui/Skeletons.tsx",
       "src/components/ui/Toast.tsx",
+      "src/components/ui/ClaimerPills.tsx",
       "src/components/mockups/MultiMockups.tsx",
       "src/components/mockups/CoreMockups.tsx",
       "src/components/mockups/CommsMockups.tsx",
@@ -546,7 +588,8 @@
       "src/components/mockups/ContentMockups.tsx",
       "src/components/mockups/WebToolsMockups.tsx",
       "src/components/mockups/MockupShells.tsx",
-      "src/components/mockups/mockupsMap.tsx"
+      "src/components/mockups/mockupsMap.tsx",
+      "src/components/views/HomeViewRoute.tsx"
     ],
     "src/components/Onboarding.tsx": [
       "src/components/WelcomeModal.tsx",
@@ -669,6 +712,16 @@
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx"
     ],
+    "src/components/ui/ConfirmModal.tsx": [
+      "src/components/TasksView.tsx",
+      "src/components/DocumentsPanel.tsx",
+      "src/components/Stage.tsx",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/ui/ClaimerPills.tsx": [
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx"
+    ],
     "src/lib/subtaskKey.ts": [
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
@@ -682,14 +735,17 @@
     ],
     "src/lib/email.ts": [
       "src/lib/mentions.ts",
-      "src/lib/sendNotifications.ts"
+      "src/lib/sendNotifications.ts",
+      "src/app/api/cron/digest/route.ts"
     ],
     "src/lib/mongo.ts": [
+      "src/lib/notifyRateLimit.ts",
       "src/lib/sendNotifications.ts",
       "src/lib/auth.ts",
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/unsubscribe/route.ts",
       "src/app/api/documents/route.ts",
+      "src/app/api/cron/digest/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
@@ -701,10 +757,14 @@
       "src/app/api/auth/prefs/route.ts",
       "src/app/api/auth/signup/route.ts"
     ],
+    "src/lib/NotifyLog.ts": [
+      "src/lib/notifyRateLimit.ts"
+    ],
     "src/lib/AuthUser.ts": [
       "src/lib/sendNotifications.ts",
       "src/lib/auth.ts",
       "src/app/api/unsubscribe/route.ts",
+      "src/app/api/cron/digest/route.ts",
       "src/app/api/auth/prefs/route.ts",
       "src/app/api/auth/signup/route.ts"
     ],
@@ -712,10 +772,19 @@
       "src/lib/sendNotifications.ts"
     ],
     "src/lib/emailTemplates.ts": [
-      "src/lib/sendNotifications.ts"
+      "src/lib/sendNotifications.ts",
+      "src/app/api/cron/digest/route.ts"
     ],
     "src/app/api/unsubscribe/route.ts": [
+      "src/lib/sendNotifications.ts",
+      "src/app/api/cron/digest/route.ts"
+    ],
+    "src/lib/notifyRecipients.ts": [
       "src/lib/sendNotifications.ts"
+    ],
+    "src/lib/DigestEntry.ts": [
+      "src/lib/sendNotifications.ts",
+      "src/app/api/cron/digest/route.ts"
     ],
     "src/lib/hooks/useUndoStack.ts": [
       "src/lib/contexts/ModelContext.tsx"
@@ -751,9 +820,6 @@
     "src/components/Stage.tsx": [
       "src/components/views/PipelinesView.tsx"
     ],
-    "src/components/ui/ConfirmModal.tsx": [
-      "src/components/views/PipelinesView.tsx"
-    ],
     "src/components/LoginClient.tsx": [
       "src/app/login/page.tsx"
     ],
@@ -786,6 +852,7 @@
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/generate-pfp/route.ts",
       "src/app/api/suggest-points/route.ts",
+      "src/app/api/cron/digest/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
@@ -799,7 +866,8 @@
       "src/app/api/pipeline-state/messages/stream/route.ts"
     ],
     "src/lib/sendNotifications.ts": [
-      "src/app/api/pipeline-state/route.ts"
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts"
     ],
     "src/lib/chatBus.ts": [
       "src/app/api/pipeline-state/route.ts",
@@ -845,6 +913,7 @@
     "src/app/api/generate-pfp/route.ts": "/api/generate-pfp",
     "src/app/api/documents/route.ts": "/api/documents",
     "src/app/api/suggest-points/route.ts": "/api/suggest-points",
+    "src/app/api/cron/digest/route.ts": "/api/cron/digest",
     "src/app/api/documents/[id]/route.ts": "/api/documents/[id]",
     "src/app/api/documents/[id]/attachments/route.ts": "/api/documents/[id]/attachments",
     "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": "/api/documents/[id]/attachments/[attachmentId]",
@@ -857,6 +926,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-29T07:01:56.154806+00:00",
-  "fileCount": 115
+  "builtAt": "2026-04-30T07:51:40.071505+00:00",
+  "fileCount": 120
 }

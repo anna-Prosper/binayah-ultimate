@@ -35,6 +35,8 @@ interface Props {
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
   hideConcept?: boolean;
+  /** When true (cross-workspace mode), creating an orphan is disabled — pipeline must be picked. */
+  requirePipeline?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
@@ -49,7 +51,7 @@ const ALL_COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, requirePipeline } = props;
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
@@ -110,22 +112,28 @@ export default function TasksView(props: Props) {
     const title = newSubTitle.trim();
     if (!title) return;
     if (newSubPipeId && newSubParentStage) {
-      // Both selected → subtask
-      const approxId = Date.now();
-      const key = `${newSubParentStage}::${approxId}`;
-      modelAddSubtask(newSubParentStage, title, () => {});
-      if (colStatus !== "planned") setTimeout(() => setSubtaskStage(key, colStatus), 50);
+      // Both selected → subtask. Use returned taskId so the key is exact.
+      const taskId = modelAddSubtask(newSubParentStage, title, () => {});
+      if (taskId !== null) {
+        const key = `${newSubParentStage}::${taskId}`;
+        if (colStatus !== "planned") setSubtaskStage(key, colStatus);
+        if (currentUser) handleClaim(key); // auto-claim so creator sees it under "my"
+      }
     } else if (newSubPipeId) {
       // Pipeline only → task
       modelAddCustomStage(newSubPipeId, title);
       if (colStatus !== "planned") setStageStatus(title, colStatus);
+      if (currentUser) handleClaim(title); // auto-claim
     } else {
       // Nothing selected → orphan task in inbox
       const stageName = await addUnparentedStage(title);
-      if (stageName && colStatus !== "planned") setStageStatus(stageName, colStatus);
+      if (stageName) {
+        if (colStatus !== "planned") setStageStatus(stageName, colStatus);
+        if (currentUser) handleClaim(stageName); // auto-claim
+      }
     }
     resetNewSub();
-  }, [newSubTitle, newSubPipeId, newSubParentStage, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, resetNewSub]);
+  }, [newSubTitle, newSubPipeId, newSubParentStage, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, resetNewSub]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -480,7 +488,7 @@ export default function TasksView(props: Props) {
                         placeholder="title…"
                         onKeyDown={e => {
                           if (e.key === "Escape") resetNewSub();
-                          if (e.key === "Enter" && newSubTitle.trim()) submitNewItem(col.status);
+                          if (e.key === "Enter" && newSubTitle.trim() && !(requirePipeline && !newSubPipeId)) submitNewItem(col.status);
                         }}
                         onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage) resetNewSub(); }}
                         data-no-close
@@ -544,16 +552,29 @@ export default function TasksView(props: Props) {
                       {/* Status line + action */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
                         <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
-                          {newSubPipeId && newSubParentStage ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}
-                          {" · "}↵ or click create
+                          {requirePipeline && !newSubPipeId
+                            ? <span style={{ color: t.amber }}>// pick a pipeline first</span>
+                            : <>{newSubPipeId && newSubParentStage ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}{" · "}↵ or click create</>}
                         </span>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button onMouseDown={resetNewSub} data-no-close
                             style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
                             cancel
                           </button>
-                          <button onMouseDown={e => { e.preventDefault(); if (newSubTitle.trim()) submitNewItem(col.status); }} data-no-close
-                            style={{ background: t.accent + "22", border: `1px solid ${t.accent}88`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>
+                          <button
+                            disabled={!newSubTitle.trim() || (requirePipeline && !newSubPipeId)}
+                            onMouseDown={e => { e.preventDefault(); if (!newSubTitle.trim()) return; if (requirePipeline && !newSubPipeId) return; submitNewItem(col.status); }}
+                            data-no-close
+                            style={{
+                              background: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.bgHover || t.bgSoft : t.accent + "22",
+                              border: `1px solid ${(!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.border : t.accent + "88"}`,
+                              borderRadius: 6, padding: "2px 8px",
+                              cursor: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? "not-allowed" : "pointer",
+                              fontSize: 10,
+                              color: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.textDim : t.accent,
+                              fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700,
+                              opacity: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? 0.5 : 1,
+                            }}>
                             create
                           </button>
                         </div>

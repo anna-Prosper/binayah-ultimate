@@ -334,6 +334,7 @@ export default function HomeView({
         editMode={editMode}
         onPipelineClick={onPipelineClick}
         hideConcept={true}
+        requirePipeline={true}
       />
     </div>
   );

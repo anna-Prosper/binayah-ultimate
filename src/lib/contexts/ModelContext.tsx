@@ -119,7 +119,7 @@ interface ModelContextValue {
   handleClaim: (sid: string) => void;
   handleReact: (sid: string, emoji: string) => void;
   addComment: (sid: string, val: string, clearInput: () => void) => void;
-  addSubtask: (sid: string, val: string, clearInput: () => void) => void;
+  addSubtask: (sid: string, val: string, clearInput: () => void) => number | null;
   toggleSubtask: (sid: string, taskId: number) => void;
   renameSubtask: (sid: string, taskId: number, text: string) => void;
   lockSubtask: (sid: string, taskId: number) => void;
@@ -774,11 +774,11 @@ export function ModelProvider({
   };
 
   const MAX_SUBTASKS = 20; const MAX_SUBTASK_LEN = 200;
-  const addSubtask = (sid: string, val: string, clearInput: () => void) => {
-    if (!val || !currentUser) return;
+  const addSubtask = (sid: string, val: string, clearInput: () => void): number | null => {
+    if (!val || !currentUser) return null;
     const trimmed = val.trim();
-    if (trimmed.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return; }
-    if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast("// max 20 subtasks per stage", t.amber); return; }
+    if (trimmed.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return null; }
+    if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast("// max 20 subtasks per stage", t.amber); return null; }
     const taskId = Date.now();
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
@@ -800,6 +800,7 @@ export function ModelProvider({
         }
       })
       .catch(() => { /* silent — leaves subtask without explicit points (uses default) */ });
+    return taskId;
   };
 
   const setSubtaskPoints = (sid: string, taskId: number, points: number) => {
