@@ -334,7 +334,8 @@ export default function HomeView({
         editMode={editMode}
         onPipelineClick={onPipelineClick}
         hideConcept={true}
-        requirePipeline={true}
+        currentWorkspaceId={homeWsFilter}
+        availableWorkspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds }))}
       />
     </div>
   );

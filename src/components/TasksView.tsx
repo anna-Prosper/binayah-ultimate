@@ -35,8 +35,10 @@ interface Props {
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
   hideConcept?: boolean;
-  /** When true (cross-workspace mode), creating an orphan is disabled — pipeline must be picked. */
-  requirePipeline?: boolean;
+  /** Workspace context for kanban creation. null = cross-workspace mode (force user to pick one). */
+  currentWorkspaceId?: string | null;
+  /** All workspaces the user can target when creating items in cross-workspace mode. */
+  availableWorkspaces?: { id: string; name: string; icon: string; pipelineIds: string[] }[];
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
@@ -51,7 +53,7 @@ const ALL_COLS = [
 ];
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, requirePipeline } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces } = props;
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
@@ -64,6 +66,7 @@ export default function TasksView(props: Props) {
     addUnparentedStage,
     migrateSubtask,
     moveStageToPipeline,
+    workspaces, setWorkspaces,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
 
@@ -98,42 +101,57 @@ export default function TasksView(props: Props) {
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
   // ── Kanban dynamic creation form ─────────────────────────────────────────────
-  // None selected → orphan task (inbox). Pipeline only → task. Both → subtask.
+  // none selected → orphan; pipeline only → task; pipeline+stage → subtask.
+  // In cross-workspace mode, workspace must be picked first (drives pipeline list + scope).
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
-  const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = none
-  const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = none
+  const [newSubWsId, setNewSubWsId] = useState<string>(""); // workspace for cross-workspace mode
+  const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = orphan
+  const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = no parent (task-level)
+
+  // Workspace context: explicit prop wins, else fall back to "must pick" mode
+  const formWsId = currentWorkspaceId || newSubWsId;
+  const needsWorkspacePick = !currentWorkspaceId && (availableWorkspaces?.length || 0) > 1;
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubPipeId(""); setNewSubParentStage("");
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage("");
   }, []);
 
   const submitNewItem = useCallback(async (colStatus: string) => {
     const title = newSubTitle.trim();
     if (!title) return;
+    if (needsWorkspacePick && !newSubWsId) return; // must pick workspace first
     if (newSubPipeId && newSubParentStage) {
-      // Both selected → subtask. Use returned taskId so the key is exact.
+      // Subtask
       const taskId = modelAddSubtask(newSubParentStage, title, () => {});
       if (taskId !== null) {
         const key = `${newSubParentStage}::${taskId}`;
         if (colStatus !== "planned") setSubtaskStage(key, colStatus);
-        if (currentUser) handleClaim(key); // auto-claim so creator sees it under "my"
+        if (currentUser) handleClaim(key);
       }
     } else if (newSubPipeId) {
-      // Pipeline only → task
+      // Task in a pipeline
       modelAddCustomStage(newSubPipeId, title);
       if (colStatus !== "planned") setStageStatus(title, colStatus);
-      if (currentUser) handleClaim(title); // auto-claim
+      if (currentUser) handleClaim(title);
     } else {
-      // Nothing selected → orphan task in inbox
+      // Orphan task. Goes to inbox pipeline. If a workspace is in scope, ensure
+      // inbox pipeline is in that workspace's pipelineIds so user sees it later.
       const stageName = await addUnparentedStage(title);
       if (stageName) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
-        if (currentUser) handleClaim(stageName); // auto-claim
+        if (currentUser) handleClaim(stageName);
+        if (formWsId) {
+          setWorkspaces(prev => prev.map(w =>
+            w.id === formWsId && !w.pipelineIds.includes(INBOX_PIPELINE_ID)
+              ? { ...w, pipelineIds: [...w.pipelineIds, INBOX_PIPELINE_ID] }
+              : w
+          ));
+        }
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubPipeId, newSubParentStage, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, resetNewSub]);
+  }, [newSubTitle, newSubWsId, newSubPipeId, newSubParentStage, needsWorkspacePick, formWsId, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, setWorkspaces, resetNewSub]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -479,7 +497,7 @@ export default function TasksView(props: Props) {
                     style={{ minHeight: 40, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, transition: "all 0.15s" }}
                   />
                   {newTaskCol === col.status ? (
-                    /* Dynamic creation form — none→orphan, pipeline→task, both→subtask */
+                    /* Dynamic creation form — workspace (if cross-ws) → optional pipeline → optional parent task */
                     <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
                       <input
                         autoFocus
@@ -488,37 +506,69 @@ export default function TasksView(props: Props) {
                         placeholder="title…"
                         onKeyDown={e => {
                           if (e.key === "Escape") resetNewSub();
-                          if (e.key === "Enter" && newSubTitle.trim() && !(requirePipeline && !newSubPipeId)) submitNewItem(col.status);
+                          if (e.key === "Enter" && newSubTitle.trim() && !(needsWorkspacePick && !newSubWsId)) submitNewItem(col.status);
                         }}
-                        onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage) resetNewSub(); }}
+                        onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage && !newSubWsId) resetNewSub(); }}
                         data-no-close
                         style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
                       />
-                      {/* Pipeline picker — optional */}
-                      <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
-                        {newSubPipeId
-                          ? `pipeline: ${allPipelines.find(p => p.id === newSubPipeId)?.name || newSubPipeId}`
-                          : "// pipeline (optional)"}
-                      </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {newSubPipeId && (
-                          <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubParentStage(""); }}
-                            data-no-close
-                            style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
-                            ✕ clear pipeline
-                          </button>
-                        )}
-                        {allPipelines.filter(p => p.id !== INBOX_PIPELINE_ID).map(p => {
-                          const sel = newSubPipeId === p.id;
-                          return (
-                            <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(p.id); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }}
-                              data-no-close
-                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
-                              {p.icon} {(p as { displayName?: string }).displayName || p.name}
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {/* Workspace picker — only shown in cross-workspace mode */}
+                      {needsWorkspacePick && (
+                        <>
+                          <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                            {newSubWsId
+                              ? `workspace: ${availableWorkspaces?.find(w => w.id === newSubWsId)?.name || newSubWsId}`
+                              : "// pick workspace (required)"}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {(availableWorkspaces || []).map(w => {
+                              const sel = newSubWsId === w.id;
+                              return (
+                                <button key={w.id} onMouseDown={e => { e.preventDefault(); setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubParentStage(""); }} data-no-close
+                                  style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                  {w.icon} {w.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                      {/* Pipeline picker — optional, gated on workspace pick if cross-ws */}
+                      {(!needsWorkspacePick || newSubWsId) && (() => {
+                        const wsPipeIds = formWsId
+                          ? new Set(availableWorkspaces?.find(w => w.id === formWsId)?.pipelineIds || workspaces.find(w => w.id === formWsId)?.pipelineIds || [])
+                          : null;
+                        const pipesToShow = allPipelines.filter(p =>
+                          p.id !== INBOX_PIPELINE_ID && (!wsPipeIds || wsPipeIds.has(p.id))
+                        );
+                        return (
+                          <>
+                            <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                              {newSubPipeId
+                                ? `pipeline: ${allPipelines.find(p => p.id === newSubPipeId)?.name || newSubPipeId}`
+                                : "// pipeline (optional)"}
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {newSubPipeId && (
+                                <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubParentStage(""); }} data-no-close
+                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                  ✕ clear pipeline
+                                </button>
+                              )}
+                              {pipesToShow.map(p => {
+                                const sel = newSubPipeId === p.id;
+                                return (
+                                  <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(sel ? "" : p.id); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }} data-no-close
+                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                    {p.icon} {(p as { displayName?: string }).displayName || p.name}
+                                  </button>
+                                );
+                              })}
+                              {pipesToShow.length === 0 && <span style={{ fontSize: 9, color: t.textDim, fontStyle: "italic" }}>no pipelines in this workspace</span>}
+                            </div>
+                          </>
+                        );
+                      })()}
                       {/* Parent task picker — optional, only shown when pipeline selected */}
                       {newSubPipeId && (() => {
                         const pipe = allPipelines.find(p => p.id === newSubPipeId);
@@ -552,8 +602,8 @@ export default function TasksView(props: Props) {
                       {/* Status line + action */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
                         <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
-                          {requirePipeline && !newSubPipeId
-                            ? <span style={{ color: t.amber }}>// pick a pipeline first</span>
+                          {needsWorkspacePick && !newSubWsId
+                            ? <span style={{ color: t.amber }}>// pick a workspace first</span>
                             : <>{newSubPipeId && newSubParentStage ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}{" · "}↵ or click create</>}
                         </span>
                         <div style={{ display: "flex", gap: 4 }}>
@@ -562,18 +612,18 @@ export default function TasksView(props: Props) {
                             cancel
                           </button>
                           <button
-                            disabled={!newSubTitle.trim() || (requirePipeline && !newSubPipeId)}
-                            onMouseDown={e => { e.preventDefault(); if (!newSubTitle.trim()) return; if (requirePipeline && !newSubPipeId) return; submitNewItem(col.status); }}
+                            disabled={!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)}
+                            onMouseDown={e => { e.preventDefault(); if (!newSubTitle.trim()) return; if (needsWorkspacePick && !newSubWsId) return; submitNewItem(col.status); }}
                             data-no-close
                             style={{
-                              background: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.bgHover || t.bgSoft : t.accent + "22",
-                              border: `1px solid ${(!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.border : t.accent + "88"}`,
+                              background: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? t.bgHover || t.bgSoft : t.accent + "22",
+                              border: `1px solid ${(!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? t.border : t.accent + "88"}`,
                               borderRadius: 6, padding: "2px 8px",
-                              cursor: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? "not-allowed" : "pointer",
+                              cursor: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? "not-allowed" : "pointer",
                               fontSize: 10,
-                              color: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? t.textDim : t.accent,
+                              color: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? t.textDim : t.accent,
                               fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700,
-                              opacity: (!newSubTitle.trim() || (requirePipeline && !newSubPipeId)) ? 0.5 : 1,
+                              opacity: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? 0.5 : 1,
                             }}>
                             create
                           </button>
@@ -582,7 +632,7 @@ export default function TasksView(props: Props) {
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubPipeId(""); setNewSubParentStage(""); }}
+                      onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
