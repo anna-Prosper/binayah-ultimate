@@ -417,7 +417,7 @@ export function ModelProvider({
           const newOwners = ownersList.filter(uid => !prevOwners.includes(uid) && uid !== currentUser);
           if (newOwners.length > 0) {
             const owner = users.find(u => u.id === newOwners[0]);
-            setChatNotif({ name: owner?.name || newOwners[0], text: `claimed "${stage}"`, isClaim: true });
+            setChatNotif({ name: owner?.name || newOwners[0], text: `joined "${stage}"`, isClaim: true });
             playNotifSound();
             setTimeout(() => setChatNotif(null), 4000);
           }
