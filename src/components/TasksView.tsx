@@ -57,8 +57,9 @@ export default function TasksView(props: Props) {
     stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
     archivedStages, archivedSubtasks, stagePointsOverride,
     addComment: modelAddComment,
+    addSubtask: modelAddSubtask,
     migrateSubtask,
-    addUnparentedStage, moveStageToPipeline,
+    moveStageToPipeline,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
 
@@ -92,29 +93,46 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
-  const [newTaskCol, setNewTaskCol] = useState<string | null>(null); // which column has its inline input open
-  const [newTaskColInput, setNewTaskColInput] = useState("");
-  const [newTaskColBusy, setNewTaskColBusy] = useState(false);
+  // ── Kanban "new subtask" inline form ─────────────────────────────────────────
+  const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
+  const [newSubTitle, setNewSubTitle] = useState("");
+  const [newSubStep, setNewSubStep] = useState<"title" | "pipeline" | "stage">("title");
+  const [newSubPipeId, setNewSubPipeId] = useState("");
 
-  const submitNewColumnTask = useCallback(async (status: string, text: string) => {
-    const trimmed = text.trim();
-    if (!trimmed) return;
-    setNewTaskColBusy(true);
-    const stageName = await addUnparentedStage(trimmed);
-    if (stageName) setStageStatus(stageName, status);
-    setNewTaskCol(null);
-    setNewTaskColInput("");
-    setNewTaskColBusy(false);
-  }, [addUnparentedStage, setStageStatus]);
+  const resetNewSub = useCallback(() => {
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubStep("title"); setNewSubPipeId("");
+  }, []);
+
+  const submitNewSubtask = useCallback((colStatus: string, parentStageId: string) => {
+    const trimmed = newSubTitle.trim();
+    if (!trimmed || !parentStageId) return;
+    modelAddSubtask(parentStageId, trimmed, () => {});
+    // set the new subtask's kanban status after a tick (it gets id = Date.now())
+    const approxId = Date.now();
+    const key = `${parentStageId}::${approxId}`;
+    if (colStatus !== "planned") setSubtaskStage(key, colStatus);
+    resetNewSub();
+  }, [newSubTitle, modelAddSubtask, setSubtaskStage, resetNewSub]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
-  const pipelines = allPipelines.map(p => ({
-    ...p,
-    displayName: pipeMetaOverrides[p.id]?.name || p.name,
-    allStages: [...p.stages, ...(customStages[p.id] || [])],
-    color: ck[p.colorKey] || t.accent,
-  }));
+  // Build set of all stages explicitly placed via customStages in ANY pipeline.
+  // Static stages that appear in another pipeline's customStages have been "moved" —
+  // exclude them from their original static pipeline to avoid duplication.
+  const allCustomStageSet = useMemo(
+    () => new Set(Object.values(customStages).flat()),
+    [customStages]
+  );
+  const pipelines = allPipelines.map(p => {
+    const ownCustom = new Set(customStages[p.id] || []);
+    const deduped = p.stages.filter(s => !allCustomStageSet.has(s) || ownCustom.has(s));
+    return {
+      ...p,
+      displayName: pipeMetaOverrides[p.id]?.name || p.name,
+      allStages: [...deduped, ...(customStages[p.id] || [])],
+      color: ck[p.colorKey] || t.accent,
+    };
+  });
 
   // Virtual "inbox" pipeline — only rendered if it has unparented stages.
   // Lets user-created tasks live without a real pipeline until they're assigned one.
@@ -430,31 +448,70 @@ export default function TasksView(props: Props) {
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
+                  {/* Drop zone at bottom so dragging over the last card still highlights the column */}
+                  <div
+                    style={{ minHeight: 40, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, transition: "all 0.15s" }}
+                  />
                   {newTaskCol === col.status ? (
-                    <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 4 }}>
-                      <input
-                        autoFocus
-                        value={newTaskColInput}
-                        disabled={newTaskColBusy}
-                        onChange={e => setNewTaskColInput(e.target.value)}
-                        placeholder="task title…"
-                        onKeyDown={e => {
-                          if (e.key === "Escape") { setNewTaskCol(null); setNewTaskColInput(""); }
-                          if (e.key === "Enter") submitNewColumnTask(col.status, newTaskColInput);
-                        }}
-                        onBlur={() => { if (!newTaskColBusy && !newTaskColInput.trim()) { setNewTaskCol(null); setNewTaskColInput(""); } }}
-                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
-                      />
-                      <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>↵ to add · esc to cancel</span>
+                    <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
+                      {newSubStep === "title" && (
+                        <>
+                          <input
+                            autoFocus
+                            value={newSubTitle}
+                            onChange={e => setNewSubTitle(e.target.value)}
+                            placeholder="subtask title…"
+                            onKeyDown={e => {
+                              if (e.key === "Escape") resetNewSub();
+                              if (e.key === "Enter" && newSubTitle.trim()) setNewSubStep("pipeline");
+                            }}
+                            onBlur={() => { if (!newSubTitle.trim()) resetNewSub(); }}
+                            style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+                          />
+                          <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>↵ to continue · esc to cancel</span>
+                        </>
+                      )}
+                      {newSubStep === "pipeline" && (
+                        <>
+                          <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>pick pipeline for "{newSubTitle}"</span>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {pipelines.filter(p => p.id !== INBOX_PIPELINE_ID).map(p => (
+                              <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(p.id); setNewSubStep("stage"); }}
+                                style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                {p.icon} {p.displayName}
+                              </button>
+                            ))}
+                          </div>
+                          <button onMouseDown={resetNewSub} style={{ fontSize: 10, color: t.textDim, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>← back</button>
+                        </>
+                      )}
+                      {newSubStep === "stage" && (() => {
+                        const pipe = pipelines.find(p => p.id === newSubPipeId);
+                        const stagesInPipe = (pipe?.allStages || []).filter(s => !(archivedStages || []).includes(s));
+                        return (
+                          <>
+                            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>pick parent task</span>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {stagesInPipe.map(s => (
+                                <button key={s} onMouseDown={e => { e.preventDefault(); submitNewSubtask(col.status, s); }}
+                                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                  {stageNameOverrides?.[s] || s}
+                                </button>
+                              ))}
+                              {stagesInPipe.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
+                            </div>
+                            <button onMouseDown={() => setNewSubStep("pipeline")} style={{ fontSize: 10, color: t.textDim, background: "none", border: "none", cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}>← back</button>
+                          </>
+                        );
+                      })()}
                     </div>
                   ) : (
                     <button
-                      onClick={() => { setNewTaskCol(col.status); setNewTaskColInput(""); }}
+                      onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubStep("title"); setNewSubPipeId(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
-                      title="Add a task in this column — assign a parent pipeline later"
-                    >+ new task</button>
+                    >+ new subtask</button>
                   )}
                 </div>
               </div>
