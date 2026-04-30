@@ -52,7 +52,9 @@ export default function HomeViewRoute({
     pipeMetaOverrides, workspaces, activityLog, getPoints, t,
   } = useModel();
 
-  const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser!) : true);
+  const myWorkspaces = (currentUser && ADMIN_IDS.includes(currentUser))
+    ? workspaces
+    : workspaces.filter(w => currentUser ? w.members.includes(currentUser) : true);
   const isCaptainOfAny = !!currentUser && (ADMIN_IDS.includes(currentUser!) || workspaces.some(w => w.captains.includes(currentUser!)));
 
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };

@@ -315,7 +315,9 @@ export default function TasksView(props: Props) {
     const todayStages = allStageTasks
       .filter(s => {
         if (!currentUser) return false;
-        return (claims[s.stageId] || []).includes(currentUser) || (assignments[s.stageId] || []).includes(currentUser);
+        return (claims[s.stageId] || []).includes(currentUser)
+          || (assignments[s.stageId] || []).includes(currentUser)
+          || (owners[s.stageId] || []).includes(currentUser);
       })
       .sort((a, b) => (STATUS_PRIORITY[a.status] ?? 99) - (STATUS_PRIORITY[b.status] ?? 99));
 
@@ -760,65 +762,65 @@ function TaskCard({
             );
           })()}
           {availablePipelines && availablePipelines.length > 0 && (
-            <div data-no-close>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to pipeline:</span>
-                <select
-                  value=""
-                  data-no-close
-                  onChange={e => {
-                    const targetPid = e.target.value;
-                    if (!targetPid || targetPid === task.pipelineId) return;
-                    moveStageToPipeline(task.stageId, task.pipelineId, targetPid);
-                    setEditOpen(false);
-                  }}
-                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-                >
-                  <option value="">{task.pipelineId === INBOX_PIPELINE_ID ? "choose pipeline…" : "change pipeline…"}</option>
+            <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {/* Move as a sibling stage to a different pipeline */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to pipeline (as new sibling stage):</span>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {availablePipelines.filter(p => p.id !== task.pipelineId).map(p => (
-                    <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                    <button
+                      key={p.id}
+                      onMouseDown={e => {
+                        e.stopPropagation();
+                        e.preventDefault();
+                        moveStageToPipeline(task.stageId, task.pipelineId, p.id);
+                      }}
+                      data-no-close
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                    >{p.icon} {p.name}</button>
                   ))}
-                </select>
+                </div>
               </div>
-              {/* OR — convert to a subtask of an existing task */}
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>or attach as subtask of:</span>
+              {/* OR — convert this task into a subtask of another existing task */}
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{subtaskTargetPipeline === "" ? "or attach as subtask — pick pipeline:" : "or attach as subtask — pick task:"}</span>
                 {subtaskTargetPipeline === "" ? (
-                  <select
-                    value=""
-                    data-no-close
-                    onChange={e => setSubtaskTargetPipeline(e.target.value)}
-                    style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-                  >
-                    <option value="">choose pipeline…</option>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                     {availablePipelines.map(p => (
-                      <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                      <button
+                        key={p.id}
+                        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setSubtaskTargetPipeline(p.id); }}
+                        data-no-close
+                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                      >{p.icon} {p.name}</button>
                     ))}
-                  </select>
+                  </div>
                 ) : (() => {
                   const pipe = pipelinesAll.find((p: { id: string }) => p.id === subtaskTargetPipeline);
                   const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[subtaskTargetPipeline] || [])].filter((s: string) => !(archStages || []).includes(s) && s !== task.stageId) : [];
                   return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }} data-no-close>
-                      <button onClick={() => setSubtaskTargetPipeline("")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
-                      <select
-                        value=""
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                      <button
+                        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setSubtaskTargetPipeline(""); }}
                         data-no-close
-                        onChange={e => {
-                          const targetStage = e.target.value;
-                          if (!targetStage) return;
-                          modelAddSubtask(targetStage, task.displayName, () => {});
-                          archiveStage(task.stageId);
-                          setSubtaskTargetPipeline("");
-                          setEditOpen(false);
-                        }}
-                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-                      >
-                        <option value="">choose task…</option>
-                        {pipeStages.map((s: string) => (
-                          <option key={s} value={s}>{nameOverrides?.[s] || s}</option>
-                        ))}
-                      </select>
+                        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+                      >← back</button>
+                      {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
+                      {pipeStages.map((s: string) => (
+                        <button
+                          key={s}
+                          onMouseDown={e => {
+                            e.stopPropagation();
+                            e.preventDefault();
+                            modelAddSubtask(s, task.displayName, () => {});
+                            archiveStage(task.stageId);
+                            setSubtaskTargetPipeline("");
+                            setEditOpen(false);
+                          }}
+                          data-no-close
+                          style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                        >{nameOverrides?.[s] || s}</button>
+                      ))}
                     </div>
                   );
                 })()}
@@ -1222,47 +1224,50 @@ function SubtaskKanbanCard({
         />
         {editOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
-            {/* Move to a different parent stage */}
-            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to stage:</span>
+            {/* Move to a different parent stage — button-based to avoid native-select click-outside issues */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{moveToStage === "" ? "move to stage — pick pipeline:" : "move to stage — pick task:"}</span>
               {moveToStage === "" ? (
-                <select
-                  value=""
-                  onChange={e => setMoveToStage(e.target.value)}
-                  style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-                >
-                  <option value="">choose pipeline…</option>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                   {allPipelinesGlobal.map((p: { id: string; name: string; icon: string }) => (
-                    <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
+                    <button
+                      key={p.id}
+                      onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(p.id); }}
+                      data-no-close
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                    >{p.icon} {p.name}</button>
                   ))}
-                </select>
+                </div>
               ) : (() => {
                 const pipe = allPipelinesGlobal.find((p: { id: string }) => p.id === moveToStage);
                 const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(customStages[moveToStage] || [])].filter((s: string) => !(archivedStages || []).includes(s) && s !== sub.parentStageId) : [];
                 return (
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                    <button onClick={() => setMoveToStage("")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
-                    <select
-                      value=""
-                      onChange={e => {
-                        const targetStage = e.target.value;
-                        if (!targetStage) return;
-                        migrateSubtask(sub.key as Parameters<typeof migrateSubtask>[0], targetStage);
-                        setMoveToStage("");
-                        setEditOpen(false);
-                      }}
-                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
-                    >
-                      <option value="">choose stage…</option>
-                      {pipeStages.map((s: string) => (
-                        <option key={s} value={s}>{stageNameOverrides?.[s] || s}</option>
-                      ))}
-                    </select>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+                    <button
+                      onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(""); }}
+                      data-no-close
+                      style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+                    >← back</button>
+                    {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
+                    {pipeStages.map((s: string) => (
+                      <button
+                        key={s}
+                        onMouseDown={e => {
+                          e.stopPropagation();
+                          e.preventDefault();
+                          migrateSubtask(sub.key as Parameters<typeof migrateSubtask>[0], s);
+                          setMoveToStage("");
+                          setEditOpen(false);
+                        }}
+                        data-no-close
+                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                      >{stageNameOverrides?.[s] || s}</button>
+                    ))}
                   </div>
                 );
               })()}
             </div>
-            <button onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }} style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
+            <button onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setArchiveConfirm(true); }} data-no-close style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}>
               📦 archive subtask
             </button>
           </div>
