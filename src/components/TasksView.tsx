@@ -874,10 +874,9 @@ function SubtaskCard({
 
   const key = SubtaskKey.make(stageId, taskSub.id);
 
-  const commitEdit = () => {
+  const commitRenameSSC = () => {
     const trimmed = editVal.trim();
     if (trimmed && trimmed !== taskSub.text) renameSubtask(stageId, taskSub.id, trimmed);
-    setEditOpen(false);
   };
   const rxs = reactions[key] || {};
   const cmts = comments[key] || [];
@@ -925,9 +924,10 @@ function SubtaskCard({
                   autoFocus
                   value={editVal}
                   onChange={e => setEditVal(e.target.value)}
-                  onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditOpen(false); }}
-                  onBlur={commitEdit}
+                  onKeyDown={e => { if (e.key === "Enter") { commitRenameSSC(); setEditOpen(false); } if (e.key === "Escape") setEditOpen(false); }}
+                  onBlur={commitRenameSSC}
                   onClick={e => e.stopPropagation()}
+                  data-no-close
                   style={{ flex: 1, fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", fontFamily: "inherit" }}
                 />
               : <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</span>
@@ -1128,9 +1128,9 @@ function SubtaskKanbanCard({
   const isUnknownParent = !sub.pipelineName;
   const taskId = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0])?.subtaskId ?? NaN;
 
-  const commitEdit = () => {
-    if (editVal.trim() && onRename) onRename(taskId, editVal.trim());
-    setEditOpen(false);
+  const commitRename = () => {
+    const trimmed = editVal.trim();
+    if (trimmed && onRename) onRename(taskId, trimmed);
   };
 
   return (
@@ -1139,7 +1139,7 @@ function SubtaskKanbanCard({
         t={t}
         borderColor={isUnknownParent ? t.amber + "55" : t.border}
         pipelineColor={sub.pipelineColor}
-        draggable={!editOpen}
+        draggable={true}
         onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; onDragSubtaskStart?.(); }}
         onDragEnd={onDragSubtaskEnd}
       >
@@ -1153,9 +1153,10 @@ function SubtaskKanbanCard({
                     autoFocus
                     value={editVal}
                     onChange={e => setEditVal(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") commitEdit(); if (e.key === "Escape") setEditOpen(false); }}
-                    onBlur={commitEdit}
+                    onKeyDown={e => { if (e.key === "Enter") { commitRename(); setEditOpen(false); } if (e.key === "Escape") setEditOpen(false); }}
+                    onBlur={commitRename}
                     onClick={e => e.stopPropagation()}
+                    data-no-close
                     style={{ fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", width: "100%", fontFamily: "inherit" }}
                   />
                 : <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.text}</span>
