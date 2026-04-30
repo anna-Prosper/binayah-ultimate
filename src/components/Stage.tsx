@@ -5,6 +5,7 @@ import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, USERS_DEFAULT, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import ClaimerPills from "@/components/ui/ClaimerPills";
 import { Chev } from "@/components/ui/primitives";
 import ClaimChip from "@/components/ui/ClaimChip";
 import mockupsMap from "@/components/mockups/mockupsMap";
@@ -53,6 +54,7 @@ function StageSubtaskCard({
     handleClaim, handleReact, addComment, assignTask, renameSubtask, setSubtaskPoints,
     approvedSubtasks, approveSubtask, workspaces,
     getSubtaskStatus, cycleSubtaskStatus, sc,
+    getPoints,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
   const key = SubtaskKey.make(stageId, task.id);
@@ -141,7 +143,7 @@ function StageSubtaskCard({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {claimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
+          <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="pill" size={14} maxVisible={2} />
           {/* Status pill — always visible so user can cycle back from "live" too. Mirrors stage TaskCard pill. */}
           <span
             onClick={e => { e.stopPropagation(); cycleSubtaskStatus(key); }}
@@ -337,6 +339,7 @@ export default function Stage({
     addSubtask, toggleSubtask, lockSubtask, archiveSubtask, addComment,
     setStageDescOverride, setStageNameOverride,
     addStageImage, removeStageImage, archiveStage,
+    getPoints,
     getStatus, sc,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
@@ -630,7 +633,7 @@ export default function Stage({
 
 
 
-            {claimedBy.length > 0 && <div style={{ display: "flex", marginLeft: 0 }}>{claimedBy.slice(0, 3).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid} style={{ marginLeft: -4 }}><AvatarC user={u} size={isMobile ? 24 : 18} /></div> : null; })}</div>}
+            {claimedBy.length > 0 && <ClaimerPills claimerIds={claimedBy} users={users} getPoints={getPoints} t={t} variant="pill" size={isMobile ? 22 : 16} maxVisible={2} />}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
             {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"💬"}{cmts.length}</span>}
             <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{derivedPoints}</span>
@@ -779,7 +782,7 @@ export default function Stage({
 
                 {claimedBy.filter(uid => uid !== currentUser).length > 0 && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                    {claimedBy.filter(uid => uid !== currentUser).map(uid => { const u = users.find(u => u.id === uid); return u ? <div key={uid}><AvatarC user={u} size={18} /></div> : null; })}
+                    <ClaimerPills claimerIds={claimedBy.filter(uid => uid !== currentUser)} users={users} getPoints={getPoints} t={t} variant="pill" size={16} maxVisible={3} />
                   </div>
                 )}
 

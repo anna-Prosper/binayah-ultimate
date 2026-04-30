@@ -8,6 +8,7 @@ import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import ClaimerPills from "@/components/ui/ClaimerPills";
 import { useModel, useRole, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
@@ -50,7 +51,7 @@ const ALL_COLS = [
 export default function TasksView(props: Props) {
   const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept } = props;
   const {
-    claims, reactions, comments, subtasks, assignments, owners, approvedStages,
+    claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
     setStageStatusDirect: setStageStatus, approveStage, assignTask,
     stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
@@ -296,6 +297,7 @@ export default function TasksView(props: Props) {
     setStageNameOverride,
     editMode, onPipelineClick,
     handleClaim, claims,
+    getPoints,
     // Stage migration drop target props
     draggingSubtaskKey, stageDropOver,
     onStageDragOver: handleStageDragOver,
@@ -530,6 +532,7 @@ interface SharedCardProps {
   onStageDrop?: (stageId: string, e: React.DragEvent) => void;
   // For orphan task pipeline picker — shown only when task is in inbox
   availablePipelines?: { id: string; name: string; icon: string }[];
+  getPoints?: (uid: string) => number;
 }
 
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
@@ -574,7 +577,7 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
-  availablePipelines,
+  availablePipelines, getPoints,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
   const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
@@ -693,25 +696,8 @@ function TaskCard({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
-          {/* Owner pills — avatar + first name. First 2 shown explicitly, rest collapsed into +N. */}
-          {task.claimers.length > 0 && (() => {
-            const ownerUsers = task.claimers.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
-            const visible = ownerUsers.slice(0, 2);
-            const overflow = ownerUsers.length - visible.length;
-            return (
-              <>
-                {visible.map(u => (
-                  <span key={u.id} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: u.color + "18", border: `1px solid ${u.color}55`, borderRadius: 12, padding: "2px 8px 2px 2px" }}>
-                    <AvatarC user={u} size={18} />
-                    <span style={{ fontSize: 11, fontWeight: 700, color: u.color, fontFamily: "var(--font-dm-mono), monospace" }}>{u.name.split(" ")[0]}</span>
-                  </span>
-                ))}
-                {overflow > 0 && (
-                  <span title={ownerUsers.slice(2).map(u => u.name).join(", ")} style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: "2px 8px", fontFamily: "var(--font-dm-mono), monospace" }}>+{overflow}</span>
-                )}
-              </>
-            );
-          })()}
+          {/* Unified claimer pills with click-to-show user popup */}
+          <ClaimerPills claimerIds={task.claimers} users={users} getPoints={getPoints} t={t} />
           {/* assign is in ActionRow — no duplicate here */}
           {isPending && isAdmin && (
             <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
@@ -761,69 +747,38 @@ function TaskCard({
               </div>
             );
           })()}
+          {/* Pipeline switcher for tasks — select which pipeline this task belongs to */}
           {availablePipelines && availablePipelines.length > 0 && (
-            <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {/* Move as a sibling stage to a different pipeline */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to pipeline (as new sibling stage):</span>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {availablePipelines.filter(p => p.id !== task.pipelineId).map(p => (
+            <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pipeline:</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {availablePipelines.map(p => {
+                  const isCurrent = p.id === task.pipelineId;
+                  return (
                     <button
                       key={p.id}
                       onMouseDown={e => {
                         e.stopPropagation();
                         e.preventDefault();
+                        if (isCurrent) return;
                         moveStageToPipeline(task.stageId, task.pipelineId, p.id);
                       }}
                       data-no-close
-                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                    >{p.icon} {p.name}</button>
-                  ))}
-                </div>
-              </div>
-              {/* OR — convert this task into a subtask of another existing task */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{subtaskTargetPipeline === "" ? "or attach as subtask — pick pipeline:" : "or attach as subtask — pick task:"}</span>
-                {subtaskTargetPipeline === "" ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                    {availablePipelines.map(p => (
-                      <button
-                        key={p.id}
-                        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setSubtaskTargetPipeline(p.id); }}
-                        data-no-close
-                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                      >{p.icon} {p.name}</button>
-                    ))}
-                  </div>
-                ) : (() => {
-                  const pipe = pipelinesAll.find((p: { id: string }) => p.id === subtaskTargetPipeline);
-                  const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[subtaskTargetPipeline] || [])].filter((s: string) => !(archStages || []).includes(s) && s !== task.stageId) : [];
-                  return (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
-                      <button
-                        onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setSubtaskTargetPipeline(""); }}
-                        data-no-close
-                        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
-                      >← back</button>
-                      {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
-                      {pipeStages.map((s: string) => (
-                        <button
-                          key={s}
-                          onMouseDown={e => {
-                            e.stopPropagation();
-                            e.preventDefault();
-                            modelAddSubtask(s, task.displayName, () => {});
-                            archiveStage(task.stageId);
-                            setSubtaskTargetPipeline("");
-                            setEditOpen(false);
-                          }}
-                          data-no-close
-                          style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                        >{nameOverrides?.[s] || s}</button>
-                      ))}
-                    </div>
+                      title={isCurrent ? "current pipeline" : `move to ${p.name}`}
+                      style={{
+                        background: isCurrent ? t.accent + "22" : t.bgHover || t.bgSoft,
+                        border: `1px solid ${isCurrent ? t.accent + "88" : t.accent + "55"}`,
+                        borderRadius: 8,
+                        padding: "3px 8px",
+                        cursor: isCurrent ? "default" : "pointer",
+                        fontSize: 11,
+                        color: isCurrent ? t.accent : t.text,
+                        fontFamily: "var(--font-dm-mono), monospace",
+                        fontWeight: isCurrent ? 700 : 500,
+                      }}
+                    >{isCurrent ? "✓ " : ""}{p.icon} {p.name}</button>
                   );
-                })()}
+                })}
               </div>
             </div>
           )}
@@ -906,7 +861,7 @@ function SubtaskCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
-  handleClaim, claims,
+  handleClaim, claims, getPoints,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
@@ -987,11 +942,7 @@ function SubtaskCard({
         </div>
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          {claimers.length > 0 && (
-            <div style={{ display: "flex" }}>
-              {claimers.slice(0, 3).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={20} /> : null; })}
-            </div>
-          )}
+          <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="pill" size={16} />
           {currentUser && handleClaim && (
             <ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" />
           )}
@@ -1071,7 +1022,7 @@ function SubtaskKanbanCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
-  isAdmin,
+  isAdmin, getPoints,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
@@ -1166,7 +1117,7 @@ function SubtaskKanbanCard({
               const isPending = sub.done && !isApproved;
               return (
                 <>
-                  {subClaimers.slice(0, 2).map(id => { const u = users.find(u => u.id === id); return u ? <AvatarC key={id} user={u} size={18} /> : null; })}
+                  <ClaimerPills claimerIds={subClaimers} users={users} getPoints={getPoints} t={t} variant="pill" size={16} />
                   {isPending && isAdmin && (
                     <button onClick={e => { e.stopPropagation(); approveSubtask(sub.key); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
                       ✓ approve
