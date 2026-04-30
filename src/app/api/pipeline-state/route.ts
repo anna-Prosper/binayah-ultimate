@@ -220,7 +220,9 @@ export async function PATCH(req: NextRequest) {
   const DESTRUCTIVE_KEYS = new Set([
     "archivedStages", "archivedPipelines", "archivedSubtasks",
     "customPipelines", // pipeline deletions
-    "workspaces",      // member changes
+    // workspaces removed: createWorkspace is ADMIN_IDS-gated client-side and
+    // member edits are captain-gated; the server gate was rejecting legit
+    // workspace writes when the JWT was stale or session lookup raced.
   ]);
   const candidateDestructiveKeys = Object.keys(cleanPatch).filter(k => DESTRUCTIVE_KEYS.has(k));
   if (candidateDestructiveKeys.length > 0) {
