@@ -7,10 +7,92 @@ import { type UserType, type Workspace, ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { SubtaskKey } from "@/lib/subtaskKey";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
+type AttentionTone = "accent" | "green" | "amber" | "red" | "cyan";
+
+function truncate(text: string, max: number): string {
+  return text.length > max ? `${text.slice(0, max - 1)}…` : text;
+}
+
+function timeAgo(timestamp: number): string {
+  const diff = Date.now() - timestamp;
+  if (diff < 60_000) return "just now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
+function toneColor(t: T, tone: AttentionTone): string {
+  if (tone === "green") return t.green;
+  if (tone === "amber") return t.amber;
+  if (tone === "red") return t.red;
+  if (tone === "cyan") return t.cyan || t.accent;
+  return t.accent;
+}
+
+function AttentionOverview({ t, attention }: {
+  t: T;
+  attention: {
+    roleLabel: string;
+    scopeLabel: string;
+    summary: string;
+    stats: Array<{ label: string; value: number; tone: AttentionTone }>;
+    actions: Array<{ title: string; meta: string; body: string; tone: AttentionTone }>;
+  };
+}) {
+  return (
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
+        <div>
+          <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
+            overview · {attention.roleLabel} · {attention.scopeLabel}
+          </div>
+          <div style={{ fontSize: 18, color: t.text, fontWeight: 800, marginTop: 4, lineHeight: 1.25 }}>
+            {attention.summary}
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+          {attention.stats.map(stat => {
+            const color = toneColor(t, stat.tone);
+            return (
+              <div key={stat.label} style={{ border: `1px solid ${color}44`, background: color + "0f", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
+                <div style={{ fontSize: 22, color, fontWeight: 900, lineHeight: 1 }}>{stat.value}</div>
+                <div style={{ marginTop: 4, fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  {stat.label}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
+        {attention.actions.length === 0 ? (
+          <div style={{ minHeight: 132, border: `1px dashed ${t.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace" }}>
+            no urgent signals
+          </div>
+        ) : attention.actions.map((item, idx) => {
+          const color = toneColor(t, item.tone);
+          return (
+            <div key={`${item.title}-${idx}`} style={{ display: "grid", gridTemplateColumns: "8px minmax(0, 1fr)", gap: 10, alignItems: "stretch", background: idx === 0 ? color + "0f" : t.bgHover || t.bgSoft, border: `1px solid ${idx === 0 ? color + "44" : t.border}`, borderRadius: 10, padding: "9px 10px" }}>
+              <div style={{ width: 8, borderRadius: 8, background: color }} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ fontSize: 13, color: t.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                  <div style={{ fontSize: 10, color, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>{item.meta}</div>
+                </div>
+                <div style={{ marginTop: 2, fontSize: 11, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
 
 interface Props {
   t: T;
@@ -39,13 +121,14 @@ export default function HomeView({
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
-    claims, reactions, approvedStages, customStages, getPoints: modelGetPoints,
-    owners, assignments, subtasks,
+    claims, comments, approvedStages, approvedSubtasks, customStages, getPoints: modelGetPoints,
+    owners, assignments, subtasks, subtaskStages, activityLog,
     getStatus, ck,
   } = useModel();
 
   // null = show all workspaces; string = filter to specific workspace
   const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
+  const [overviewNow] = useState(() => Date.now());
 
   // Build full pipeline→workspace map from ALL user's workspaces
   const pipelineWorkspaceMap = useMemo(() => {
@@ -91,6 +174,163 @@ export default function HomeView({
   }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
+  const attention = useMemo(() => {
+    const dayAgo = overviewNow - 24 * 60 * 60 * 1000;
+    const visiblePipelineIds = new Set(visiblePipelines.map(p => p.id));
+    const visibleStageIds = new Set<string>();
+    const stageToPipeline = new Map<string, Pipeline>();
+    for (const p of visiblePipelines) {
+      for (const stage of [...p.stages, ...(customStages[p.id] || [])]) {
+        visibleStageIds.add(stage);
+        stageToPipeline.set(stage, p);
+      }
+    }
+
+    const itemOwnerIds = (key: string) => Array.from(new Set([
+      ...(claims[key] || []),
+      ...(owners[key] || []),
+      ...(assignments[key] || []),
+    ]));
+    const isRoot = ADMIN_IDS.includes(currentUser);
+    const scopedWorkspaces = homeWsFilter
+      ? myWorkspaces.filter(w => w.id === homeWsFilter)
+      : myWorkspaces;
+    const isOperatorScope = isRoot || scopedWorkspaces.some(w => w.captains.includes(currentUser));
+    const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : "agent";
+
+    const stageItems = Array.from(visibleStageIds).map(stageId => {
+      const pipeline = stageToPipeline.get(stageId);
+      const priority = pipeline ? pipeMetaOverrides[pipeline.id]?.priority : undefined;
+      return {
+        key: stageId,
+        title: stageNameLabel(stageId),
+        pipelineName: pipeline ? ((pipeline as { displayName?: string }).displayName || pipeline.name) : "Inbox",
+        pipelineId: pipeline?.id || "",
+        status: getStatus(stageId),
+        owners: itemOwnerIds(stageId),
+        priority,
+        kind: "task" as const,
+        approved: approvedStages.includes(stageId),
+      };
+    });
+    const subtaskItems = Object.entries(subtasks || {}).flatMap(([parentStageId, list]) => {
+      if (!visibleStageIds.has(parentStageId)) return [];
+      const parent = stageToPipeline.get(parentStageId);
+      return list.map(sub => {
+        const key = `${parentStageId}::${sub.id}`;
+        return {
+          key,
+          title: sub.text,
+          pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
+          pipelineId: parent?.id || "",
+          status: subtaskStages[key] || "planned",
+          owners: itemOwnerIds(key),
+          priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
+          kind: "subtask" as const,
+          approved: approvedSubtasks.includes(key),
+          done: sub.done,
+        };
+      });
+    });
+    const allItems = [...stageItems, ...subtaskItems].filter(item => item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId));
+    const myItems = allItems.filter(item => item.owners.includes(currentUser));
+    const freshActivity = activityLog.filter(a => a.time > dayAgo && a.user !== currentUser);
+    const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
+    const reviewItems = allItems.filter(item =>
+      (item.kind === "task" && item.status === "active" && !item.approved) ||
+      (item.kind === "subtask" && item.done && !item.approved)
+    );
+    const blockedItems = allItems.filter(item => item.status === "blocked");
+    const hotItems = allItems.filter(item =>
+      (item.priority === "NOW" || item.priority === "HIGH") &&
+      item.status !== "active" &&
+      item.status !== "blocked"
+    );
+    const unownedItems = allItems.filter(item => item.owners.length === 0 && item.status !== "active");
+    const firstName = me.name.split(" ")[0].toLowerCase();
+    const mentionNeedles = [`@${firstName}`, `@${currentUser.toLowerCase()}`];
+    const mentions = Object.entries(comments || {}).flatMap(([target, list]) =>
+      list
+        .filter(c => c.by !== currentUser && mentionNeedles.some(n => c.text.toLowerCase().includes(n)))
+        .map(c => ({
+          target,
+          text: c.text,
+          by: c.by,
+          title: stageNameLabel(target),
+        }))
+    ).slice(-5).reverse();
+    const mineBlocked = blockedItems.filter(item => item.owners.includes(currentUser));
+    const mineHot = hotItems.filter(item => item.owners.includes(currentUser));
+    const minePlanned = myItems.filter(item => item.status === "planned" || item.status === "concept");
+
+    const stats = roleLabel === "agent"
+      ? [
+          { label: "your open work", value: minePlanned.length, tone: "accent" as AttentionTone },
+          { label: "mentions", value: mentions.length, tone: "amber" as AttentionTone },
+          { label: "blocked by you", value: mineBlocked.length, tone: "red" as AttentionTone },
+          { label: "hot priorities", value: mineHot.length, tone: "green" as AttentionTone },
+        ]
+      : roleLabel === "operator"
+        ? [
+            { label: "needs approval", value: reviewItems.length, tone: "green" as AttentionTone },
+            { label: "blocked", value: blockedItems.length, tone: "red" as AttentionTone },
+            { label: "unowned work", value: unownedItems.length, tone: "amber" as AttentionTone },
+            { label: "new activity", value: freshActivity.length, tone: "cyan" as AttentionTone },
+          ]
+        : [
+            { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
+            { label: "blocked across org", value: blockedItems.length, tone: "red" as AttentionTone },
+            { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
+            { label: "mentions", value: mentions.length, tone: "accent" as AttentionTone },
+          ];
+
+    const actions = roleLabel === "agent"
+      ? [
+          ...mentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
+          ...mineBlocked.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
+          ...mineHot.slice(0, 3).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: `${item.priority} priority`, body: item.pipelineName })),
+          ...newOwned.slice(0, 2).map(a => ({ tone: "cyan" as AttentionTone, title: a.detail, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
+        ]
+      : [
+          ...reviewItems.slice(0, 4).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: "ready for review", body: item.pipelineName })),
+          ...blockedItems.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
+          ...unownedItems.slice(0, 3).map(item => ({ tone: "amber" as AttentionTone, title: item.title, meta: "no owner", body: item.pipelineName })),
+          ...mentions.slice(0, 2).map(m => ({ tone: "accent" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
+        ];
+
+    const topAction = actions[0];
+    const summary = topAction
+      ? topAction.title
+      : roleLabel === "agent"
+        ? "clear lane: no urgent personal items"
+        : "clear lane: no urgent team items";
+
+    function stageNameLabel(key: string) {
+      if (SubtaskKey.isValid(key)) {
+        const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+        if (parsed) {
+          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
+          return sub?.text || key;
+        }
+      }
+      return key;
+    }
+    function commentUserLabel(id: string) {
+      return users.find(u => u.id === id)?.name.split(" ")[0] || id;
+    }
+
+    return {
+      roleLabel,
+      stats,
+      actions: actions.slice(0, 6),
+      summary,
+      scopeLabel: homeWsFilter ? (myWorkspaces.find(w => w.id === homeWsFilter)?.name || "workspace") : "all workspaces",
+    };
+  }, [
+    activityLog, approvedStages, approvedSubtasks, assignments, claims, comments, currentUser,
+    customStages, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
+    subtaskStages, subtasks, users, visiblePipelines,
+  ]);
 
   return (
     <div>
@@ -181,6 +421,8 @@ export default function HomeView({
               );
             })}
           </div>
+
+          <AttentionOverview t={t} attention={attention} />
 
           {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
