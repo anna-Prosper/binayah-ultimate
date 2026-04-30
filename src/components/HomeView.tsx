@@ -40,6 +40,7 @@ export default function HomeView({
 }: Props) {
   const {
     claims, reactions, approvedStages, customStages, getPoints: modelGetPoints,
+    owners, assignments, subtasks,
     getStatus, ck,
   } = useModel();
 
@@ -61,16 +62,33 @@ export default function HomeView({
   // null = all pipelines linked to any of user's workspaces
   // set = only pipelines linked to that specific workspace
   const visiblePipelines = useMemo(() => {
+    const ids = new Set<string>();
     if (homeWsFilter) {
       const ws = myWorkspaces.find(w => w.id === homeWsFilter);
-      const ids = new Set(ws?.pipelineIds || []);
-      return allPipelinesGlobal.filter(p => ids.has(p.id));
+      (ws?.pipelineIds || []).forEach(pid => ids.add(pid));
+    } else {
+      for (const w of myWorkspaces) for (const pid of w.pipelineIds) ids.add(pid);
     }
-    // All pipelines from all user's workspaces
-    const ids = new Set<string>();
-    for (const w of myWorkspaces) for (const pid of w.pipelineIds) ids.add(pid);
+    // Also include pipelines that contain any stage/subtask the current user owns or is assigned to.
+    // This guarantees the "mine" tab can never miss a user\'s items, even if a pipeline isn\'t
+    // explicitly linked to one of their workspaces.
+    if (currentUser) {
+      const userInList = (key: string) =>
+        (claims[key] || []).includes(currentUser) ||
+        (assignments[key] || []).includes(currentUser) ||
+        (owners[key] || []).includes(currentUser);
+      for (const p of allPipelinesGlobal) {
+        if (ids.has(p.id)) continue;
+        const allStagesInPipe = [...p.stages, ...(customStages[p.id] || [])];
+        const hasOwnedStage = allStagesInPipe.some(userInList);
+        const hasOwnedSubtask = !hasOwnedStage && allStagesInPipe.some(s =>
+          (subtasks[s] || []).some(sub => userInList(`${s}::${sub.id}`))
+        );
+        if (hasOwnedStage || hasOwnedSubtask) ids.add(p.id);
+      }
+    }
     return allPipelinesGlobal.filter(p => ids.has(p.id));
-  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter]);
+  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
 
