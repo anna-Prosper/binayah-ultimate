@@ -50,7 +50,7 @@ const ALL_COLS = [
 export default function TasksView(props: Props) {
   const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept } = props;
   const {
-    claims, reactions, comments, subtasks, assignments, approvedStages,
+    claims, reactions, comments, subtasks, assignments, owners, approvedStages,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
     setStageStatusDirect: setStageStatus, approveStage, assignTask,
     stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
@@ -162,7 +162,13 @@ export default function TasksView(props: Props) {
 
   // Apply my/all filter when in cross-workspace mode
   const stageTasks = (showMyAllFilter && myAllFilter === "my")
-    ? allStageTasks.filter(s => currentUser ? (s.claimers.includes(currentUser) || (assignments[s.stageId] || []).includes(currentUser)) : false)
+    ? allStageTasks.filter(s => {
+        if (!currentUser) return false;
+        if (s.claimers.includes(currentUser)) return true;
+        if ((assignments[s.stageId] || []).includes(currentUser)) return true;
+        if ((owners[s.stageId] || []).includes(currentUser)) return true;
+        return false;
+      })
     : allStageTasks;
 
   // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
@@ -217,7 +223,11 @@ export default function TasksView(props: Props) {
 
   // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
   const filteredSubtaskKanbanTasks = (showMyAllFilter && myAllFilter === "my" && currentUser)
-    ? subtaskKanbanTasks.filter(s => (claims[s.key] || []).includes(currentUser) || (assignments[s.key] || []).includes(currentUser))
+    ? subtaskKanbanTasks.filter(s => {
+        return (claims[s.key] || []).includes(currentUser)
+          || (assignments[s.key] || []).includes(currentUser)
+          || (owners[s.key] || []).includes(currentUser);
+      })
     : subtaskKanbanTasks;
 
   const statusColor = (status: string) => {
@@ -588,7 +598,14 @@ function TaskCard({
   useEffect(() => {
     if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      // Ignore clicks on body/html — happens after a native <select> dropdown closes
+      // (the OS-level dropdown reports the click as outside the document tree).
+      if (target.tagName === "HTML" || target.tagName === "BODY") return;
+      // Ignore clicks on or inside elements opted-out via data-no-close
+      if (target.closest?.("[data-no-close]")) return;
+      if (cardRef.current && !cardRef.current.contains(target as Node)) {
         setReactOpen(null);
         setCommentOpen(null);
         setAssignOpen(null);
@@ -742,22 +759,23 @@ function TaskCard({
               </div>
             );
           })()}
-          {task.pipelineId === INBOX_PIPELINE_ID && availablePipelines && availablePipelines.length > 0 && (
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          {availablePipelines && availablePipelines.length > 0 && (
+            <div data-no-close>
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 4 }}>
                 <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to pipeline:</span>
                 <select
                   value=""
+                  data-no-close
                   onChange={e => {
                     const targetPid = e.target.value;
-                    if (!targetPid) return;
-                    moveStageToPipeline(task.stageId, INBOX_PIPELINE_ID, targetPid);
+                    if (!targetPid || targetPid === task.pipelineId) return;
+                    moveStageToPipeline(task.stageId, task.pipelineId, targetPid);
                     setEditOpen(false);
                   }}
                   style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
                 >
-                  <option value="">choose pipeline…</option>
-                  {availablePipelines.map(p => (
+                  <option value="">{task.pipelineId === INBOX_PIPELINE_ID ? "choose pipeline…" : "change pipeline…"}</option>
+                  {availablePipelines.filter(p => p.id !== task.pipelineId).map(p => (
                     <option key={p.id} value={p.id}>{p.icon} {p.name}</option>
                   ))}
                 </select>
@@ -768,6 +786,7 @@ function TaskCard({
                 {subtaskTargetPipeline === "" ? (
                   <select
                     value=""
+                    data-no-close
                     onChange={e => setSubtaskTargetPipeline(e.target.value)}
                     style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "3px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", cursor: "pointer" }}
                   >
@@ -778,17 +797,16 @@ function TaskCard({
                   </select>
                 ) : (() => {
                   const pipe = pipelinesAll.find((p: { id: string }) => p.id === subtaskTargetPipeline);
-                  const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[subtaskTargetPipeline] || [])].filter((s: string) => !(archStages || []).includes(s)) : [];
+                  const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[subtaskTargetPipeline] || [])].filter((s: string) => !(archStages || []).includes(s) && s !== task.stageId) : [];
                   return (
-                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }} data-no-close>
                       <button onClick={() => setSubtaskTargetPipeline("")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>← back</button>
                       <select
                         value=""
+                        data-no-close
                         onChange={e => {
                           const targetStage = e.target.value;
                           if (!targetStage) return;
-                          // Create a subtask on the chosen stage with the inbox item's display name,
-                          // then archive the inbox stage.
                           modelAddSubtask(targetStage, task.displayName, () => {});
                           archiveStage(task.stageId);
                           setSubtaskTargetPipeline("");
@@ -805,7 +823,7 @@ function TaskCard({
                   );
                 })()}
               </div>
-            </>
+            </div>
           )}
           {archiveStage && canArchive && (
             <button
@@ -918,7 +936,11 @@ function SubtaskCard({
   useEffect(() => {
     if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (subtaskRef.current && !subtaskRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.tagName === "HTML" || target.tagName === "BODY") return;
+      if (target.closest?.("[data-no-close]")) return;
+      if (subtaskRef.current && !subtaskRef.current.contains(target as Node)) {
         setReactOpen(null);
         setCommentOpen(null);
         setAssignOpen(null);
@@ -1072,7 +1094,11 @@ function SubtaskKanbanCard({
   useEffect(() => {
     if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (subtaskRef.current && !subtaskRef.current.contains(e.target as Node)) {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.tagName === "HTML" || target.tagName === "BODY") return;
+      if (target.closest?.("[data-no-close]")) return;
+      if (subtaskRef.current && !subtaskRef.current.contains(target as Node)) {
         setReactOpen(null);
         setCommentOpen(null);
         setAssignOpen(null);
@@ -1195,7 +1221,7 @@ function SubtaskKanbanCard({
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
         />
         {editOpen && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
             {/* Move to a different parent stage */}
             <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
               <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>move to stage:</span>

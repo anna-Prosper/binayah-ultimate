@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Home, Zap, FileText, Activity, MessageSquare, Settings } from "lucide-react";
 import { T } from "@/lib/themes";
 
@@ -68,6 +68,21 @@ export default function LeftSidebar({
   onManageCurrentWorkspace,
 }: Props) {
   const [wsOpen, setWsOpen] = useState(false);
+  const wsDropdownRef = useRef<HTMLDivElement>(null);
+  // Click-outside + Escape closes workspace dropdown
+  useEffect(() => {
+    if (!wsOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (wsDropdownRef.current && !wsDropdownRef.current.contains(e.target as Node)) setWsOpen(false);
+    };
+    const handleKey = (e: KeyboardEvent) => { if (e.key === "Escape") setWsOpen(false); };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [wsOpen]);
   const current = workspaces.find(w => w.id === currentWorkspaceId);
 
   const renderNavItem = (item: { id: NavItem; label: string }) => {
@@ -132,7 +147,7 @@ export default function LeftSidebar({
       </nav>
 
       {/* Workspace switcher */}
-      <div style={{ padding: "8px 8px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
+      <div ref={wsDropdownRef} style={{ padding: "8px 8px 8px", borderBottom: `1px solid ${t.border}`, position: "relative" }}>
         <button
           onClick={() => setWsOpen(v => !v)}
           style={{ width: "100%", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", color: t.text, fontFamily: "var(--font-dm-sans, sans-serif)", fontSize: 13, fontWeight: 700, display: "flex", alignItems: "center", gap: 4, textAlign: "left" }}
