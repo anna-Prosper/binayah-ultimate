@@ -18,9 +18,11 @@ export async function GET(req: NextRequest) {
 
   const before = req.nextUrl.searchParams.get("before");   // optional msgId cursor
   const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50"), 100);
+  // workspaceId filter: if provided, scope to that workspace; otherwise fall back to "main"
+  const workspaceId = req.nextUrl.searchParams.get("workspaceId") ?? "main";
 
   await connectMongo();
-  const query: Record<string, unknown> = { workspaceId: "main" };
+  const query: Record<string, unknown> = { workspaceId };
   if (before) query.id = { $lt: parseInt(before, 10) };
 
   const messages = await ChatMessage.find(query)
@@ -30,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   // Return oldest-first for client rendering
   return NextResponse.json(messages.reverse().map(m => ({
-    id: m.id, userId: m.userId, text: m.text, time: m.time,
+    id: m.id, userId: m.userId, text: m.text, time: m.time, workspaceId: m.workspaceId,
   })));
 }
 
@@ -66,9 +68,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: textErr }, { status: 400 });
   }
 
+  // Use workspaceId from body when provided; fall back to "main" for legacy clients
+  const workspaceId = typeof msg.workspaceId === "string" && msg.workspaceId ? msg.workspaceId : "main";
+
   await connectMongo();
   await ChatMessage.create({
-    workspaceId: "main",
+    workspaceId,
     id: msg.id,
     userId: msg.userId,
     text: msg.text,

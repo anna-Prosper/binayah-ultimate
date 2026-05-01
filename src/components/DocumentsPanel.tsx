@@ -59,6 +59,8 @@ interface Props {
   t: T;
   /** When set, immediately opens this doc on mount/change (used by Cmd+K palette routing) */
   initialDocId?: string | null;
+  /** When set, only docs belonging to these pipeline IDs (or with no pipeline) are shown */
+  workspacePipelineIds?: string[];
 }
 
 // Toolbar button component
@@ -95,7 +97,7 @@ function ToolbarBtn({
   );
 }
 
-export default function DocumentsPanel({ t, initialDocId }: Props) {
+export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }: Props) {
   const isMobile = useIsMobile(768);
 
   const [docs, setDocs] = useState<DocListItem[]>([]);
@@ -339,7 +341,11 @@ export default function DocumentsPanel({ t, initialDocId }: Props) {
   };
 
   const allPipelines = pipelineData;
-  const filteredDocs = docs; // server already filters, but filter state drives URL
+  // Apply workspace scope: show docs with no pipeline OR whose pipelineId is in workspacePipelineIds.
+  // Legacy docs without a pipelineId remain visible everywhere (backward-compat rule).
+  const filteredDocs = workspacePipelineIds && workspacePipelineIds.length > 0
+    ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
+    : docs;
 
   // Skeleton row
   const SkeletonRow = () => (

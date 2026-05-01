@@ -8,13 +8,16 @@ import dynamic from "next/dynamic";
 
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: false });
 
-export default function ActivityView({ showToast }: { showToast: (msg: string, color: string) => void }) {
+export default function ActivityView({ showToast, currentWorkspaceId }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
   const { activityLog, users, t } = useModel();
+  const filteredLog = currentWorkspaceId
+    ? activityLog.filter(entry => !entry.workspaceId || entry.workspaceId === currentWorkspaceId)
+    : activityLog;
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
       <Suspense fallback={<ActivitySkeleton t={t} />}>
         <div style={{ marginTop: 16 }}>
-          <ActivityFeed activityLog={activityLog} users={users} t={t} />
+          <ActivityFeed activityLog={filteredLog} users={users} t={t} />
         </div>
       </Suspense>
     </ErrorBoundary>

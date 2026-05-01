@@ -22,6 +22,11 @@ export default function ChatView({ showToast, fullScreen, defaultTab, currentWor
     ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })()
     : allPipelinesGlobal;
 
+  // Filter messages to current workspace. Legacy messages without workspaceId stay visible everywhere.
+  const filteredMessages = currentWorkspaceId
+    ? chatMessages.filter(m => !m.workspaceId || m.workspaceId === currentWorkspaceId)
+    : chatMessages;
+
   const buildAiContext = () => {
     const me = users.find(u => u.id === currentUser);
     const lines: string[] = [];
@@ -41,7 +46,7 @@ export default function ChatView({ showToast, fullScreen, defaultTab, currentWor
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
       <Suspense fallback={<ChatSkeleton t={t} />}>
-        <ChatPanel fullScreen={fullScreen} messages={chatMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} hasMore={hasMoreMessages} buildAiContext={buildAiContext} />
+        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} hasMore={hasMoreMessages} buildAiContext={buildAiContext} />
       </Suspense>
     </ErrorBoundary>
   );

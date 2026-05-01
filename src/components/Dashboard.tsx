@@ -419,9 +419,9 @@ function DashboardInner({
           <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
         ) : (
           <>
-            {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} /></Suspense></ErrorBoundary></BottomSheet>)}
-            {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} /></div></Suspense></ErrorBoundary>)}
-            {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} />}
+            {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
+            {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></div></Suspense></ErrorBoundary>)}
+            {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />}
             {!isMobile && activeNavItem === "home" && me && (
               <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} handleClaimWithAnim={handleClaimWithAnim} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
             )}
@@ -443,7 +443,7 @@ function DashboardInner({
       {showAvatarPicker && selUser && (() => { const pickerUser = users.find(u => u.id === selUser); if (!pickerUser) return null; const AnimBg = () => <FloatingBg colors={[pickerUser.color, pickerUser.color + "88", t.accent + "44", pickerUser.color + "44"]} themeStyle={themeId} />; return <AvatarStep6 t={t} user={pickerUser as UserType} selAvatar={selAvatar} setSelAvatar={setSelAvatar} users={users} setUsers={setUsers} setCurrentUser={() => {}} setOnboardStep={() => {}} selUser={selUser} AnimBg={AnimBg} onClose={() => setShowAvatarPicker(false)} onConfirm={() => setShowAvatarPicker(false)} />; })()}
 
       {/* Mobile overlays */}
-      {isMobile && (<BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}><ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><DocumentsPanel t={t} initialDocId={paletteDocId} /></Suspense></ErrorBoundary></BottomSheet>)}
+      {isMobile && (<BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}><ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></Suspense></ErrorBoundary></BottomSheet>)}
       {isMobile ? (<BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></BottomSheet>) : showChat ? (<div style={{ position: "fixed", bottom: 160, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}><div style={{ position: "relative" }}><button onClick={() => setShowChat(false)} style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, padding: 0 }}>×</button><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></div></div>) : null}
 
       {/* FABs */}
@@ -462,7 +462,7 @@ function DashboardInner({
         <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: 70, right: 16, width: 360, maxHeight: "70vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499 }}>
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<ActivitySkeleton t={t} />}>
-              <ActivityView showToast={showToast} />
+              <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />
             </Suspense>
           </ErrorBoundary>
         </div>

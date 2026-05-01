@@ -5,7 +5,7 @@ import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
 import { type UserType } from "@/lib/data";
 
-export type ChatMsg = { id: number; userId: string; text: string; time: string };
+export type ChatMsg = { id: number; userId: string; text: string; time: string; workspaceId?: string };
 type AiMsg = { role: "user" | "assistant"; content: string; time: string; error?: boolean };
 
 const MAX_MSG_LEN = 2000;

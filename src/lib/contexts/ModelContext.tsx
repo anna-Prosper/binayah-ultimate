@@ -395,10 +395,10 @@ export function ModelProvider({
   // ── Activity log ──────────────────────────────────────────────────────────
   const logActivity = useCallback((type: string, target: string, detail: string) => {
     if (!currentUser) return;
-    const entry = { type, user: currentUser, target, detail, time: Date.now() };
+    const entry = { type, user: currentUser, target, detail, time: Date.now(), workspaceId: currentWorkspaceId };
     setActivityLog(prev => [entry, ...prev.slice(0, 99)]);
     pushActivity(entry).then(result => { if (!result.ok) setSyncStatus("offline"); });
-  }, [currentUser]);
+  }, [currentUser, currentWorkspaceId]);
 
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
@@ -572,12 +572,13 @@ export function ModelProvider({
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
-    fetch("/api/pipeline-state/messages?limit=50")
+    const wsParam = currentWorkspaceId ? `&workspaceId=${encodeURIComponent(currentWorkspaceId)}` : "";
+    fetch(`/api/pipeline-state/messages?limit=50${wsParam}`)
       .then(r => r.json())
       .then((msgs: ChatMsg[]) => { if (Array.isArray(msgs)) setChatMessages(msgs); })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [currentWorkspaceId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
@@ -1191,7 +1192,7 @@ export function ModelProvider({
   const sendChat = (text: string) => {
     if (!currentUser) return;
     const msgId = Date.now();
-    const msg: ChatMsg = { id: msgId, userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    const msg: ChatMsg = { id: msgId, userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), workspaceId: currentWorkspaceId };
     setChatMessages(prev => [...prev, msg]);
     pushMessage(msg).then(result => {
       if (!result.ok) {
@@ -1220,7 +1221,8 @@ export function ModelProvider({
     if (!hasMoreMessages || chatMessages.length === 0) return;
     const oldest = chatMessages[0];
     try {
-      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50`);
+      const wsParam = currentWorkspaceId ? `&workspaceId=${encodeURIComponent(currentWorkspaceId)}` : "";
+      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50${wsParam}`);
       const older: ChatMsg[] = await res.json();
       if (!Array.isArray(older) || older.length === 0) { setHasMoreMessages(false); return; }
       setChatMessages(prev => [...older, ...prev]);

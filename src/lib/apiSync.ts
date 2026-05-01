@@ -92,7 +92,7 @@ export async function patchState(patch: Partial<SharedState>): Promise<SyncResul
 }
 
 // Atomically append a single chat message (never clobbers other messages)
-export async function pushMessage(msg: { id: number; userId: string; text: string; time: string }): Promise<SyncResult> {
+export async function pushMessage(msg: { id: number; userId: string; text: string; time: string; workspaceId?: string }): Promise<SyncResult> {
   try {
     const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
@@ -146,7 +146,7 @@ export async function pushCommentReaction(payload: { stageId: string; commentId:
 }
 
 // Atomically prepend an activity entry
-export async function pushActivity(entry: { type: string; user: string; target: string; detail: string; time: number }): Promise<SyncResult> {
+export async function pushActivity(entry: { type: string; user: string; target: string; detail: string; time: number; workspaceId?: string }): Promise<SyncResult> {
   try {
     const res = await fetch(`${API_BASE}/activity`, {
       method: "POST",
