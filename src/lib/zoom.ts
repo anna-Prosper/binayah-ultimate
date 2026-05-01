@@ -64,3 +64,69 @@ export async function getZoomServerToken(): Promise<ZoomTokenResult> {
     scope: data.scope ?? "",
   };
 }
+
+export type ZoomRecordingFile = {
+  id?: string;
+  file_type?: string;
+  file_extension?: string;
+  recording_type?: string;
+  download_url?: string;
+};
+
+export type ZoomRecordingMeeting = {
+  uuid?: string;
+  id?: number | string;
+  topic?: string;
+  start_time?: string;
+  duration?: number;
+  recording_files?: ZoomRecordingFile[];
+};
+
+export type ZoomRecordingsResult =
+  | { ok: true; from: string; to: string; totalRecords: number; meetings: ZoomRecordingMeeting[] }
+  | { ok: false; status: number; message: string };
+
+export async function getRecentZoomRecordings(days = 30): Promise<ZoomRecordingsResult> {
+  const token = await getZoomServerToken();
+  if (!token.ok) return token;
+
+  const to = new Date();
+  const from = new Date(to.getTime() - Math.max(1, Math.min(days, 180)) * 86_400_000);
+  const fromText = from.toISOString().slice(0, 10);
+  const toText = to.toISOString().slice(0, 10);
+  const url = new URL("https://api.zoom.us/v2/accounts/me/recordings");
+  url.searchParams.set("from", fromText);
+  url.searchParams.set("to", toText);
+  url.searchParams.set("page_size", "30");
+
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token.accessToken}`,
+    },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return {
+      ok: false,
+      status: res.status,
+      message: text || res.statusText || "Zoom recordings request failed",
+    };
+  }
+
+  const data = await res.json() as {
+    from?: string;
+    to?: string;
+    total_records?: number;
+    meetings?: ZoomRecordingMeeting[];
+  };
+
+  return {
+    ok: true,
+    from: data.from ?? fromText,
+    to: data.to ?? toText,
+    totalRecords: data.total_records ?? data.meetings?.length ?? 0,
+    meetings: data.meetings ?? [],
+  };
+}

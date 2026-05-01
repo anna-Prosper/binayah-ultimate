@@ -23,6 +23,12 @@ type ZoomStatus = {
   scopes: string;
   expiresIn: number | null;
 };
+type ZoomRecordingsStatus = {
+  ok: boolean;
+  totalRecords?: number;
+  meetings?: Array<{ topic: string; startTime?: string; transcriptCount: number; fileCount: number }>;
+  message?: string;
+};
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -135,6 +141,8 @@ function AttentionOverview({ t, attention }: {
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [recordings, setRecordings] = useState<ZoomRecordingsStatus | null>(null);
   useEffect(() => {
     if (!isAdmin) return;
     let alive = true;
@@ -168,6 +176,17 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
       }));
     } finally {
       setChecking(false);
+    }
+  };
+  const syncCalls = async () => {
+    if (!connected || syncing) return;
+    setSyncing(true);
+    try {
+      const res = await fetch("/api/zoom/recordings", { cache: "no-store" });
+      const data = await res.json().catch(() => null) as ZoomRecordingsStatus | null;
+      setRecordings(data ? { ...data, ok: res.ok } : { ok: false, message: "Zoom call sync failed" });
+    } finally {
+      setSyncing(false);
     }
   };
 
@@ -207,13 +226,47 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
             {connected ? "server token ok" : configured ? "credentials found" : "setup needed"}
           </span>
         </div>
+        <div style={{ marginTop: 12, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+          To activate proposals, turn on Zoom cloud recording transcripts or AI Companion summaries for the account, then sync recent calls here.
+        </div>
       </div>
       <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
         <div style={{ border: `1px solid ${t.border}`, background: t.bgHover || t.bgSoft, borderRadius: 12, padding: 12 }}>
-          <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>Task proposal queue</div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+            <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>Task proposal queue</div>
+            <button
+              type="button"
+              disabled={!connected || syncing}
+              onClick={syncCalls}
+              style={{
+                border: `1px solid ${connected ? t.accent : t.border}`,
+                background: connected ? t.bgCard : t.bgHover || t.bgSoft,
+                color: connected ? t.accent : t.textDim,
+                borderRadius: 8,
+                padding: "6px 9px",
+                fontSize: 10,
+                fontWeight: 850,
+                fontFamily: "var(--font-dm-mono), monospace",
+                cursor: connected && !syncing ? "pointer" : "not-allowed",
+              }}
+            >
+              {syncing ? "syncing..." : "sync latest calls"}
+            </button>
+          </div>
           <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
             No Zoom proposals yet. Once call import is enabled, this lane will show extracted tasks with edit, approve, and reject controls.
           </div>
+          {recordings?.ok && (
+            <div style={{ marginTop: 8, fontSize: 11, color: recordings.totalRecords ? t.green : t.amber, lineHeight: 1.45 }}>
+              Found {recordings.totalRecords ?? 0} cloud recording{recordings.totalRecords === 1 ? "" : "s"} in the last 30 days.
+              {(recordings.totalRecords ?? 0) === 0 ? " Record a Zoom meeting to the cloud with transcript/AI summary enabled, then sync again." : " Next step is turning these transcripts into editable task proposals."}
+            </div>
+          )}
+          {recordings && !recordings.ok && (
+            <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.45 }}>
+              Call sync failed. {recordings.message || "Check Zoom recording scopes and account settings."}
+            </div>
+          )}
           {status?.tokenError && (
             <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.4 }}>
               Zoom token check failed{status.tokenStatus ? ` (${status.tokenStatus})` : ""}. Check the app credentials and scopes in Zoom Marketplace.
