@@ -175,13 +175,19 @@ export async function getZoomMeetingInstanceSummary(meetingId: number | string):
     return { ok: false, status: instRes.status, message: "Could not fetch meeting instances" };
   }
   const instData = await instRes.json() as { meetings?: { uuid: string; start_time: string }[] };
-  const instances = instData.meetings ?? [];
+  const now = Date.now();
+  const instances = (instData.meetings ?? [])
+    .filter(i => new Date(i.start_time).getTime() < now)
+    .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
   if (instances.length === 0) {
     return { ok: false, status: 404, message: "No past instances found for this meeting" };
   }
-  // Most recent instance first
-  const latestUUID = instances.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0].uuid;
-  return getZoomMeetingSummaryByUUID(latestUUID, String(meetingId));
+  // Try each instance from most recent until we find one with a summary
+  for (const instance of instances.slice(0, 5)) {
+    const result = await getZoomMeetingSummaryByUUID(instance.uuid, String(meetingId));
+    if (result.ok) return result;
+  }
+  return { ok: false, status: 404, message: "No AI Companion summary found in the last 5 instances of this meeting" };
 }
 
 async function getZoomMeetingSummaryByUUID(uuid: string, fallbackId: string): Promise<ZoomMeetingSummaryResult> {
