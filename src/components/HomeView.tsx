@@ -138,11 +138,23 @@ function AttentionOverview({ t, attention }: {
   );
 }
 
+type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected" };
+
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
+  const { addCustomStage, allPipelinesGlobal, customStages } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [recordings, setRecordings] = useState<ZoomRecordingsStatus | null>(null);
+
+  // Paste-summary flow
+  const [showPaste, setShowPaste] = useState(false);
+  const [pastedSummary, setPastedSummary] = useState("");
+  const [extracting, setExtracting] = useState(false);
+  const [extractError, setExtractError] = useState<string | null>(null);
+  const [proposals, setProposals] = useState<TaskProposal[]>([]);
+  const [nextId, setNextId] = useState(1);
+
   useEffect(() => {
     if (!isAdmin) return;
     let alive = true;
@@ -158,6 +170,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const connected = status?.connected ?? false;
   const missing = status?.missing ?? [];
   const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
+
   const checkZoom = async () => {
     if (!configured || checking) return;
     setChecking(true);
@@ -178,6 +191,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
       setChecking(false);
     }
   };
+
   const syncCalls = async () => {
     if (!connected || syncing) return;
     setSyncing(true);
@@ -190,112 +204,178 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     }
   };
 
+  const extractTasks = async () => {
+    if (!pastedSummary.trim() || extracting) return;
+    setExtracting(true);
+    setExtractError(null);
+    try {
+      const pipelines = allPipelinesGlobal.map(p => ({
+        id: p.id,
+        name: p.name,
+        stages: [...p.stages, ...(customStages[p.id] ?? [])],
+      }));
+      const res = await fetch("/api/call-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: pastedSummary.trim(), pipelines }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.tasks) { setExtractError(data.error || "Failed to extract tasks"); return; }
+      const newProposals: TaskProposal[] = (data.tasks as { title: string; pipelineId: string; pipelineName: string; stageName: string | null }[]).map((t, i) => ({
+        id: nextId + i,
+        title: t.title,
+        pipelineId: t.pipelineId,
+        pipelineName: t.pipelineName,
+        stageName: t.stageName,
+        status: "pending",
+      }));
+      setNextId(n => n + newProposals.length);
+      setProposals(prev => [...newProposals, ...prev]);
+      setShowPaste(false);
+      setPastedSummary("");
+    } catch { setExtractError("Network error"); }
+    finally { setExtracting(false); }
+  };
+
+  const approveProposal = (id: number) => {
+    const p = proposals.find(x => x.id === id);
+    if (!p) return;
+    addCustomStage(p.pipelineId, p.stageName || p.title);
+    setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "approved" } : x));
+  };
+  const rejectProposal = (id: number) => setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "rejected" } : x));
+  const clearDone = () => setProposals(prev => prev.filter(x => x.status === "pending"));
+
+  const pending = proposals.filter(p => p.status === "pending");
+  const done = proposals.filter(p => p.status !== "pending");
+  const mono = "var(--font-dm-mono), monospace";
+
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
-          zoom intelligence
-        </div>
-        <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>
-          call summaries and proposed tasks
-        </div>
+        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>zoom intelligence</div>
+        <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>call summaries and proposed tasks</div>
         <div style={{ marginTop: 8, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
-          Server-to-Server OAuth is configured backend-side. After calls are imported, summaries should become editable task proposals here for admin approval.
+          Paste any call summary or meeting notes — AI extracts action items and queues them here for approval. Each approved task becomes a stage in the relevant pipeline.
         </div>
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button
-            type="button"
-            disabled={!configured || checking}
-            onClick={checkZoom}
-            style={{
-              background: configured ? t.accent : t.bgHover || t.bgSoft,
-              border: `1px solid ${configured ? t.accent : t.border}`,
-              borderRadius: 10,
-              padding: "8px 12px",
-              color: configured ? "#fff" : t.textDim,
-              fontSize: 12,
-              fontWeight: 800,
-              fontFamily: "var(--font-dm-mono), monospace",
-              textDecoration: "none",
-              cursor: configured && !checking ? "pointer" : "not-allowed",
-            }}
-          >
+          <button type="button" disabled={!configured || checking} onClick={checkZoom} style={{ background: configured ? t.accent : t.bgHover || t.bgSoft, border: `1px solid ${configured ? t.accent : t.border}`, borderRadius: 10, padding: "8px 12px", color: configured ? "#fff" : t.textDim, fontSize: 12, fontWeight: 800, fontFamily: mono, cursor: configured && !checking ? "pointer" : "not-allowed" }}>
             {checking ? "checking..." : "check zoom"}
           </button>
-          <span style={{ fontSize: 11, color: stateColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>
+          <span style={{ fontSize: 11, color: stateColor, fontFamily: mono, fontWeight: 800 }}>
             {connected ? "server token ok" : configured ? "credentials found" : "setup needed"}
           </span>
         </div>
-        <div style={{ marginTop: 12, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-          To activate proposals, turn on Zoom cloud recording transcripts or AI Companion summaries for the account, then sync recent calls here.
+        <div style={{ marginTop: 10, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+          Once cloud recordings are enabled, use &ldquo;sync latest calls&rdquo; to auto-import Zoom AI summaries.
         </div>
       </div>
-      <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
         <div style={{ border: `1px solid ${t.border}`, background: t.bgHover || t.bgSoft, borderRadius: 12, padding: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>Task proposal queue</div>
-            <button
-              type="button"
-              disabled={!connected || syncing}
-              onClick={syncCalls}
-              style={{
-                border: `1px solid ${connected ? t.accent : t.border}`,
-                background: connected ? t.bgCard : t.bgHover || t.bgSoft,
-                color: connected ? t.accent : t.textDim,
-                borderRadius: 8,
-                padding: "6px 9px",
-                fontSize: 10,
-                fontWeight: 850,
-                fontFamily: "var(--font-dm-mono), monospace",
-                cursor: connected && !syncing ? "pointer" : "not-allowed",
-              }}
-            >
-              {syncing ? "syncing..." : "sync latest calls"}
-            </button>
+          {/* Queue header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+            <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>
+              Task proposal queue {pending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontFamily: mono, marginLeft: 4 }}>{pending.length}</span>}
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>
+                {showPaste ? "cancel" : "+ paste summary"}
+              </button>
+              <button type="button" disabled={!connected || syncing} onClick={syncCalls} style={{ border: `1px solid ${connected ? t.border : t.border}`, background: "transparent", color: connected ? t.textMuted : t.textDim, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: connected && !syncing ? "pointer" : "not-allowed" }}>
+                {syncing ? "syncing..." : "sync zoom"}
+              </button>
+            </div>
           </div>
-          <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-            No Zoom proposals yet. Once call import is enabled, this lane will show extracted tasks with edit, approve, and reject controls.
-          </div>
+
+          {/* Paste area */}
+          {showPaste && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              <textarea
+                value={pastedSummary}
+                onChange={e => setPastedSummary(e.target.value)}
+                placeholder="Paste call summary, meeting notes, or transcript here…"
+                style={{ width: "100%", minHeight: 90, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
+                autoFocus
+              />
+              {extractError && <div style={{ fontSize: 11, color: t.red }}>{extractError}</div>}
+              <button
+                type="button"
+                disabled={!pastedSummary.trim() || extracting}
+                onClick={extractTasks}
+                style={{ alignSelf: "flex-end", background: pastedSummary.trim() ? t.accent : t.bgCard, border: `1px solid ${pastedSummary.trim() ? t.accent : t.border}`, color: pastedSummary.trim() ? "#fff" : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: pastedSummary.trim() && !extracting ? "pointer" : "not-allowed" }}
+              >
+                {extracting ? "extracting…" : "extract tasks"}
+              </button>
+            </div>
+          )}
+
+          {/* Pending proposals */}
+          {pending.length > 0 && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+              {pending.map(p => (
+                <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
+                      {p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button type="button" onClick={() => approveProposal(p.id)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
+                    <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {pending.length === 0 && !showPaste && (
+            <div style={{ marginTop: 8, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+              No pending proposals. Paste a call summary above to extract tasks, or sync Zoom cloud recordings.
+            </div>
+          )}
+
+          {/* Done items (collapsed) */}
+          {done.length > 0 && (
+            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>
+                {done.filter(x => x.status === "approved").length} approved · {done.filter(x => x.status === "rejected").length} rejected
+              </div>
+              <button type="button" onClick={clearDone} style={{ background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", textDecoration: "underline" }}>clear</button>
+            </div>
+          )}
+
+          {/* Zoom recordings feedback */}
           {recordings?.ok && (
             <div style={{ marginTop: 8, fontSize: 11, color: recordings.totalRecords ? t.green : t.amber, lineHeight: 1.45 }}>
               Found {recordings.totalRecords ?? 0} cloud recording{recordings.totalRecords === 1 ? "" : "s"} in the last 30 days.
-              {(recordings.totalRecords ?? 0) === 0 ? " Record a Zoom meeting to the cloud with transcript/AI summary enabled, then sync again." : " Next step is turning these transcripts into editable task proposals."}
+              {(recordings.totalRecords ?? 0) === 0 ? " Enable auto-record in Zoom settings to populate this automatically." : " Auto-import coming once transcripts are enabled."}
             </div>
           )}
           {recordings && !recordings.ok && (
             <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.45 }}>
-              Call sync failed. {recordings.message || "Check Zoom recording scopes and account settings."}
-            </div>
-          )}
-          {status?.tokenError && (
-            <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.4 }}>
-              Zoom token check failed{status.tokenStatus ? ` (${status.tokenStatus})` : ""}. Check the app credentials and scopes in Zoom Marketplace.
+              Call sync failed. {recordings.message || "Check Zoom recording scopes."}
             </div>
           )}
           {status?.scopes && (
-            <div style={{ marginTop: 8, fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ marginTop: 6, fontSize: 10, color: t.textDim, fontFamily: mono, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               scopes: {status.scopes}
             </div>
           )}
         </div>
+
         {configured && !connected && !status?.tokenError && (
           <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850 }}>
-              server-to-server oauth
-            </div>
-            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-              No callback URL is needed for this Zoom app type. The backend will mint tokens directly from the account credentials.
-            </div>
+            <div style={{ fontSize: 11, color: t.amber, fontFamily: mono, fontWeight: 850 }}>server-to-server oauth</div>
+            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>No callback URL needed — backend mints tokens directly from account credentials.</div>
           </div>
         )}
         {!configured && (
           <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850 }}>
-              missing env: {missing.length ? missing.join(", ") : "loading"}
-            </div>
-            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-              Add these to Vercel for the Zoom Server-to-Server OAuth app. No redirect or callback URL is required.
-            </div>
+            <div style={{ fontSize: 11, color: t.amber, fontFamily: mono, fontWeight: 850 }}>missing env: {missing.length ? missing.join(", ") : "loading"}</div>
+            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>Add these to Vercel for the Zoom Server-to-Server OAuth app.</div>
           </div>
         )}
       </div>
