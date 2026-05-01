@@ -205,59 +205,6 @@ export default function LeftSidebar({
         </div>
       )}
 
-      {/* Pipeline sub-list — only when Pipelines is active */}
-      {activeNav === "pipelines" && (
-        <div style={{
-          flex: 1,
-          overflowY: "auto",
-          padding: "4px 0",
-          borderTop: `1px solid ${t.border}`,
-        }}>
-          {pipelines.map(p => {
-            const isActive = activePipelineId === p.id;
-            return (
-              <button
-                key={p.id}
-                onClick={() => onPipelineSelect(p.id)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  width: "100%",
-                  padding: "4px 12px",
-                  background: isActive ? t.accent + "18" : "transparent",
-                  border: "none",
-                  cursor: "pointer",
-                  color: isActive ? t.accent : t.textSec,
-                  fontSize: 13,
-                  fontWeight: isActive ? 700 : 400,
-                  fontFamily: "var(--font-dm-sans, sans-serif)",
-                  textAlign: "left",
-                  transition: "all 0.15s",
-                  overflow: "hidden",
-                  textOverflow: "ellipsis",
-                  whiteSpace: "nowrap",
-                }}
-                onMouseEnter={e => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = t.text;
-                    (e.currentTarget as HTMLElement).style.background = t.bgHover;
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!isActive) {
-                    (e.currentTarget as HTMLElement).style.color = t.textSec;
-                    (e.currentTarget as HTMLElement).style.background = "transparent";
-                  }
-                }}
-              >
-                <span style={{ fontSize: 15, flexShrink: 0 }}>{p.icon}</span>
-                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{p.name}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }
