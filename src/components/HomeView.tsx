@@ -16,9 +16,12 @@ type AttentionTone = "accent" | "green" | "amber" | "red" | "cyan";
 type ZoomStatus = {
   configured: boolean;
   connected: boolean;
+  mode: "server_to_server";
   missing: string[];
-  connectUrl: string;
-  callbackUrl: string;
+  tokenStatus: number | null;
+  tokenError: string | null;
+  scopes: string;
+  expiresIn: number | null;
 };
 
 function truncate(text: string, max: number): string {
@@ -131,6 +134,7 @@ function AttentionOverview({ t, attention }: {
 
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const [status, setStatus] = useState<ZoomStatus | null>(null);
+  const [checking, setChecking] = useState(false);
   useEffect(() => {
     if (!isAdmin) return;
     let alive = true;
@@ -146,6 +150,26 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const connected = status?.connected ?? false;
   const missing = status?.missing ?? [];
   const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
+  const checkZoom = async () => {
+    if (!configured || checking) return;
+    setChecking(true);
+    try {
+      const res = await fetch("/api/zoom/connect", { cache: "no-store" });
+      const data = await res.json().catch(() => null);
+      setStatus(prev => ({
+        configured: true,
+        connected: res.ok,
+        mode: "server_to_server",
+        missing: [],
+        tokenStatus: res.ok ? 200 : res.status,
+        tokenError: res.ok ? null : data?.message || "Zoom token check failed",
+        scopes: data?.scopes || prev?.scopes || "",
+        expiresIn: data?.expiresIn ?? prev?.expiresIn ?? null,
+      }));
+    } finally {
+      setChecking(false);
+    }
+  };
 
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
@@ -157,13 +181,13 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
           call summaries and proposed tasks
         </div>
         <div style={{ marginTop: 8, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
-          After a Zoom call, summaries should become editable task proposals here. Admin approves, edits, or rejects before anything is created.
+          Server-to-Server OAuth is configured backend-side. After calls are imported, summaries should become editable task proposals here for admin approval.
         </div>
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <a
-            href={configured ? "/api/zoom/connect" : undefined}
-            aria-disabled={!configured}
-            onClick={e => { if (!configured) e.preventDefault(); }}
+          <button
+            type="button"
+            disabled={!configured || checking}
+            onClick={checkZoom}
             style={{
               background: configured ? t.accent : t.bgHover || t.bgSoft,
               border: `1px solid ${configured ? t.accent : t.border}`,
@@ -174,13 +198,13 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
               fontWeight: 800,
               fontFamily: "var(--font-dm-mono), monospace",
               textDecoration: "none",
-              cursor: configured ? "pointer" : "not-allowed",
+              cursor: configured && !checking ? "pointer" : "not-allowed",
             }}
           >
-            connect zoom
-          </a>
+            {checking ? "checking..." : "check zoom"}
+          </button>
           <span style={{ fontSize: 11, color: stateColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>
-            {connected ? "connected" : configured ? "ready to connect" : "setup needed"}
+            {connected ? "server token ok" : configured ? "credentials found" : "setup needed"}
           </span>
         </div>
       </div>
@@ -188,16 +212,36 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
         <div style={{ border: `1px solid ${t.border}`, background: t.bgHover || t.bgSoft, borderRadius: 12, padding: 12 }}>
           <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>Task proposal queue</div>
           <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-            No Zoom proposals yet. Once webhooks are connected, this lane will show extracted tasks with edit, approve, and reject controls.
+            No Zoom proposals yet. Once call import is enabled, this lane will show extracted tasks with edit, approve, and reject controls.
           </div>
+          {status?.tokenError && (
+            <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.4 }}>
+              Zoom token check failed{status.tokenStatus ? ` (${status.tokenStatus})` : ""}. Check the app credentials and scopes in Zoom Marketplace.
+            </div>
+          )}
+          {status?.scopes && (
+            <div style={{ marginTop: 8, fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              scopes: {status.scopes}
+            </div>
+          )}
         </div>
+        {configured && !connected && !status?.tokenError && (
+          <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
+            <div style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850 }}>
+              server-to-server oauth
+            </div>
+            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+              No callback URL is needed for this Zoom app type. The backend will mint tokens directly from the account credentials.
+            </div>
+          </div>
+        )}
         {!configured && (
           <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
             <div style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850 }}>
               missing env: {missing.length ? missing.join(", ") : "loading"}
             </div>
             <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-              Add these to Vercel, then register this Zoom redirect URL: {status?.callbackUrl || "/api/zoom/callback"}
+              Add these to Vercel for the Zoom Server-to-Server OAuth app. No redirect or callback URL is required.
             </div>
           </div>
         )}
