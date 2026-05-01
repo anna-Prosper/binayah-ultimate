@@ -136,23 +136,24 @@ export async function getZoomPastMeetings(userEmail: string, pageSize = 30): Pro
   const realPast = rawMeetings.filter(m => new Date(m.start_time).getTime() < now);
   const recurringTemplates = rawMeetings.filter(m => new Date(m.start_time).getTime() >= now);
 
-  // For recurring templates, fetch their most recent actual instance
+  // For recurring templates, fetch their recent actual instances (up to 5 each)
   const instancePromises = recurringTemplates.map(async m => {
     try {
       const r = await fetch(`https://api.zoom.us/v2/past_meetings/${m.id}/instances`, {
         headers: { Authorization: `Bearer ${token.accessToken}` }, cache: "no-store",
       });
-      if (!r.ok) return null;
+      if (!r.ok) return [];
       const d = await r.json() as { meetings?: { uuid: string; start_time: string }[] };
-      const instances = (d.meetings ?? []).filter(i => new Date(i.start_time).getTime() < now);
-      if (instances.length === 0) return null;
-      const latest = instances.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0];
-      return { id: m.id, uuid: latest.uuid, topic: m.topic || "Untitled", startTime: latest.start_time, duration: m.duration ?? 0 };
-    } catch { return null; }
+      return (d.meetings ?? [])
+        .filter(i => new Date(i.start_time).getTime() < now)
+        .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        .slice(0, 5)
+        .map(i => ({ id: m.id, uuid: i.uuid, topic: m.topic || "Untitled", startTime: i.start_time, duration: m.duration ?? 0 }));
+    } catch { return []; }
   });
 
   const instanceResults = await Promise.all(instancePromises);
-  const resolvedInstances = instanceResults.filter((x): x is ZoomPastMeeting => x !== null);
+  const resolvedInstances = instanceResults.flat().filter((x): x is ZoomPastMeeting => x !== null);
 
   const meetings = [
     ...realPast.map(m => ({ id: m.id, uuid: m.uuid, topic: m.topic || "Untitled", startTime: m.start_time, duration: m.duration ?? 0 })),
