@@ -23,9 +23,10 @@ export const config = {
      * Match all request paths EXCEPT:
      * - /login (the auth page itself)
      * - /api/auth/* (next-auth internal routes)
+     * - /api/cron/* and /api/zoom/meetings (they enforce their own secret/session auth)
      * - /_next/* (Next.js internals)
      * - /favicon*, /avatars*, /public static assets
      */
-    "/((?!login|api/auth|api/unsubscribe|_next/static|_next/image|favicon|avatars|icons|images).*)",
+    "/((?!login|api/auth|api/cron|api/zoom/meetings|api/unsubscribe|_next/static|_next/image|favicon|avatars|icons|images).*)",
   ],
 };

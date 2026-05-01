@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   // Delegate to the meetings POST endpoint which owns the sync logic
   const baseUrl = process.env.NEXTAUTH_URL || "https://dashboard.binayahhub.com";
-  const res = await fetch(`${baseUrl}/api/zoom/meetings`, {
+  const res = await fetch(`${baseUrl}/api/zoom/meetings?force=true`, {
     method: "POST",
     headers: { "x-cron-secret": cronSecret || "" },
     cache: "no-store",

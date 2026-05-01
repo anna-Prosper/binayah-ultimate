@@ -4,6 +4,8 @@ import { connectMongo } from "@/lib/mongo";
 import ZoomCallCache from "@/lib/ZoomCallCache";
 import { logApi } from "@/lib/log";
 import { pipelineData } from "@/lib/data";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Allow up to 5min for full sync
@@ -21,6 +23,13 @@ type CachedProposal = {
   stageName: string | null; sourceMeeting: string; sourceDate: string;
 };
 type CachedSummary = { uuid: string; topic: string; startTime: string; summary: string };
+
+async function isAuthorized(req: NextRequest) {
+  const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
+  const cronSecret = process.env.CRON_SECRET;
+  if (cronSecret && secret === cronSecret) return true;
+  return Boolean(await getServerSession(authOptions));
+}
 
 /** Strip Zoom task tracker links and tidy up markdown from AI summaries */
 function formatSummary(raw: string): string {
@@ -175,7 +184,10 @@ async function syncNewMeetings(
   return { meetings: allMeetings, proposals: allProposals, summaries: allSummaries, processedUUIDs: newProcessedUUIDs };
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  if (!(await isAuthorized(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   logApi(ROUTE, "request");
   await connectMongo();
 
@@ -204,9 +216,7 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
-  const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && secret && secret !== cronSecret) {
+  if (!(await isAuthorized(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
