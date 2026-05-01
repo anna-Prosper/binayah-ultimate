@@ -34,6 +34,7 @@ interface Props {
   onCreateWorkspace: () => void;
   canManageCurrentWorkspace: boolean;
   onManageCurrentWorkspace: () => void;
+  hiddenNavItems?: NavItem[];
 }
 
 // Home is rendered separately at the top
@@ -68,6 +69,7 @@ export default function LeftSidebar({
   onCreateWorkspace,
   canManageCurrentWorkspace,
   onManageCurrentWorkspace,
+  hiddenNavItems = [],
 }: Props) {
   const [wsOpen, setWsOpen] = useState(false);
   const wsDropdownRef = useRef<HTMLDivElement>(null);
@@ -197,7 +199,7 @@ export default function LeftSidebar({
       {/* Workspace-scoped nav items — only when user belongs to at least one workspace */}
       {workspaces.length > 0 ? (
         <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
-          {WORKSPACE_NAV_ITEMS.map(item => renderNavItem(item))}
+          {WORKSPACE_NAV_ITEMS.filter(item => !hiddenNavItems.includes(item.id)).map(item => renderNavItem(item))}
         </nav>
       ) : (
         <div style={{ padding: "16px 12px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6 }}>
