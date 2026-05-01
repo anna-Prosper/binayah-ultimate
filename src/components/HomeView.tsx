@@ -174,16 +174,34 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     return () => { alive = false; };
   }, [isAdmin]);
 
-  // Auto-load cached meetings on mount
+  // Auto-load cached meetings + proposals on mount
   useEffect(() => {
     if (!isAdmin) return;
     let alive = true;
     fetch("/api/zoom/meetings")
       .then(r => r.json())
-      .then((data: { ok: boolean; meetings?: ZoomMeeting[]; updatedAt?: string }) => {
-        if (!alive || !data.ok || !data.meetings?.length) return;
-        setZoomMeetings(data.meetings);
-        setShowMeetingPicker(true);
+      .then((data: {
+        ok: boolean;
+        meetings?: ZoomMeeting[];
+        proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
+        updatedAt?: string;
+      }) => {
+        if (!alive || !data.ok) return;
+        if (data.meetings?.length) {
+          setZoomMeetings(data.meetings);
+          setShowMeetingPicker(true);
+        }
+        if (data.proposals?.length) {
+          // Load cached proposals as pending (don't duplicate ones already in state)
+          setProposals(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const fresh = data.proposals!
+              .filter(p => !existingIds.has(p.id))
+              .map(p => ({ ...p, status: "pending" as const }));
+            return [...fresh, ...prev];
+          });
+          setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
+        }
         if (data.updatedAt) {
           const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
           setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
@@ -229,10 +247,23 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
       const res = forceResync
         ? await fetch("/api/zoom/meetings", { method: "POST", cache: "no-store" })
         : await fetch("/api/zoom/meetings", { cache: "no-store" });
-      const data = await res.json().catch(() => null) as { ok: boolean; meetings?: ZoomMeeting[]; error?: string; updatedAt?: string; cached?: boolean } | null;
-      if (data?.ok && data.meetings) {
-        setZoomMeetings(data.meetings);
-        if (data.meetings.length > 0) setShowMeetingPicker(true);
+      const data = await res.json().catch(() => null) as {
+        ok: boolean;
+        meetings?: ZoomMeeting[];
+        proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
+        error?: string;
+        updatedAt?: string;
+      } | null;
+      if (data?.ok) {
+        if (data.meetings?.length) { setZoomMeetings(data.meetings); setShowMeetingPicker(true); }
+        if (data.proposals?.length) {
+          setProposals(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const fresh = data.proposals!.filter(p => !existingIds.has(p.id)).map(p => ({ ...p, status: "pending" as const }));
+            return [...fresh, ...prev];
+          });
+          setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
+        }
         if (data.updatedAt) {
           const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
           setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
@@ -362,13 +393,13 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
             <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>
               Task proposal queue {pending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontFamily: mono, marginLeft: 4 }}>{pending.length}</span>}
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>
+            <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
+              <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer", width: 110, textAlign: "center" }}>
                 {showPaste ? "cancel" : "+ paste summary"}
               </button>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
-                <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={() => syncCalls(false)} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1 }}>
-                  {syncing ? "loading…" : zoomMeetings.length > 0 ? "↺ resync" : "sync zoom"}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={() => syncCalls(true)} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1, width: 110, textAlign: "center" }}>
+                  {syncing ? "syncing…" : "↺ resync"}
                 </button>
                 {cacheAge && <span style={{ fontSize: 9, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
               </div>
