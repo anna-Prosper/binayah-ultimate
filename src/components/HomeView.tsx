@@ -572,7 +572,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
           {/* Empty state */}
           {pending.length === 0 && !showPaste && (
             <div style={{ marginTop: 8, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-              No pending proposals. Paste a call summary above to extract tasks, or sync Zoom cloud recordings.
+              Tasks from your latest Zoom calls will appear here automatically. Hit ↺ resync to pull now.
             </div>
           )}
 
@@ -596,11 +596,6 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
           {recordings && !recordings.ok && (
             <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.45 }}>
               Call sync failed. {recordings.message || "Check Zoom recording scopes."}
-            </div>
-          )}
-          {status?.scopes && (
-            <div style={{ marginTop: 6, fontSize: 10, color: t.textDim, fontFamily: mono, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-              scopes: {status.scopes}
             </div>
           )}
         </div>

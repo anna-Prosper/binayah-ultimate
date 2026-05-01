@@ -3,6 +3,7 @@ import { getZoomPastMeetings, getZoomSummaryByUUID } from "@/lib/zoom";
 import { connectMongo } from "@/lib/mongo";
 import ZoomCallCache from "@/lib/ZoomCallCache";
 import { logApi } from "@/lib/log";
+import { pipelineData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 const ROUTE = "/api/zoom/meetings";
@@ -39,13 +40,9 @@ async function extractTasksFromSummary(
 ): Promise<Omit<CachedProposal, "id" | "sourceMeeting" | "sourceDate">[]> {
   if (!OPENAI_API_KEY) return [];
   try {
-    const pipelineList = [
-      "- Web Development (id: web-dev) — stages: Homepage, SEO, Listing pages, Search, Mobile",
-      "- AI & Automation (id: ai-automation) — stages: Voice Agent, CRM, RAG, WhatsApp Bot, Lead Tracking",
-      "- Data & Analytics (id: data-analytics) — stages: DLD Integration, Property Data, Scraping, Database",
-      "- Research & Foundation (id: research) — stages: Market Research, Competitor Analysis, Documentation",
-      "- Operations (id: operations) — stages: Team processes, Client management, Reporting",
-    ].join("\n");
+    const pipelineList = pipelineData
+      .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.slice(0, 6).join(", ")}`)
+      .join("\n");
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
