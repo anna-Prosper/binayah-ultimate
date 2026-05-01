@@ -56,7 +56,7 @@ async function extractTasksFromSummary(
           },
           { role: "user", content: `Meeting: ${topic}\n\n${summary}` },
         ],
-        max_tokens: 800,
+        max_tokens: 1500,
         temperature: 0.2,
       }),
     });
@@ -64,7 +64,7 @@ async function extractTasksFromSummary(
     const raw = data.choices?.[0]?.message?.content ?? "[]";
     const cleaned = raw.replace(/```json|```/g, "").trim();
     const tasks = JSON.parse(cleaned) as { title: string; pipelineId: string; pipelineName: string; stageName: string | null }[];
-    return Array.isArray(tasks) ? tasks.slice(0, 10) : [];
+    return Array.isArray(tasks) ? tasks.slice(0, 25) : [];
   } catch { return []; }
 }
 

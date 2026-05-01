@@ -163,6 +163,8 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
   // Inline proposal editor
   const [editing, setEditing] = useState<EditingProposal | null>(null);
+  // Filter proposals by source meeting
+  const [filterMeeting, setFilterMeeting] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -475,10 +477,41 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
             </div>
           )}
 
-          {/* Pending proposals */}
-          {pending.length > 0 && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-              {pending.map(p => {
+          {/* Pending proposals — grouped by call */}
+          {pending.length > 0 && (() => {
+            // Build unique meeting list from proposals
+            const meetingKeys = Array.from(new Set(
+              pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting)
+                .map(p => (p as unknown as {sourceMeeting: string; sourceDate: string}).sourceMeeting + "|||" + (p as unknown as {sourceMeeting: string; sourceDate: string}).sourceDate)
+            ));
+            const visiblePending = filterMeeting
+              ? pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === filterMeeting)
+              : pending;
+
+            return (
+              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+                {/* Call filter pills */}
+                {meetingKeys.length > 1 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+                    <button type="button" onClick={() => setFilterMeeting(null)}
+                      style={{ background: !filterMeeting ? t.accent : "transparent", border: `1px solid ${!filterMeeting ? t.accent : t.border}`, borderRadius: 8, padding: "2px 8px", fontSize: 10, color: !filterMeeting ? "#fff" : t.textMuted, fontFamily: mono, cursor: "pointer", fontWeight: !filterMeeting ? 700 : 400 }}>
+                      all ({pending.length})
+                    </button>
+                    {meetingKeys.map(key => {
+                      const [meeting, date] = key.split("|||");
+                      const count = pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === meeting).length;
+                      const selected = filterMeeting === meeting;
+                      return (
+                        <button key={key} type="button" onClick={() => setFilterMeeting(selected ? null : meeting)}
+                          style={{ background: selected ? t.accent : "transparent", border: `1px solid ${selected ? t.accent : t.border}`, borderRadius: 8, padding: "2px 8px", fontSize: 10, color: selected ? "#fff" : t.textMuted, fontFamily: mono, cursor: "pointer", fontWeight: selected ? 700 : 400, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                          title={`${meeting} — ${new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}>
+                          {meeting.replace("Binayah", "").replace("binayah", "").trim() || meeting} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {visiblePending.map(p => {
                 const isEditing = editing?.id === p.id;
                 if (isEditing && editing) {
                   const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
@@ -557,6 +590,9 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
                       <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
                       <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
                         {p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}
+                        {(p as unknown as {sourceMeeting?: string; sourceDate?: string}).sourceMeeting && !filterMeeting && (
+                          <span style={{ color: t.textDim, marginLeft: 6 }}>· {(p as unknown as {sourceMeeting: string}).sourceMeeting.replace(/binayah/i,"").trim()}</span>
+                        )}
                       </div>
                     </div>
                     <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
@@ -566,8 +602,9 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
                   </div>
                 );
               })}
-            </div>
-          )}
+              </div>
+            );
+          })()}
 
           {/* Empty state */}
           {pending.length === 0 && !showPaste && (
