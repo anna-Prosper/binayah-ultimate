@@ -11,7 +11,7 @@ export const ALL_LS_KEYS = [
   "stageDescOverrides", "pipeDescOverrides", "pipeMetaOverrides",
   "customStages", "customPipelines", "expanded", "activityLog",
   "chatMessages", "view", "lastSeenActivity",
-  "stagePointsOverride",
+  "stagePointsOverride", "execProposals",
 ];
 
 const VERSION_KEY = LS_PREFIX + "schema_ver";

@@ -94,6 +94,7 @@ export const PATCH_KEY_WHITELIST = new Set([
   "archivedPipelines",
   "archivedSubtasks",
   "stagePointsOverride",
+  "execProposals",
   "updatedAt",
 ]);
 

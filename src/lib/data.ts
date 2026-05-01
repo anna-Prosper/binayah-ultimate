@@ -42,6 +42,7 @@ export const USERS_DEFAULT = [
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
 export const ADMIN_IDS = ["anna"]; // root (super-admin) — auto-operator of every workspace, only role allowed to create/delete workspaces
+export const EXEC_IDS = ["usama", "abdallah"]; // founder/exec view — broad read-only visibility + proposal requests
 
 export interface Workspace {
   id: string;
@@ -337,6 +338,16 @@ pipelineData.forEach(p => {
 export interface SubtaskItem { id: number; text: string; done: boolean; by: string; locked?: boolean; points?: number; }
 export interface CommentItem { id: number; text: string; by: string; time: string; }
 export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number };
+export interface ExecProposal {
+  id: number;
+  title: string;
+  body: string;
+  by: string;
+  status: "pending" | "reviewed" | "rejected";
+  createdAt: number;
+  reviewedAt?: number;
+  reviewedBy?: string;
+}
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"];
 
 export interface UserType {

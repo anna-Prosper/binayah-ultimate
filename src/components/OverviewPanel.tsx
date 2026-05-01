@@ -38,6 +38,7 @@ interface Props {
   searchQ: string;
   activityLog: ActivityEntry[];
   t: T;
+  readOnly?: boolean;
 }
 
 const STATUS_WEIGHT: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
@@ -82,7 +83,7 @@ function StatusSwatch({ status, t }: { status: string; t: T }) {
 export default function OverviewPanel({
   allPipelines, customStages, getStatus, claims, users, sc, ck,
   stageDescOverrides, setStageDescOverride, pipeDescOverrides, setPipeDescOverrides,
-  pipeMetaOverrides, setPipeMetaOverrides, searchQ, activityLog, t,
+  pipeMetaOverrides, setPipeMetaOverrides, searchQ, activityLog, t, readOnly = false,
 }: Props) {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingDesc, setEditingDesc] = useState<string | null>(null);
@@ -337,11 +338,13 @@ export default function OverviewPanel({
                         ) : (
                           <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
                             <span style={{ fontSize: 17, fontWeight: 800, color: t.text, lineHeight: 1.2 }}>{pipeName}</span>
-                            <button
-                              onClick={() => setEditingName(p.id)}
-                              style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: t.textDim, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}
-                              title="Rename"
-                            >{"✎"}</button>
+                            {!readOnly && (
+                              <button
+                                onClick={() => setEditingName(p.id)}
+                                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, color: t.textDim, padding: "0 4px", opacity: 0.5, lineHeight: 1 }}
+                                title="Rename"
+                              >{"✎"}</button>
+                            )}
                           </div>
                         )}
 
@@ -349,11 +352,12 @@ export default function OverviewPanel({
                         <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }}>
                           <span
                             onClick={() => {
+                              if (readOnly) return;
                               const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(pipePriority as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
                               setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), priority: next } }));
                             }}
-                            style={{ fontSize: 10, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
-                            title="Click to cycle priority"
+                            style={{ fontSize: 10, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: readOnly ? "default" : "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+                            title={readOnly ? "Priority" : "Click to cycle priority"}
                           >{pipePriority}</span>
                           <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages</span>
                           {liveCt > 0 && <span style={{ fontSize: 10, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
@@ -384,9 +388,9 @@ export default function OverviewPanel({
                       />
                     ) : (
                       <p
-                        onClick={() => setEditingDesc(p.id)}
-                        style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, margin: 0, cursor: "text", padding: "4px 0" }}
-                        title="Click to edit"
+                        onClick={() => { if (!readOnly) setEditingDesc(p.id); }}
+                        style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6, margin: 0, cursor: readOnly ? "default" : "text", padding: "4px 0" }}
+                        title={readOnly ? pipeDesc : "Click to edit"}
                       >
                         {pipeDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add a description...</span>}
                       </p>
@@ -444,9 +448,9 @@ export default function OverviewPanel({
                             />
                           ) : (
                             <span
-                              onClick={() => setEditingStageDesc(name)}
-                              style={{ fontSize: 13, color: t.textSec, cursor: "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
-                              title={desc || "click to add description"}
+                              onClick={() => { if (!readOnly) setEditingStageDesc(name); }}
+                              style={{ fontSize: 13, color: t.textSec, cursor: readOnly ? "default" : "text", display: "block", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                              title={desc || (readOnly ? "" : "click to add description")}
                             >
                               {desc || <span style={{ color: t.textDim, fontStyle: "italic" }}>—</span>}
                             </span>

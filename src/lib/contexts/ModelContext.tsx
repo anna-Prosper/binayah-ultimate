@@ -9,7 +9,7 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace,
+  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal,
 } from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
@@ -78,6 +78,9 @@ interface ModelContextValue {
   workspaces: Workspace[];
   setWorkspaces: React.Dispatch<React.SetStateAction<Workspace[]>>;
   activityLog: ActivityItem[];
+  execProposals: ExecProposal[];
+  addExecProposal: (title: string, body: string) => void;
+  updateExecProposalStatus: (id: number, status: "reviewed" | "rejected") => void;
   archivedStages: string[];
   archivedPipelines: string[];
   archivedSubtasks: string[];
@@ -264,6 +267,7 @@ export function ModelProvider({
   const [customPipelines, setCustomPipelines] = useState<CustomPipeline[]>(() => lsGet("customPipelines", []));
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
+  const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
@@ -325,6 +329,7 @@ export function ModelProvider({
   useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
   useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
+  useEffect(() => { lsSet("execProposals", execProposals) }, [execProposals]);
   useEffect(() => { lsSet("stagePointsOverride", stagePointsOverride) }, [stagePointsOverride]);
 
   // One-time workspace migration
@@ -453,6 +458,7 @@ export function ModelProvider({
       }
     }
     if (s.activityLog) setActivityLog(s.activityLog);
+    if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
     if (s.comments) {
       let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
@@ -540,11 +546,12 @@ export function ModelProvider({
   const getCurrentState = useCallback((): Partial<SharedState> => ({
     owners,
     approvedStages, approvedSubtasks, approvedPipelines,
+    execProposals,
     subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
     subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     stagePointsOverride,
-  }), [owners, approvedStages, approvedSubtasks, approvedPipelines,
+  }), [owners, approvedStages, approvedSubtasks, approvedPipelines, execProposals,
        subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
@@ -560,7 +567,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1276,6 +1283,42 @@ export function ModelProvider({
     showToast(`// workspace "${ws.name}" deleted`, t.amber);
   };
 
+  const addExecProposal = (title: string, body: string) => {
+    if (!currentUser) return;
+    const cleanTitle = title.trim();
+    const cleanBody = body.trim();
+    if (!cleanTitle || !cleanBody) {
+      showToast("// proposal needs a title and detail", t.amber);
+      return;
+    }
+    markLocalWrite("execProposals");
+    const proposal: ExecProposal = {
+      id: Date.now(),
+      title: cleanTitle.slice(0, 120),
+      body: cleanBody.slice(0, 1200),
+      by: currentUser,
+      status: "pending",
+      createdAt: Date.now(),
+    };
+    setExecProposals(prev => [proposal, ...prev].slice(0, 80));
+    logActivity("proposal", proposal.title, "submitted executive request");
+    showToast("// proposal sent to Anna", t.green);
+  };
+
+  const updateExecProposalStatus = (id: number, status: "reviewed" | "rejected") => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
+      showToast("// only Anna can close executive requests", t.amber);
+      return;
+    }
+    markLocalWrite("execProposals");
+    setExecProposals(prev => prev.map(p => p.id === id ? {
+      ...p,
+      status,
+      reviewedAt: Date.now(),
+      reviewedBy: currentUser,
+    } : p));
+  };
+
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
@@ -1287,6 +1330,7 @@ export function ModelProvider({
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
+    execProposals, addExecProposal, updateExecProposalStatus,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
     syncStatus,

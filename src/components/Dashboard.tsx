@@ -8,7 +8,7 @@ import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage"
 import { EphemeralProvider, useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { ModelProvider, useModel } from "@/lib/contexts/ModelContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, type UserType, ADMIN_IDS } from "@/lib/data";
+import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
 import WelcomeModal from "@/components/WelcomeModal";
@@ -329,7 +329,8 @@ function DashboardInner({
 
   // Computed
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
-  const myWorkspaces = workspaces.filter(w => currentUser ? w.members.includes(currentUser!) : true);
+  const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
+  const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
   const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);
   const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipelines.flatMap(p => p.stages), ...Object.values(customStages).flat()];
   const unseen = activityLog.length - lastSeenActivity;
@@ -348,12 +349,12 @@ function DashboardInner({
   }
   if (!me) return <div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>;
 
-  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
+  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, readOnly: isExec, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
 
   // Compose sidebar and header nodes for ChromeShell
   const sidebarNode = !isMobile ? (
     <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
-      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} />
+      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} />
     </div>
   ) : null;
 

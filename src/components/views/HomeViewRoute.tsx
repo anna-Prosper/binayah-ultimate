@@ -9,7 +9,7 @@ import { signOut } from "next-auth/react";
 import { MessageSquare, Bell } from "lucide-react";
 import type { NavItem } from "@/components/LeftSidebar";
 import { THEME_OPTIONS } from "@/lib/themes";
-import { ADMIN_IDS } from "@/lib/data";
+import { ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 
 const HomeView = dynamic(() => import("@/components/HomeView"), { ssr: false });
 
@@ -52,7 +52,7 @@ export default function HomeViewRoute({
     pipeMetaOverrides, workspaces, activityLog, getPoints, t,
   } = useModel();
 
-  const myWorkspaces = (currentUser && ADMIN_IDS.includes(currentUser))
+  const myWorkspaces = (currentUser && (ADMIN_IDS.includes(currentUser) || EXEC_IDS.includes(currentUser)))
     ? workspaces
     : workspaces.filter(w => currentUser ? w.members.includes(currentUser) : true);
   const isCaptainOfAny = !!currentUser && (ADMIN_IDS.includes(currentUser!) || workspaces.some(w => w.captains.includes(currentUser!)));

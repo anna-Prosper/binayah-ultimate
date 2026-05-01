@@ -35,6 +35,7 @@ interface PipelinesViewProps {
   currentWorkspaceId: string;
   currentWorkspace: { name: string; icon: string } | null;
   isAdmin: boolean;
+  readOnly?: boolean;
   showToast: (msg: string, color: string) => void;
   handleClaimWithAnim: (sid: string) => void;
   sharePipeline: (pid: string, pname: string, pdesc: string, priority: string, stageList: string[]) => void;
@@ -45,7 +46,7 @@ export default function PipelinesView({
   view, setView, expanded, setExpanded, expS, setExpS,
   searchQ, setSearchQ, statusFilter, setStatusFilter,
   isMobile, currentWorkspaceId, currentWorkspace,
-  isAdmin, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick,
+  isAdmin, readOnly, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick,
 }: PipelinesViewProps) {
   // Pipeline editing state — local to PipelinesView
   const [editingPipeDesc, setEditingPipeDesc] = useState<string | null>(null);
@@ -85,6 +86,7 @@ export default function PipelinesView({
   // Role in the current workspace (for pipeline edit gating)
   const roleInCurrentWs = useRole(currentWorkspaceId || undefined);
   const canEditPipeline = useCallback((pipelineId: string): boolean => {
+    if (readOnly) return false;
     if (currentUser && ADMIN_IDS.includes(currentUser)) return true;
     const wsId = getPipelineWorkspaceId(pipelineId);
     if (!wsId) {
@@ -93,7 +95,7 @@ export default function PipelinesView({
     const ws = workspaces.find(w => w.id === wsId);
     if (!ws || !currentUser) return false;
     return ws.captains.includes(currentUser);
-  }, [getPipelineWorkspaceId, workspaces, currentUser, roleInCurrentWs]);
+  }, [getPipelineWorkspaceId, workspaces, currentUser, roleInCurrentWs, readOnly]);
 
   // Click-outside + Escape handler for pipelineEditMode
   const closePipelineEditMode = useCallback(() => {
@@ -178,7 +180,7 @@ export default function PipelinesView({
       {view === "overview" && (
         <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
           <Suspense fallback={<OverviewSkeleton t={t} />}>
-            <OverviewPanel allPipelines={allPipelines} customStages={customStages} getStatus={getStatus} claims={claims} users={users} sc={sc} ck={ck} stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride} pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides} pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides} searchQ={searchQ} activityLog={activityLog} t={t} />
+            <OverviewPanel allPipelines={allPipelines} customStages={customStages} getStatus={getStatus} claims={claims} users={users} sc={sc} ck={ck} stageDescOverrides={stageDescOverrides} setStageDescOverride={setStageDescOverride} pipeDescOverrides={pipeDescOverrides} setPipeDescOverrides={setPipeDescOverrides} pipeMetaOverrides={pipeMetaOverrides} setPipeMetaOverrides={setPipeMetaOverrides} searchQ={searchQ} activityLog={activityLog} t={t} readOnly={readOnly} />
           </Suspense>
         </ErrorBoundary>
       )}
@@ -187,7 +189,7 @@ export default function PipelinesView({
       {view === "kanban" && (
         <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
           <Suspense fallback={<KanbanSkeleton t={t} />}>
-            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin ? "all" : "my"} pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} currentWorkspaceId={currentWorkspaceId} />
+            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin || readOnly ? "all" : "my"} pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} currentWorkspaceId={currentWorkspaceId} readOnly={readOnly} />
           </Suspense>
         </ErrorBoundary>
       )}

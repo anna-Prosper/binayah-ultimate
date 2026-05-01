@@ -20,6 +20,16 @@ export type SharedState = {
   reactions?: Record<string, Record<string, string[]>>;
   chatMessages?: { id: number; userId: string; text: string; time: string }[];
   activityLog?: { type: string; user: string; target: string; detail: string; time: number }[];
+  execProposals?: {
+    id: number;
+    title: string;
+    body: string;
+    by: string;
+    status: "pending" | "reviewed" | "rejected";
+    createdAt: number;
+    reviewedAt?: number;
+    reviewedBy?: string;
+  }[];
   subtasks?: Record<string, { id: number; text: string; done: boolean; by: string }[]>;
   comments?: Record<string, { id: number; text: string; by: string; time: string }[]>;
   stageStatusOverrides?: Record<string, string>;

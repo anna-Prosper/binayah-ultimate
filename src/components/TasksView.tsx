@@ -39,6 +39,8 @@ interface Props {
   currentWorkspaceId?: string | null;
   /** All workspaces the user can target when creating items in cross-workspace mode. */
   availableWorkspaces?: { id: string; name: string; icon: string; pipelineIds: string[] }[];
+  /** Read-only executive/founder mode: view work, hide mutation controls. */
+  readOnly?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   [k: string]: any;
 }
@@ -68,7 +70,7 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
 }
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
@@ -97,10 +99,11 @@ export default function TasksView(props: Props) {
 
   // Wrap addComment to use local commentInput state
   const addComment = useCallback((sid: string) => {
+    if (readOnly) return;
     const val = commentInput[sid]?.trim();
     if (!val) return;
     modelAddComment(sid, val, () => setCommentInput(prev => ({ ...prev, [sid]: "" })));
-  }, [commentInput, modelAddComment]);
+  }, [commentInput, modelAddComment, readOnly]);
 
   const isMobile = useIsMobile(640);
 
@@ -142,6 +145,7 @@ export default function TasksView(props: Props) {
   }, []);
 
   const submitNewItem = useCallback(async (colStatus: string) => {
+    if (readOnly) return;
     const title = newSubTitle.trim();
     if (!title) return;
     if (needsWorkspacePick && !newSubWsId) return; // must pick workspace first
@@ -175,7 +179,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubWsId, newSubPipeId, newSubParentStage, needsWorkspacePick, formWsId, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, setWorkspaces, resetNewSub]);
+  }, [newSubTitle, newSubWsId, newSubPipeId, newSubParentStage, needsWorkspacePick, formWsId, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -327,6 +331,7 @@ export default function TasksView(props: Props) {
   const handleDrop = (targetStatus: string, e: React.DragEvent) => {
     e.preventDefault();
     setDragOver(null);
+    if (readOnly) return;
     const stageId = e.dataTransfer.getData("stageId");
     const subtaskKey = e.dataTransfer.getData("subtaskKey");
     if (stageId && getStatus(stageId) !== targetStatus) {
@@ -358,16 +363,18 @@ export default function TasksView(props: Props) {
 
   // Stage-card drop target handlers for subtask migration
   const handleStageDragOver = useCallback((stageId: string, e: React.DragEvent) => {
+    if (readOnly) return;
     if (!e.dataTransfer.types.includes("subtaskkey")) return;
     e.preventDefault();
     setStageDropOver(stageId);
-  }, []);
+  }, [readOnly]);
   const handleStageDragLeave = useCallback((stageId: string) => {
     setStageDropOver(prev => prev === stageId ? null : prev);
   }, []);
   const handleStageDrop = useCallback((stageId: string, targetStatus: string, e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation(); // prevent bubbling to column onDrop (which would also setSubtaskStage)
+    if (readOnly) return;
     setStageDropOver(null);
     const key = e.dataTransfer.getData("subtaskKey");
     if (!key || !SubtaskKey.isValid(key)) return;
@@ -375,13 +382,13 @@ export default function TasksView(props: Props) {
     const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
     const statusKey = parsed ? SubtaskKey.make(stageId, parsed.subtaskId) : key;
     setSubtaskStage(statusKey, targetStatus);
-  }, [migrateSubtask, setSubtaskStage]);
+  }, [migrateSubtask, setSubtaskStage, readOnly]);
 
   const cardShared = {
     t, users, currentUser, reactions, comments,
     reactOpen, setReactOpen, commentOpen, setCommentOpen,
     assignOpen, setAssignOpen, assignments, assignTask,
-    handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+    handleReact: readOnly ? (() => {}) : handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
@@ -396,6 +403,7 @@ export default function TasksView(props: Props) {
     availablePipelines: pipelines
       .filter(p => p.id !== INBOX_PIPELINE_ID)
       .map(p => ({ id: p.id, name: p.displayName, icon: p.icon })),
+    readOnly,
   };
 
   // Mobile today view: filter to claimed/assigned, sort by status priority
@@ -501,9 +509,11 @@ export default function TasksView(props: Props) {
                 key={col.status}
                 style={{ flex: "1 1 280px", minWidth: 260, minHeight: 220, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0 }}
                 onDragEnter={e => {
+                  if (readOnly) return;
                   e.preventDefault(); setDragOver(col.status);
                 }}
                 onDragOver={e => {
+                  if (readOnly) return;
                   e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status);
                 }}
                 onDragLeave={() => setDragOver(null)}
@@ -516,18 +526,18 @@ export default function TasksView(props: Props) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {totalCount === 0
-                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>// drop to move</div>
+                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{readOnly ? "// no items" : "// drop to move"}</div>
                     : <>
-                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable hideSubs subtaskStages={subtaskStages} {...cardShared} />)}
-                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => setDraggingSubtaskKey(sub.key)} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
+                        {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!readOnly} hideSubs subtaskStages={subtaskStages} {...cardShared} />)}
+                        {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => { if (!readOnly) setDraggingSubtaskKey(sub.key); }} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
                       </>
                   }
                   {/* Drop zone at bottom so dragging over the last card still highlights the column */}
-                  <div
+                  {!readOnly && <div
                     onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
                     style={{ minHeight: 48, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isOver ? t.accent : "transparent", fontFamily: "var(--font-dm-mono), monospace" }}
-                  >drop here</div>
-                  {newTaskCol === col.status ? (
+                  >drop here</div>}
+                  {!readOnly && newTaskCol === col.status ? (
                     /* Dynamic creation form — workspace (if cross-ws) → optional pipeline → optional parent task */
                     <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
                       <input
@@ -665,14 +675,14 @@ export default function TasksView(props: Props) {
                         </div>
                       </div>
                     </div>
-                  ) : (
+                  ) : !readOnly ? (
                     <button
                       onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
                     >+ new</button>
-                  )}
+                  ) : null}
                 </div>
               </div>
             );
@@ -746,6 +756,7 @@ interface SharedCardProps {
   // For orphan task pipeline picker — shown only when task is in inbox
   availablePipelines?: { id: string; name: string; icon: string }[];
   getPoints?: (uid: string) => number;
+  readOnly?: boolean;
 }
 
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, hideSubs, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean; hideSubs?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
@@ -790,12 +801,12 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
-  availablePipelines, getPoints,
+  availablePipelines, getPoints, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
   const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
   const role = useRole(task.workspaceId);
-  const canArchive = role === "operator" || role === "root" || (!!currentUser && ADMIN_IDS.includes(currentUser));
+  const canArchive = !readOnly && (role === "operator" || role === "root" || (!!currentUser && ADMIN_IDS.includes(currentUser)));
   const [editOpen, setEditOpen] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -919,7 +930,7 @@ function TaskCard({
           )}
           {isPending && !isAdmin && <span style={badge(t.amber)}>⏳ pending</span>}
           {isDone && isApproved && <span style={badge(t.green)}>✓ approved</span>}
-          {currentUser && !(isPending && isAdmin) && !isApproved && (
+          {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (
             <ClaimChip claimed={isMine} pipelineColor={task.pipelineColor} t={t} onClaim={() => onClaim()} />
           )}
         </div>
@@ -933,7 +944,7 @@ function TaskCard({
       )}
 
       {/* Edit-mode extra fields: description + priority + pipeline */}
-      {editOpen && (
+      {editOpen && !readOnly && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }} onClick={e => e.stopPropagation()}>
           <textarea
             value={stageDescOverrides[task.stageId] || ""}
@@ -1020,11 +1031,11 @@ function TaskCard({
         commentCount={cmts.length}
         assignee={assignee} assignees={assignees}
         users={users}
-        onReactToggle={() => { setReactOpen(showReactPicker ? null : task.stageId); setCommentOpen(null); setAssignOpen(null); setEditOpen(false); }}
+        onReactToggle={() => { if (readOnly) return; setReactOpen(showReactPicker ? null : task.stageId); setCommentOpen(null); setAssignOpen(null); setEditOpen(false); }}
         onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : task.stageId); setReactOpen(null); setAssignOpen(null); setEditOpen(false); }}
-        onAssignToggle={() => { setAssignOpen(showAssignPicker ? null : task.stageId); setReactOpen(null); setCommentOpen(null); setEditOpen(false); }}
+        onAssignToggle={() => { if (readOnly) return; setAssignOpen(showAssignPicker ? null : task.stageId); setReactOpen(null); setCommentOpen(null); setEditOpen(false); }}
         onAssign={userId => { assignTask(task.stageId, userId); setAssignOpen(null); }}
-        onEmoji={emoji => { handleReact(task.stageId, emoji); setReactOpen(null); }}
+        onEmoji={emoji => { if (readOnly) return; handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
         onArchive={canArchive ? () => { archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); } : undefined}
@@ -1040,8 +1051,9 @@ function TaskCard({
             setEditingStage?.(null);
           }
         }}
-        showEditButton={true}
+        showEditButton={!readOnly}
         showEditInput={editOpen || editingStage === task.stageId}
+        readOnly={readOnly}
       />
 
       {showCommentPopover && (
@@ -1052,6 +1064,7 @@ function TaskCard({
           inputValue={commentInput[task.stageId] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [task.stageId]: v }))}
           onSend={() => addComment(task.stageId)}
+          readOnly={readOnly}
         />
       )}
 
@@ -1068,7 +1081,7 @@ function SubtaskCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
-  handleClaim, claims, getPoints,
+  handleClaim, claims, getPoints, readOnly,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
@@ -1155,7 +1168,7 @@ function SubtaskCard({
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="pill" size={16} />
-          {currentUser && handleClaim && (
+          {currentUser && handleClaim && !readOnly && (
             <ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" />
           )}
 
@@ -1167,7 +1180,7 @@ function SubtaskCard({
           {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
             return (
-              <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+              <button key={emoji} onClick={e => { e.stopPropagation(); if (!readOnly) handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: readOnly ? "default" : "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
                 <span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
               </button>
@@ -1184,20 +1197,21 @@ function SubtaskCard({
         commentCount={cmts.length}
         assignee={assignee} assignees={assignees}
         users={users}
-        onReactToggle={() => { setReactOpen(showReactPicker ? null : key); setCommentOpen(null); setAssignOpen(null); }}
+        onReactToggle={() => { if (readOnly) return; setReactOpen(showReactPicker ? null : key); setCommentOpen(null); setAssignOpen(null); }}
         onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : key); setReactOpen(null); setAssignOpen(null); }}
-        onAssignToggle={() => { setAssignOpen(showAssignPicker ? null : key); setReactOpen(null); setCommentOpen(null); }}
+        onAssignToggle={() => { if (readOnly) return; setAssignOpen(showAssignPicker ? null : key); setReactOpen(null); setCommentOpen(null); }}
         onAssign={userId => { assignTask(key, userId); setAssignOpen(null); }}
-        onEmoji={emoji => { handleReact(key, emoji); setReactOpen(null); }}
+        onEmoji={emoji => { if (readOnly) return; handleReact(key, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
-        onArchive={() => setArchiveConfirm(true)}
+        onArchive={readOnly ? undefined : () => setArchiveConfirm(true)}
         archiveLabel="archive"
-        showEditButton={true}
+        showEditButton={!readOnly}
         showEditInput={editOpen}
         onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setDescVal(subtaskDescOverrides[key] || ""); setMoveToStageSSC(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+        readOnly={readOnly}
       />
-      {editOpen && (
+      {editOpen && !readOnly && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
           {/* Description */}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1276,6 +1290,7 @@ function SubtaskCard({
           inputValue={commentInput[key] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [key]: v }))}
           onSend={() => addComment(key)}
+          readOnly={readOnly}
         />
       )}
     </CardShell>
@@ -1291,7 +1306,7 @@ function SubtaskKanbanCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
-  isAdmin, getPoints,
+  isAdmin, getPoints, readOnly,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
@@ -1349,9 +1364,9 @@ function SubtaskKanbanCard({
         t={t}
         borderColor={isUnknownParent ? t.amber + "55" : t.border}
         pipelineColor={sub.pipelineColor}
-        draggable={true}
-        onDragStart={e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; onDragSubtaskStart?.(); }}
-        onDragEnd={onDragSubtaskEnd}
+        draggable={!readOnly}
+        onDragStart={!readOnly ? e => { e.dataTransfer.setData("subtaskKey", sub.key); e.dataTransfer.effectAllowed = "move"; onDragSubtaskStart?.(); } : undefined}
+        onDragEnd={!readOnly ? onDragSubtaskEnd : undefined}
       >
         {/* Top row — same structure as TaskCard */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -1404,7 +1419,7 @@ function SubtaskKanbanCard({
                     <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
                   )}
                   {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin) or already approved */}
-                  {currentUser && !(isPending && isAdmin) && !isApproved && (
+                  {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (
                     <ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small />
                   )}
                 </>
@@ -1419,7 +1434,7 @@ function SubtaskKanbanCard({
             {visibleReactions.map(([emoji, us]) => {
               const mine = currentUser ? us.includes(currentUser) : false;
               return (
-                <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(sub.key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
+              <button key={emoji} onClick={e => { e.stopPropagation(); if (!readOnly) handleReact(sub.key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: readOnly ? "default" : "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                   <span>{emoji}</span><span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
                 </button>
               );
@@ -1436,18 +1451,19 @@ function SubtaskKanbanCard({
           commentCount={cmts.length}
           assignee={assignee} assignees={assignees}
           users={users}
-          onReactToggle={() => { setReactOpen(showReactPicker ? null : sub.key); setCommentOpen(null); setAssignOpen(null); }}
+          onReactToggle={() => { if (readOnly) return; setReactOpen(showReactPicker ? null : sub.key); setCommentOpen(null); setAssignOpen(null); }}
           onCommentToggle={() => { setCommentOpen(showCommentPopover ? null : sub.key); setReactOpen(null); setAssignOpen(null); }}
-          onAssignToggle={() => { setAssignOpen(showAssignPicker ? null : sub.key); setReactOpen(null); setCommentOpen(null); }}
+          onAssignToggle={() => { if (readOnly) return; setAssignOpen(showAssignPicker ? null : sub.key); setReactOpen(null); setCommentOpen(null); }}
           onAssign={userId => { assignTask(sub.key, userId); setAssignOpen(null); }}
-          onEmoji={emoji => { handleReact(sub.key, emoji); setReactOpen(null); }}
+          onEmoji={emoji => { if (readOnly) return; handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
-          onArchive={() => setArchiveConfirm(true)}
+          onArchive={readOnly ? undefined : () => setArchiveConfirm(true)}
           archiveLabel="archive"
-          showEditButton={true}
+          showEditButton={!readOnly}
           showEditInput={editOpen}
           onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setDescVal(subtaskDescOverrides[sub.key] || ""); setMoveToStage(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+          readOnly={readOnly}
         />
         {editOpen && (
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
@@ -1529,6 +1545,7 @@ function SubtaskKanbanCard({
             inputValue={commentInput[sub.key] || ""}
             onInputChange={v => setCommentInput(prev => ({ ...prev, [sub.key]: v }))}
             onSend={() => addComment(sub.key)}
+            readOnly={readOnly}
           />
         )}
       </CardShell>
@@ -1567,7 +1584,7 @@ function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, dragga
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact, readOnly }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
   commentCount: number;
   /** primary assignee — first in the list, kept for backwards compat label/color */
@@ -1578,7 +1595,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   onReactToggle: () => void; onCommentToggle: () => void; onAssignToggle: () => void;
   /** toggle a userId in/out of the assignee list (max 2). null clears all. */
   onAssign: (userId: string | null) => void;
-  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onArchive?: () => void; archiveLabel?: string; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean;
+  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onArchive?: () => void; archiveLabel?: string; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean; readOnly?: boolean;
 }) {
   const assigneeList = assignees && assignees.length > 0 ? assignees : (assignee ? [assignee] : []);
   const iconBtn: React.CSSProperties = {
@@ -1599,7 +1616,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
 
   return (
     <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 0, flexWrap: "wrap" }}>
-      <div style={{ position: "relative" }}>
+      {!readOnly && <div style={{ position: "relative" }}>
         <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={activeBtn(showReactPicker)} title="Add reaction">
           😀 <span style={{ fontSize: 10 }}>+</span>
         </button>
@@ -1610,11 +1627,11 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
             ))}
           </div>
         )}
-      </div>
+      </div>}
       <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={activeBtn(showCommentPopover)} title="Comments">
         💬 <span style={{ fontSize: 10 }}>{commentCount}</span>
       </button>
-      <div style={{ position: "relative" }}>
+      {!readOnly && <div style={{ position: "relative" }}>
         <button
           onClick={e => { e.stopPropagation(); onAssignToggle(); }}
           style={{
@@ -1691,7 +1708,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
             )}
           </div>
         )}
-      </div>
+      </div>}
       <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title="Copy">
         {copied ? "✓ copied" : "📋 copy"}
       </button>
@@ -1734,9 +1751,9 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   );
 }
 
-function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend }: {
+function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend, readOnly }: {
   t: T; users: UserType[]; comments: CommentItem[];
-  inputValue: string; onInputChange: (v: string) => void; onSend: () => void;
+  inputValue: string; onInputChange: (v: string) => void; onSend: () => void; readOnly?: boolean;
 }) {
   // @mention autocomplete: detect "@word" at cursor and surface user matches
   const mentionMatch = inputValue.match(/(^|\s)@([\w-]*)$/);
@@ -1777,7 +1794,7 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
       ) : (
         <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", marginBottom: 8 }}>no comments yet</div>
       )}
-      <div style={{ position: "relative" as const }}>
+      {!readOnly && <div style={{ position: "relative" as const }}>
         {mentionQuery !== null && mentionMatches.length > 0 && (
           <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
             {mentionMatches.map(u => (
@@ -1814,7 +1831,7 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend 
           />
           <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={onSend} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

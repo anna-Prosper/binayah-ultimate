@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace, ADMIN_IDS } from "@/lib/data";
+import { type UserType, type Workspace, type ExecProposal, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
@@ -58,6 +58,108 @@ function toneColor(t: T, tone: AttentionTone): string {
   return t.accent;
 }
 
+function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, onUpdate }: {
+  t: T;
+  currentUser: string;
+  users: UserType[];
+  proposals: ExecProposal[];
+  onSubmit: (title: string, body: string) => void;
+  onUpdate: (id: number, status: "reviewed" | "rejected") => void;
+}) {
+  const mono = "var(--font-dm-mono), monospace";
+  const isExec = EXEC_IDS.includes(currentUser);
+  const isAdmin = ADMIN_IDS.includes(currentUser);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [renderNow] = useState(() => Date.now());
+  const pending = proposals.filter(p => p.status === "pending");
+  const visible = isAdmin ? proposals.slice(0, 8) : proposals.filter(p => p.by === currentUser).slice(0, 6);
+  if (!isExec && !isAdmin) return null;
+
+  const submit = () => {
+    if (!title.trim() || !body.trim()) return;
+    onSubmit(title, body);
+    setTitle("");
+    setBody("");
+  };
+
+  return (
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+        <div>
+          <div style={{ fontSize: 10, color: isAdmin ? t.green : t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>
+            {isAdmin ? "executive requests" : "propose to Anna"}
+          </div>
+          <div style={{ marginTop: 4, fontSize: 18, color: t.text, fontWeight: 900 }}>
+            {isAdmin ? `${pending.length} request${pending.length === 1 ? "" : "s"} waiting` : "send a strategic suggestion"}
+          </div>
+        </div>
+        {isAdmin && pending.length > 0 && <div style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800 }}>{pending.length} open</div>}
+      </div>
+
+      {isExec && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 0.7fr) 1fr auto", gap: 8, alignItems: "stretch", marginBottom: visible.length > 0 ? 12 : 0 }}>
+          <input
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="proposal title"
+            maxLength={120}
+            style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 13, outline: "none" }}
+          />
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            placeholder="what should Anna look at, approve, or consider?"
+            maxLength={1200}
+            rows={2}
+            style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 13, outline: "none", resize: "vertical", minHeight: 38 }}
+          />
+          <button
+            type="button"
+            onClick={submit}
+            disabled={!title.trim() || !body.trim()}
+            style={{ background: (!title.trim() || !body.trim()) ? t.bgHover || t.bgSoft : t.accent + "22", border: `1px solid ${(!title.trim() || !body.trim()) ? t.border : t.accent + "77"}`, borderRadius: 8, color: (!title.trim() || !body.trim()) ? t.textDim : t.accent, padding: "0 14px", fontFamily: mono, fontSize: 12, fontWeight: 800, cursor: (!title.trim() || !body.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+          >
+            send
+          </button>
+        </div>
+      )}
+
+      {visible.length > 0 ? (
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {visible.map(p => {
+            const author = users.find(u => u.id === p.by);
+            const color = p.status === "pending" ? t.green : p.status === "rejected" ? t.red : t.textDim;
+            return (
+              <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", border: `1px solid ${color}33`, background: color + "08", borderRadius: 10 }}>
+                {author && <AvatarC user={author} size={22} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 13, color: t.text, fontWeight: 800 }}>{p.title}</span>
+                    <span style={{ fontSize: 10, color, fontFamily: mono }}>{p.status}</span>
+                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{author?.name.split(" ")[0] || p.by} · {timeAgoFrom(renderNow, p.createdAt)}</span>
+                  </div>
+                  <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>{p.body}</div>
+                </div>
+                {isAdmin && p.status === "pending" && (
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    <button type="button" onClick={() => onUpdate(p.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>reviewed</button>
+                    <button type="button" onClick={() => onUpdate(p.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>reject</button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ padding: "20px 0", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10, textAlign: "center" }}>
+          {isAdmin ? "no executive requests yet" : "no proposals sent yet"}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AttentionOverview({ t, attention, onApprove, onClaim }: {
   t: T;
   attention: {
@@ -80,6 +182,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
 }) {
   const mono = "var(--font-dm-mono), monospace";
   const isAgent = attention.roleLabel === "agent";
+  const isExec = attention.roleLabel === "exec";
+  const canOperate = attention.roleLabel === "root" || attention.roleLabel === "operator";
 
   function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
     const color = toneColor(t, tone);
@@ -189,7 +293,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent items</div>
               )}
             </>
-          ) : (
+          ) : canOperate ? (
             <>
               <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
               <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} actionLabel="+ claim" onAction={onClaim} />
@@ -225,7 +329,41 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
               )}
             </>
-          )}
+          ) : isExec ? (
+            <>
+              {attention.rawRecentInteractions.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
+                  {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.rawRecentActivity.length > 0 && (
+                <div>
+                  <div style={{ fontSize: 9, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team movement</div>
+                  {attention.rawRecentActivity.slice(0, 4).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: t.green + "0a", border: `1px solid ${t.green}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: t.green, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>no recent executive signals</div>
+              )}
+            </>
+          ) : null}
         </div>
       </div>
     </section>
@@ -754,6 +892,7 @@ export default function HomeView({
     claims, comments, approvedStages, approvedSubtasks, customStages, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, activityLog, chatMessages,
     getStatus, ck, approveStage, handleClaim,
+    execProposals, addExecProposal, updateExecProposalStatus,
   } = useModel();
 
   // null = show all workspaces; string = filter to specific workspace
@@ -823,11 +962,12 @@ export default function HomeView({
       ...(assignments[key] || []),
     ]));
     const isRoot = ADMIN_IDS.includes(currentUser);
+    const isExec = EXEC_IDS.includes(currentUser);
     const scopedWorkspaces = homeWsFilter
       ? myWorkspaces.filter(w => w.id === homeWsFilter)
       : myWorkspaces;
     const isOperatorScope = isRoot || scopedWorkspaces.some(w => w.captains.includes(currentUser));
-    const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : "agent";
+    const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : isExec ? "exec" : "agent";
 
     const stageItems = Array.from(visibleStageIds).map(stageId => {
       const pipeline = stageToPipeline.get(stageId);
@@ -1010,6 +1150,13 @@ export default function HomeView({
             { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
             { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ]
+        : roleLabel === "exec"
+          ? [
+              { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
+              { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
+              { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
+              { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
+            ]
         : [
             { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
             { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
@@ -1171,7 +1318,15 @@ export default function HomeView({
           </div>
 
           <AttentionOverview t={t} attention={attention} onApprove={(key) => approveStage(key)} onClaim={(key) => handleClaim(key)} />
-          <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel !== "agent"} />
+          <ExecutiveRequestsPanel
+            t={t}
+            currentUser={currentUser}
+            users={users}
+            proposals={execProposals}
+            onSubmit={addExecProposal}
+            onUpdate={updateExecProposalStatus}
+          />
+          <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} />
 
           {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -1319,13 +1474,14 @@ export default function HomeView({
         isAdmin={isCaptainOfAny}
         ck={ck}
         showMyAllFilter={true}
-        defaultMyAllFilter={isCaptainOfAny ? "all" : "my"}
+        defaultMyAllFilter={isCaptainOfAny || attention.roleLabel === "exec" ? "all" : "my"}
         pipelineWorkspaceMap={pipelineWorkspaceMap}
         headerLabel="🏠 home"
         editMode={editMode}
         onPipelineClick={onPipelineClick}
         currentWorkspaceId={homeWsFilter}
         availableWorkspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds }))}
+        readOnly={attention.roleLabel === "exec"}
       />
     </div>
   );
