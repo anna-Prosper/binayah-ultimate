@@ -174,6 +174,25 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     return () => { alive = false; };
   }, [isAdmin]);
 
+  // Auto-load cached meetings on mount
+  useEffect(() => {
+    if (!isAdmin) return;
+    let alive = true;
+    fetch("/api/zoom/meetings")
+      .then(r => r.json())
+      .then((data: { ok: boolean; meetings?: ZoomMeeting[]; updatedAt?: string }) => {
+        if (!alive || !data.ok || !data.meetings?.length) return;
+        setZoomMeetings(data.meetings);
+        setShowMeetingPicker(true);
+        if (data.updatedAt) {
+          const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
+          setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [isAdmin]);
+
   if (!isAdmin) return null;
   const configured = status?.configured ?? false;
   const connected = status?.connected ?? false;
