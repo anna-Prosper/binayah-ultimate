@@ -63,7 +63,7 @@ function computeStreakByUser(activityLog: { type: string; user: string; time: nu
 const SEED_ADMIN_IDS = ["anna"];
 const SEED_DEFAULT_WORKSPACE_ID = "war-room";
 // Mirror of USERS_DEFAULT[*].id from src/lib/data.ts — used only for default-workspace bootstrap.
-const SEED_DEFAULT_USER_IDS = ["usama", "anna", "aakarshit", "ahsan", "abdallah", "prajeesh"];
+const SEED_DEFAULT_USER_IDS = ["usama", "anna", "aakarshit", "ahsan", "abdallah", "prajeesh", "guest1", "guest2"];
 
 export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
@@ -112,22 +112,23 @@ export async function GET(req: NextRequest) {
   } else {
     // (b) Existing default workspace — ensure ADMIN_IDS are in captains and pipelineIds is populated.
     const missingCaptains = SEED_ADMIN_IDS.filter(uid => !defaultWs.captains?.includes(uid));
+    const missingMembers = SEED_DEFAULT_USER_IDS.filter(uid => !defaultWs.members?.includes(uid));
     const existingPids = defaultWs.pipelineIds || [];
     const missingPids = allKnownPipelineIds.filter(pid => !existingPids.includes(pid));
-    const needsHeal = missingCaptains.length > 0 || (existingPids.length === 0 && allKnownPipelineIds.length > 0);
+    const needsHeal = missingCaptains.length > 0 || missingMembers.length > 0 || (existingPids.length === 0 && allKnownPipelineIds.length > 0);
     if (needsHeal) {
       healedWorkspaces = wsArr.map(w =>
         w.id === SEED_DEFAULT_WORKSPACE_ID
           ? {
               ...w,
               captains: [...(w.captains || []), ...missingCaptains],
-              members: Array.from(new Set([...(w.members || []), ...missingCaptains])),
+              members: Array.from(new Set([...(w.members || []), ...missingCaptains, ...missingMembers])),
               // Only repopulate pipelineIds when it's empty — don't override an intentionally-curated list.
               pipelineIds: existingPids.length === 0 ? allKnownPipelineIds : [...existingPids, ...missingPids.filter(() => false)],
             }
           : w
       );
-      logApi(ROUTE, "self_heal_workspace", { addedCaptains: missingCaptains, repopulatedPipelines: existingPids.length === 0 });
+      logApi(ROUTE, "self_heal_workspace", { addedCaptains: missingCaptains, addedMembers: missingMembers, repopulatedPipelines: existingPids.length === 0 });
     }
   }
 
