@@ -40,15 +40,19 @@ async function extractTasksFromSummary(
             role: "system",
             content: `You are a PM assistant for Binayah Properties tech team.
 
-Extract EVERY action item, next step, and task from the meeting summary — do NOT summarize or merge them. Include all bullet points from "Next steps", "Action items", or similar sections. Keep the original wording as closely as possible.
+Extract EVERY action item and next step from the meeting summary. Do NOT skip, merge, or summarize any tasks.
 
 For each task:
-- "title": the task text (keep full detail, up to 20 words)
-- "pipelineId": best matching pipeline id from the list
+- "title": rewrite as a clear, actionable task in ≤15 words. If assigned to someone specific, add "(Assignee)" at the end. Example: "Set up CRM lead tracking locally (Aakarshit)"
+- "pipelineId": best matching pipeline id
 - "pipelineName": matching pipeline name
-- "stageName": exact stage name if it matches one in that pipeline, otherwise null
+- "stageName": exact stage name if it closely matches one in that pipeline, otherwise null
 
-Return ONLY a valid JSON array. No markdown, no explanation.
+Rules:
+- One JSON object per bullet point / action item — never merge two tasks into one
+- If a bullet has multiple distinct actions, split them into separate tasks
+- Keep technical specifics (tool names, formats, people mentioned)
+- Return ONLY a valid JSON array, no markdown
 
 Pipelines:\n${pipelineList}`,
           },
