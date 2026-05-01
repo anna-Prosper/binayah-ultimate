@@ -114,7 +114,7 @@ export type ZoomPastMeetingsResult =
   | { ok: true; meetings: ZoomPastMeeting[] }
   | { ok: false; status: number; message: string };
 
-export async function getZoomPastMeetings(userEmail: string, pageSize = 20): Promise<ZoomPastMeetingsResult> {
+export async function getZoomPastMeetings(userEmail: string, pageSize = 30): Promise<ZoomPastMeetingsResult> {
   const token = await getZoomServerToken();
   if (!token.ok) return token;
 
@@ -130,9 +130,34 @@ export async function getZoomPastMeetings(userEmail: string, pageSize = 20): Pro
 
   const data = await res.json() as { meetings?: { id: number | string; uuid: string; topic: string; start_time: string; duration: number }[] };
   const now = Date.now();
-  const meetings = (data.meetings ?? [])
-    .filter(m => new Date(m.start_time).getTime() < now) // exclude future/template entries
-    .map(m => ({ id: m.id, uuid: m.uuid, topic: m.topic || "Untitled", startTime: m.start_time, duration: m.duration ?? 0 }));
+  const rawMeetings = data.meetings ?? [];
+
+  // Separate real past meetings from recurring templates (template date = far future)
+  const realPast = rawMeetings.filter(m => new Date(m.start_time).getTime() < now);
+  const recurringTemplates = rawMeetings.filter(m => new Date(m.start_time).getTime() >= now);
+
+  // For recurring templates, fetch their most recent actual instance
+  const instancePromises = recurringTemplates.map(async m => {
+    try {
+      const r = await fetch(`https://api.zoom.us/v2/past_meetings/${m.id}/instances`, {
+        headers: { Authorization: `Bearer ${token.accessToken}` }, cache: "no-store",
+      });
+      if (!r.ok) return null;
+      const d = await r.json() as { meetings?: { uuid: string; start_time: string }[] };
+      const instances = (d.meetings ?? []).filter(i => new Date(i.start_time).getTime() < now);
+      if (instances.length === 0) return null;
+      const latest = instances.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0];
+      return { id: m.id, uuid: latest.uuid, topic: m.topic || "Untitled", startTime: latest.start_time, duration: m.duration ?? 0 };
+    } catch { return null; }
+  });
+
+  const instanceResults = await Promise.all(instancePromises);
+  const resolvedInstances = instanceResults.filter((x): x is ZoomPastMeeting => x !== null);
+
+  const meetings = [
+    ...realPast.map(m => ({ id: m.id, uuid: m.uuid, topic: m.topic || "Untitled", startTime: m.start_time, duration: m.duration ?? 0 })),
+    ...resolvedInstances,
+  ];
 
   return { ok: true, meetings };
 }

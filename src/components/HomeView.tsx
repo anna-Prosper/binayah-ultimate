@@ -141,8 +141,10 @@ function AttentionOverview({ t, attention }: {
 type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected" };
 type ZoomMeeting = { id: string | number; topic: string; startTime: string; duration: number };
 
+type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string };
+
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
-  const { addCustomStage, allPipelinesGlobal, customStages } = useModel();
+  const { addCustomStage, addSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -158,6 +160,9 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const [extractError, setExtractError] = useState<string | null>(null);
   const [proposals, setProposals] = useState<TaskProposal[]>([]);
   const [nextId, setNextId] = useState(1);
+
+  // Inline proposal editor
+  const [editing, setEditing] = useState<EditingProposal | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -283,13 +288,20 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     finally { setExtracting(false); setFetchingSummaryId(null); }
   };
 
-  const approveProposal = (id: number) => {
-    const p = proposals.find(x => x.id === id);
-    if (!p) return;
-    addCustomStage(p.pipelineId, p.stageName || p.title);
-    setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "approved" } : x));
+  const startEditing = (p: TaskProposal) => {
+    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "" });
   };
-  const rejectProposal = (id: number) => setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "rejected" } : x));
+  const confirmEdit = () => {
+    if (!editing || !editing.title.trim()) return;
+    if (editing.parentStage) {
+      addSubtask(editing.parentStage, editing.title.trim(), () => {});
+    } else {
+      addCustomStage(editing.pipelineId, editing.title.trim());
+    }
+    setProposals(prev => prev.map(x => x.id === editing.id ? { ...x, status: "approved" } : x));
+    setEditing(null);
+  };
+  const rejectProposal = (id: number) => { setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "rejected" } : x)); if (editing?.id === id) setEditing(null); };
   const clearDone = () => setProposals(prev => prev.filter(x => x.status === "pending"));
 
   const pending = proposals.filter(p => p.status === "pending");
@@ -395,20 +407,94 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
           {/* Pending proposals */}
           {pending.length > 0 && (
             <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-              {pending.map(p => (
-                <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
-                    <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
-                      {p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}
+              {pending.map(p => {
+                const isEditing = editing?.id === p.id;
+                if (isEditing && editing) {
+                  const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
+                  const stagesInPipe = editPipe
+                    ? [...editPipe.stages, ...(customStages[editPipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
+                    : [];
+                  return (
+                    <div key={p.id} style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 10, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }}>
+                      {/* Title input */}
+                      <input
+                        autoFocus
+                        value={editing.title}
+                        onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : null)}
+                        onKeyDown={e => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditing(null); }}
+                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+                      />
+                      {/* Pipeline picker */}
+                      <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                        pipeline: {editPipe?.name || editing.pipelineId}
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                        {allPipelinesGlobal.map(pipe => {
+                          const sel = editing.pipelineId === pipe.id;
+                          return (
+                            <button key={pipe.id} type="button"
+                              onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
+                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                              {pipe.icon} {pipe.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {/* Parent stage picker (optional) */}
+                      {stagesInPipe.length > 0 && (
+                        <>
+                          <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                            {editing.parentStage ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}` : "// add as subtask of… (optional — skip to create as task)"}
+                          </div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {editing.parentStage && (
+                              <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "" } : null); }}
+                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>
+                                ✕ create as task instead
+                              </button>
+                            )}
+                            {stagesInPipe.map(s => {
+                              const sel = editing.parentStage === s;
+                              return (
+                                <button key={s} type="button"
+                                  onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s } : null); }}
+                                  style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                                  {stageNameOverrides?.[s] || s}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </>
+                      )}
+                      {/* Confirm / Cancel */}
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 }}>
+                        <button type="button" onClick={() => setEditing(null)}
+                          style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>
+                          cancel
+                        </button>
+                        <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
+                          style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 10, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
+                          {editing.parentStage ? "add as subtask" : "add as task"}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
+                      <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
+                        {p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}
+                      </div>
+                    </div>
+                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                      <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
+                      <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
                     </div>
                   </div>
-                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                    <button type="button" onClick={() => approveProposal(p.id)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
-                    <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
