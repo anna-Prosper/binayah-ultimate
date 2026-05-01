@@ -194,10 +194,16 @@ export default function LeftSidebar({
         )}
       </div>
 
-      {/* Workspace-scoped nav items */}
-      <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
-        {WORKSPACE_NAV_ITEMS.map(item => renderNavItem(item))}
-      </nav>
+      {/* Workspace-scoped nav items — only when user belongs to at least one workspace */}
+      {workspaces.length > 0 ? (
+        <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
+          {WORKSPACE_NAV_ITEMS.map(item => renderNavItem(item))}
+        </nav>
+      ) : (
+        <div style={{ padding: "16px 12px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6 }}>
+          // no workspace yet.<br />ask an admin to add you.
+        </div>
+      )}
 
       {/* Pipeline sub-list — only when Pipelines is active */}
       {activeNav === "pipelines" && (

@@ -328,9 +328,17 @@ function DashboardInner({
   }, [initialUserId, currentUser, setUsers]);
 
   // Computed
-  const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
   const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
+
+  // Auto-select first available workspace if current selection isn't one the user belongs to
+  useEffect(() => {
+    if (myWorkspaces.length > 0 && !myWorkspaces.find(w => w.id === currentWorkspaceId)) {
+      setCurrentWorkspaceId(myWorkspaces[0].id);
+    }
+  }, [myWorkspaces, currentWorkspaceId, setCurrentWorkspaceId]);
+
+  const currentWorkspace = myWorkspaces.find(w => w.id === currentWorkspaceId) || null;
   const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);
   const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipelines.flatMap(p => p.stages), ...Object.values(customStages).flat()];
   const unseen = activityLog.length - lastSeenActivity;
