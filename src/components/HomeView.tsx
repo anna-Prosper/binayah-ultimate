@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace, ADMIN_IDS } from "@/lib/data";
@@ -13,6 +13,13 @@ const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false }
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 type AttentionTone = "accent" | "green" | "amber" | "red" | "cyan";
+type ZoomStatus = {
+  configured: boolean;
+  connected: boolean;
+  missing: string[];
+  connectUrl: string;
+  callbackUrl: string;
+};
 
 function truncate(text: string, max: number): string {
   return text.length > max ? `${text.slice(0, max - 1)}…` : text;
@@ -117,6 +124,83 @@ function AttentionOverview({ t, attention }: {
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
+  const [status, setStatus] = useState<ZoomStatus | null>(null);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let alive = true;
+    fetch("/api/zoom/status")
+      .then(r => r.json())
+      .then((data: ZoomStatus) => { if (alive) setStatus(data); })
+      .catch(() => { if (alive) setStatus(null); });
+    return () => { alive = false; };
+  }, [isAdmin]);
+
+  if (!isAdmin) return null;
+  const configured = status?.configured ?? false;
+  const connected = status?.connected ?? false;
+  const missing = status?.missing ?? [];
+  const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
+
+  return (
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
+          zoom intelligence
+        </div>
+        <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>
+          call summaries and proposed tasks
+        </div>
+        <div style={{ marginTop: 8, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
+          After a Zoom call, summaries should become editable task proposals here. Admin approves, edits, or rejects before anything is created.
+        </div>
+        <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+          <a
+            href={configured ? "/api/zoom/connect" : undefined}
+            aria-disabled={!configured}
+            onClick={e => { if (!configured) e.preventDefault(); }}
+            style={{
+              background: configured ? t.accent : t.bgHover || t.bgSoft,
+              border: `1px solid ${configured ? t.accent : t.border}`,
+              borderRadius: 10,
+              padding: "8px 12px",
+              color: configured ? "#fff" : t.textDim,
+              fontSize: 12,
+              fontWeight: 800,
+              fontFamily: "var(--font-dm-mono), monospace",
+              textDecoration: "none",
+              cursor: configured ? "pointer" : "not-allowed",
+            }}
+          >
+            connect zoom
+          </a>
+          <span style={{ fontSize: 11, color: stateColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>
+            {connected ? "connected" : configured ? "ready to connect" : "setup needed"}
+          </span>
+        </div>
+      </div>
+      <div style={{ display: "grid", gap: 8, minWidth: 0 }}>
+        <div style={{ border: `1px solid ${t.border}`, background: t.bgHover || t.bgSoft, borderRadius: 12, padding: 12 }}>
+          <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>Task proposal queue</div>
+          <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+            No Zoom proposals yet. Once webhooks are connected, this lane will show extracted tasks with edit, approve, and reject controls.
+          </div>
+        </div>
+        {!configured && (
+          <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
+            <div style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850 }}>
+              missing env: {missing.length ? missing.join(", ") : "loading"}
+            </div>
+            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+              Add these to Vercel, then register this Zoom redirect URL: {status?.callbackUrl || "/api/zoom/callback"}
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
@@ -515,6 +599,7 @@ export default function HomeView({
           </div>
 
           <AttentionOverview t={t} attention={attention} />
+          <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel !== "agent"} />
 
           {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
           <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
