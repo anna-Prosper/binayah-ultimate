@@ -141,10 +141,10 @@ function AttentionOverview({ t, attention }: {
 type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected" };
 type ZoomMeeting = { id: string | number; topic: string; startTime: string; duration: number };
 
-type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string };
+type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string };
 
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
-  const { addCustomStage, addSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages } = useModel();
+  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -362,14 +362,22 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   };
 
   const startEditing = (p: TaskProposal) => {
-    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "" });
+    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "", description: "", assigneeId: "" });
   };
   const confirmEdit = () => {
     if (!editing || !editing.title.trim()) return;
+    const title = editing.title.trim();
     if (editing.parentStage) {
-      addSubtask(editing.parentStage, editing.title.trim(), () => {});
+      addSubtask(editing.parentStage, title, () => {});
     } else {
-      addCustomStage(editing.pipelineId, editing.title.trim());
+      addCustomStage(editing.pipelineId, title);
+      // Apply description + assignee after stage is created
+      if (editing.description.trim()) {
+        setTimeout(() => setStageDescOverride(title, editing.description.trim()), 100);
+      }
+      if (editing.assigneeId) {
+        setTimeout(() => assignTask(title, editing.assigneeId), 150);
+      }
     }
     setProposals(prev => prev.map(x => x.id === editing.id ? { ...x, status: "approved" } : x));
     setEditing(null);
@@ -562,6 +570,30 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
                             </div>
                           </>
                         )}
+                        {/* Assignee */}
+                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                          {editing.assigneeId ? `assign to: ${users.find(u => u.id === editing.assigneeId)?.name || editing.assigneeId}` : "// assign to (optional)"}
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {editing.assigneeId && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, assigneeId: "" } : null); }}
+                            style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>✕ unassign</button>}
+                          {users.filter(u => u.id !== "ai").map(u => {
+                            const sel = editing.assigneeId === u.id;
+                            return <button key={u.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, assigneeId: sel ? "" : u.id } : null); }}
+                              style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? u.color : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                              {u.avatar || u.name.split(" ")[0]}
+                            </button>;
+                          })}
+                        </div>
+                        {/* Description */}
+                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// description (optional — points auto-assigned by AI)</div>
+                        <textarea
+                          value={editing.description}
+                          onChange={e => setEditing(prev => prev ? { ...prev, description: e.target.value } : null)}
+                          placeholder="Add context, acceptance criteria, or notes…"
+                          rows={2}
+                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "none", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 }}
+                        />
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>cancel</button>
                           <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
