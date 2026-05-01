@@ -201,16 +201,23 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     }
   };
 
-  const syncCalls = async () => {
+  const [cacheAge, setCacheAge] = useState<string | null>(null);
+
+  const syncCalls = async (forceResync = false) => {
     if (syncing) return;
     setSyncing(true);
     try {
-      const res = await fetch("/api/zoom/meetings", { cache: "no-store" });
-      const data = await res.json().catch(() => null) as { ok: boolean; meetings?: ZoomMeeting[]; error?: string } | null;
+      const res = forceResync
+        ? await fetch("/api/zoom/meetings", { method: "POST", cache: "no-store" })
+        : await fetch("/api/zoom/meetings", { cache: "no-store" });
+      const data = await res.json().catch(() => null) as { ok: boolean; meetings?: ZoomMeeting[]; error?: string; updatedAt?: string; cached?: boolean } | null;
       if (data?.ok && data.meetings) {
-        setRecordings({ ok: true, totalRecords: data.meetings.length, meetings: data.meetings.map(m => ({ topic: m.topic, startTime: m.startTime, transcriptCount: 0, fileCount: 0 })) });
         setZoomMeetings(data.meetings);
         if (data.meetings.length > 0) setShowMeetingPicker(true);
+        if (data.updatedAt) {
+          const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
+          setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
+        }
       } else {
         setRecordings({ ok: false, message: data?.error || "Zoom sync failed" });
       }
@@ -340,9 +347,12 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
               <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>
                 {showPaste ? "cancel" : "+ paste summary"}
               </button>
-              <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={syncCalls} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1 }}>
-                {syncing ? "loading…" : "sync zoom"}
-              </button>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 2 }}>
+                <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={() => syncCalls(false)} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1 }}>
+                  {syncing ? "loading…" : zoomMeetings.length > 0 ? "↺ resync" : "sync zoom"}
+                </button>
+                {cacheAge && <span style={{ fontSize: 9, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
+              </div>
             </div>
           </div>
 

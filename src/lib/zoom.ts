@@ -191,6 +191,10 @@ export async function getZoomMeetingInstanceSummary(meetingId: number | string):
   return { ok: false, status: 404, message: "No AI Companion summary found in the last 5 instances of this meeting" };
 }
 
+export async function getZoomSummaryByUUID(uuid: string, meetingId: string): Promise<ZoomMeetingSummaryResult> {
+  return getZoomMeetingSummaryByUUID(uuid, meetingId);
+}
+
 async function getZoomMeetingSummaryByUUID(uuid: string, fallbackId: string): Promise<ZoomMeetingSummaryResult> {
   const token = await getZoomServerToken();
   if (!token.ok) return token;
