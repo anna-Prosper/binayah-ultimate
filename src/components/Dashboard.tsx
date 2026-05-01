@@ -31,6 +31,8 @@ import WhileAwayDigest from "@/components/WhileAwayDigest";
 const CreateWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.CreateWorkspaceModal), { ssr: false });
 const ManageWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.ManageWorkspaceModal), { ssr: false });
 const DocumentsPanel = dynamic(() => import("@/components/DocumentsPanel"), { ssr: false, loading: () => null });
+const CallsView = dynamic(() => import("@/components/views/CallsView"), { ssr: false, loading: () => null });
+import QuickAddModal from "@/components/QuickAddModal";
 
 // ── Outer wrapper ──────────────────────────────────────────────────────────────
 export default function Dashboard({ initialUserId }: { initialUserId?: string }) {
@@ -134,6 +136,7 @@ function DashboardInner({
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
   const [showCallSummary, setShowCallSummary] = useState(false);
+  const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
   const [digestLastSession, setDigestLastSession] = useState(0);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0)); const [showArchive, setShowArchive] = useState(false);
@@ -199,6 +202,20 @@ function DashboardInner({
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [setReactOpen, undo]);
+
+  // Quick-add shortcut: N key
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+      if (e.key === "n" || e.key === "N") {
+        e.preventDefault();
+        setShowQuickAdd(true);
+      }
+    };
+    document.addEventListener("keydown", handler);
+    return () => document.removeEventListener("keydown", handler);
+  }, []);
 
   // Click-outside viewingUser
   useEffect(() => {
@@ -400,6 +417,7 @@ function DashboardInner({
               <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} handleClaimWithAnim={handleClaimWithAnim} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
             )}
             {(isMobile || activeNavItem === "pipelines") && <PipelinesView {...pipelinesViewProps} />}
+            {!isMobile && activeNavItem === "calls" && <CallsView t={t} />}
 
             {/* Toasts */}
             {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}><span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "⚡" : "💀"}</span><span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span><span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span></div>}
@@ -461,6 +479,14 @@ function DashboardInner({
           addCustomStage(pipelineId, stageName);
           showToast(`// stage added to pipeline`, t.green);
         }}
+      />
+
+      <QuickAddModal
+        open={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        t={t}
+        pipelines={allPipelines.map(p => ({ id: p.id, name: p.name, icon: p.icon }))}
+        onAdd={(pid, title) => { addCustomStage(pid, title); showToast(`// ${title} added`, t.green); }}
       />
 
       {/* While You Were Away Digest */}

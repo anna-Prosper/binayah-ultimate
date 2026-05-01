@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Home, Zap, FileText, Activity, MessageSquare, Settings } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Settings, Phone } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat";
+export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat" | "calls";
 
 export interface SidebarPipeline {
   id: string;
@@ -42,6 +42,7 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "documents", label: "documents" },
   { id: "activity",  label: "activity"  },
   { id: "chat",      label: "chat"      },
+  { id: "calls",     label: "calls"     },
 ];
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -50,6 +51,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   documents: <FileText size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,
+  calls: <Phone size={15} strokeWidth={1.8} />,
 };
 
 export default function LeftSidebar({
