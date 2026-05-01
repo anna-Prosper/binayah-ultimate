@@ -174,40 +174,51 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     return () => { alive = false; };
   }, [isAdmin]);
 
-  // Auto-load cached meetings + proposals on mount
+  // Auto-load cached meetings + proposals on mount; if cache empty, trigger fresh sync
   useEffect(() => {
     if (!isAdmin) return;
     let alive = true;
+
+    type MeetingData = {
+      ok: boolean;
+      meetings?: ZoomMeeting[];
+      proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
+      updatedAt?: string;
+    };
+
+    const applyData = (data: MeetingData) => {
+      if (!alive || !data.ok) return;
+      if (data.meetings?.length) { setZoomMeetings(data.meetings); setShowMeetingPicker(true); }
+      if (data.proposals?.length) {
+        setProposals(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const fresh = data.proposals!.filter(p => !existingIds.has(p.id)).map(p => ({ ...p, status: "pending" as const }));
+          return [...fresh, ...prev];
+        });
+        setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
+      }
+      if (data.updatedAt) {
+        const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
+        setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
+      }
+    };
+
     fetch("/api/zoom/meetings")
       .then(r => r.json())
-      .then((data: {
-        ok: boolean;
-        meetings?: ZoomMeeting[];
-        proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
-        updatedAt?: string;
-      }) => {
-        if (!alive || !data.ok) return;
-        if (data.meetings?.length) {
-          setZoomMeetings(data.meetings);
-          setShowMeetingPicker(true);
-        }
-        if (data.proposals?.length) {
-          // Load cached proposals as pending (don't duplicate ones already in state)
-          setProposals(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
-            const fresh = data.proposals!
-              .filter(p => !existingIds.has(p.id))
-              .map(p => ({ ...p, status: "pending" as const }));
-            return [...fresh, ...prev];
-          });
-          setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
-        }
-        if (data.updatedAt) {
-          const diff = Math.round((Date.now() - new Date(data.updatedAt).getTime()) / 60000);
-          setCacheAge(diff < 2 ? "just updated" : `${diff}m ago`);
+      .then(async (data: MeetingData) => {
+        if (!alive) return;
+        // If cache is empty or has no proposals, auto-trigger a fresh sync
+        if (!data.ok || !data.proposals?.length) {
+          if (alive) setSyncing(true);
+          const res = await fetch("/api/zoom/meetings", { method: "POST", cache: "no-store" });
+          const fresh = await res.json().catch(() => ({ ok: false })) as MeetingData;
+          if (alive) { applyData(fresh); setSyncing(false); }
+        } else {
+          applyData(data);
         }
       })
-      .catch(() => {});
+      .catch(() => { if (alive) setSyncing(false); });
+
     return () => { alive = false; };
   }, [isAdmin]);
 
@@ -437,8 +448,8 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
             </div>
           )}
 
-          {extracting && !showPaste && (
-            <div style={{ marginTop: 10, fontSize: 11, color: t.accent, fontFamily: mono }}>extracting tasks from Zoom summary…</div>
+          {syncing && !showPaste && (
+            <div style={{ marginTop: 10, fontSize: 11, color: t.accent, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>
           )}
 
           {extractError && <div style={{ marginTop: 8, fontSize: 11, color: t.red }}>{extractError}</div>}
