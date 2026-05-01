@@ -6,42 +6,28 @@ import { logApi } from "@/lib/log";
 import { pipelineData } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
-const ROUTE = "/api/zoom/meetings";
+export const maxDuration = 300; // Allow up to 5min for full sync
 
+const ROUTE = "/api/zoom/meetings";
 const ZOOM_USER_EMAIL = "anna@prosper-fi.com";
 const EXCLUDED_TOPICS = ["elena", "escro"];
 const MAX_INSTANCES_PER_MEETING = 3;
-const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-
+const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 
-type CachedMeeting = {
-  id: string | number;
-  uuid: string;
-  topic: string;
-  startTime: string;
-  duration: number;
-  summary?: string;
-};
-
+type CachedMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number };
 type CachedProposal = {
-  id: number;
-  title: string;
-  pipelineId: string;
-  pipelineName: string;
-  stageName: string | null;
-  sourceMeeting: string;
-  sourceDate: string;
+  id: number; title: string; pipelineId: string; pipelineName: string;
+  stageName: string | null; sourceMeeting: string; sourceDate: string;
 };
 
 async function extractTasksFromSummary(
-  summary: string,
-  topic: string
+  summary: string, topic: string
 ): Promise<Omit<CachedProposal, "id" | "sourceMeeting" | "sourceDate">[]> {
   if (!OPENAI_API_KEY) return [];
   try {
     const pipelineList = pipelineData
-      .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.slice(0, 6).join(", ")}`)
+      .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.join(", ")}`)
       .join("\n");
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -52,26 +38,46 @@ async function extractTasksFromSummary(
         messages: [
           {
             role: "system",
-            content: `You are a PM assistant for Binayah Properties tech team. Extract concrete action items from the meeting summary. For each: short title (≤10 words), pick best pipeline, matching stage if exists else null. Return ONLY valid JSON array, no markdown.\n\nPipelines:\n${pipelineList}`,
+            content: `You are a PM assistant for Binayah Properties tech team.
+
+Extract EVERY action item, next step, and task from the meeting summary — do NOT summarize or merge them. Include all bullet points from "Next steps", "Action items", or similar sections. Keep the original wording as closely as possible.
+
+For each task:
+- "title": the task text (keep full detail, up to 20 words)
+- "pipelineId": best matching pipeline id from the list
+- "pipelineName": matching pipeline name
+- "stageName": exact stage name if it matches one in that pipeline, otherwise null
+
+Return ONLY a valid JSON array. No markdown, no explanation.
+
+Pipelines:\n${pipelineList}`,
           },
           { role: "user", content: `Meeting: ${topic}\n\n${summary}` },
         ],
-        max_tokens: 1500,
-        temperature: 0.2,
+        max_tokens: 3000,
+        temperature: 0.1,
       }),
     });
     const data = await res.json() as { choices?: { message?: { content?: string } }[] };
     const raw = data.choices?.[0]?.message?.content ?? "[]";
     const cleaned = raw.replace(/```json|```/g, "").trim();
     const tasks = JSON.parse(cleaned) as { title: string; pipelineId: string; pipelineName: string; stageName: string | null }[];
-    return Array.isArray(tasks) ? tasks.slice(0, 25) : [];
+    return Array.isArray(tasks) ? tasks : [];
   } catch { return []; }
 }
 
-async function fetchFreshData(): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[] }> {
-  const result = await getZoomPastMeetings(ZOOM_USER_EMAIL, 30);
-  if (!result.ok) return { meetings: [], proposals: [] };
+// Incremental: only process UUIDs not yet in processedUUIDs
+async function syncNewMeetings(
+  existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; processedUUIDs: string[] } | null
+): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[]; processedUUIDs: string[] }> {
+  const processedUUIDs = new Set(existingCache?.processedUUIDs ?? []);
+  const existingMeetings: CachedMeeting[] = existingCache?.meetings ?? [];
+  const existingProposals: CachedProposal[] = existingCache?.proposals ?? [];
 
+  const result = await getZoomPastMeetings(ZOOM_USER_EMAIL, 30);
+  if (!result.ok) return { meetings: existingMeetings, proposals: existingProposals, processedUUIDs: [...processedUUIDs] };
+
+  // Group and filter
   const grouped = new Map<string, typeof result.meetings>();
   for (const m of result.meetings) {
     if (EXCLUDED_TOPICS.some(ex => m.topic.toLowerCase().includes(ex))) continue;
@@ -87,27 +93,35 @@ async function fetchFreshData(): Promise<{ meetings: CachedMeeting[]; proposals:
       .slice(0, MAX_INSTANCES_PER_MEETING));
   }
 
-  // Probe each UUID — keep those with summaries, attach summary text
+  // Only process UUIDs we haven't seen before
+  const newCandidates = candidates.filter(m => !processedUUIDs.has(m.uuid));
+  logApi(ROUTE, "incremental_sync", { total: candidates.length, new: newCandidates.length });
+
+  if (newCandidates.length === 0) {
+    // No new meetings — just return existing data with refreshed meeting list
+    const allMeetings = candidates
+      .map(m => existingMeetings.find(em => em.uuid === m.uuid) ?? { id: m.id, uuid: m.uuid, topic: m.topic, startTime: m.startTime, duration: m.duration })
+      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    return { meetings: allMeetings, proposals: existingProposals, processedUUIDs: [...processedUUIDs] };
+  }
+
+  // Probe new candidates for summaries
   const probed = await Promise.all(
-    candidates.map(async m => {
+    newCandidates.map(async m => {
       try {
         const res = await getZoomSummaryByUUID(m.uuid, String(m.id));
         if (!res.ok || !res.summary) return null;
-        return { id: m.id, uuid: m.uuid, topic: m.topic, startTime: m.startTime, duration: m.duration, summary: res.summary };
+        return { ...m, summary: res.summary };
       } catch { return null; }
     })
   );
 
-  type ProbedMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number; summary: string };
+  const newWithSummaries = probed.filter((x): x is (typeof newCandidates[0] & { summary: string }) => x !== null);
 
-  const meetings: ProbedMeeting[] = probed
-    .filter((x): x is ProbedMeeting => x !== null && typeof x === "object" && "summary" in x)
-    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-
-  // Auto-extract tasks from each meeting in parallel
+  // Extract tasks from new meetings
   let idCounter = Date.now();
-  const proposalGroups = await Promise.all(
-    meetings.map(async m => {
+  const newProposalGroups = await Promise.all(
+    newWithSummaries.map(async m => {
       const tasks = await extractTasksFromSummary(m.summary, m.topic);
       return tasks.map(t => ({
         id: idCounter++,
@@ -121,11 +135,18 @@ async function fetchFreshData(): Promise<{ meetings: CachedMeeting[]; proposals:
     })
   );
 
-  // Strip summaries from meeting objects before caching (keep slim)
-  const meetingsSlim: CachedMeeting[] = meetings.map(({ summary: _s, ...m }) => m);
-  const proposals = proposalGroups.flat();
+  // Merge with existing (new meetings first)
+  const newMeetings: CachedMeeting[] = newWithSummaries.map(({ summary: _s, ...m }) => m);
+  const allMeetings = [...newMeetings, ...existingMeetings.filter(em => !newMeetings.find(nm => nm.uuid === em.uuid))]
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
-  return { meetings: meetingsSlim, proposals };
+  const newProposals = newProposalGroups.flat();
+  const allProposals = [...newProposals, ...existingProposals];
+
+  // Mark all candidates as processed (including ones with no summary — won't retry them)
+  const newProcessedUUIDs = [...processedUUIDs, ...newCandidates.map(m => m.uuid)];
+
+  return { meetings: allMeetings, proposals: allProposals, processedUUIDs: newProcessedUUIDs };
 }
 
 export async function GET() {
@@ -135,6 +156,7 @@ export async function GET() {
   const cache = await ZoomCallCache.findOne({ key: "main" }).lean() as {
     meetings: CachedMeeting[];
     proposals: CachedProposal[];
+    processedUUIDs: string[];
     updatedAt: Date;
   } | null;
 
@@ -144,10 +166,10 @@ export async function GET() {
     return NextResponse.json({ ok: true, meetings: cache.meetings, proposals: cache.proposals ?? [], cached: true, updatedAt: cache.updatedAt });
   }
 
-  const { meetings, proposals } = await fetchFreshData();
+  const { meetings, proposals, processedUUIDs } = await syncNewMeetings(cache);
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
-    { meetings, proposals, updatedAt: new Date() },
+    { meetings, proposals, processedUUIDs, updatedAt: new Date() },
     { upsert: true }
   );
 
@@ -155,20 +177,31 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // Allow cron (via secret) OR browser (no secret needed — panel is already admin-gated by NextAuth)
   const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && secret && secret !== cronSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  logApi(ROUTE, "resync");
+  // ?force=true resets processedUUIDs and reprocesses everything
+  const forceAll = req.nextUrl.searchParams.get("force") === "true";
+
+  logApi(ROUTE, forceAll ? "resync_force_all" : "resync_incremental");
   await connectMongo();
 
-  const { meetings, proposals } = await fetchFreshData();
+  const cache = await ZoomCallCache.findOne({ key: "main" }).lean() as {
+    meetings: CachedMeeting[];
+    proposals: CachedProposal[];
+    processedUUIDs: string[];
+    updatedAt: Date;
+  } | null;
+
+  const cacheToUse = forceAll ? null : cache;
+  const { meetings, proposals, processedUUIDs } = await syncNewMeetings(cacheToUse);
+
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
-    { meetings, proposals, updatedAt: new Date() },
+    { meetings, proposals, processedUUIDs, updatedAt: new Date() },
     { upsert: true }
   );
 

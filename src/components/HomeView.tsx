@@ -268,12 +268,15 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
         updatedAt?: string;
       } | null;
       if (data?.ok) {
-        if (data.meetings?.length) { setZoomMeetings(data.meetings); setShowMeetingPicker(true); }
+        // Always update meetings list (even if empty, clears stale)
+        if (data.meetings) setZoomMeetings(data.meetings);
         if (data.proposals?.length) {
+          // Replace all pending proposals from this sync (don't just append — replace stale ones)
           setProposals(prev => {
-            const existingIds = new Set(prev.map(p => p.id));
+            const nonPending = prev.filter(p => p.status !== "pending");
+            const existingIds = new Set(nonPending.map(p => p.id));
             const fresh = data.proposals!.filter(p => !existingIds.has(p.id)).map(p => ({ ...p, status: "pending" as const }));
-            return [...fresh, ...prev];
+            return [...fresh, ...nonPending];
           });
           setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
         }
@@ -453,20 +456,24 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
           {/* CALLS LIST VIEW */}
           {!selectedCall && !showPaste && (() => {
-            // Unique calls from proposals + zoomMeetings (for calls with no proposals yet)
-            const callsFromProposals = Array.from(new Map(
+            // Always use zoomMeetings as canonical source — merge with proposal dates
+            const proposalCallMap = new Map(
               proposals
                 .filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting)
                 .map(p => {
                   const sp = p as unknown as { sourceMeeting: string; sourceDate: string };
-                  return [sp.sourceMeeting, { topic: sp.sourceMeeting, startTime: sp.sourceDate }];
+                  return [sp.sourceMeeting, sp.sourceDate];
                 })
-            ).values());
+            );
 
-            const allCalls = callsFromProposals.length > 0 ? callsFromProposals
-              : zoomMeetings.map(m => ({ topic: m.topic, startTime: m.startTime }));
+            // zoomMeetings is the ground truth; also include any calls that only exist in proposals
+            const meetingTopics = new Map(zoomMeetings.map(m => [m.topic, m.startTime]));
+            for (const [topic, date] of proposalCallMap) {
+              if (!meetingTopics.has(topic)) meetingTopics.set(topic, date);
+            }
 
-            const sortedCalls = allCalls
+            const sortedCalls = Array.from(meetingTopics.entries())
+              .map(([topic, startTime]) => ({ topic, startTime }))
               .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
               .slice(0, 5);
 
