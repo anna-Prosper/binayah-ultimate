@@ -163,8 +163,8 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
   // Inline proposal editor
   const [editing, setEditing] = useState<EditingProposal | null>(null);
-  // Filter proposals by source meeting
-  const [filterMeeting, setFilterMeeting] = useState<string | null>(null);
+  // Drill-down: null = calls list, string = tasks for that meeting
+  const [selectedCall, setSelectedCall] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isAdmin) return;
@@ -401,254 +401,193 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
       <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
         <div style={{ border: `1px solid ${t.border}`, background: t.bgHover || t.bgSoft, borderRadius: 12, padding: 12 }}>
-          {/* Queue header */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 12, color: t.text, fontWeight: 850 }}>
-              Task proposal queue {pending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 6px", fontSize: 10, fontFamily: mono, marginLeft: 4 }}>{pending.length}</span>}
+
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+              {selectedCall && (
+                <button type="button" onClick={() => { setSelectedCall(null); setEditing(null); }}
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.textMuted, fontFamily: mono, cursor: "pointer", flexShrink: 0 }}>
+                  ← calls
+                </button>
+              )}
+              <div style={{ fontSize: 12, color: t.text, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                {selectedCall
+                  ? <>{selectedCall} <span style={{ color: t.accent, marginLeft: 4 }}>{pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall).length} tasks</span></>
+                  : <>recent calls {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 10, fontWeight: 400, marginLeft: 6 }}>syncing…</span>}</>
+                }
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
-              <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer", width: 110, textAlign: "center" }}>
-                {showPaste ? "cancel" : "+ paste summary"}
-              </button>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={() => syncCalls(true)} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1, width: 110, textAlign: "center" }}>
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1, flexShrink: 0 }}>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); setSelectedCall(null); }}
+                  style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "4px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer", width: 110, textAlign: "center" }}>
+                  {showPaste ? "cancel" : "+ paste summary"}
+                </button>
+                <button type="button" disabled={syncing} onClick={() => syncCalls(true)}
+                  style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "4px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing ? "pointer" : "not-allowed", opacity: syncing ? 0.5 : 1, width: 110, textAlign: "center" }}>
                   {syncing ? "syncing…" : "↺ resync"}
                 </button>
-                {cacheAge && <span style={{ fontSize: 9, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
               </div>
+              {cacheAge && <span style={{ fontSize: 9, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
             </div>
           </div>
 
-          {/* Zoom meeting picker */}
-          {showMeetingPicker && zoomMeetings.length > 0 && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginBottom: 2 }}>pick a meeting to import its AI summary:</div>
-              {zoomMeetings.map(m => (
-                <button
-                  key={String(m.id)}
-                  type="button"
-                  disabled={fetchingSummaryId === String(m.id)}
-                  onClick={() => fetchMeetingSummaryAndExtract(m)}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", textAlign: "left", opacity: fetchingSummaryId && fetchingSummaryId !== String(m.id) ? 0.5 : 1, transition: "border-color 0.1s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
-                >
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{m.topic}</div>
-                    <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
-                      {new Date(m.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                      {m.duration ? ` · ${m.duration}min` : ""}
-                    </div>
-                  </div>
-                  {fetchingSummaryId === String(m.id)
-                    ? <span style={{ fontSize: 10, color: t.accent, fontFamily: mono }}>fetching…</span>
-                    : <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>→ import</span>
-                  }
-                </button>
-              ))}
-              <button type="button" onClick={() => setShowMeetingPicker(false)} style={{ alignSelf: "flex-end", background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", marginTop: 2 }}>dismiss</button>
-            </div>
-          )}
-
-          {syncing && !showPaste && (
-            <div style={{ marginTop: 10, fontSize: 11, color: t.accent, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>
-          )}
-
-          {extractError && <div style={{ marginTop: 8, fontSize: 11, color: t.red }}>{extractError}</div>}
-
           {/* Paste area */}
           {showPaste && (
-            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ marginBottom: 10, display: "flex", flexDirection: "column", gap: 6 }}>
               <textarea
                 value={pastedSummary}
                 onChange={e => setPastedSummary(e.target.value)}
-                placeholder="Paste call summary, meeting notes, or transcript here…"
-                style={{ width: "100%", minHeight: 90, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
+                placeholder="Paste call summary or meeting notes…"
+                style={{ width: "100%", minHeight: 80, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
                 autoFocus
               />
-              <button
-                type="button"
-                disabled={!pastedSummary.trim() || extracting}
-                onClick={extractTasks}
-                style={{ alignSelf: "flex-end", background: pastedSummary.trim() ? t.accent : t.bgCard, border: `1px solid ${pastedSummary.trim() ? t.accent : t.border}`, color: pastedSummary.trim() ? "#fff" : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: pastedSummary.trim() && !extracting ? "pointer" : "not-allowed" }}
-              >
+              {extractError && <div style={{ fontSize: 11, color: t.red }}>{extractError}</div>}
+              <button type="button" disabled={!pastedSummary.trim() || extracting} onClick={extractTasks}
+                style={{ alignSelf: "flex-end", background: pastedSummary.trim() ? t.accent : t.bgCard, border: `1px solid ${pastedSummary.trim() ? t.accent : t.border}`, color: pastedSummary.trim() ? "#fff" : t.textDim, borderRadius: 8, padding: "5px 14px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: pastedSummary.trim() && !extracting ? "pointer" : "not-allowed" }}>
                 {extracting ? "extracting…" : "extract tasks"}
               </button>
             </div>
           )}
 
-          {/* Pending proposals — grouped by call */}
-          {pending.length > 0 && (() => {
-            // Build unique meeting list from proposals
-            const meetingKeys = Array.from(new Set(
-              pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting)
-                .map(p => (p as unknown as {sourceMeeting: string; sourceDate: string}).sourceMeeting + "|||" + (p as unknown as {sourceMeeting: string; sourceDate: string}).sourceDate)
-            ));
-            const visiblePending = filterMeeting
-              ? pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === filterMeeting)
-              : pending;
+          {/* CALLS LIST VIEW */}
+          {!selectedCall && !showPaste && (() => {
+            // Unique calls from proposals + zoomMeetings (for calls with no proposals yet)
+            const callsFromProposals = Array.from(new Map(
+              proposals
+                .filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting)
+                .map(p => {
+                  const sp = p as unknown as { sourceMeeting: string; sourceDate: string };
+                  return [sp.sourceMeeting, { topic: sp.sourceMeeting, startTime: sp.sourceDate }];
+                })
+            ).values());
+
+            const allCalls = callsFromProposals.length > 0 ? callsFromProposals
+              : zoomMeetings.map(m => ({ topic: m.topic, startTime: m.startTime }));
+
+            const sortedCalls = allCalls
+              .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+              .slice(0, 5);
+
+            if (syncing && sortedCalls.length === 0) {
+              return <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
+            }
+            if (sortedCalls.length === 0) {
+              return <div style={{ fontSize: 11, color: t.textMuted }}>Tasks from your latest Zoom calls will appear here. Hit ↺ resync to pull now.</div>;
+            }
 
             return (
-              <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
-                {/* Call filter pills */}
-                {meetingKeys.length > 1 && (
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
-                    <button type="button" onClick={() => setFilterMeeting(null)}
-                      style={{ background: !filterMeeting ? t.accent : "transparent", border: `1px solid ${!filterMeeting ? t.accent : t.border}`, borderRadius: 8, padding: "2px 8px", fontSize: 10, color: !filterMeeting ? "#fff" : t.textMuted, fontFamily: mono, cursor: "pointer", fontWeight: !filterMeeting ? 700 : 400 }}>
-                      all ({pending.length})
-                    </button>
-                    {meetingKeys.map(key => {
-                      const [meeting, date] = key.split("|||");
-                      const count = pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === meeting).length;
-                      const selected = filterMeeting === meeting;
-                      return (
-                        <button key={key} type="button" onClick={() => setFilterMeeting(selected ? null : meeting)}
-                          style={{ background: selected ? t.accent : "transparent", border: `1px solid ${selected ? t.accent : t.border}`, borderRadius: 8, padding: "2px 8px", fontSize: 10, color: selected ? "#fff" : t.textMuted, fontFamily: mono, cursor: "pointer", fontWeight: selected ? 700 : 400, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                          title={`${meeting} — ${new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`}>
-                          {meeting.replace("Binayah", "").replace("binayah", "").trim() || meeting} ({count})
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-                {visiblePending.map(p => {
-                const isEditing = editing?.id === p.id;
-                if (isEditing && editing) {
-                  const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
-                  const stagesInPipe = editPipe
-                    ? [...editPipe.stages, ...(customStages[editPipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
-                    : [];
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {sortedCalls.map(call => {
+                  const callPending = proposals.filter(p => p.status === "pending" && (p as unknown as {sourceMeeting?: string}).sourceMeeting === call.topic);
+                  const callDone = proposals.filter(p => p.status !== "pending" && (p as unknown as {sourceMeeting?: string}).sourceMeeting === call.topic);
                   return (
-                    <div key={p.id} style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 10, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }}>
-                      {/* Title input */}
-                      <input
-                        autoFocus
-                        value={editing.title}
-                        onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : null)}
-                        onKeyDown={e => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditing(null); }}
-                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
-                      />
-                      {/* Pipeline picker */}
-                      <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
-                        pipeline: {editPipe?.name || editing.pipelineId}
+                    <button key={call.topic + call.startTime} type="button" onClick={() => setSelectedCall(call.topic)}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", cursor: "pointer", textAlign: "left", transition: "border-color 0.1s" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{call.topic}</div>
+                        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
+                          {call.startTime ? new Date(call.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}
+                        </div>
                       </div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {allPipelinesGlobal.map(pipe => {
-                          const sel = editing.pipelineId === pipe.id;
-                          return (
-                            <button key={pipe.id} type="button"
-                              onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
-                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
-                              {pipe.icon} {pipe.name}
-                            </button>
-                          );
-                        })}
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        {callPending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontFamily: mono, fontWeight: 700 }}>{callPending.length}</span>}
+                        {callDone.length > 0 && <span style={{ color: t.textDim, fontSize: 10, fontFamily: mono }}>{callDone.length} done</span>}
+                        {callPending.length === 0 && callDone.length === 0 && <span style={{ color: t.textDim, fontSize: 10, fontFamily: mono }}>no tasks yet</span>}
+                        <span style={{ color: t.textDim, fontSize: 12 }}>›</span>
                       </div>
-                      {/* Parent stage picker (optional) */}
-                      {stagesInPipe.length > 0 && (
-                        <>
-                          <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
-                            {editing.parentStage ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}` : "// add as subtask of… (optional — skip to create as task)"}
-                          </div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                            {editing.parentStage && (
-                              <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "" } : null); }}
-                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>
-                                ✕ create as task instead
-                              </button>
-                            )}
-                            {stagesInPipe.map(s => {
-                              const sel = editing.parentStage === s;
-                              return (
-                                <button key={s} type="button"
-                                  onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s } : null); }}
-                                  style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
-                                  {stageNameOverrides?.[s] || s}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </>
-                      )}
-                      {/* Confirm / Cancel */}
-                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end", marginTop: 2 }}>
-                        <button type="button" onClick={() => setEditing(null)}
-                          style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>
-                          cancel
-                        </button>
-                        <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
-                          style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 10, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
-                          {editing.parentStage ? "add as subtask" : "add as task"}
-                        </button>
-                      </div>
-                    </div>
+                    </button>
                   );
-                }
-                return (
-                  <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
-                      <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
-                        {p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}
-                        {(p as unknown as {sourceMeeting?: string; sourceDate?: string}).sourceMeeting && !filterMeeting && (
-                          <span style={{ color: t.textDim, marginLeft: 6 }}>· {(p as unknown as {sourceMeeting: string}).sourceMeeting.replace(/binayah/i,"").trim()}</span>
-                        )}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                      <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
-                      <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
-                    </div>
-                  </div>
-                );
-              })}
+                })}
               </div>
             );
           })()}
 
-          {/* Empty state */}
-          {pending.length === 0 && !showPaste && (
-            <div style={{ marginTop: 8, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
-              Tasks from your latest Zoom calls will appear here automatically. Hit ↺ resync to pull now.
-            </div>
-          )}
+          {/* TASKS VIEW (drilled into a call) */}
+          {selectedCall && !showPaste && (() => {
+            const callProposals = pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall);
+            const callDone = done.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall);
 
-          {/* Done items (collapsed) */}
-          {done.length > 0 && (
-            <div style={{ marginTop: 10, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>
-                {done.filter(x => x.status === "approved").length} approved · {done.filter(x => x.status === "rejected").length} rejected
+            if (callProposals.length === 0 && callDone.length === 0) {
+              return <div style={{ fontSize: 11, color: t.textMuted }}>No tasks extracted from this call yet.</div>;
+            }
+
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {callProposals.map(p => {
+                  const isEditing = editing?.id === p.id;
+                  if (isEditing && editing) {
+                    const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
+                    const stagesInPipe = editPipe
+                      ? [...editPipe.stages, ...(customStages[editPipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
+                      : [];
+                    return (
+                      <div key={p.id} style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 10, padding: 10, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }}>
+                        <input autoFocus value={editing.title}
+                          onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : null)}
+                          onKeyDown={e => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditing(null); }}
+                          style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+                        />
+                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>pipeline: {editPipe?.name || editing.pipelineId}</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                          {allPipelinesGlobal.map(pipe => {
+                            const sel = editing.pipelineId === pipe.id;
+                            return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
+                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                              {pipe.icon} {pipe.name}
+                            </button>;
+                          })}
+                        </div>
+                        {stagesInPipe.length > 0 && (
+                          <>
+                            <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                              {editing.parentStage ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}` : "// parent task (optional)"}
+                            </div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                              {editing.parentStage && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "" } : null); }}
+                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>✕ as task</button>}
+                              {stagesInPipe.map(s => { const sel = editing.parentStage === s; return <button key={s} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s } : null); }}
+                                style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>{stageNameOverrides?.[s] || s}</button>; })}
+                            </div>
+                          </>
+                        )}
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>cancel</button>
+                          <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
+                            style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 10, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
+                            {editing.parentStage ? "add as subtask" : "add as task"}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+                  return (
+                    <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
+                        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>{p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                        <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
+                        <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  );
+                })}
+                {callDone.length > 0 && (
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
+                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{callDone.filter(x => x.status === "approved").length} approved · {callDone.filter(x => x.status === "rejected").length} rejected</span>
+                    <button type="button" onClick={clearDone} style={{ background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", textDecoration: "underline" }}>clear</button>
+                  </div>
+                )}
               </div>
-              <button type="button" onClick={clearDone} style={{ background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", textDecoration: "underline" }}>clear</button>
-            </div>
-          )}
-
-          {/* Zoom recordings feedback */}
-          {recordings?.ok && (
-            <div style={{ marginTop: 8, fontSize: 11, color: recordings.totalRecords ? t.green : t.amber, lineHeight: 1.45 }}>
-              Found {recordings.totalRecords ?? 0} cloud recording{recordings.totalRecords === 1 ? "" : "s"} in the last 30 days.
-              {(recordings.totalRecords ?? 0) === 0 ? " Enable auto-record in Zoom settings to populate this automatically." : " Auto-import coming once transcripts are enabled."}
-            </div>
-          )}
-          {recordings && !recordings.ok && (
-            <div style={{ marginTop: 8, fontSize: 11, color: t.red, lineHeight: 1.45 }}>
-              Call sync failed. {recordings.message || "Check Zoom recording scopes."}
-            </div>
-          )}
+            );
+          })()}
         </div>
-
-        {configured && !connected && !status?.tokenError && (
-          <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 11, color: t.amber, fontFamily: mono, fontWeight: 850 }}>server-to-server oauth</div>
-            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>No callback URL needed — backend mints tokens directly from account credentials.</div>
-          </div>
-        )}
-        {!configured && (
-          <div style={{ border: `1px dashed ${t.amber}66`, background: t.amber + "0f", borderRadius: 12, padding: 12 }}>
-            <div style={{ fontSize: 11, color: t.amber, fontFamily: mono, fontWeight: 850 }}>missing env: {missing.length ? missing.join(", ") : "loading"}</div>
-            <div style={{ marginTop: 6, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>Add these to Vercel for the Zoom Server-to-Server OAuth app.</div>
-          </div>
-        )}
       </div>
     </section>
   );
