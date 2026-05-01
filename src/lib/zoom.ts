@@ -86,6 +86,55 @@ export type ZoomRecordingsResult =
   | { ok: true; from: string; to: string; totalRecords: number; meetings: ZoomRecordingMeeting[] }
   | { ok: false; status: number; message: string };
 
+export type ZoomMeetingSummaryResult =
+  | { ok: true; meetingId: string; summary: string; topic: string; startTime: string }
+  | { ok: false; status: number; message: string };
+
+export async function getZoomMeetingSummary(meetingId: string): Promise<ZoomMeetingSummaryResult> {
+  const token = await getZoomServerToken();
+  if (!token.ok) return token;
+
+  const res = await fetch(`https://api.zoom.us/v2/meetings/${encodeURIComponent(meetingId)}/meeting_summary`, {
+    headers: { Authorization: `Bearer ${token.accessToken}` },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, status: res.status, message: text || res.statusText || "Zoom summary request failed" };
+  }
+
+  const data = await res.json() as {
+    meeting_id?: string;
+    summary_content?: string;
+    meeting_topic?: string;
+    start_time?: string;
+    summary_details?: { label?: string; summary?: string }[];
+  };
+
+  // Build a readable text from the summary
+  let summary = "";
+  if (data.summary_content) {
+    summary = data.summary_content;
+  } else if (Array.isArray(data.summary_details) && data.summary_details.length > 0) {
+    summary = data.summary_details
+      .map(d => `${d.label ? d.label + ":\n" : ""}${d.summary || ""}`)
+      .join("\n\n");
+  }
+
+  if (!summary) {
+    return { ok: false, status: 404, message: "No AI summary found for this meeting. Make sure Zoom AI Companion is enabled." };
+  }
+
+  return {
+    ok: true,
+    meetingId,
+    summary,
+    topic: data.meeting_topic ?? "Untitled meeting",
+    startTime: data.start_time ?? "",
+  };
+}
+
 export async function getRecentZoomRecordings(days = 30): Promise<ZoomRecordingsResult> {
   const token = await getZoomServerToken();
   if (!token.ok) return token;

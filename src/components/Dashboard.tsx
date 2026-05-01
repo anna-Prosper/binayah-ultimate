@@ -19,7 +19,8 @@ import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Phone } from "lucide-react";
+import CallSummaryModal from "@/components/CallSummaryModal";
 import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
 import ActivityView from "@/components/views/ActivityView";
@@ -132,6 +133,7 @@ function DashboardInner({
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
+  const [showCallSummary, setShowCallSummary] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
   const [digestLastSession, setDigestLastSession] = useState(0);
   const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0)); const [showArchive, setShowArchive] = useState(false);
@@ -361,6 +363,7 @@ function DashboardInner({
           >
             <RotateCcw size={14} strokeWidth={2} />
           </button>
+          <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} title="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>
           <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
           {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
@@ -443,6 +446,22 @@ function DashboardInner({
 
       {/* Welcome Modal */}
       {showWelcome && initialUserId && me && (<WelcomeModal user={me} t={t} themeId={themeId} setThemeId={setThemeId} isDark={isDark} setIsDark={setIsDark} onDismiss={handleWelcomeDismiss} />)}
+
+      <CallSummaryModal
+        open={showCallSummary}
+        onClose={() => setShowCallSummary(false)}
+        t={t}
+        pipelines={allPipelinesGlobal.map(p => ({
+          id: p.id,
+          name: p.name,
+          icon: p.icon,
+          stages: [...p.stages, ...(customStages[p.id] ?? [])],
+        }))}
+        onAddTask={(pipelineId, stageName) => {
+          addCustomStage(pipelineId, stageName);
+          showToast(`// stage added to pipeline`, t.green);
+        }}
+      />
 
       {/* While You Were Away Digest */}
       {showDigest && currentUser && me && !showWelcome && (
