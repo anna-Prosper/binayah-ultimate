@@ -20,6 +20,16 @@ type CachedProposal = {
   id: number; title: string; pipelineId: string; pipelineName: string;
   stageName: string | null; sourceMeeting: string; sourceDate: string;
 };
+type CachedSummary = { uuid: string; topic: string; startTime: string; summary: string };
+
+/** Strip Zoom task tracker links and tidy up markdown from AI summaries */
+function formatSummary(raw: string): string {
+  return raw
+    .replace(/\[]\(https?:\/\/tasks\.zoom\.us[^\)]*\)/g, "") // remove Zoom task links
+    .replace(/\[([^\]]+)\]\(https?:\/\/tasks\.zoom\.us[^\)]*\)/g, "$1") // links with text → keep text
+    .replace(/\n{3,}/g, "\n\n") // collapse excessive blank lines
+    .trim();
+}
 
 async function extractTasksFromSummary(
   summary: string, topic: string
@@ -72,14 +82,15 @@ Pipelines:\n${pipelineList}`,
 
 // Incremental: only process UUIDs not yet in processedUUIDs
 async function syncNewMeetings(
-  existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; processedUUIDs: string[] } | null
-): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[]; processedUUIDs: string[] }> {
+  existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] } | null
+): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] }> {
   const processedUUIDs = new Set(existingCache?.processedUUIDs ?? []);
   const existingMeetings: CachedMeeting[] = existingCache?.meetings ?? [];
   const existingProposals: CachedProposal[] = existingCache?.proposals ?? [];
+  const existingSummaries: CachedSummary[] = existingCache?.summaries ?? [];
 
   const result = await getZoomPastMeetings(ZOOM_USER_EMAIL, 30);
-  if (!result.ok) return { meetings: existingMeetings, proposals: existingProposals, processedUUIDs: [...processedUUIDs] };
+  if (!result.ok) return { meetings: existingMeetings, proposals: existingProposals, summaries: existingSummaries, processedUUIDs: [...processedUUIDs] };
 
   // Group and filter
   const grouped = new Map<string, typeof result.meetings>();
@@ -102,11 +113,10 @@ async function syncNewMeetings(
   logApi(ROUTE, "incremental_sync", { total: candidates.length, new: newCandidates.length });
 
   if (newCandidates.length === 0) {
-    // No new meetings — just return existing data with refreshed meeting list
     const allMeetings = candidates
       .map(m => existingMeetings.find(em => em.uuid === m.uuid) ?? { id: m.id, uuid: m.uuid, topic: m.topic, startTime: m.startTime, duration: m.duration })
       .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
-    return { meetings: allMeetings, proposals: existingProposals, processedUUIDs: [...processedUUIDs] };
+    return { meetings: allMeetings, proposals: existingProposals, summaries: existingSummaries, processedUUIDs: [...processedUUIDs] };
   }
 
   // Probe new candidates for summaries
@@ -139,6 +149,14 @@ async function syncNewMeetings(
     })
   );
 
+  // Build new summaries (formatted)
+  const newSummaries: CachedSummary[] = newWithSummaries.map(m => ({
+    uuid: m.uuid,
+    topic: m.topic,
+    startTime: m.startTime,
+    summary: formatSummary(m.summary),
+  }));
+
   // Merge with existing (new meetings first)
   const newMeetings: CachedMeeting[] = newWithSummaries.map(({ summary: _s, ...m }) => m);
   const allMeetings = [...newMeetings, ...existingMeetings.filter(em => !newMeetings.find(nm => nm.uuid === em.uuid))]
@@ -146,11 +164,11 @@ async function syncNewMeetings(
 
   const newProposals = newProposalGroups.flat();
   const allProposals = [...newProposals, ...existingProposals];
+  const allSummaries = [...newSummaries, ...existingSummaries.filter(s => !newSummaries.find(ns => ns.uuid === s.uuid))];
 
-  // Mark all candidates as processed (including ones with no summary — won't retry them)
   const newProcessedUUIDs = [...processedUUIDs, ...newCandidates.map(m => m.uuid)];
 
-  return { meetings: allMeetings, proposals: allProposals, processedUUIDs: newProcessedUUIDs };
+  return { meetings: allMeetings, proposals: allProposals, summaries: allSummaries, processedUUIDs: newProcessedUUIDs };
 }
 
 export async function GET() {
@@ -160,6 +178,7 @@ export async function GET() {
   const cache = await ZoomCallCache.findOne({ key: "main" }).lean() as {
     meetings: CachedMeeting[];
     proposals: CachedProposal[];
+    summaries: CachedSummary[];
     processedUUIDs: string[];
     updatedAt: Date;
   } | null;
@@ -167,17 +186,17 @@ export async function GET() {
   const isStale = !cache || (Date.now() - new Date(cache.updatedAt).getTime() > CACHE_TTL_MS);
 
   if (!isStale && cache?.meetings?.length) {
-    return NextResponse.json({ ok: true, meetings: cache.meetings, proposals: cache.proposals ?? [], cached: true, updatedAt: cache.updatedAt });
+    return NextResponse.json({ ok: true, meetings: cache.meetings, proposals: cache.proposals ?? [], summaries: cache.summaries ?? [], cached: true, updatedAt: cache.updatedAt });
   }
 
-  const { meetings, proposals, processedUUIDs } = await syncNewMeetings(cache);
+  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cache);
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
-    { meetings, proposals, processedUUIDs, updatedAt: new Date() },
+    { meetings, proposals, summaries, processedUUIDs, updatedAt: new Date() },
     { upsert: true }
   );
 
-  return NextResponse.json({ ok: true, meetings, proposals, cached: false, updatedAt: new Date() });
+  return NextResponse.json({ ok: true, meetings, proposals, summaries, cached: false, updatedAt: new Date() });
 }
 
 export async function POST(req: NextRequest) {
@@ -196,18 +215,19 @@ export async function POST(req: NextRequest) {
   const cache = await ZoomCallCache.findOne({ key: "main" }).lean() as {
     meetings: CachedMeeting[];
     proposals: CachedProposal[];
+    summaries: CachedSummary[];
     processedUUIDs: string[];
     updatedAt: Date;
   } | null;
 
   const cacheToUse = forceAll ? null : cache;
-  const { meetings, proposals, processedUUIDs } = await syncNewMeetings(cacheToUse);
+  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cacheToUse);
 
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
-    { meetings, proposals, processedUUIDs, updatedAt: new Date() },
+    { meetings, proposals, summaries, processedUUIDs, updatedAt: new Date() },
     { upsert: true }
   );
 
-  return NextResponse.json({ ok: true, meetings, proposals, cached: false, updatedAt: new Date() });
+  return NextResponse.json({ ok: true, meetings, proposals, summaries, cached: false, updatedAt: new Date() });
 }

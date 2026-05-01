@@ -4,7 +4,8 @@ const schema = new mongoose.Schema({
   key: { type: String, default: "main", unique: true },
   meetings: { type: mongoose.Schema.Types.Mixed, default: [] },
   proposals: { type: mongoose.Schema.Types.Mixed, default: [] },
-  processedUUIDs: { type: [String], default: [] }, // track which meeting instances were already extracted
+  summaries: { type: mongoose.Schema.Types.Mixed, default: [] }, // { uuid, topic, startTime, summary }
+  processedUUIDs: { type: [String], default: [] },
   updatedAt: { type: Date, default: Date.now },
 });
 
