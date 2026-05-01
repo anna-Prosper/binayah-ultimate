@@ -14,6 +14,9 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "mamr@binayah.com": "ahsan",
   "pm@binayah.com": "prajeesh",
   "ak@binayah.com": "abdallah",
+  // TEMP users — remove when no longer needed
+  "guest1@binayah.com": "guest1",
+  "guest2@binayah.com": "guest2",
 };
 
 // Reverse map: fixedUserId → primary email for notifications
@@ -24,6 +27,9 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   ahsan: "mamr@binayah.com",
   prajeesh: "pm@binayah.com",
   abdallah: "ak@binayah.com",
+  // TEMP users
+  guest1: "guest1@binayah.com",
+  guest2: "guest2@binayah.com",
 };
 
 export function getEmailForUser(fixedUserId: string): string | undefined {
