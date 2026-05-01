@@ -58,7 +58,7 @@ function toneColor(t: T, tone: AttentionTone): string {
   return t.accent;
 }
 
-function AttentionOverview({ t, attention }: {
+function AttentionOverview({ t, attention, onApprove, onClaim }: {
   t: T;
   attention: {
     roleLabel: string;
@@ -67,72 +67,151 @@ function AttentionOverview({ t, attention }: {
     stats: Array<{ label: string; value: number; tone: AttentionTone }>;
     actions: Array<{ title: string; meta: string; body: string; tone: AttentionTone }>;
     people: Array<{ user: UserType; title: string; meta: string; body: string; tone: AttentionTone }>;
+    rawReviewItems: { key: string; title: string; pipelineName: string; kind: string }[];
+    rawBlockedItems: { key: string; title: string; pipelineName: string; owners: string[] }[];
+    rawUnownedItems: { key: string; title: string; pipelineName: string }[];
+    rawMyItems: { key: string; title: string; pipelineName: string; status: string }[];
+    rawMineBlocked: { key: string; title: string; pipelineName: string }[];
   };
+  onApprove: (key: string) => void;
+  onClaim: (key: string) => void;
 }) {
-  return (
-    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, minWidth: 0 }}>
-        <div>
-          <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>
-            overview · {attention.roleLabel} · {attention.scopeLabel}
-          </div>
-          <div style={{ fontSize: 18, color: t.text, fontWeight: 800, marginTop: 4, lineHeight: 1.25 }}>
-            {attention.summary}
-          </div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-          {attention.stats.map(stat => {
-            const color = toneColor(t, stat.tone);
-            return (
-              <div key={stat.label} style={{ border: `1px solid ${color}44`, background: color + "0f", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
-                <div style={{ fontSize: 22, color, fontWeight: 900, lineHeight: 1 }}>{stat.value}</div>
-                <div style={{ marginTop: 4, fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {stat.label}
-                </div>
+  const mono = "var(--font-dm-mono), monospace";
+  const isAgent = attention.roleLabel === "agent";
+
+  function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
+    const color = toneColor(t, tone);
+    return (
+      <div style={{ border: `1px solid ${color}44`, background: color + "0f", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
+        <div style={{ fontSize: 22, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+        <div style={{ marginTop: 3, fontSize: 10, color: t.textMuted, fontFamily: mono, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
+        {items.slice(0, 2).map((item, i) => (
+          <div key={i} style={{ marginTop: 4, fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.8 }}>· {item.title}</div>
+        ))}
+      </div>
+    );
+  }
+
+  function ActionGroup({ label, color, items, actionLabel, onAction }: {
+    label: string; color: string;
+    items: { key: string; title: string; pipelineName: string }[];
+    actionLabel?: string;
+    onAction?: (key: string) => void;
+  }) {
+    if (items.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>{label}</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {items.map(item => (
+            <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 8px" }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>{item.pipelineName}</div>
               </div>
-            );
-          })}
+              {actionLabel && onAction && (
+                <button type="button" onClick={() => onAction(item.key)}
+                  style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                  {actionLabel}
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8, minWidth: 0 }}>
-        {attention.people.length > 0 && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 8 }}>
-            {attention.people.map(person => {
-              const color = toneColor(t, person.tone);
-              return (
-                <div key={person.user.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "9px 10px", border: `1px solid ${color}3d`, background: color + "0d", borderRadius: 10, minWidth: 0 }}>
-                  <AvatarC user={person.user} size={24} />
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ display: "flex", gap: 6, alignItems: "baseline" }}>
-                      <span style={{ fontSize: 12, color: t.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{person.title}</span>
-                      <span style={{ fontSize: 10, color, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>{person.meta}</span>
+    );
+  }
+
+  return (
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
+      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 12 }}>
+        overview · {attention.roleLabel} · {attention.scopeLabel}
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 14 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+            {isAgent ? (
+              <>
+                <StatTile label="my open work" value={attention.stats[0]?.value ?? 0} tone="accent" items={attention.rawMyItems} />
+                <StatTile label="mentions" value={attention.stats[1]?.value ?? 0} tone="amber" items={[]} />
+                <StatTile label="blocked" value={attention.stats[2]?.value ?? 0} tone="red" items={attention.rawMineBlocked} />
+                <StatTile label="hot priorities" value={attention.stats[3]?.value ?? 0} tone="green" items={[]} />
+              </>
+            ) : (
+              <>
+                <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
+                <StatTile label="blocked" value={attention.stats[1]?.value ?? 0} tone="red" items={attention.rawBlockedItems} />
+                <StatTile label="unowned" value={attention.stats[2]?.value ?? 0} tone="amber" items={attention.rawUnownedItems} />
+                <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
+              </>
+            )}
+          </div>
+          {attention.people.length > 0 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+              {attention.people.map(person => {
+                const color = toneColor(t, person.tone);
+                const isStale = person.tone === "amber";
+                return (
+                  <div key={person.user.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", border: `1px solid ${isStale ? color + "55" : t.border}`, background: isStale ? color + "08" : t.bgHover || t.bgSoft, borderRadius: 9 }}>
+                    <AvatarC user={person.user} size={22} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                        <span style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{person.title}</span>
+                        <span style={{ fontSize: 10, color, fontFamily: mono, whiteSpace: "nowrap" }}>{person.meta}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{person.body}</div>
                     </div>
-                    <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 2 }}>{person.body}</div>
                   </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-        {attention.actions.length === 0 ? (
-          <div style={{ minHeight: 132, border: `1px dashed ${t.border}`, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace" }}>
-            no urgent signals
-          </div>
-        ) : attention.actions.map((item, idx) => {
-          const color = toneColor(t, item.tone);
-          return (
-            <div key={`${item.title}-${idx}`} style={{ display: "grid", gridTemplateColumns: "8px minmax(0, 1fr)", gap: 10, alignItems: "stretch", background: idx === 0 ? color + "0f" : t.bgHover || t.bgSoft, border: `1px solid ${idx === 0 ? color + "44" : t.border}`, borderRadius: 10, padding: "9px 10px" }}>
-              <div style={{ width: 8, borderRadius: 8, background: color }} />
-              <div style={{ minWidth: 0 }}>
-                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontSize: 13, color: t.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                  <div style={{ fontSize: 10, color, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>{item.meta}</div>
-                </div>
-                <div style={{ marginTop: 2, fontSize: 11, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
-              </div>
+                );
+              })}
             </div>
-          );
-        })}
+          )}
+        </div>
+        <div style={{ minWidth: 0 }}>
+          {isAgent ? (
+            <>
+              <ActionGroup label="blocked — needs your attention" color={t.red} items={attention.rawMineBlocked} />
+              <ActionGroup label="your open work" color={t.accent} items={attention.rawMyItems.slice(0, 4)} />
+              {attention.actions.filter(a => a.tone === "amber").length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>mentions</div>
+                  {attention.actions.filter(a => a.tone === "amber").slice(0, 3).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: t.amber + "0a", border: `1px solid ${t.amber}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{item.title}</div>
+                      <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.actions.length === 0 && attention.rawMineBlocked.length === 0 && attention.rawMyItems.length === 0 && (
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent items</div>
+              )}
+            </>
+          ) : (
+            <>
+              <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
+              <ActionGroup label="blocked" color={t.red} items={attention.rawBlockedItems} />
+              <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} actionLabel="+ claim" onAction={onClaim} />
+              {attention.actions.filter(a => a.tone === "cyan" || a.tone === "green").slice(0, 3).length > 0 && (
+                <div>
+                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent activity</div>
+                  {attention.actions.filter(a => a.tone === "cyan" || a.tone === "green").slice(0, 3).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.rawReviewItems.length === 0 && attention.rawBlockedItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.actions.length === 0 && (
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
+              )}
+            </>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -661,7 +740,7 @@ export default function HomeView({
   const {
     claims, comments, approvedStages, approvedSubtasks, customStages, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, activityLog, chatMessages,
-    getStatus, ck,
+    getStatus, ck, approveStage, handleClaim,
   } = useModel();
 
   // null = show all workspaces; string = filter to specific workspace
@@ -927,6 +1006,11 @@ export default function HomeView({
       people,
       summary,
       scopeLabel: homeWsFilter ? (myWorkspaces.find(w => w.id === homeWsFilter)?.name || "workspace") : "all workspaces",
+      rawReviewItems: reviewItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, kind: i.kind })),
+      rawBlockedItems: blockedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, owners: i.owners })),
+      rawUnownedItems: unownedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
+      rawMyItems: myItems.filter(i => i.status !== "active").slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
+      rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
     };
   }, [
     activityLog, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
@@ -1024,7 +1108,7 @@ export default function HomeView({
             })}
           </div>
 
-          <AttentionOverview t={t} attention={attention} />
+          <AttentionOverview t={t} attention={attention} onApprove={(key) => approveStage(key)} onClaim={(key) => handleClaim(key)} />
           <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel !== "agent"} />
 
           {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
