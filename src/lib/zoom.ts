@@ -70,6 +70,8 @@ export type ZoomRecordingFile = {
   file_type?: string;
   file_extension?: string;
   recording_type?: string;
+  status?: string;
+  file_size?: number;
   download_url?: string;
 };
 
@@ -79,6 +81,8 @@ export type ZoomRecordingMeeting = {
   topic?: string;
   start_time?: string;
   duration?: number;
+  recording_count?: number;
+  total_size?: number;
   recording_files?: ZoomRecordingFile[];
 };
 

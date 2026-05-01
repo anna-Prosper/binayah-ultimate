@@ -231,6 +231,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const [zoomMeetings, setZoomMeetings] = useState<ZoomMeeting[]>([]);
   const [showMeetingPicker, setShowMeetingPicker] = useState(false);
   const [fetchingSummaryId, setFetchingSummaryId] = useState<string | null>(null);
+  const [cacheAge, setCacheAge] = useState<string | null>(null);
 
   // Paste-summary flow
   const [showPaste, setShowPaste] = useState(false);
@@ -330,14 +331,12 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     }
   };
 
-  const [cacheAge, setCacheAge] = useState<string | null>(null);
-
   const syncCalls = async (forceResync = false) => {
     if (syncing) return;
     setSyncing(true);
     try {
       const res = forceResync
-        ? await fetch("/api/zoom/meetings", { method: "POST", cache: "no-store" })
+        ? await fetch("/api/zoom/meetings?force=true", { method: "POST", cache: "no-store" })
         : await fetch("/api/zoom/meetings", { cache: "no-store" });
       const data = await res.json().catch(() => null) as {
         ok: boolean;

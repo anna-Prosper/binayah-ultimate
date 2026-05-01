@@ -166,7 +166,11 @@ async function syncNewMeetings(
   const allProposals = [...newProposals, ...existingProposals];
   const allSummaries = [...newSummaries, ...existingSummaries.filter(s => !newSummaries.find(ns => ns.uuid === s.uuid))];
 
-  const newProcessedUUIDs = [...processedUUIDs, ...newCandidates.map(m => m.uuid)];
+  // Only mark meetings as processed once we actually captured a summary.
+  // Zoom can expose a recording before AI Companion has finished producing
+  // the summary; marking every probed UUID here made later resyncs skip calls
+  // that became ready a few minutes later.
+  const newProcessedUUIDs = [...processedUUIDs, ...newWithSummaries.map(m => m.uuid)];
 
   return { meetings: allMeetings, proposals: allProposals, summaries: allSummaries, processedUUIDs: newProcessedUUIDs };
 }
