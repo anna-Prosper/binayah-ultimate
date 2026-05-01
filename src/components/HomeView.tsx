@@ -139,6 +139,7 @@ function AttentionOverview({ t, attention }: {
 }
 
 type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected" };
+type ZoomMeeting = { id: string | number; topic: string; startTime: string; duration: number };
 
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const { addCustomStage, allPipelinesGlobal, customStages } = useModel();
@@ -146,6 +147,9 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [recordings, setRecordings] = useState<ZoomRecordingsStatus | null>(null);
+  const [zoomMeetings, setZoomMeetings] = useState<ZoomMeeting[]>([]);
+  const [showMeetingPicker, setShowMeetingPicker] = useState(false);
+  const [fetchingSummaryId, setFetchingSummaryId] = useState<string | null>(null);
 
   // Paste-summary flow
   const [showPaste, setShowPaste] = useState(false);
@@ -193,12 +197,18 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   };
 
   const syncCalls = async () => {
-    if (!connected || syncing) return;
+    if (syncing) return;
     setSyncing(true);
     try {
-      const res = await fetch("/api/zoom/recordings", { cache: "no-store" });
-      const data = await res.json().catch(() => null) as ZoomRecordingsStatus | null;
-      setRecordings(data ? { ...data, ok: res.ok } : { ok: false, message: "Zoom call sync failed" });
+      const res = await fetch("/api/zoom/meetings", { cache: "no-store" });
+      const data = await res.json().catch(() => null) as { ok: boolean; meetings?: ZoomMeeting[]; error?: string } | null;
+      if (data?.ok && data.meetings) {
+        setRecordings({ ok: true, totalRecords: data.meetings.length, meetings: data.meetings.map(m => ({ topic: m.topic, startTime: m.startTime, transcriptCount: 0, fileCount: 0 })) });
+        setZoomMeetings(data.meetings);
+        if (data.meetings.length > 0) setShowMeetingPicker(true);
+      } else {
+        setRecordings({ ok: false, message: data?.error || "Zoom sync failed" });
+      }
     } finally {
       setSyncing(false);
     }
@@ -235,6 +245,42 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
       setPastedSummary("");
     } catch { setExtractError("Network error"); }
     finally { setExtracting(false); }
+  };
+
+  const fetchMeetingSummaryAndExtract = async (meeting: ZoomMeeting) => {
+    setShowMeetingPicker(false);
+    setFetchingSummaryId(String(meeting.id));
+    setExtractError(null);
+    try {
+      const res = await fetch(`/api/zoom/meeting-summary?meetingId=${encodeURIComponent(String(meeting.id))}`);
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setExtractError(data.error || "No AI summary found for this meeting");
+        setFetchingSummaryId(null);
+        return;
+      }
+      // Auto-extract tasks from the fetched summary
+      setPastedSummary(data.summary ?? "");
+      setFetchingSummaryId(null);
+      // Trigger extraction immediately
+      const pipelines = allPipelinesGlobal.map(p => ({
+        id: p.id, name: p.name, stages: [...p.stages, ...(customStages[p.id] ?? [])],
+      }));
+      setExtracting(true);
+      const extractRes = await fetch("/api/call-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: data.summary, pipelines }),
+      });
+      const extractData = await extractRes.json();
+      if (!extractRes.ok || !extractData.tasks) { setExtractError(extractData.error || "Failed to extract tasks"); return; }
+      const newProposals: TaskProposal[] = (extractData.tasks as { title: string; pipelineId: string; pipelineName: string; stageName: string | null }[]).map((t, i) => ({
+        id: nextId + i, title: t.title, pipelineId: t.pipelineId, pipelineName: t.pipelineName, stageName: t.stageName, status: "pending",
+      }));
+      setNextId(n => n + newProposals.length);
+      setProposals(prev => [...newProposals, ...prev]);
+    } catch { setExtractError("Network error"); }
+    finally { setExtracting(false); setFetchingSummaryId(null); }
   };
 
   const approveProposal = (id: number) => {
@@ -282,11 +328,48 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
               <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); }} style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>
                 {showPaste ? "cancel" : "+ paste summary"}
               </button>
-              <button type="button" disabled={!connected || syncing} onClick={syncCalls} style={{ border: `1px solid ${connected ? t.border : t.border}`, background: "transparent", color: connected ? t.textMuted : t.textDim, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: connected && !syncing ? "pointer" : "not-allowed" }}>
-                {syncing ? "syncing..." : "sync zoom"}
+              <button type="button" disabled={syncing || !!fetchingSummaryId} onClick={syncCalls} style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "5px 9px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing && !fetchingSummaryId ? "pointer" : "not-allowed", opacity: syncing || fetchingSummaryId ? 0.5 : 1 }}>
+                {syncing ? "loading…" : "sync zoom"}
               </button>
             </div>
           </div>
+
+          {/* Zoom meeting picker */}
+          {showMeetingPicker && zoomMeetings.length > 0 && (
+            <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 4 }}>
+              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginBottom: 2 }}>pick a meeting to import its AI summary:</div>
+              {zoomMeetings.map(m => (
+                <button
+                  key={String(m.id)}
+                  type="button"
+                  disabled={fetchingSummaryId === String(m.id)}
+                  onClick={() => fetchMeetingSummaryAndExtract(m)}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", cursor: "pointer", textAlign: "left", opacity: fetchingSummaryId && fetchingSummaryId !== String(m.id) ? 0.5 : 1, transition: "border-color 0.1s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
+                >
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{m.topic}</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
+                      {new Date(m.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                      {m.duration ? ` · ${m.duration}min` : ""}
+                    </div>
+                  </div>
+                  {fetchingSummaryId === String(m.id)
+                    ? <span style={{ fontSize: 10, color: t.accent, fontFamily: mono }}>fetching…</span>
+                    : <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>→ import</span>
+                  }
+                </button>
+              ))}
+              <button type="button" onClick={() => setShowMeetingPicker(false)} style={{ alignSelf: "flex-end", background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", marginTop: 2 }}>dismiss</button>
+            </div>
+          )}
+
+          {extracting && !showPaste && (
+            <div style={{ marginTop: 10, fontSize: 11, color: t.accent, fontFamily: mono }}>extracting tasks from Zoom summary…</div>
+          )}
+
+          {extractError && <div style={{ marginTop: 8, fontSize: 11, color: t.red }}>{extractError}</div>}
 
           {/* Paste area */}
           {showPaste && (
@@ -298,7 +381,6 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
                 style={{ width: "100%", minHeight: 90, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
                 autoFocus
               />
-              {extractError && <div style={{ fontSize: 11, color: t.red }}>{extractError}</div>}
               <button
                 type="button"
                 disabled={!pastedSummary.trim() || extracting}

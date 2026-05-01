@@ -14,13 +14,11 @@ type SuggestedTask = {
 };
 
 type ZoomMeeting = {
-  uuid: string;
   id: string | number;
+  uuid?: string;
   topic: string;
   startTime: string;
   duration: number;
-  fileCount: number;
-  transcriptCount: number;
 };
 
 interface Props {
@@ -89,15 +87,15 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
     setZoomLoading(true);
     setZoomError(null);
     try {
-      const res = await fetch("/api/zoom/recordings");
+      const res = await fetch("/api/zoom/meetings");
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setZoomError(data.message || "Failed to load Zoom recordings");
+        setZoomError(data.error || "Failed to load Zoom meetings");
         setZoomMeetings([]);
       } else {
         setZoomMeetings(data.meetings ?? []);
         if ((data.meetings ?? []).length === 0) {
-          setZoomError("No cloud recordings found. Enable auto-record in Zoom settings first.");
+          setZoomError("No past meetings found in this Zoom account.");
         }
       }
     } catch {

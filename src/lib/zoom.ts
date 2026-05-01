@@ -90,6 +90,121 @@ export type ZoomMeetingSummaryResult =
   | { ok: true; meetingId: string; summary: string; topic: string; startTime: string }
   | { ok: false; status: number; message: string };
 
+/** Zoom response bodies sometimes contain raw control chars — strip before JSON.parse */
+function safeParseZoomJson(raw: string): Record<string, unknown> {
+  // eslint-disable-next-line no-control-regex
+  const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, " ");
+  return JSON.parse(cleaned) as Record<string, unknown>;
+}
+
+/** Double-encode a UUID that may contain slashes — required by Zoom API docs */
+function encodeUUID(uuid: string): string {
+  return encodeURIComponent(encodeURIComponent(uuid));
+}
+
+export type ZoomPastMeeting = {
+  id: number | string;
+  uuid: string;
+  topic: string;
+  startTime: string;
+  duration: number;
+};
+
+export type ZoomPastMeetingsResult =
+  | { ok: true; meetings: ZoomPastMeeting[] }
+  | { ok: false; status: number; message: string };
+
+export async function getZoomPastMeetings(userEmail: string, pageSize = 20): Promise<ZoomPastMeetingsResult> {
+  const token = await getZoomServerToken();
+  if (!token.ok) return token;
+
+  const url = new URL(`https://api.zoom.us/v2/users/${encodeURIComponent(userEmail)}/meetings`);
+  url.searchParams.set("type", "previousMeetings");
+  url.searchParams.set("page_size", String(pageSize));
+
+  const res = await fetch(url, { headers: { Authorization: `Bearer ${token.accessToken}` }, cache: "no-store" });
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    return { ok: false, status: res.status, message: text || "Failed to list past meetings" };
+  }
+
+  const data = await res.json() as { meetings?: { id: number | string; uuid: string; topic: string; start_time: string; duration: number }[] };
+  const now = Date.now();
+  const meetings = (data.meetings ?? [])
+    .filter(m => new Date(m.start_time).getTime() < now) // exclude future/template entries
+    .map(m => ({ id: m.id, uuid: m.uuid, topic: m.topic || "Untitled", startTime: m.start_time, duration: m.duration ?? 0 }));
+
+  return { ok: true, meetings };
+}
+
+export async function getZoomMeetingInstanceSummary(meetingId: number | string): Promise<ZoomMeetingSummaryResult> {
+  const token = await getZoomServerToken();
+  if (!token.ok) return token;
+
+  // Get the most recent past instance UUID
+  const instRes = await fetch(`https://api.zoom.us/v2/past_meetings/${meetingId}/instances`, {
+    headers: { Authorization: `Bearer ${token.accessToken}` },
+    cache: "no-store",
+  });
+  if (!instRes.ok) {
+    return { ok: false, status: instRes.status, message: "Could not fetch meeting instances" };
+  }
+  const instData = await instRes.json() as { meetings?: { uuid: string; start_time: string }[] };
+  const instances = instData.meetings ?? [];
+  if (instances.length === 0) {
+    return { ok: false, status: 404, message: "No past instances found for this meeting" };
+  }
+  // Most recent instance first
+  const latestUUID = instances.sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())[0].uuid;
+  return getZoomMeetingSummaryByUUID(latestUUID, String(meetingId));
+}
+
+async function getZoomMeetingSummaryByUUID(uuid: string, fallbackId: string): Promise<ZoomMeetingSummaryResult> {
+  const token = await getZoomServerToken();
+  if (!token.ok) return token;
+
+  const encoded = encodeUUID(uuid);
+  const res = await fetch(`https://api.zoom.us/v2/meetings/${encoded}/meeting_summary`, {
+    headers: { Authorization: `Bearer ${token.accessToken}` },
+    cache: "no-store",
+  });
+
+  const raw = await res.text().catch(() => "");
+  let data: Record<string, unknown>;
+  try {
+    data = safeParseZoomJson(raw);
+  } catch {
+    return { ok: false, status: 502, message: "Failed to parse Zoom summary response" };
+  }
+
+  if (!res.ok || (data.code && data.code !== "ok")) {
+    return { ok: false, status: res.status || 400, message: String(data.message || "Zoom summary not found") };
+  }
+
+  const summaryDetails = Array.isArray(data.summary_details)
+    ? (data.summary_details as { label?: string; summary?: string }[])
+    : [];
+
+  let summary = String(data.summary_content || "");
+  if (!summary && summaryDetails.length > 0) {
+    summary = summaryDetails
+      .map(d => `${d.label ? d.label + ":\n" : ""}${d.summary || ""}`)
+      .join("\n\n");
+  }
+
+  if (!summary) {
+    return { ok: false, status: 404, message: "No AI Companion summary for this meeting. Make sure AI Companion was enabled during the call." };
+  }
+
+  return {
+    ok: true,
+    meetingId: fallbackId,
+    summary,
+    topic: String(data.meeting_topic ?? "Untitled meeting"),
+    startTime: String(data.start_time ?? ""),
+  };
+}
+
 export async function getZoomMeetingSummary(meetingId: string): Promise<ZoomMeetingSummaryResult> {
   const token = await getZoomServerToken();
   if (!token.ok) return token;
@@ -104,22 +219,17 @@ export async function getZoomMeetingSummary(meetingId: string): Promise<ZoomMeet
     return { ok: false, status: res.status, message: text || res.statusText || "Zoom summary request failed" };
   }
 
-  const data = await res.json() as {
-    meeting_id?: string;
-    summary_content?: string;
-    meeting_topic?: string;
-    start_time?: string;
-    summary_details?: { label?: string; summary?: string }[];
-  };
+  const raw = await res.text().catch(() => "{}");
+  let data: Record<string, unknown>;
+  try { data = safeParseZoomJson(raw); } catch { return { ok: false, status: 502, message: "Failed to parse Zoom response" }; }
 
-  // Build a readable text from the summary
-  let summary = "";
-  if (data.summary_content) {
-    summary = data.summary_content;
-  } else if (Array.isArray(data.summary_details) && data.summary_details.length > 0) {
-    summary = data.summary_details
-      .map(d => `${d.label ? d.label + ":\n" : ""}${d.summary || ""}`)
-      .join("\n\n");
+  const summaryDetails = Array.isArray(data.summary_details)
+    ? (data.summary_details as { label?: string; summary?: string }[])
+    : [];
+
+  let summary = String(data.summary_content || "");
+  if (!summary && summaryDetails.length > 0) {
+    summary = summaryDetails.map(d => `${d.label ? d.label + ":\n" : ""}${d.summary || ""}`).join("\n\n");
   }
 
   if (!summary) {
@@ -130,8 +240,8 @@ export async function getZoomMeetingSummary(meetingId: string): Promise<ZoomMeet
     ok: true,
     meetingId,
     summary,
-    topic: data.meeting_topic ?? "Untitled meeting",
-    startTime: data.start_time ?? "",
+    topic: String(data.meeting_topic ?? "Untitled meeting"),
+    startTime: String(data.start_time ?? ""),
   };
 }
 

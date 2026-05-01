@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getZoomMeetingSummary } from "@/lib/zoom";
+import { getZoomMeetingInstanceSummary } from "@/lib/zoom";
 import { logApi } from "@/lib/log";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "meetingId required" }, { status: 400 });
   }
 
-  const result = await getZoomMeetingSummary(meetingId);
+  const result = await getZoomMeetingInstanceSummary(meetingId);
   if (!result.ok) {
     return NextResponse.json({ ok: false, error: result.message }, { status: result.status || 502 });
   }
