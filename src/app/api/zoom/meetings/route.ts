@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getZoomPastMeetings, getZoomSummaryByUUID } from "@/lib/zoom";
+import { getRecentZoomRecordings, getZoomPastMeetings, getZoomSummaryByUUID, type ZoomPastMeeting } from "@/lib/zoom";
 import { connectMongo } from "@/lib/mongo";
 import ZoomCallCache from "@/lib/ZoomCallCache";
 import { logApi } from "@/lib/log";
@@ -11,16 +11,24 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 300; // Allow up to 5min for full sync
 
 const ROUTE = "/api/zoom/meetings";
-const ZOOM_USER_EMAIL = "anna@prosper-fi.com";
+const ZOOM_USER_EMAILS = [
+  "anna@prosper-fi.com",
+  "aakarshit@prosper-fi.com",
+  "uk@prosper-fi.com",
+  "mamr@binayah.com",
+  "pm@binayah.com",
+  "ak@binayah.com",
+];
 const EXCLUDED_TOPICS = ["elena", "escro"];
-const MAX_INSTANCES_PER_MEETING = 3;
+const MAX_CANDIDATES_TO_PROBE = 80;
+const HOME_CALL_LIMIT = 7;
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 
 type CachedMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number };
 type CachedProposal = {
   id: number; title: string; pipelineId: string; pipelineName: string;
-  stageName: string | null; sourceMeeting: string; sourceDate: string;
+  stageName: string | null; sourceMeeting: string; sourceDate: string; sourceUUID?: string;
 };
 type CachedSummary = { uuid: string; topic: string; startTime: string; summary: string };
 
@@ -89,42 +97,81 @@ Pipelines:\n${pipelineList}`,
   } catch { return []; }
 }
 
+function uniqueByUUID(meetings: ZoomPastMeeting[]): ZoomPastMeeting[] {
+  const seen = new Set<string>();
+  return meetings
+    .filter(m => m.uuid && !EXCLUDED_TOPICS.some(ex => m.topic.toLowerCase().includes(ex)))
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+    .filter(m => {
+      if (seen.has(m.uuid)) return false;
+      seen.add(m.uuid);
+      return true;
+    });
+}
+
+async function getZoomCandidates(): Promise<ZoomPastMeeting[]> {
+  const lists = await Promise.all([
+    ...ZOOM_USER_EMAILS.map(async email => {
+      const result = await getZoomPastMeetings(email, 100);
+      return result.ok ? result.meetings : [];
+    }),
+    (async () => {
+      const result = await getRecentZoomRecordings(30);
+      if (!result.ok) return [];
+      return result.meetings.map(m => ({
+        id: m.id || "",
+        uuid: m.uuid || "",
+        topic: m.topic || "Untitled Zoom call",
+        startTime: m.start_time || "",
+        duration: m.duration || 0,
+      }));
+    })(),
+  ]);
+  return uniqueByUUID(lists.flat()).slice(0, MAX_CANDIDATES_TO_PROBE);
+}
+
+function latestArchiveMeetings(summaries: CachedSummary[]): CachedMeeting[] {
+  return summaries
+    .map(s => ({ id: s.uuid, uuid: s.uuid, topic: s.topic, startTime: s.startTime, duration: 0 }))
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+}
+
+function withProposalUUIDs(proposals: CachedProposal[], meetings: CachedMeeting[]): CachedProposal[] {
+  return proposals.map(p => {
+    if (p.sourceUUID) return p;
+    const match = meetings.find(m => m.topic === p.sourceMeeting && m.startTime === p.sourceDate);
+    return match ? { ...p, sourceUUID: match.uuid } : p;
+  });
+}
+
+function limitHomeData(meetings: CachedMeeting[], proposals: CachedProposal[], summaries: CachedSummary[]) {
+  const homeMeetings = meetings
+    .filter(m => summaries.some(s => s.uuid === m.uuid))
+    .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+    .slice(0, HOME_CALL_LIMIT);
+  const homeUUIDs = new Set(homeMeetings.map(m => m.uuid));
+  const normalizedProposals = withProposalUUIDs(proposals, meetings);
+  const homeProposals = normalizedProposals.filter(p => p.sourceUUID ? homeUUIDs.has(p.sourceUUID) : homeMeetings.some(m => m.topic === p.sourceMeeting && m.startTime === p.sourceDate));
+  return { homeMeetings, homeProposals };
+}
+
 // Incremental: only process UUIDs not yet in processedUUIDs
 async function syncNewMeetings(
   existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] } | null
 ): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] }> {
   const processedUUIDs = new Set(existingCache?.processedUUIDs ?? []);
-  const existingMeetings: CachedMeeting[] = existingCache?.meetings ?? [];
-  const existingProposals: CachedProposal[] = existingCache?.proposals ?? [];
+  const existingMeetings: CachedMeeting[] = existingCache?.meetings ?? latestArchiveMeetings(existingCache?.summaries ?? []);
   const existingSummaries: CachedSummary[] = existingCache?.summaries ?? [];
+  const existingProposals: CachedProposal[] = withProposalUUIDs(existingCache?.proposals ?? [], existingMeetings);
 
-  const result = await getZoomPastMeetings(ZOOM_USER_EMAIL, 30);
-  if (!result.ok) return { meetings: existingMeetings, proposals: existingProposals, summaries: existingSummaries, processedUUIDs: [...processedUUIDs] };
-
-  // Group and filter
-  const grouped = new Map<string, typeof result.meetings>();
-  for (const m of result.meetings) {
-    if (EXCLUDED_TOPICS.some(ex => m.topic.toLowerCase().includes(ex))) continue;
-    const key = String(m.id);
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key)!.push(m);
-  }
-
-  const candidates: typeof result.meetings = [];
-  for (const [, instances] of grouped) {
-    candidates.push(...instances
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-      .slice(0, MAX_INSTANCES_PER_MEETING));
-  }
+  const candidates = await getZoomCandidates();
 
   // Only process UUIDs we haven't seen before
   const newCandidates = candidates.filter(m => !processedUUIDs.has(m.uuid));
   logApi(ROUTE, "incremental_sync", { total: candidates.length, new: newCandidates.length });
 
   if (newCandidates.length === 0) {
-    const allMeetings = candidates
-      .map(m => existingMeetings.find(em => em.uuid === m.uuid) ?? { id: m.id, uuid: m.uuid, topic: m.topic, startTime: m.startTime, duration: m.duration })
-      .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+    const allMeetings = latestArchiveMeetings(existingSummaries.length ? existingSummaries : existingMeetings.map(m => ({ uuid: m.uuid, topic: m.topic, startTime: m.startTime, summary: "" })));
     return { meetings: allMeetings, proposals: existingProposals, summaries: existingSummaries, processedUUIDs: [...processedUUIDs] };
   }
 
@@ -154,6 +201,7 @@ async function syncNewMeetings(
         stageName: t.stageName,
         sourceMeeting: m.topic,
         sourceDate: m.startTime,
+        sourceUUID: m.uuid,
       }));
     })
   );
@@ -172,14 +220,15 @@ async function syncNewMeetings(
     .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
   const newProposals = newProposalGroups.flat();
-  const allProposals = [...newProposals, ...existingProposals];
+  const newProposalUUIDs = new Set(newWithSummaries.map(m => m.uuid));
+  const allProposals = [...newProposals, ...existingProposals.filter(p => !p.sourceUUID || !newProposalUUIDs.has(p.sourceUUID))];
   const allSummaries = [...newSummaries, ...existingSummaries.filter(s => !newSummaries.find(ns => ns.uuid === s.uuid))];
 
   // Only mark meetings as processed once we actually captured a summary.
   // Zoom can expose a recording before AI Companion has finished producing
   // the summary; marking every probed UUID here made later resyncs skip calls
   // that became ready a few minutes later.
-  const newProcessedUUIDs = [...processedUUIDs, ...newWithSummaries.map(m => m.uuid)];
+  const newProcessedUUIDs = Array.from(new Set([...processedUUIDs, ...newWithSummaries.map(m => m.uuid)]));
 
   return { meetings: allMeetings, proposals: allProposals, summaries: allSummaries, processedUUIDs: newProcessedUUIDs };
 }
@@ -202,7 +251,8 @@ export async function GET(req: NextRequest) {
   const isStale = !cache || (Date.now() - new Date(cache.updatedAt).getTime() > CACHE_TTL_MS);
 
   if (!isStale && cache?.meetings?.length) {
-    return NextResponse.json({ ok: true, meetings: cache.meetings, proposals: cache.proposals ?? [], summaries: cache.summaries ?? [], cached: true, updatedAt: cache.updatedAt });
+    const { homeMeetings, homeProposals } = limitHomeData(cache.meetings, cache.proposals ?? [], cache.summaries ?? []);
+    return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries: cache.summaries ?? [], cached: true, updatedAt: cache.updatedAt });
   }
 
   const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cache);
@@ -212,7 +262,8 @@ export async function GET(req: NextRequest) {
     { upsert: true }
   );
 
-  return NextResponse.json({ ok: true, meetings, proposals, summaries, cached: false, updatedAt: new Date() });
+  const { homeMeetings, homeProposals } = limitHomeData(meetings, proposals, summaries);
+  return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries, cached: false, updatedAt: new Date() });
 }
 
 export async function POST(req: NextRequest) {
@@ -220,7 +271,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // ?force=true resets processedUUIDs and reprocesses everything
+  // ?force=true ignores the cache TTL, but already archived summaries are still kept.
   const forceAll = req.nextUrl.searchParams.get("force") === "true";
 
   logApi(ROUTE, forceAll ? "resync_force_all" : "resync_incremental");
@@ -234,8 +285,7 @@ export async function POST(req: NextRequest) {
     updatedAt: Date;
   } | null;
 
-  const cacheToUse = forceAll ? null : cache;
-  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cacheToUse);
+  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cache);
 
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
@@ -243,5 +293,6 @@ export async function POST(req: NextRequest) {
     { upsert: true }
   );
 
-  return NextResponse.json({ ok: true, meetings, proposals, summaries, cached: false, updatedAt: new Date() });
+  const { homeMeetings, homeProposals } = limitHomeData(meetings, proposals, summaries);
+  return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries, cached: false, updatedAt: new Date(), forced: forceAll });
 }

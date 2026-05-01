@@ -217,8 +217,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
   );
 }
 
-type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected" };
-type ZoomMeeting = { id: string | number; topic: string; startTime: string; duration: number };
+type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected"; sourceMeeting?: string; sourceDate?: string; sourceUUID?: string };
+type ZoomMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number };
 
 type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string };
 
@@ -264,7 +264,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     type MeetingData = {
       ok: boolean;
       meetings?: ZoomMeeting[];
-      proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
+      proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string; sourceUUID?: string }[];
       updatedAt?: string;
     };
 
@@ -341,7 +341,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
       const data = await res.json().catch(() => null) as {
         ok: boolean;
         meetings?: ZoomMeeting[];
-        proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string }[];
+        proposals?: { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; sourceMeeting: string; sourceDate: string; sourceUUID?: string }[];
         error?: string;
         updatedAt?: string;
       } | null;
@@ -502,7 +502,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
               )}
               <div style={{ fontSize: 12, color: t.text, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedCall
-                  ? <>{selectedCall} <span style={{ color: t.accent, marginLeft: 4 }}>{pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall).length} tasks</span></>
+                  ? <>{zoomMeetings.find(m => m.uuid === selectedCall)?.topic || selectedCall} <span style={{ color: t.accent, marginLeft: 4 }}>{pending.filter(p => p.sourceUUID === selectedCall).length} tasks</span></>
                   : <>recent calls {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 10, fontWeight: 400, marginLeft: 6 }}>syncing…</span>}</>
                 }
               </div>
@@ -542,26 +542,25 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
           {/* CALLS LIST VIEW */}
           {!selectedCall && !showPaste && (() => {
-            // Always use zoomMeetings as canonical source — merge with proposal dates
-            const proposalCallMap = new Map(
+            // Always use Zoom UUID as canonical source so repeated daily calls do not collapse.
+            const proposalCallMap = new Map<string, { topic: string; startTime: string }>(
               proposals
-                .filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting)
+                .filter(p => p.sourceUUID && p.sourceMeeting)
                 .map(p => {
-                  const sp = p as unknown as { sourceMeeting: string; sourceDate: string };
-                  return [sp.sourceMeeting, sp.sourceDate];
+                  return [p.sourceUUID!, { topic: p.sourceMeeting!, startTime: p.sourceDate || "" }];
                 })
             );
 
             // zoomMeetings is the ground truth; also include any calls that only exist in proposals
-            const meetingTopics = new Map(zoomMeetings.map(m => [m.topic, m.startTime]));
-            for (const [topic, date] of proposalCallMap) {
-              if (!meetingTopics.has(topic)) meetingTopics.set(topic, date);
+            const meetingTopics = new Map(zoomMeetings.map(m => [m.uuid, { topic: m.topic, startTime: m.startTime }]));
+            for (const [uuid, meta] of proposalCallMap) {
+              if (!meetingTopics.has(uuid)) meetingTopics.set(uuid, meta);
             }
 
             const sortedCalls = Array.from(meetingTopics.entries())
-              .map(([topic, startTime]) => ({ topic, startTime }))
+              .map(([uuid, meta]) => ({ uuid, ...meta }))
               .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-              .slice(0, 5);
+              .slice(0, 7);
 
             if (syncing && sortedCalls.length === 0) {
               return <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
@@ -573,10 +572,10 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {sortedCalls.map(call => {
-                  const callPending = proposals.filter(p => p.status === "pending" && (p as unknown as {sourceMeeting?: string}).sourceMeeting === call.topic);
-                  const callDone = proposals.filter(p => p.status !== "pending" && (p as unknown as {sourceMeeting?: string}).sourceMeeting === call.topic);
+                  const callPending = proposals.filter(p => p.status === "pending" && p.sourceUUID === call.uuid);
+                  const callDone = proposals.filter(p => p.status !== "pending" && p.sourceUUID === call.uuid);
                   return (
-                    <button key={call.topic + call.startTime} type="button" onClick={() => setSelectedCall(call.topic)}
+                    <button key={call.uuid} type="button" onClick={() => setSelectedCall(call.uuid)}
                       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 12px", cursor: "pointer", textAlign: "left", transition: "border-color 0.1s" }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
@@ -602,8 +601,8 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
 
           {/* TASKS VIEW (drilled into a call) */}
           {selectedCall && !showPaste && (() => {
-            const callProposals = pending.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall);
-            const callDone = done.filter(p => (p as unknown as {sourceMeeting?: string}).sourceMeeting === selectedCall);
+            const callProposals = pending.filter(p => p.sourceUUID === selectedCall);
+            const callDone = done.filter(p => p.sourceUUID === selectedCall);
 
             if (callProposals.length === 0 && callDone.length === 0) {
               return <div style={{ fontSize: 11, color: t.textMuted }}>No tasks extracted from this call yet.</div>;
