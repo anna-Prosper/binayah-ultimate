@@ -72,6 +72,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
     rawUnownedItems: { key: string; title: string; pipelineName: string }[];
     rawMyItems: { key: string; title: string; pipelineName: string; status: string }[];
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
+    rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone }[];
+    rawRecentActivity: { title: string; meta: string; body: string; tone: AttentionTone }[];
   };
   onApprove: (key: string) => void;
   onClaim: (key: string) => void;
@@ -140,9 +142,9 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
             ) : (
               <>
                 <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
-                <StatTile label="blocked" value={attention.stats[1]?.value ?? 0} tone="red" items={attention.rawBlockedItems} />
-                <StatTile label="unowned" value={attention.stats[2]?.value ?? 0} tone="amber" items={attention.rawUnownedItems} />
-                <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
+                <StatTile label="unowned" value={attention.stats[1]?.value ?? 0} tone="amber" items={attention.rawUnownedItems} />
+                <StatTile label="recent tags" value={attention.stats[2]?.value ?? 0} tone="cyan" items={[]} />
+                <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="accent" items={[]} />
               </>
             )}
           </div>
@@ -190,12 +192,25 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
           ) : (
             <>
               <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
-              <ActionGroup label="blocked" color={t.red} items={attention.rawBlockedItems} />
               <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} actionLabel="+ claim" onAction={onClaim} />
-              {attention.actions.filter(a => a.tone === "cyan" || a.tone === "green").slice(0, 3).length > 0 && (
+              {attention.rawRecentInteractions.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
+                  {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.rawRecentActivity.length > 0 && (
                 <div>
                   <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent activity</div>
-                  {attention.actions.filter(a => a.tone === "cyan" || a.tone === "green").slice(0, 3).map((item, i) => (
+                  {attention.rawRecentActivity.slice(0, 3).map((item, i) => (
                     <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
@@ -206,7 +221,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
                   ))}
                 </div>
               )}
-              {attention.rawReviewItems.length === 0 && attention.rawBlockedItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.actions.length === 0 && (
+              {attention.rawReviewItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
               )}
             </>
@@ -791,6 +806,7 @@ export default function HomeView({
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
   const attention = useMemo(() => {
     const dayAgo = overviewNow - 24 * 60 * 60 * 1000;
+    const weekAgo = overviewNow - 7 * 24 * 60 * 60 * 1000;
     const visiblePipelineIds = new Set(visiblePipelines.map(p => p.id));
     const visibleStageIds = new Set<string>();
     const stageToPipeline = new Map<string, Pipeline>();
@@ -863,26 +879,50 @@ export default function HomeView({
       item.status !== "active" &&
       item.status !== "blocked"
     );
-    const unownedItems = allItems.filter(item => item.owners.length === 0 && item.status !== "active");
+    const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : priority === "MED" ? 2 : 3;
+    const unownedItems = allItems
+      .filter(item => item.owners.length === 0 && item.status !== "active")
+      .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
     const firstName = me.name.split(" ")[0].toLowerCase();
     const mentionNeedles = [`@${firstName}`, `@${currentUser.toLowerCase()}`];
-    const mentions = Object.entries(comments || {}).flatMap(([target, list]) =>
+    const timestampFrom = (value: string | number | undefined) => {
+      if (typeof value === "number") return value;
+      const parsed = Date.parse(value || "");
+      return Number.isFinite(parsed) ? parsed : 0;
+    };
+    const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) =>
       list
-        .filter(c => c.by !== currentUser && mentionNeedles.some(n => c.text.toLowerCase().includes(n)))
+        .filter(c => c.text.includes("@"))
         .map(c => ({
           target,
           text: c.text,
           by: c.by,
+          time: timestampFrom(c.time || c.id),
           title: stageNameLabel(target),
+          directedToMe: mentionNeedles.some(n => c.text.toLowerCase().includes(n)),
+          source: "comment" as const,
         }))
-    ).slice(-5).reverse();
+    );
+    const chatInteractions = (chatMessages || [])
+      .filter(msg => msg.text.includes("@"))
+      .map(msg => ({
+        target: "chat",
+        text: msg.text,
+        by: msg.userId,
+        time: timestampFrom(msg.id),
+        title: "team chat",
+        directedToMe: mentionNeedles.some(n => msg.text.toLowerCase().includes(n)),
+        source: "chat" as const,
+      }));
+    const recentInteractions = [...commentInteractions, ...chatInteractions]
+      .filter(item => item.time >= weekAgo || item.time === 0)
+      .filter(item => roleLabel === "agent" ? item.directedToMe : true)
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 8);
+    const mentions = recentInteractions.filter(item => item.directedToMe).slice(0, 5);
     const mineBlocked = blockedItems.filter(item => item.owners.includes(currentUser));
     const mineHot = hotItems.filter(item => item.owners.includes(currentUser));
     const minePlanned = myItems.filter(item => item.status === "planned" || item.status === "concept");
-    const chatMentions = (chatMessages || [])
-      .filter(msg => msg.userId !== currentUser && mentionNeedles.some(n => msg.text.toLowerCase().includes(n)))
-      .slice(-4)
-      .reverse();
     const activeUpdates = freshActivity
       .filter(a => a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
       .slice(0, 4);
@@ -924,6 +964,24 @@ export default function HomeView({
             tone: "green" as AttentionTone,
           };
         }
+        if (openItems.length === 0) {
+          return {
+            user: u,
+            title,
+            meta: lastActivity ? `clear · ${timeAgoFrom(overviewNow, lastActivity)}` : "available",
+            body: recentComment ? truncate(recentComment.text, 70) : "no open work assigned",
+            tone: "accent" as AttentionTone,
+          };
+        }
+        if (openItems.length >= 5) {
+          return {
+            user: u,
+            title,
+            meta: `${openItems.length} open`,
+            body: lastActivity ? `last update ${timeAgoFrom(overviewNow, lastActivity)}` : "loaded with no visible update",
+            tone: "cyan" as AttentionTone,
+          };
+        }
         return {
           user: u,
           title,
@@ -940,40 +998,34 @@ export default function HomeView({
 
     const stats = roleLabel === "agent"
       ? [
-          { label: "your open work", value: minePlanned.length, tone: "accent" as AttentionTone },
-          { label: "mentions", value: mentions.length, tone: "amber" as AttentionTone },
-          { label: "blocked by you", value: mineBlocked.length, tone: "red" as AttentionTone },
-          { label: "hot priorities", value: mineHot.length, tone: "green" as AttentionTone },
+            { label: "your open work", value: minePlanned.length, tone: "accent" as AttentionTone },
+            { label: "mentions", value: mentions.length, tone: "amber" as AttentionTone },
+            { label: "blocked by you", value: mineBlocked.length, tone: "red" as AttentionTone },
+            { label: "hot priorities", value: mineHot.length, tone: "green" as AttentionTone },
         ]
       : roleLabel === "operator"
         ? [
             { label: "needs approval", value: reviewItems.length, tone: "green" as AttentionTone },
-            { label: "blocked", value: blockedItems.length, tone: "red" as AttentionTone },
             { label: "unowned work", value: unownedItems.length, tone: "amber" as AttentionTone },
-            { label: "new activity", value: freshActivity.length, tone: "cyan" as AttentionTone },
+            { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
+            { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ]
         : [
             { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
-            { label: "blocked across org", value: blockedItems.length, tone: "red" as AttentionTone },
             { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
-            { label: "mentions", value: mentions.length, tone: "accent" as AttentionTone },
+            { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
+            { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ];
 
     const actions = roleLabel === "agent"
       ? [
           ...mentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
-          ...chatMentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.userId)} messaged you`, meta: "chat", body: truncate(m.text, 92) })),
           ...mineBlocked.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
           ...mineHot.slice(0, 3).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: `${item.priority} priority`, body: item.pipelineName })),
           ...newOwned.slice(0, 2).map(a => ({ tone: "cyan" as AttentionTone, title: a.detail, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
         ]
       : [
-          ...chatMentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.userId)} messaged you`, meta: "chat", body: truncate(m.text, 92) })),
           ...activeUpdates.map(a => ({ tone: "green" as AttentionTone, title: `${commentUserLabel(a.user)} marked work in progress`, meta: timeAgoFrom(overviewNow, a.time), body: stageNameLabel(a.target) })),
-          ...reviewItems.slice(0, 4).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: "ready for review", body: item.pipelineName })),
-          ...blockedItems.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
-          ...unownedItems.slice(0, 3).map(item => ({ tone: "amber" as AttentionTone, title: item.title, meta: "no owner", body: item.pipelineName })),
-          ...mentions.slice(0, 2).map(m => ({ tone: "accent" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
         ];
 
     const topAction = actions[0];
@@ -1009,6 +1061,18 @@ export default function HomeView({
       rawUnownedItems: unownedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
       rawMyItems: myItems.filter(i => i.status !== "active").slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
       rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
+      rawRecentInteractions: recentInteractions.slice(0, 5).map(i => ({
+        title: i.directedToMe ? `${commentUserLabel(i.by)} tagged you` : `${commentUserLabel(i.by)} tagged someone`,
+        meta: i.time ? timeAgoFrom(overviewNow, i.time) : i.title,
+        body: `${i.source === "chat" ? "chat" : i.title}: ${truncate(i.text, 86)}`,
+        tone: i.directedToMe ? "amber" as AttentionTone : "cyan" as AttentionTone,
+      })),
+      rawRecentActivity: activeUpdates.slice(0, 4).map(a => ({
+        tone: "green" as AttentionTone,
+        title: `${commentUserLabel(a.user)} marked work in progress`,
+        meta: timeAgoFrom(overviewNow, a.time),
+        body: stageNameLabel(a.target),
+      })),
     };
   }, [
     activityLog, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
