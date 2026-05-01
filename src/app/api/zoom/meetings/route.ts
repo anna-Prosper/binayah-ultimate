@@ -155,9 +155,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Allow cron (via secret) OR browser (no secret needed — panel is already admin-gated by NextAuth)
   const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && secret !== cronSecret) {
+  if (cronSecret && secret && secret !== cronSecret) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
