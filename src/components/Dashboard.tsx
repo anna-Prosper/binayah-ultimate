@@ -357,7 +357,7 @@ function DashboardInner({
   }
   if (!me) return <div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>;
 
-  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, readOnly: isExec, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
+  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, readOnly: false, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
 
   // Compose sidebar and header nodes for ChromeShell
   const sidebarNode = !isMobile ? (

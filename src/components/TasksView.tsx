@@ -2,14 +2,14 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "@/lib/themes";
-import { ADMIN_IDS, REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import ConfirmModal from "@/components/ui/ConfirmModal";
 import ClaimerPills from "@/components/ui/ClaimerPills";
-import { useModel, useRole, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
+import { useModel, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
@@ -804,11 +804,14 @@ function TaskCard({
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
   const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
   const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
-  const role = useRole(task.workspaceId);
-  const canArchive = !readOnly && (role === "operator" || role === "root" || (!!currentUser && ADMIN_IDS.includes(currentUser)));
+  const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
+  const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
   const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    setDescDraft(stageDescOverrides[task.stageId] || "");
+  }, [stageDescOverrides, task.stageId, editOpen]);
 
   const isDone = task.status === "active";
   const isApproved = approvedStages.includes(task.stageId);
@@ -946,8 +949,12 @@ function TaskCard({
       {editOpen && !readOnly && (
         <div style={{ display: "flex", flexDirection: "column", gap: 6, padding: "4px 0" }} onClick={e => e.stopPropagation()}>
           <textarea
-            value={stageDescOverrides[task.stageId] || ""}
-            onChange={e => setStageDescOverride(task.stageId, e.target.value)}
+            value={descDraft}
+            onChange={e => setDescDraft(e.target.value)}
+            onBlur={() => {
+              const current = stageDescOverrides[task.stageId] || "";
+              if (descDraft !== current) setStageDescOverride(task.stageId, descDraft);
+            }}
             placeholder="Stage description..."
             rows={2}
             style={{ width: "100%", background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}

@@ -29,6 +29,9 @@ export type SharedState = {
     createdAt: number;
     reviewedAt?: number;
     reviewedBy?: string;
+    kind?: "strategy" | "edit" | "archive" | "assign";
+    target?: string;
+    requestedAction?: string;
   }[];
   subtasks?: Record<string, { id: number; text: string; done: boolean; by: string }[]>;
   comments?: Record<string, { id: number; text: string; by: string; time: string }[]>;

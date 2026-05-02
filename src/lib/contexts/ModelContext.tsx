@@ -80,6 +80,7 @@ interface ModelContextValue {
   activityLog: ActivityItem[];
   execProposals: ExecProposal[];
   addExecProposal: (title: string, body: string) => void;
+  requestWorkChange: (input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string }) => void;
   updateExecProposalStatus: (id: number, status: "reviewed" | "rejected") => void;
   archivedStages: string[];
   archivedPipelines: string[];
@@ -676,10 +677,48 @@ export function ModelProvider({
     if (!ws) return false;
     return ws.captains.includes(currentUser);
   }, [workspaces, currentUser]);
+  const canMutateDirectly = useCallback(() => {
+    if (!currentUser) return false;
+    if (ADMIN_IDS.includes(currentUser)) return true;
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    return !!ws && ws.captains.includes(currentUser);
+  }, [currentUser, currentWorkspaceId, workspaces]);
+
+  const requestWorkChange = useCallback((input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string }) => {
+    if (!currentUser) return;
+    markLocalWrite("execProposals");
+    const proposal: ExecProposal = {
+      id: Date.now(),
+      title: input.title.slice(0, 120),
+      body: input.body.slice(0, 1200),
+      by: currentUser,
+      status: "pending",
+      createdAt: Date.now(),
+      kind: input.kind,
+      target: input.target,
+      requestedAction: input.requestedAction,
+    };
+    setExecProposals(prev => [proposal, ...prev].slice(0, 100));
+    logActivity("request", input.target, input.requestedAction);
+    showToast("// request sent to Anna", t.green);
+  }, [currentUser, logActivity, showToast, t.green]);
+
+  const requestInsteadOfMutate = useCallback((kind: "edit" | "archive" | "assign", target: string, requestedAction: string, detail: string) => {
+    if (canMutateDirectly()) return false;
+    requestWorkChange({
+      kind,
+      target,
+      requestedAction,
+      title: `${kind}: ${target}`,
+      body: detail,
+    });
+    return true;
+  }, [canMutateDirectly, requestWorkChange]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
+    if (requestInsteadOfMutate("assign", sid, "claim ownership", `Add me as an owner on "${sid}".`)) return;
     const alreadyOwner = (owners[sid] || []).includes(currentUser);
     markLocalWrite("owners");
     setOwners(prev => {
@@ -703,6 +742,13 @@ export function ModelProvider({
   const ASSIGN_CAP = 2;
   const assignTask = (sid: string, userId: string | null) => {
     if (!currentUser) return;
+    const assignee = userId ? users.find(u => u.id === userId) : null;
+    if (requestInsteadOfMutate(
+      "assign",
+      sid,
+      userId ? `assign ${assignee?.name || userId}` : "clear assignees",
+      userId ? `Assign "${sid}" to ${assignee?.name || userId}.` : `Clear all assignees from "${sid}".`,
+    )) return;
     const isSubtask = SubtaskKey.isValid(sid);
     markLocalWrite("owners");
     setOwners(prev => {
@@ -745,7 +791,6 @@ export function ModelProvider({
     });
 
     if (userId) {
-      const assignee = users.find(u => u.id === userId);
       logActivity("assign", sid, `toggled ${assignee?.name || userId}`);
     } else {
       logActivity("assign", sid, "unassigned");
@@ -791,6 +836,7 @@ export function ModelProvider({
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
     clearInput();
+    logActivity("create", sid, `added subtask ${trimmed}`);
     // Fire-and-forget LLM points suggestion — falls back to DEFAULT_SUBTASK_POINTS if it fails
     fetch("/api/suggest-points", {
       method: "POST",
@@ -824,6 +870,8 @@ export function ModelProvider({
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) }));
   };
   const renameSubtask = (sid: string, taskId: number, text: string) => {
+    const key = SubtaskKey.make(sid, taskId);
+    if (requestInsteadOfMutate("edit", key, "rename subtask", `Rename subtask under "${sid}" to "${text}".`)) return;
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) }));
   };
@@ -957,6 +1005,7 @@ export function ModelProvider({
 
   const archiveStage = (sid: string) => {
     if (archivedStages.includes(sid)) return;
+    if (requestInsteadOfMutate("archive", sid, "archive task", `Archive "${stageNameOverrides[sid] || sid}".`)) return;
     const label = `archived "${stageNameOverrides[sid] || sid}"`;
     const op = undoStack.push({
       label,
@@ -988,6 +1037,7 @@ export function ModelProvider({
   const restorePipeline = (pid: string) => { setArchivedPipelines(prev => prev.filter(p => p !== pid)); showToast("pipeline restored", t.green); };
   const archiveSubtask = (key: string) => {
     if (archivedSubtasks.includes(key)) return;
+    if (requestInsteadOfMutate("archive", key, "archive subtask", `Archive subtask "${key}".`)) return;
     const op = undoStack.push({
       label: `archived subtask`,
       inverse: () => setArchivedSubtasks(prev => prev.filter(k => k !== key)),
@@ -1001,12 +1051,19 @@ export function ModelProvider({
   };
   const restoreSubtask = (key: string) => { setArchivedSubtasks(prev => prev.filter(k => k !== key)); };
 
-  const setStageDescOverride = (name: string, val: string) => { markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val })); };
+  const setStageDescOverride = (name: string, val: string) => {
+    if (requestInsteadOfMutate("edit", name, "edit task description", `Change description for "${name}" to:\n\n${val}`)) return;
+    markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+  };
   const setSubtaskDescOverride = (key: string, desc: string | null) => {
+    if (requestInsteadOfMutate("edit", key, "edit subtask description", `Change description for "${key}" to:\n\n${desc || "(empty)"}`)) return;
     markLocalWrite("subtaskDescOverrides");
     setSubtaskDescOverrides(prev => { const next = { ...prev }; if (desc === null) delete next[key]; else next[key] = desc; return next; });
   };
-  const setStageNameOverride = (name: string, val: string) => { markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val })); };
+  const setStageNameOverride = (name: string, val: string) => {
+    if (requestInsteadOfMutate("edit", name, "rename task", `Rename "${name}" to "${val}".`)) return;
+    markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+  };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
     markLocalWrite("stagePointsOverride");
     setStagePointsOverrideState(prev => {
@@ -1114,6 +1171,7 @@ export function ModelProvider({
     if (!val) return;
     markLocalWrite("customStages");
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
+    logActivity("create", val, `added task to ${pid}`);
   };
 
   // Inbox sentinel — used inline (also exported at module top for cross-file imports)
@@ -1301,6 +1359,7 @@ export function ModelProvider({
       by: currentUser,
       status: "pending",
       createdAt: Date.now(),
+      kind: "strategy",
     };
     setExecProposals(prev => [proposal, ...prev].slice(0, 80));
     logActivity("proposal", proposal.title, "submitted executive request");
@@ -1332,7 +1391,7 @@ export function ModelProvider({
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
-    execProposals, addExecProposal, updateExecProposalStatus,
+    execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
     syncStatus,

@@ -136,9 +136,11 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 13, color: t.text, fontWeight: 800 }}>{p.title}</span>
+                    {p.kind && <span style={{ fontSize: 10, color: t.accent, fontFamily: mono }}>{p.kind}</span>}
                     <span style={{ fontSize: 10, color, fontFamily: mono }}>{p.status}</span>
                     <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{author?.name.split(" ")[0] || p.by} · {timeAgoFrom(renderNow, p.createdAt)}</span>
                   </div>
+                  {p.target && <div style={{ marginTop: 2, fontSize: 10, color: t.textDim, fontFamily: mono }}>target: {p.target}{p.requestedAction ? ` · ${p.requestedAction}` : ""}</div>}
                   <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>{p.body}</div>
                 </div>
                 {isAdmin && p.status === "pending" && (
@@ -1511,7 +1513,7 @@ export default function HomeView({
         onPipelineClick={onPipelineClick}
         currentWorkspaceId={homeWsFilter}
         availableWorkspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds }))}
-        readOnly={attention.roleLabel === "exec"}
+        readOnly={false}
       />
     </div>
   );

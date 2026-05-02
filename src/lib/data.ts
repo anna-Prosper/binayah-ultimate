@@ -359,6 +359,9 @@ export interface ExecProposal {
   createdAt: number;
   reviewedAt?: number;
   reviewedBy?: string;
+  kind?: "strategy" | "edit" | "archive" | "assign";
+  target?: string;
+  requestedAction?: string;
 }
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"];
 
