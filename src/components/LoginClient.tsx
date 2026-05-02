@@ -6,8 +6,8 @@ import { useRouter } from "next/navigation";
 import { mkTheme } from "@/lib/themes";
 import { SCHEMA_VERSION } from "@/lib/version";
 
-// Use warroom dark by default — user hasn't picked theme yet
-const t = mkTheme("warroom", true);
+// Use light Night City by default — user hasn't picked theme yet.
+const t = mkTheme("warroom", false);
 const YEAR = new Date().getFullYear();
 
 // Official Google G icon SVG (multicolor — do NOT tint)

@@ -91,7 +91,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
             {isAdmin ? "executive requests" : "propose to Anna"}
           </div>
           <div style={{ marginTop: 4, fontSize: 18, color: t.text, fontWeight: 900 }}>
-            {isAdmin ? `${pending.length} request${pending.length === 1 ? "" : "s"} waiting` : "send a strategic suggestion"}
+            {isAdmin ? `${pending.length} request${pending.length === 1 ? "" : "s"} waiting` : "what should the team look at?"}
           </div>
         </div>
         {isAdmin && pending.length > 0 && <div style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800 }}>{pending.length} open</div>}
@@ -109,7 +109,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
-            placeholder="what should Anna look at, approve, or consider?"
+            placeholder="what should the team look at, approve, or consider?"
             maxLength={1200}
             rows={2}
             style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 13, outline: "none", resize: "vertical", minHeight: 38 }}
@@ -238,10 +238,17 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
             {isAgent ? (
               <>
-                <StatTile label="my open work" value={attention.stats[0]?.value ?? 0} tone="accent" items={attention.rawMyItems} />
-                <StatTile label="mentions" value={attention.stats[1]?.value ?? 0} tone="amber" items={[]} />
-                <StatTile label="blocked" value={attention.stats[2]?.value ?? 0} tone="red" items={attention.rawMineBlocked} />
-                <StatTile label="hot priorities" value={attention.stats[3]?.value ?? 0} tone="green" items={[]} />
+                <StatTile label={attention.stats[0]?.label ?? "doing now"} value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawMyItems.filter(i => i.status === "in-progress")} />
+                <StatTile label={attention.stats[1]?.label ?? "next up"} value={attention.stats[1]?.value ?? 0} tone="accent" items={attention.rawMyItems.filter(i => i.status !== "in-progress")} />
+                <StatTile label={attention.stats[2]?.label ?? "tags"} value={attention.stats[2]?.value ?? 0} tone="amber" items={[]} />
+                <StatTile label={attention.stats[3]?.label ?? "done 7d"} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
+              </>
+            ) : isExec ? (
+              <>
+                <StatTile label={attention.stats[0]?.label ?? "done 7d"} value={attention.stats[0]?.value ?? 0} tone="green" items={[]} />
+                <StatTile label={attention.stats[1]?.label ?? "done 30d"} value={attention.stats[1]?.value ?? 0} tone="cyan" items={[]} />
+                <StatTile label={attention.stats[2]?.label ?? "total done"} value={attention.stats[2]?.value ?? 0} tone="accent" items={[]} />
+                <StatTile label={attention.stats[3]?.label ?? "pipelines done"} value={attention.stats[3]?.value ?? 0} tone="amber" items={[]} />
               </>
             ) : (
               <>
@@ -276,8 +283,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
         <div style={{ minWidth: 0 }}>
           {isAgent ? (
             <>
-              <ActionGroup label="blocked — needs your attention" color={t.red} items={attention.rawMineBlocked} />
-              <ActionGroup label="your open work" color={t.accent} items={attention.rawMyItems.slice(0, 4)} />
+              <ActionGroup label="doing now" color={t.green} items={attention.rawMyItems.filter(i => i.status === "in-progress").slice(0, 4)} />
+              <ActionGroup label="next up" color={t.accent} items={attention.rawMyItems.filter(i => i.status !== "in-progress").slice(0, 4)} />
               {attention.actions.filter(a => a.tone === "amber").length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>mentions</div>
@@ -889,7 +896,7 @@ export default function HomeView({
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
-    claims, comments, approvedStages, approvedSubtasks, customStages, getPoints: modelGetPoints,
+    claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, activityLog, chatMessages,
     getStatus, ck, approveStage, handleClaim,
     execProposals, addExecProposal, updateExecProposalStatus,
@@ -1019,7 +1026,7 @@ export default function HomeView({
       item.status !== "active" &&
       item.status !== "blocked"
     );
-    const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : priority === "MED" ? 2 : 3;
+    const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : (priority === "MED" || priority === "MEDIUM") ? 2 : 3;
     const unownedItems = allItems
       .filter(item => item.owners.length === 0 && item.status !== "active")
       .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
@@ -1066,8 +1073,28 @@ export default function HomeView({
     const activeUpdates = freshActivity
       .filter(a => a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
       .slice(0, 4);
+    const visibleItemKeys = new Set(allItems.map(item => item.key));
+    const visibleItemTitles = new Set(allItems.map(item => item.title));
+    const completedItems = allItems.filter(item =>
+      item.status === "active" ||
+      item.approved ||
+      ("done" in item && item.done)
+    );
+    const completedActivity = activityLog.filter(a =>
+      a.type === "status_change" &&
+      /→ active|to active|done|approved/i.test(a.detail) &&
+      (visibleItemKeys.has(a.target) || visibleItemTitles.has(a.target))
+    );
+    const done7d = completedActivity.filter(a => a.time >= weekAgo).length;
+    const done30d = completedActivity.filter(a => a.time >= overviewNow - 30 * 24 * 60 * 60 * 1000).length;
+    const myDone7d = completedActivity.filter(a => a.user === currentUser && a.time >= weekAgo).length;
+    const visiblePipelineDoneCount = visiblePipelines.filter(p => {
+      if (approvedPipelines.includes(p.id)) return true;
+      const stages = [...p.stages, ...(customStages[p.id] || [])].filter(s => visibleStageIds.has(s));
+      return stages.length > 0 && stages.every(s => getStatus(s) === "active" || approvedStages.includes(s));
+    }).length;
     const people = roleLabel === "agent" ? [] : scopedUsers
-      .filter(u => u.id !== currentUser)
+      .filter(u => u.id !== currentUser && (roleLabel !== "exec" || !EXEC_IDS.includes(u.id)))
       .map(u => {
         const openItems = allItems.filter(item => item.owners.includes(u.id) && item.status !== "active");
         const userActivity = activityLog.filter(a => a.user === u.id);
@@ -1138,10 +1165,10 @@ export default function HomeView({
 
     const stats = roleLabel === "agent"
       ? [
-            { label: "your open work", value: minePlanned.length, tone: "accent" as AttentionTone },
-            { label: "mentions", value: mentions.length, tone: "amber" as AttentionTone },
-            { label: "blocked by you", value: mineBlocked.length, tone: "red" as AttentionTone },
-            { label: "hot priorities", value: mineHot.length, tone: "green" as AttentionTone },
+            { label: "doing now", value: myItems.filter(i => i.status === "in-progress").length, tone: "green" as AttentionTone },
+            { label: "next up", value: minePlanned.length, tone: "accent" as AttentionTone },
+            { label: "tags for you", value: mentions.length, tone: "amber" as AttentionTone },
+            { label: "done 7d", value: myDone7d, tone: "cyan" as AttentionTone },
         ]
       : roleLabel === "operator"
         ? [
@@ -1152,10 +1179,10 @@ export default function HomeView({
           ]
         : roleLabel === "exec"
           ? [
-              { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
-              { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
-              { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
-              { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
+              { label: "done 7d", value: done7d, tone: "green" as AttentionTone },
+              { label: "done 30d", value: done30d, tone: "cyan" as AttentionTone },
+              { label: "total done", value: completedItems.length, tone: "accent" as AttentionTone },
+              { label: "pipelines done", value: visiblePipelineDoneCount, tone: "amber" as AttentionTone },
             ]
         : [
             { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
@@ -1206,7 +1233,10 @@ export default function HomeView({
       rawReviewItems: reviewItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, kind: i.kind })),
       rawBlockedItems: blockedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, owners: i.owners })),
       rawUnownedItems: unownedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
-      rawMyItems: myItems.filter(i => i.status !== "active").slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
+      rawMyItems: myItems.filter(i => i.status !== "active").sort((a, b) => {
+        const rank = { "in-progress": 0, planned: 1, concept: 2, blocked: 3 } as Record<string, number>;
+        return (rank[a.status] ?? 4) - (rank[b.status] ?? 4);
+      }).slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
       rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
       rawRecentInteractions: recentInteractions.slice(0, 5).map(i => ({
         title: i.directedToMe ? `${commentUserLabel(i.by)} tagged you` : `${commentUserLabel(i.by)} tagged someone`,
@@ -1222,7 +1252,7 @@ export default function HomeView({
       })),
     };
   }, [
-    activityLog, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
+    activityLog, approvedPipelines, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
     customStages, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);

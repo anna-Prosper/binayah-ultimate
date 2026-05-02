@@ -698,7 +698,7 @@ export default function Onboarding({
                 const active = themeId === th.id;
                 return (
                   <button key={th.id} onClick={() => setThemeId(th.id)} style={{
-                    background: active ? th.bg : t.bgCard, border: `2px solid ${active ? th.color : t.border}`,
+                    background: active ? t.bgCard : t.bgCard, border: `2px solid ${active ? th.color : t.border}`,
                     borderRadius: 16, padding: "16px 12px", cursor: "pointer", textAlign: "center",
                     transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)", fontFamily: "inherit", position: "relative", overflow: "hidden",
                     boxShadow: active ? `0 0 40px ${th.color}15, inset 0 0 40px ${th.color}08` : "0 2px 8px rgba(0,0,0,0.3)",

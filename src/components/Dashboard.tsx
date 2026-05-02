@@ -50,9 +50,9 @@ function DashboardShell({ initialUserId }: { initialUserId?: string }) {
     return !checkSchemaVersion();
   });
   const [isDark, setIsDark] = useState(() => {
-    if (typeof window === "undefined") return true;
-    if (!localStorage.getItem("binayah_themeV2")) return true;
-    return lsGet("isDark", true);
+    if (typeof window === "undefined") return false;
+    if (!localStorage.getItem("binayah_themeV2")) return false;
+    return lsGet("isDark", false);
   });
   const [themeId, setThemeId] = useState<string>(() => {
     const stored = lsGet<string>("themeId", "warroom");
