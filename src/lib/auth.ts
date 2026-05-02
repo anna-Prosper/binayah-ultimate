@@ -4,6 +4,7 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
 import { connectMongo } from "@/lib/mongo";
 import AuthUser from "@/lib/AuthUser";
+import { ADMIN_IDS, resolveEffectiveUserId } from "@/lib/data";
 
 // ─── Admin email → fixedUserId whitelist ──────────────────────────────────────
 // Hardcoded (not solely env-var driven) per spec — multiple emails map to same user.
@@ -15,8 +16,8 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "pm@binayah.com": "prajeesh",
   "ak@binayah.com": "abdallah",
   // TEMP users — remove when no longer needed
-  "guest1@binayah.com": "guest1",
-  "guest2@binayah.com": "guest2",
+  "guest1@binayah.com": "aakarshit",
+  "guest2@binayah.com": "abdallah",
 };
 
 // Reverse map: fixedUserId → primary email for notifications
@@ -47,12 +48,11 @@ export function getFixedUserIdForEmail(email: string): string | undefined {
  *
  * Use this anywhere a root user must always pass through a permission gate.
  */
-import { ADMIN_IDS } from "@/lib/data";
 export function isRootAdminFromSession(
   session: { user?: { fixedUserId?: string; email?: string | null } } | null | undefined
 ): boolean {
   if (!session?.user) return false;
-  const fid = session.user.fixedUserId;
+  const fid = resolveEffectiveUserId(session.user.fixedUserId);
   if (fid && ADMIN_IDS.includes(fid)) return true;
   const email = (session.user.email || "").toLowerCase();
   if (!email) return false;
@@ -125,30 +125,35 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account, profile }) {
       // First sign-in: add fixedUserId
       if (user && (user as { fixedUserId?: string }).fixedUserId) {
-        token.fixedUserId = (user as { fixedUserId?: string }).fixedUserId;
+        token.fixedUserId = resolveEffectiveUserId((user as { fixedUserId?: string }).fixedUserId) || undefined;
       }
       // Google OAuth: look up fixedUserId from email
       if (account?.provider === "google" && profile?.email) {
         const email = profile.email.toLowerCase();
-        token.fixedUserId = ADMIN_EMAIL_MAP[email];
+        token.fixedUserId = resolveEffectiveUserId(ADMIN_EMAIL_MAP[email]) || undefined;
         token.email = email;
       }
       // Fallback: stale tokens without fixedUserId — derive from email so the
       // server always knows the actor identity (especially for ADMIN_IDS root).
       if (!token.fixedUserId && token.email) {
         const derived = ADMIN_EMAIL_MAP[(token.email as string).toLowerCase()];
-        if (derived) token.fixedUserId = derived;
+        if (derived) token.fixedUserId = resolveEffectiveUserId(derived) || undefined;
+      }
+      if (typeof token.fixedUserId === "string") {
+        token.fixedUserId = resolveEffectiveUserId(token.fixedUserId) || undefined;
       }
       return token;
     },
 
     async session({ session, token }) {
       if (token.fixedUserId) {
-        session.user.fixedUserId = token.fixedUserId;
+        const resolved = resolveEffectiveUserId(token.fixedUserId as string);
+        if (resolved) session.user.fixedUserId = resolved;
       } else if (session.user?.email) {
         // Defense in depth: derive at session-build time if token didn't have it.
         const derived = ADMIN_EMAIL_MAP[session.user.email.toLowerCase()];
-        if (derived) session.user.fixedUserId = derived;
+        const resolved = resolveEffectiveUserId(derived);
+        if (resolved) session.user.fixedUserId = resolved;
       }
       return session;
     },
