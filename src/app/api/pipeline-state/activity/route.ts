@@ -9,7 +9,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
 // Event types surfaced in the notification bell
-const BELL_EVENT_TYPES = new Set(["claimed", "active", "comment"]);
+const BELL_EVENT_TYPES = new Set(["claim", "create", "request", "comment", "active"]);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

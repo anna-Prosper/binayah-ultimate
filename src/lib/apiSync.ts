@@ -19,7 +19,7 @@ export type SharedState = {
   approvedPipelines?: string[];
   reactions?: Record<string, Record<string, string[]>>;
   chatMessages?: { id: number; userId: string; text: string; time: string }[];
-  activityLog?: { type: string; user: string; target: string; detail: string; time: number }[];
+  activityLog?: { type: string; user: string; target: string; detail: string; time: number; notifyTo?: string[] }[];
   execProposals?: {
     id: number;
     title: string;

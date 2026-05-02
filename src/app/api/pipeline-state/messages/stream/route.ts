@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type ChatMsg = { id: number; userId: string; text: string; time: string };
-type ActivityItem = { type: string; user: string; target: string; detail: string; time: number };
+type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; notifyTo?: string[] };
 
 const WORKSPACE = { workspaceId: "main" };
 
@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
         // Gap-fill activity entries newer than sinceActivity from PipelineState
         if (sinceActivity !== null) {
           const sinceTime = parseInt(sinceActivity, 10);
-          const BELL_TYPES = new Set(["claimed", "active", "comment"]);
+          const BELL_TYPES = new Set(["claim", "create", "request", "comment", "active"]);
           const doc = await PipelineState.findOne(WORKSPACE).lean() as {
             state?: {
               activityLog?: ActivityItem[];

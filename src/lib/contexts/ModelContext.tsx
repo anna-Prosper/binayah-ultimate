@@ -155,7 +155,7 @@ interface ModelContextValue {
   sendChat: (text: string) => void;
   handleRemoteMessage: (msg: ChatMsg) => void;
   loadMoreMessages: () => Promise<void>;
-  logActivity: (type: string, target: string, detail: string) => void;
+  logActivity: (type: string, target: string, detail: string, notifyTo?: string[]) => void;
 
   // Subtask migration
   migrateSubtask: (oldKey: SubtaskKey, newParentStageId: string) => void;
@@ -394,9 +394,10 @@ export function ModelProvider({
   }, []);
 
   // ── Activity log ──────────────────────────────────────────────────────────
-  const logActivity = useCallback((type: string, target: string, detail: string) => {
+  const logActivity = useCallback((type: string, target: string, detail: string, notifyTo?: string[]) => {
     if (!currentUser) return;
-    const entry = { type, user: currentUser, target, detail, time: Date.now(), workspaceId: currentWorkspaceId };
+    const entry: ActivityItem = { type, user: currentUser, target, detail, time: Date.now(), workspaceId: currentWorkspaceId };
+    if (notifyTo?.length) entry.notifyTo = Array.from(new Set(notifyTo));
     setActivityLog(prev => [entry, ...prev.slice(0, 99)]);
     pushActivity(entry).then(result => { if (!result.ok) setSyncStatus("offline"); });
   }, [currentUser, currentWorkspaceId]);
@@ -699,7 +700,7 @@ export function ModelProvider({
       requestedAction: input.requestedAction,
     };
     setExecProposals(prev => [proposal, ...prev].slice(0, 100));
-    logActivity("request", input.target, input.requestedAction);
+    logActivity("request", input.target, input.requestedAction, ADMIN_IDS);
     showToast("// request sent to Anna", t.green);
   }, [currentUser, logActivity, showToast, t.green]);
 
@@ -718,7 +719,6 @@ export function ModelProvider({
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
-    if (requestInsteadOfMutate("assign", sid, "claim ownership", `Add me as an owner on "${sid}".`)) return;
     const alreadyOwner = (owners[sid] || []).includes(currentUser);
     markLocalWrite("owners");
     setOwners(prev => {
@@ -731,7 +731,7 @@ export function ModelProvider({
       }
       return { ...prev, [sid]: [...c, currentUser] };
     });
-    if (!alreadyOwner) logActivity("claim", sid, "took ownership");
+    if (!alreadyOwner) logActivity("claim", sid, "took ownership", ADMIN_IDS);
   };
 
   // assignTask: admin-driven path to add/remove an owner. Same underlying
@@ -836,7 +836,7 @@ export function ModelProvider({
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
     clearInput();
-    logActivity("create", sid, `added subtask ${trimmed}`);
+    logActivity("create", sid, `added subtask ${trimmed}`, ADMIN_IDS);
     // Fire-and-forget LLM points suggestion — falls back to DEFAULT_SUBTASK_POINTS if it fails
     fetch("/api/suggest-points", {
       method: "POST",
@@ -1013,7 +1013,7 @@ export function ModelProvider({
     });
     markLocalWrite("archivedStages");
     setArchivedStages(prev => [...prev, sid]);
-    logActivity("claim", sid, "archived");
+    logActivity("archive", sid, "archived");
     showToast(label, t.textMuted, 8000, {
       label: "undo",
       onClick: () => { undoStack.removeById(op.id); { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; },
@@ -1171,7 +1171,7 @@ export function ModelProvider({
     if (!val) return;
     markLocalWrite("customStages");
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
-    logActivity("create", val, `added task to ${pid}`);
+    logActivity("create", val, `added task to ${pid}`, ADMIN_IDS);
   };
 
   // Inbox sentinel — used inline (also exported at module top for cross-file imports)
@@ -1189,7 +1189,7 @@ export function ModelProvider({
       ...prev,
       [INBOX_PIPELINE_ID]: [...(prev[INBOX_PIPELINE_ID] || []), trimmed],
     }));
-    logActivity("create", trimmed, "added to inbox");
+    logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
     // Fire-and-forget LLM points suggestion
     fetch("/api/suggest-points", {
       method: "POST",

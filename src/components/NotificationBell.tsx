@@ -7,7 +7,7 @@ import { T } from "@/lib/themes";
 import { type ActivityItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 
-const BELL_TYPES = new Set(["claimed", "active", "comment"]);
+const BELL_TYPES = new Set(["claim", "create", "request", "comment", "active"]);
 const MAX_NOTIFICATIONS = 50;
 const MAX_VISIBLE = 20;
 
@@ -27,7 +27,9 @@ function relativeTime(ts: number): string {
 }
 
 function getEventColor(type: string, t: T): string {
-  if (type === "claimed") return t.accent;
+  if (type === "claim") return t.accent;
+  if (type === "create") return t.green;
+  if (type === "request") return t.amber;
   if (type === "active") return t.green;
   if (type === "comment") return t.textSec;
   return t.textMuted;
@@ -37,10 +39,19 @@ function getEventDescription(item: ActivityItem, users: UserType[]): string {
   const actor = users.find(u => u.id === item.user);
   const name = actor?.name || item.user;
   const stage = item.target || item.detail || "a stage";
-  if (item.type === "claimed") return `${name} claimed ${stage}`;
+  if (item.type === "claim") return `${name} claimed ${stage}`;
+  if (item.type === "create") return `${name} created ${stage}`;
+  if (item.type === "request") return `${name} requested ${item.detail || stage}`;
   if (item.type === "active") return `${stage} went live`;
   if (item.type === "comment") return `${name} commented on ${stage}`;
   return `${name} ${item.type} ${stage}`;
+}
+
+function isRelevantNotification(item: ActivityItem, currentUserId: string): boolean {
+  if (!BELL_TYPES.has(item.type)) return false;
+  if (item.user === currentUserId) return false;
+  if (item.notifyTo?.length) return item.notifyTo.includes(currentUserId);
+  return true;
 }
 
 export default function NotificationBell({ t, currentUserId, users }: Props) {
@@ -78,7 +89,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
         const data = await res.json() as { activityLog?: ActivityItem[] };
         const log = data.activityLog ?? [];
         const relevant = log
-          .filter(a => BELL_TYPES.has(a.type))
+          .filter(a => isRelevantNotification(a, currentUserId))
           .slice(0, MAX_NOTIFICATIONS);
         // Seed keys
         relevant.forEach(a => {
@@ -128,7 +139,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
         if (!mountedRef.current) return;
         try {
           const item = JSON.parse(event.data) as ActivityItem;
-          if (!BELL_TYPES.has(item.type)) return;
+          if (!isRelevantNotification(item, currentUserId)) return;
           const key = `${item.type}:${item.user}:${item.target}:${item.time}`;
           if (seenKeysRef.current.has(key)) return;
           seenKeysRef.current.add(key);

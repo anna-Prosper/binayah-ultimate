@@ -349,7 +349,7 @@ pipelineData.forEach(p => {
 // === TYPES ===
 export interface SubtaskItem { id: number; text: string; done: boolean; by: string; locked?: boolean; points?: number; }
 export interface CommentItem { id: number; text: string; by: string; time: string; }
-export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; workspaceId?: string };
+export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; workspaceId?: string; notifyTo?: string[] };
 export interface ExecProposal {
   id: number;
   title: string;

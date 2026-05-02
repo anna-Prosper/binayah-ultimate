@@ -1075,6 +1075,11 @@ export default function HomeView({
     const activeUpdates = freshActivity
       .filter(a => a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
       .slice(0, 4);
+    const annaSignals = isRoot
+      ? freshActivity
+          .filter(a => a.notifyTo?.includes(currentUser) && (a.type === "claim" || a.type === "create" || a.type === "request"))
+          .slice(0, 5)
+      : [];
     const visibleItemKeys = new Set(allItems.map(item => item.key));
     const visibleItemTitles = new Set(allItems.map(item => item.title));
     const completedItems = allItems.filter(item =>
@@ -1201,6 +1206,12 @@ export default function HomeView({
           ...newOwned.slice(0, 2).map(a => ({ tone: "cyan" as AttentionTone, title: a.detail, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
         ]
       : [
+          ...annaSignals.map(a => ({
+            tone: a.type === "create" ? "green" as AttentionTone : "cyan" as AttentionTone,
+            title: `${commentUserLabel(a.user)} ${a.type === "claim" ? "claimed work" : a.type === "create" ? "created work" : "sent a request"}`,
+            meta: timeAgoFrom(overviewNow, a.time),
+            body: `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
+          })),
           ...activeUpdates.map(a => ({ tone: "green" as AttentionTone, title: `${commentUserLabel(a.user)} marked work in progress`, meta: timeAgoFrom(overviewNow, a.time), body: stageNameLabel(a.target) })),
         ];
 
