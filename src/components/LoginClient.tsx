@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { Mail, X } from "lucide-react";
 import { signIn, useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { mkTheme } from "@/lib/themes";
@@ -465,7 +466,10 @@ export default function LoginClient() {
                 opacity: isInFlight ? 0.5 : 1,
               }}
             >
-              {emailExpanded ? "✕ hide email form" : "✉ sign in with email"}
+              <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                {emailExpanded ? <X size={14} strokeWidth={2} /> : <Mail size={14} strokeWidth={1.8} />}
+                {emailExpanded ? "hide email form" : "sign in with email"}
+              </span>
             </button>
           </div>
 
