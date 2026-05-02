@@ -16,8 +16,8 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "pm@binayah.com": "prajeesh",
   "ak@binayah.com": "abdallah",
   // TEMP users — remove when no longer needed
-  "guest1@binayah.com": "aakarshit",
-  "guest2@binayah.com": "abdallah",
+  "guest1@binayah.com": "guest1",
+  "guest2@binayah.com": "guest2",
 };
 
 // Reverse map: fixedUserId → primary email for notifications
@@ -125,35 +125,30 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, account, profile }) {
       // First sign-in: add fixedUserId
       if (user && (user as { fixedUserId?: string }).fixedUserId) {
-        token.fixedUserId = resolveEffectiveUserId((user as { fixedUserId?: string }).fixedUserId) || undefined;
+        token.fixedUserId = (user as { fixedUserId?: string }).fixedUserId;
       }
       // Google OAuth: look up fixedUserId from email
       if (account?.provider === "google" && profile?.email) {
         const email = profile.email.toLowerCase();
-        token.fixedUserId = resolveEffectiveUserId(ADMIN_EMAIL_MAP[email]) || undefined;
+        token.fixedUserId = ADMIN_EMAIL_MAP[email];
         token.email = email;
       }
       // Fallback: stale tokens without fixedUserId — derive from email so the
       // server always knows the actor identity (especially for ADMIN_IDS root).
       if (!token.fixedUserId && token.email) {
         const derived = ADMIN_EMAIL_MAP[(token.email as string).toLowerCase()];
-        if (derived) token.fixedUserId = resolveEffectiveUserId(derived) || undefined;
-      }
-      if (typeof token.fixedUserId === "string") {
-        token.fixedUserId = resolveEffectiveUserId(token.fixedUserId) || undefined;
+        if (derived) token.fixedUserId = derived;
       }
       return token;
     },
 
     async session({ session, token }) {
       if (token.fixedUserId) {
-        const resolved = resolveEffectiveUserId(token.fixedUserId as string);
-        if (resolved) session.user.fixedUserId = resolved;
+        session.user.fixedUserId = token.fixedUserId as string;
       } else if (session.user?.email) {
         // Defense in depth: derive at session-build time if token didn't have it.
         const derived = ADMIN_EMAIL_MAP[session.user.email.toLowerCase()];
-        const resolved = resolveEffectiveUserId(derived);
-        if (resolved) session.user.fixedUserId = resolved;
+        if (derived) session.user.fixedUserId = derived;
       }
       return session;
     },

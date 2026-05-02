@@ -6,10 +6,11 @@ import StarterKit from "@tiptap/starter-kit";
 import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
 import { useToasts, ToastContainer } from "@/components/ui/Toast";
-import { pipelineData, USERS_DEFAULT } from "@/lib/data";
+import { pipelineData } from "@/lib/data";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { invalidateDocCache } from "@/components/SearchPalette";
 import ConfirmModal from "@/components/ui/ConfirmModal";
+import { useModel } from "@/lib/contexts/ModelContext";
 
 // Color key → theme token helper (matching existing ck pattern in Dashboard)
 function colorFromKey(colorKey: string, t: T): string {
@@ -99,6 +100,7 @@ function ToolbarBtn({
 
 export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }: Props) {
   const isMobile = useIsMobile(768);
+  const { users } = useModel();
 
   const [docs, setDocs] = useState<DocListItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -171,14 +173,14 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       const res = await fetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: "untitled", content: null, pipelineId: filterPipeline }),
+        body: JSON.stringify({ title: "untitled", content: null, pipelineId: filterPipeline ?? workspacePipelineIds?.[0] ?? null }),
       });
       if (!res.ok) return;
       const data = await res.json() as { doc: DocFull };
       setDocs(prev => [data.doc, ...prev]);
       await openDoc(data.doc._id);
     } catch { /* toast not available here, silently fail */ }
-  }, [filterPipeline, openDoc]);
+  }, [filterPipeline, openDoc, workspacePipelineIds]);
 
   // PATCH helper — sets saveStatus, updates list + activeDoc, surfaces toast on error
   const patchDoc = useCallback(async (id: string, fields: Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>) => {
@@ -340,11 +342,12 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     patchDoc(activeId, { pipelineId: pid });
   };
 
-  const allPipelines = pipelineData;
+  const allPipelines = workspacePipelineIds && workspacePipelineIds.length > 0
+    ? pipelineData.filter(p => workspacePipelineIds.includes(p.id))
+    : pipelineData;
   // Apply workspace scope: show docs with no pipeline OR whose pipelineId is in workspacePipelineIds.
-  // Legacy docs without a pipelineId remain visible everywhere (backward-compat rule).
   const filteredDocs = workspacePipelineIds && workspacePipelineIds.length > 0
-    ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
+    ? docs.filter(doc => !!doc.pipelineId && workspacePipelineIds.includes(doc.pipelineId))
     : docs;
 
   // Skeleton row
@@ -357,7 +360,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
 
   // Attribution strip — renders below title when updatedBy is set
   const updatedByUser = activeDoc?.updatedBy
-    ? USERS_DEFAULT.find(u => u.id === activeDoc.updatedBy)
+    ? users.find(u => u.id === activeDoc.updatedBy)
     : null;
 
   const listPanel = (
@@ -467,7 +470,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           </div>
         ) : filteredDocs.map(doc => {
           const isActive = activeId === doc._id;
-          const creator = USERS_DEFAULT.find(u => u.id === doc.createdBy);
+          const creator = users.find(u => u.id === doc.createdBy);
           const pipe = allPipelines.find(p => p.id === doc.pipelineId);
           const pColor = pipe ? colorFromKey(pipe.colorKey, t) : t.textDim;
 
@@ -592,7 +595,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 paddingBottom: 4,
                 paddingTop: 0,
               }}>
-                {updatedByUser && <AvatarC user={updatedByUser} size={16} />}
+                {updatedByUser && <AvatarC user={updatedByUser} size={18} />}
                 <span style={{
                   fontSize: 11,
                   color: t.textMuted,
@@ -715,7 +718,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 {activeDoc?.attachments && activeDoc.attachments.length > 0 ? (
                   <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                     {activeDoc.attachments.map(a => {
-                      const uploader = USERS_DEFAULT.find(u => u.id === a.uploadedBy);
+                      const uploader = users.find(u => u.id === a.uploadedBy);
                       const isImage = a.contentType.startsWith("image/");
                       return (
                         <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: t.surface, border: `1px solid ${t.border}`, borderRadius: 12 }}>

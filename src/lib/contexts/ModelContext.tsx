@@ -8,7 +8,7 @@ import { lsGet, lsSet } from "@/lib/storage";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
-  ADMIN_IDS, DEFAULT_WORKSPACE_ID, resolveEffectiveUserId,
+  ADMIN_IDS, DEFAULT_WORKSPACE_ID,
   type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal,
 } from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
@@ -214,16 +214,15 @@ export function ModelProvider({
 
   // ── Identity ──────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
-    if (initialUserId) return resolveEffectiveUserId(initialUserId);
-    return resolveEffectiveUserId(lsGet("currentUser", null));
+    if (initialUserId) return initialUserId;
+    return lsGet("currentUser", null);
   });
   const [users, setUsers] = useState(() => hydrateUsers(lsGet("users", []) as UserType[]));
 
   useEffect(() => {
     if (initialUserId) {
-      const resolved = resolveEffectiveUserId(initialUserId);
-      lsSet("currentUser", resolved);
-      setCurrentUser(resolved);
+      lsSet("currentUser", initialUserId);
+      setCurrentUser(initialUserId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

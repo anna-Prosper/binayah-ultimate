@@ -99,11 +99,10 @@ export default function TasksView(props: Props) {
 
   // Wrap addComment to use local commentInput state
   const addComment = useCallback((sid: string) => {
-    if (readOnly) return;
     const val = commentInput[sid]?.trim();
     if (!val) return;
     modelAddComment(sid, val, () => setCommentInput(prev => ({ ...prev, [sid]: "" })));
-  }, [commentInput, modelAddComment, readOnly]);
+  }, [commentInput, modelAddComment]);
 
   const isMobile = useIsMobile(640);
 
@@ -1064,7 +1063,7 @@ function TaskCard({
           inputValue={commentInput[task.stageId] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [task.stageId]: v }))}
           onSend={() => addComment(task.stageId)}
-          readOnly={readOnly}
+          readOnly={false}
         />
       )}
 
@@ -1290,7 +1289,7 @@ function SubtaskCard({
           inputValue={commentInput[key] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [key]: v }))}
           onSend={() => addComment(key)}
-          readOnly={readOnly}
+          readOnly={false}
         />
       )}
     </CardShell>
@@ -1545,7 +1544,7 @@ function SubtaskKanbanCard({
             inputValue={commentInput[sub.key] || ""}
             onInputChange={v => setCommentInput(prev => ({ ...prev, [sub.key]: v }))}
             onSend={() => addComment(sub.key)}
-            readOnly={readOnly}
+            readOnly={false}
           />
         )}
       </CardShell>

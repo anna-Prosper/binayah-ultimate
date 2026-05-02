@@ -362,8 +362,8 @@ export function AvatarStep6({
     <div onClick={() => onClose ? onClose() : setOnboardStep(5)} style={{ position: "fixed", inset: 0, background: t.bg + "ee", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
       <style>{css}</style>
       <AnimBg />
-      <div onClick={e => e.stopPropagation()} className="av-card" style={{ maxHeight: "90vh", overflowY: "auto" }}>
-        <NB color={user.color} style={{ background: t.bgCard, padding: "20px 20px", maxWidth: 460, width: "94vw", textAlign: "center", animation: "ob-scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
+      <div onClick={e => e.stopPropagation()} className="av-card" style={{ maxHeight: "94vh", overflow: "hidden" }}>
+        <NB color={user.color} style={{ background: t.bgCard, padding: "16px 18px", maxWidth: 720, width: "94vw", textAlign: "center", animation: "ob-scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: user.color }}>choose your pfp</div>
           <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 16px", fontFamily: "var(--font-dm-mono), monospace" }}>// {user.name.toLowerCase()}, pick your persona</p>
           <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 4, marginBottom: 16 }}>
@@ -379,12 +379,12 @@ export function AvatarStep6({
             ))}
           </div>
           {tab === "emoji" && (
-            <div className="av-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "0 auto 16px" }}>
+            <div className="av-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(72px, 1fr))", gap: 7, margin: "0 auto 12px", maxHeight: "44vh", overflow: "hidden" }}>
               {AVATARS.map((av, idx) => {
                 const active = selAvatar === av.id && !selAiImg;
                 return (
                   <button key={av.id} onClick={() => { setSelAvatar(av.id); setSelAiImg(null); setAiUserAvatar(null); }} style={{
-                    width: "100%", aspectRatio: "1", borderRadius: 16, padding: 0, overflow: "hidden",
+                    width: "100%", aspectRatio: "1", borderRadius: 14, padding: 0, overflow: "hidden",
                     border: `2px solid ${active ? user.color : t.border}`,
                     cursor: "pointer", transition: "all 0.2s", position: "relative",
                     boxShadow: active ? `0 0 20px ${user.color}44` : "none",
@@ -434,16 +434,16 @@ export function AvatarStep6({
               {!aiImage && !aiLoading && !aiError && (<div style={{ padding: "24px 0", color: t.textDim, fontSize: 13, fontFamily: "var(--font-dm-mono), monospace" }}>// type a vibe above and hit enter</div>)}
             </div>
           )}
-          <div style={{ marginBottom: 20, animation: "ob-fadeIn 0.4s ease" }}>
+          <div style={{ marginBottom: 14, animation: "ob-fadeIn 0.4s ease" }}>
             <div style={{ display: "inline-block", position: "relative" }}>
               <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `2px solid ${user.color}22`, animation: "ob-ringExpand 2.5s ease-out infinite" }} />
               {aiUserAvatar ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={aiUserAvatar} alt="selected ai avatar" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${user.color}` }} />
+                <img src={aiUserAvatar} alt="selected ai avatar" style={{ width: 54, height: 54, borderRadius: "50%", objectFit: "cover", border: `2px solid ${user.color}` }} />
               ) : selAvatar ? (
-                <AvatarC user={{ ...user, avatar: selAvatar }} size={64} />
+                <AvatarC user={{ ...user, avatar: selAvatar }} size={54} />
               ) : (
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: `radial-gradient(circle at 30% 30%, ${user.color}55, ${user.color}22)`, border: `2px solid ${user.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: user.color }}>{user.name[0]}</div>
+                <div style={{ width: 54, height: 54, borderRadius: "50%", background: `radial-gradient(circle at 30% 30%, ${user.color}55, ${user.color}22)`, border: `2px solid ${user.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, fontWeight: 800, color: user.color }}>{user.name[0]}</div>
               )}
             </div>
             <div style={{ fontSize: 16, fontWeight: 900, color: user.color, marginTop: 8 }}>{user.name}</div>

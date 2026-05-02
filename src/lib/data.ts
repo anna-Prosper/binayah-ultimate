@@ -38,14 +38,14 @@ export const USERS_DEFAULT = [
   {id:"ahsan",name:"Ahsan",role:"Build Engineer",avatar:"",color:"#0099cc"},    // sea cyan — was #00d4ff
   {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#d4a000"}, // mustard — was #ffcc00 (invisible on white)
   {id:"prajeesh",name:"Prajeesh",role:"The PM",avatar:"",color:"#0891b2"},      // teal — was #22d3ee
-  // TEMP login mirrors — kept as login shortcuts, normalized to real users in auth/model.
+  // TEMP login mirrors — visible as guests, but can mirror another user's access in selected views.
   {id:"guest1",name:"Guest 1",role:"Aakarshit Mirror",avatar:"",color:"#6366f1"},
-  {id:"guest2",name:"Guest 2",role:"Abdallah Mirror",avatar:"",color:"#ec4899"},
+  {id:"guest2",name:"Exec Guest",role:"Abdallah Mirror",avatar:"",color:"#ec4899"},
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
 export const ADMIN_IDS = ["anna"]; // root (super-admin) — auto-operator of every workspace, only role allowed to create/delete workspaces
-export const EXEC_IDS = ["usama", "abdallah"]; // founder/exec view — broad read-only visibility + proposal requests
+export const EXEC_IDS = ["usama", "abdallah", "guest2"]; // founder/exec view — broad read-only visibility + proposal requests
 export const USER_MIRROR_IDS: Record<string, string> = {
   guest1: "aakarshit",
   guest2: "abdallah",
