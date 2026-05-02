@@ -176,11 +176,6 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
     rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone }[];
     rawRecentActivity: { title: string; meta: string; body: string; tone: AttentionTone }[];
-    rawExecBriefing: {
-      trend: { title: string; meta: string; body: string; tone: AttentionTone }[];
-      stuck: { title: string; meta: string; body: string; tone: AttentionTone }[];
-      annaQueue: { title: string; meta: string; body: string; tone: AttentionTone }[];
-    };
   };
   onApprove: (key: string) => void;
   onClaim: (key: string) => void;
@@ -228,33 +223,6 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
               )}
             </div>
           ))}
-        </div>
-      </div>
-    );
-  }
-
-  function BriefingGroup({ label, color, items }: {
-    label: string;
-    color: string;
-    items: { title: string; meta: string; body: string; tone: AttentionTone }[];
-  }) {
-    if (items.length === 0) return null;
-    return (
-      <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>{label}</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {items.map((item, i) => {
-            const itemColor = toneColor(t, item.tone);
-            return (
-              <div key={`${item.title}-${i}`} style={{ background: itemColor + "0a", border: `1px solid ${itemColor}33`, borderRadius: 8, padding: "6px 8px" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                  <div style={{ fontSize: 10, color: itemColor, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
-                </div>
-                <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
-              </div>
-            );
-          })}
         </div>
       </div>
     );
@@ -370,15 +338,6 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
             </>
           ) : isExec ? (
             <>
-              {attention.rawExecBriefing.trend.length > 0 && (
-                <BriefingGroup label="delivery pulse" color={t.green} items={attention.rawExecBriefing.trend} />
-              )}
-              {attention.rawExecBriefing.stuck.length > 0 && (
-                <BriefingGroup label="where work is stuck" color={t.amber} items={attention.rawExecBriefing.stuck} />
-              )}
-              {attention.rawExecBriefing.annaQueue.length > 0 && (
-                <BriefingGroup label="Anna queue" color={t.accent} items={attention.rawExecBriefing.annaQueue} />
-              )}
               {attention.rawRecentInteractions.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
@@ -407,7 +366,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
                   ))}
                 </div>
               )}
-              {attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && attention.rawExecBriefing.trend.length === 0 && attention.rawExecBriefing.stuck.length === 0 && attention.rawExecBriefing.annaQueue.length === 0 && (
+              {attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>no recent executive signals</div>
               )}
             </>
@@ -1104,7 +1063,7 @@ export default function HomeView({
       }));
     const recentInteractions = [...commentInteractions, ...chatInteractions]
       .filter(item => item.time >= weekAgo || item.time === 0)
-      .filter(item => roleLabel === "agent" ? item.directedToMe : true)
+      .filter(item => item.directedToMe)
       .sort((a, b) => b.time - a.time)
       .slice(0, 8);
     const mentions = recentInteractions.filter(item => item.directedToMe).slice(0, 5);
@@ -1127,8 +1086,6 @@ export default function HomeView({
       (visibleItemKeys.has(a.target) || visibleItemTitles.has(a.target))
     );
     const done7d = completedActivity.filter(a => a.time >= weekAgo).length;
-    const previousWeekAgo = overviewNow - 14 * 24 * 60 * 60 * 1000;
-    const previousDone7d = completedActivity.filter(a => a.time >= previousWeekAgo && a.time < weekAgo).length;
     const done30d = completedActivity.filter(a => a.time >= overviewNow - 30 * 24 * 60 * 60 * 1000).length;
     const myDone7d = completedActivity.filter(a => a.user === currentUser && a.time >= weekAgo).length;
     const visiblePipelineDoneCount = visiblePipelines.filter(p => {
@@ -1136,87 +1093,6 @@ export default function HomeView({
       const stages = [...p.stages, ...(customStages[p.id] || [])].filter(s => visibleStageIds.has(s));
       return stages.length > 0 && stages.every(s => getStatus(s) === "active" || approvedStages.includes(s));
     }).length;
-    const itemsByPipeline = new Map<string, typeof allItems>();
-    for (const item of allItems) {
-      const key = item.pipelineId || "inbox";
-      itemsByPipeline.set(key, [...(itemsByPipeline.get(key) || []), item]);
-    }
-    const stuckPipelines = Array.from(itemsByPipeline.entries())
-      .map(([pipelineId, items]) => {
-        const pipeline = visiblePipelines.find(p => p.id === pipelineId);
-        const unfinished = items.filter(item => item.status !== "active" && !item.approved && !("done" in item && item.done));
-        const unowned = unfinished.filter(item => item.owners.length === 0);
-        const blocked = unfinished.filter(item => item.status === "blocked");
-        const highPriority = unfinished.filter(item => item.priority === "NOW" || item.priority === "HIGH");
-        const score = blocked.length * 3 + unowned.length * 2 + highPriority.length + unfinished.length;
-        return {
-          key: pipelineId,
-          title: pipeline ? ((pipeline as { displayName?: string }).displayName || pipeline.name) : "Inbox",
-          unfinished: unfinished.length,
-          unowned: unowned.length,
-          blocked: blocked.length,
-          highPriority: highPriority.length,
-          score,
-        };
-      })
-      .filter(row => row.unfinished > 0 && (row.unowned > 0 || row.blocked > 0 || row.highPriority > 0))
-      .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-    const pendingExecRequests = execProposals.filter(p => p.status === "pending");
-    const annaMentions = recentInteractions.filter(item => item.text.toLowerCase().includes("@anna"));
-    const deliveryDelta = done7d - previousDone7d;
-    const rawExecBriefing = {
-      trend: [
-        {
-          title: deliveryDelta > 0 ? "delivery is up" : deliveryDelta < 0 ? "delivery slowed" : "delivery is flat",
-          meta: `${done7d} this week`,
-          body: `${previousDone7d} finished in the previous 7 days · ${done30d} in 30 days`,
-          tone: deliveryDelta >= 0 ? "green" as AttentionTone : "amber" as AttentionTone,
-        },
-        {
-          title: "scope completed",
-          meta: `${visiblePipelineDoneCount} pipelines`,
-          body: `${completedItems.length} total done items across visible workspaces`,
-          tone: visiblePipelineDoneCount > 0 ? "cyan" as AttentionTone : "accent" as AttentionTone,
-        },
-      ],
-      stuck: stuckPipelines.map(row => ({
-        title: row.title,
-        meta: `${row.unfinished} open`,
-        body: [
-          row.blocked ? `${row.blocked} blocked` : null,
-          row.unowned ? `${row.unowned} unowned` : null,
-          row.highPriority ? `${row.highPriority} high priority` : null,
-        ].filter(Boolean).join(" · "),
-        tone: row.blocked > 0 ? "red" as AttentionTone : row.unowned > 0 ? "amber" as AttentionTone : "cyan" as AttentionTone,
-      })),
-      annaQueue: [
-        ...(pendingExecRequests.length > 0 ? [{
-          title: "executive requests waiting",
-          meta: `${pendingExecRequests.length} open`,
-          body: pendingExecRequests.slice(0, 2).map(p => p.title).join(" · "),
-          tone: "accent" as AttentionTone,
-        }] : []),
-        ...(reviewItems.length > 0 ? [{
-          title: "work ready for approval",
-          meta: `${reviewItems.length} item${reviewItems.length === 1 ? "" : "s"}`,
-          body: reviewItems.slice(0, 2).map(item => item.title).join(" · "),
-          tone: "green" as AttentionTone,
-        }] : []),
-        ...(unownedItems.length > 0 ? [{
-          title: "ownership decisions needed",
-          meta: `${unownedItems.length} unowned`,
-          body: unownedItems.slice(0, 2).map(item => item.title).join(" · "),
-          tone: "amber" as AttentionTone,
-        }] : []),
-        ...(annaMentions.length > 0 ? [{
-          title: "recent tags for Anna",
-          meta: `${annaMentions.length} tag${annaMentions.length === 1 ? "" : "s"}`,
-          body: annaMentions.slice(0, 2).map(item => truncate(item.text, 42)).join(" · "),
-          tone: "cyan" as AttentionTone,
-        }] : []),
-      ].slice(0, 4),
-    };
     const people = roleLabel === "agent" ? [] : scopedUsers
       .filter(u => u.id !== currentUser && (roleLabel !== "exec" || !EXEC_IDS.includes(u.id)))
       .map(u => {
@@ -1363,10 +1239,10 @@ export default function HomeView({
       }).slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
       rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
       rawRecentInteractions: recentInteractions.slice(0, 5).map(i => ({
-        title: i.directedToMe ? `${commentUserLabel(i.by)} tagged you` : `${commentUserLabel(i.by)} tagged someone`,
+        title: `${commentUserLabel(i.by)} tagged you`,
         meta: i.time ? timeAgoFrom(overviewNow, i.time) : i.title,
         body: `${i.source === "chat" ? "chat" : i.title}: ${truncate(i.text, 86)}`,
-        tone: i.directedToMe ? "amber" as AttentionTone : "cyan" as AttentionTone,
+        tone: "amber" as AttentionTone,
       })),
       rawRecentActivity: activeUpdates.slice(0, 4).map(a => ({
         tone: "green" as AttentionTone,
@@ -1374,12 +1250,11 @@ export default function HomeView({
         meta: timeAgoFrom(overviewNow, a.time),
         body: stageNameLabel(a.target),
       })),
-      rawExecBriefing,
     };
   }, [
     activityLog, approvedPipelines, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
     customStages, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
-    subtaskStages, subtasks, users, visiblePipelines, execProposals,
+    subtaskStages, subtasks, users, visiblePipelines,
   ]);
 
   return (
