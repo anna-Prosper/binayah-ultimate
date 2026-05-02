@@ -145,8 +145,8 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
                 </div>
                 {isAdmin && p.status === "pending" && (
                   <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                    <button type="button" onClick={() => onUpdate(p.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>reviewed</button>
-                    <button type="button" onClick={() => onUpdate(p.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>reject</button>
+                    <button type="button" onClick={() => onUpdate(p.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>approve</button>
+                    <button type="button" onClick={() => onUpdate(p.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
                   </div>
                 )}
               </div>
@@ -162,7 +162,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
   );
 }
 
-function AttentionOverview({ t, attention, onApprove, onClaim }: {
+function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }: {
   t: T;
   attention: {
     roleLabel: string;
@@ -178,9 +178,12 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
     rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone }[];
     rawRecentActivity: { title: string; meta: string; body: string; tone: AttentionTone }[];
+    rawApprovalRequests: { id: number; title: string; body: string; meta: string; kind: string; requestedAction: string }[];
+    rawAnnaSignals: { title: string; meta: string; body: string; tone: AttentionTone }[];
   };
   onApprove: (key: string) => void;
   onClaim: (key: string) => void;
+  onRequestUpdate: (id: number, status: "reviewed" | "rejected") => void;
 }) {
   const mono = "var(--font-dm-mono), monospace";
   const isAgent = attention.roleLabel === "agent";
@@ -304,6 +307,38 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
             </>
           ) : canOperate ? (
             <>
+              {attention.rawApprovalRequests.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>requests for Anna</div>
+                  {attention.rawApprovalRequests.slice(0, 4).map(item => (
+                    <div key={item.id} style={{ marginBottom: 4, background: t.amber + "0a", border: `1px solid ${t.amber}33`, borderRadius: 8, padding: "6px 8px", display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", gap: 6, alignItems: "baseline", minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                          <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, flexShrink: 0 }}>{item.kind}</div>
+                        </div>
+                        <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.requestedAction} · {item.body}</div>
+                      </div>
+                      <button type="button" onClick={() => onRequestUpdate(item.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>approve</button>
+                      <button type="button" onClick={() => onRequestUpdate(item.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>decline</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {attention.rawAnnaSignals.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>notifications for Anna</div>
+                  {attention.rawAnnaSignals.slice(0, 4).map((item, i) => (
+                    <div key={i} style={{ marginBottom: 4, background: toneColor(t, item.tone) + "0a", border: `1px solid ${toneColor(t, item.tone)}33`, borderRadius: 8, padding: "6px 8px" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 10, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
               <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} actionLabel="+ claim" onAction={onClaim} />
               {attention.rawRecentInteractions.length > 0 && (
@@ -334,7 +369,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim }: {
                   ))}
                 </div>
               )}
-              {attention.rawReviewItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
+              {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
               )}
             </>
@@ -1080,6 +1115,9 @@ export default function HomeView({
           .filter(a => a.notifyTo?.includes(currentUser) && (a.type === "claim" || a.type === "create" || a.type === "request"))
           .slice(0, 5)
       : [];
+    const pendingApprovalRequests = isRoot
+      ? execProposals.filter(p => p.status === "pending").slice(0, 5)
+      : [];
     const visibleItemKeys = new Set(allItems.map(item => item.key));
     const visibleItemTitles = new Set(allItems.map(item => item.title));
     const completedItems = allItems.filter(item =>
@@ -1263,10 +1301,24 @@ export default function HomeView({
         meta: timeAgoFrom(overviewNow, a.time),
         body: stageNameLabel(a.target),
       })),
+      rawApprovalRequests: pendingApprovalRequests.map(p => ({
+        id: p.id,
+        title: p.title,
+        body: truncate(p.body, 100),
+        meta: timeAgoFrom(overviewNow, p.createdAt),
+        kind: p.kind || "request",
+        requestedAction: p.requestedAction || "review",
+      })),
+      rawAnnaSignals: annaSignals.map(a => ({
+        tone: a.type === "create" ? "green" as AttentionTone : a.type === "claim" ? "cyan" as AttentionTone : "amber" as AttentionTone,
+        title: `${commentUserLabel(a.user)} ${a.type === "claim" ? "claimed work" : a.type === "create" ? "created work" : "sent a request"}`,
+        meta: timeAgoFrom(overviewNow, a.time),
+        body: `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
+      })),
     };
   }, [
     activityLog, approvedPipelines, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
-    customStages, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
+    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
 
@@ -1360,7 +1412,7 @@ export default function HomeView({
             })}
           </div>
 
-          <AttentionOverview t={t} attention={attention} onApprove={(key) => approveStage(key)} onClaim={(key) => handleClaim(key)} />
+          <AttentionOverview t={t} attention={attention} onApprove={(key) => approveStage(key)} onClaim={(key) => handleClaim(key)} onRequestUpdate={updateExecProposalStatus} />
           <ExecutiveRequestsPanel
             t={t}
             currentUser={currentUser}

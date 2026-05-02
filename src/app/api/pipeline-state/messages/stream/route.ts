@@ -94,7 +94,7 @@ export async function GET(req: NextRequest) {
         // Gap-fill activity entries newer than sinceActivity from PipelineState
         if (sinceActivity !== null) {
           const sinceTime = parseInt(sinceActivity, 10);
-          const BELL_TYPES = new Set(["claim", "create", "request", "comment", "active"]);
+          const BELL_TYPES = new Set(["claim", "create", "request", "comment", "status", "active"]);
           const doc = await PipelineState.findOne(WORKSPACE).lean() as {
             state?: {
               activityLog?: ActivityItem[];

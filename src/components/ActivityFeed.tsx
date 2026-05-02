@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { T } from "@/lib/themes";
-import { type ActivityItem, type UserType } from "@/lib/data";
+import { ADMIN_IDS, EXEC_IDS, type ActivityItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { NB } from "@/components/ui/primitives";
 
@@ -10,6 +10,7 @@ interface ActivityFeedProps {
   activityLog: ActivityItem[];
   users: UserType[];
   t: T;
+  currentUserId?: string | null;
 }
 
 const INITIAL_SHOW = 10;
@@ -27,20 +28,39 @@ function relativeTime(timestamp: number): string {
   return `${days}d ago`;
 }
 
-export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProps) {
+function isMentioned(item: ActivityItem, currentUserId: string, users: UserType[]): boolean {
+  if (item.notifyTo?.includes(currentUserId)) return true;
+  const me = users.find(u => u.id === currentUserId);
+  const first = me?.name.split(" ")[0].toLowerCase();
+  const detail = (item.detail || "").toLowerCase();
+  return detail.includes(`@${currentUserId.toLowerCase()}`) || (!!first && detail.includes(`@${first}`));
+}
+
+function isUsefulActivity(item: ActivityItem, currentUserId: string | null | undefined, users: UserType[]): boolean {
+  if (!currentUserId) return true;
+  if (item.type === "status_change") return false;
+  if (item.user === currentUserId) return true;
+  if (isMentioned(item, currentUserId, users)) return true;
+  if (ADMIN_IDS.includes(currentUserId)) return ["request", "create", "claim", "status", "assign", "archive"].includes(item.type);
+  if (EXEC_IDS.includes(currentUserId)) return ["create", "claim", "status"].includes(item.type);
+  return false;
+}
+
+export default function ActivityFeed({ activityLog, users, t, currentUserId }: ActivityFeedProps) {
   const [showCount, setShowCount] = useState(INITIAL_SHOW);
-  const visible = activityLog.slice(0, showCount);
-  const hasMore = activityLog.length > showCount;
+  const usefulLog = activityLog.filter(a => isUsefulActivity(a, currentUserId, users));
+  const visible = usefulLog.slice(0, showCount);
+  const hasMore = usefulLog.length > showCount;
 
   return (
     <NB color={t.accent} style={{ background: t.bgCard, padding: "12px 12px", marginBottom: 8, borderRadius: 16 }}>
       <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
         activity feed
-        {activityLog.length > 0 && (
-          <span style={{ fontSize: 10, color: t.textDim }}>({activityLog.length})</span>
+        {usefulLog.length > 0 && (
+          <span style={{ fontSize: 10, color: t.textDim }}>({usefulLog.length})</span>
         )}
       </div>
-      {activityLog.length === 0 ? (
+      {usefulLog.length === 0 ? (
         <div style={{ padding: "12px 0", display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
           <span style={{ fontSize: 20 }}>📋</span>
           <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>// no activity yet — make a move</span>
@@ -59,7 +79,8 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
                     {" "}{
                       a.type === "claim" ? "claimed" :
                       a.type === "comment" ? "commented on" :
-                      a.type === "status" ? "updated status of" :
+                      a.type === "status" ? "moved" :
+                      a.type === "request" ? "requested" :
                       a.type === "assign" ? "assigned task in" :
                       a.type === "create" ? "created" :
                       a.type === "subtask_migrated" ? "moved subtask in" :
@@ -80,7 +101,7 @@ export default function ActivityFeed({ activityLog, users, t }: ActivityFeedProp
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent; (e.currentTarget as HTMLElement).style.color = t.accent; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
             >
-              show more ({activityLog.length - showCount} remaining)
+              show more ({usefulLog.length - showCount} remaining)
             </button>
           )}
         </>

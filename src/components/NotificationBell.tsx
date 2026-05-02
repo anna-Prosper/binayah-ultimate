@@ -1,13 +1,11 @@
 "use client";
 
-import { Bell } from "lucide-react";
-
 import { useEffect, useRef, useState, useCallback } from "react";
 import { T } from "@/lib/themes";
-import { type ActivityItem, type UserType } from "@/lib/data";
+import { ADMIN_IDS, EXEC_IDS, type ActivityItem, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 
-const BELL_TYPES = new Set(["claim", "create", "request", "comment", "active"]);
+const BELL_TYPES = new Set(["claim", "create", "request", "comment", "status", "active"]);
 const MAX_NOTIFICATIONS = 50;
 const MAX_VISIBLE = 20;
 
@@ -30,6 +28,7 @@ function getEventColor(type: string, t: T): string {
   if (type === "claim") return t.accent;
   if (type === "create") return t.green;
   if (type === "request") return t.amber;
+  if (type === "status") return t.cyan || t.green;
   if (type === "active") return t.green;
   if (type === "comment") return t.textSec;
   return t.textMuted;
@@ -42,6 +41,7 @@ function getEventDescription(item: ActivityItem, users: UserType[]): string {
   if (item.type === "claim") return `${name} claimed ${stage}`;
   if (item.type === "create") return `${name} created ${stage}`;
   if (item.type === "request") return `${name} requested ${item.detail || stage}`;
+  if (item.type === "status") return `${name} moved ${stage} ${item.detail}`;
   if (item.type === "active") return `${stage} went live`;
   if (item.type === "comment") return `${name} commented on ${stage}`;
   return `${name} ${item.type} ${stage}`;
@@ -51,7 +51,9 @@ function isRelevantNotification(item: ActivityItem, currentUserId: string): bool
   if (!BELL_TYPES.has(item.type)) return false;
   if (item.user === currentUserId) return false;
   if (item.notifyTo?.length) return item.notifyTo.includes(currentUserId);
-  return true;
+  if (ADMIN_IDS.includes(currentUserId)) return item.type === "claim" || item.type === "create" || item.type === "request" || item.type === "status";
+  if (EXEC_IDS.includes(currentUserId)) return item.type === "create" || item.type === "status";
+  return false;
 }
 
 export default function NotificationBell({ t, currentUserId, users }: Props) {

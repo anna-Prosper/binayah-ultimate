@@ -402,6 +402,13 @@ export function ModelProvider({
     pushActivity(entry).then(result => { if (!result.ok) setSyncStatus("offline"); });
   }, [currentUser, currentWorkspaceId]);
 
+  const mentionedUserIds = useCallback((text: string) => {
+    const lower = text.toLowerCase();
+    return users
+      .filter(u => lower.includes(`@${u.id.toLowerCase()}`) || lower.includes(`@${u.name.split(" ")[0].toLowerCase()}`))
+      .map(u => u.id);
+  }, [users]);
+
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
@@ -950,7 +957,7 @@ export function ModelProvider({
     const c = { id: commentId, text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
     setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] }));
     clearInput();
-    logActivity("comment", sid, val.slice(0, 100));
+    logActivity("comment", sid, val.slice(0, 100), mentionedUserIds(val));
     pushComment(sid, c).then(result => {
       if (!result.ok) {
         setComments(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(x => x.id !== commentId) }));
@@ -1112,7 +1119,7 @@ export function ModelProvider({
   const setStageStatusDirect = (name: string, status: string) => {
     markLocalWrite("stageStatusOverrides");
     setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
-    logActivity("status", name, `→ ${status}`);
+    logActivity("status", name, `→ ${status}`, ADMIN_IDS);
   };
 
   const cycleStatus = (name: string) => {
@@ -1121,7 +1128,7 @@ export function ModelProvider({
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     markLocalWrite("stageStatusOverrides");
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
-    logActivity("status", name, `→ ${next}`);
+    logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
   const approveStage = (name: string) => {
@@ -1221,7 +1228,7 @@ export function ModelProvider({
       next[toPid] = [...(next[toPid] || []), stageName];
       return next;
     });
-    logActivity("status", stageName, `→ moved to ${toPid}`);
+    logActivity("status", stageName, `→ moved to ${toPid}`, ADMIN_IDS);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
