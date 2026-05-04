@@ -41,13 +41,17 @@
       "src/components/LeftSidebar.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/ChromeShell.tsx",
+      "src/components/CallSummaryModal.tsx",
       "src/components/views/PipelinesView.tsx",
       "src/components/views/ArchiveView.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
+      "src/components/views/NotesView.tsx",
+      "src/components/views/BugTrackerView.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/TeamBar.tsx",
-      "src/components/WhileAwayDigest.tsx"
+      "src/components/WhileAwayDigest.tsx",
+      "src/components/QuickAddModal.tsx"
     ],
     "src/components/WorkspaceAdmin.tsx": [
       "src/lib/themes.ts",
@@ -59,6 +63,9 @@
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx"
     ],
+    "src/components/QuickAddModal.tsx": [
+      "src/lib/themes.ts"
+    ],
     "src/components/WhileAwayDigest.tsx": [
       "src/lib/themes.ts",
       "src/components/ui/Avatar.tsx",
@@ -67,7 +74,8 @@
     "src/components/SearchPalette.tsx": [
       "src/lib/themes.ts",
       "src/lib/data.ts",
-      "src/components/ui/Avatar.tsx"
+      "src/components/ui/Avatar.tsx",
+      "src/lib/contexts/ModelContext.tsx"
     ],
     "src/components/LoginClient.tsx": [
       "src/lib/themes.ts",
@@ -84,7 +92,8 @@
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx",
       "src/components/ui/UserPopup.tsx",
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts"
     ],
     "src/components/SearchFilter.tsx": [
       "src/lib/themes.ts"
@@ -112,7 +121,8 @@
     "src/components/ChatPanel.tsx": [
       "src/lib/themes.ts",
       "src/components/ui/Avatar.tsx",
-      "src/lib/data.ts"
+      "src/lib/data.ts",
+      "src/lib/apiSync.ts"
     ],
     "src/components/DocumentsPanel.tsx": [
       "src/lib/themes.ts",
@@ -121,9 +131,13 @@
       "src/lib/data.ts",
       "src/hooks/useIsMobile.ts",
       "src/components/SearchPalette.tsx",
-      "src/components/ui/ConfirmModal.tsx"
+      "src/components/ui/ConfirmModal.tsx",
+      "src/lib/contexts/ModelContext.tsx"
     ],
     "src/components/LeftSidebar.tsx": [
+      "src/lib/themes.ts"
+    ],
+    "src/components/CallSummaryModal.tsx": [
       "src/lib/themes.ts"
     ],
     "src/components/Stage.tsx": [
@@ -184,7 +198,8 @@
     ],
     "src/lib/auth.ts": [
       "src/lib/mongo.ts",
-      "src/lib/AuthUser.ts"
+      "src/lib/AuthUser.ts",
+      "src/lib/data.ts"
     ],
     "src/lib/contexts/ModelContext.tsx": [
       "src/lib/hooks/useUndoStack.ts",
@@ -284,8 +299,10 @@
       "src/lib/themes.ts"
     ],
     "src/components/mockups/mockupsMap.tsx": [
-      "src/lib/themes.ts",
-      "src/components/ui/Skeletons.tsx"
+      "src/lib/themes.ts"
+    ],
+    "src/components/views/CallsView.tsx": [
+      "src/lib/themes.ts"
     ],
     "src/components/views/ArchiveView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
@@ -300,7 +317,9 @@
     "src/components/views/ActivityView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/ErrorBoundary.tsx",
-      "src/components/ui/Skeletons.tsx"
+      "src/components/ui/Skeletons.tsx",
+      "src/lib/data.ts",
+      "src/lib/subtaskKey.ts"
     ],
     "src/components/views/ChatView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
@@ -315,16 +334,25 @@
       "src/lib/themes.ts",
       "src/lib/data.ts"
     ],
+    "src/components/views/NotesView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/themes.ts"
+    ],
     "src/components/views/PipelinesView.tsx": [
       "src/lib/contexts/EphemeralContext.tsx",
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/primitives.tsx",
-      "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimerPills.tsx",
       "src/components/SearchFilter.tsx",
       "src/components/Stage.tsx",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
       "src/components/ui/ConfirmModal.tsx",
+      "src/lib/data.ts"
+    ],
+    "src/components/views/BugTrackerView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/themes.ts",
       "src/lib/data.ts"
     ],
     "src/app/login/page.tsx": [
@@ -343,10 +371,14 @@
       "src/lib/validate.ts",
       "src/lib/log.ts",
       "src/lib/data.ts",
-      "src/lib/auth.ts",
       "src/lib/sendNotifications.ts",
       "src/lib/auth.ts",
       "src/lib/chatBus.ts"
+    ],
+    "src/app/api/call-summary/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
     ],
     "src/app/api/unsubscribe/route.ts": [
       "src/lib/mongo.ts",
@@ -379,6 +411,27 @@
       "src/app/api/unsubscribe/route.ts",
       "src/lib/log.ts"
     ],
+    "src/app/api/cron/zoom-sync/route.ts": [
+      "src/lib/log.ts"
+    ],
+    "src/app/api/cron/weekly-digest/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/email.ts",
+      "src/lib/auth.ts",
+      "src/lib/data.ts",
+      "src/lib/log.ts"
+    ],
+    "src/app/api/cron/reminders/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts",
+      "src/lib/data.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/log.ts"
+    ],
     "src/app/api/documents/[id]/route.ts": [
       "src/lib/auth.ts",
       "src/lib/mongo.ts",
@@ -398,6 +451,31 @@
       "src/lib/mongo.ts",
       "src/lib/BinayahDocument.ts",
       "src/lib/s3.ts"
+    ],
+    "src/app/api/zoom/recordings/route.ts": [
+      "src/lib/zoom.ts"
+    ],
+    "src/app/api/zoom/status/route.ts": [
+      "src/lib/zoom.ts"
+    ],
+    "src/app/api/zoom/summaries/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/ZoomCallCache.ts"
+    ],
+    "src/app/api/zoom/meetings/route.ts": [
+      "src/lib/zoom.ts",
+      "src/lib/mongo.ts",
+      "src/lib/ZoomCallCache.ts",
+      "src/lib/log.ts",
+      "src/lib/data.ts",
+      "src/lib/auth.ts"
+    ],
+    "src/app/api/zoom/connect/route.ts": [
+      "src/lib/zoom.ts"
+    ],
+    "src/app/api/zoom/meeting-summary/route.ts": [
+      "src/lib/zoom.ts",
+      "src/lib/log.ts"
     ],
     "src/app/api/pipeline-state/comments/route.ts": [
       "src/lib/mongo.ts",
@@ -448,7 +526,8 @@
     "src/app/api/auth/prefs/route.ts": [
       "src/lib/auth.ts",
       "src/lib/mongo.ts",
-      "src/lib/AuthUser.ts"
+      "src/lib/AuthUser.ts",
+      "src/lib/data.ts"
     ],
     "src/app/api/auth/signup/route.ts": [
       "src/lib/mongo.ts",
@@ -478,13 +557,15 @@
       "src/lib/sendNotifications.ts",
       "src/app/login/page.tsx",
       "src/app/api/pipeline-state/route.ts",
-      "src/app/api/pipeline-state/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/suggest-points/route.ts",
       "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
@@ -518,17 +599,24 @@
       "src/lib/sendNotifications.ts",
       "src/lib/notifyRecipients.ts",
       "src/lib/points.ts",
+      "src/lib/auth.ts",
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/AvatarPicker.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/components/ui/Avatar.tsx",
       "src/components/ui/ClaimerPills.tsx",
       "src/components/views/TeamBar.tsx",
+      "src/components/views/ActivityView.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/PipelinesView.tsx",
+      "src/components/views/BugTrackerView.tsx",
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts"
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      "src/app/api/auth/prefs/route.ts"
     ],
     "src/components/ui/Avatar.tsx": [
       "src/components/OverviewPanel.tsx",
@@ -549,8 +637,7 @@
       "src/components/ui/UserPopup.tsx",
       "src/components/ui/ClaimerPills.tsx",
       "src/components/views/TeamBar.tsx",
-      "src/components/views/HomeViewRoute.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/HomeViewRoute.tsx"
     ],
     "src/lib/themes.ts": [
       "src/components/OverviewPanel.tsx",
@@ -559,6 +646,7 @@
       "src/components/Dashboard.tsx",
       "src/components/WorkspaceAdmin.tsx",
       "src/components/NotificationBell.tsx",
+      "src/components/QuickAddModal.tsx",
       "src/components/WhileAwayDigest.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/LoginClient.tsx",
@@ -570,6 +658,7 @@
       "src/components/ChatPanel.tsx",
       "src/components/DocumentsPanel.tsx",
       "src/components/LeftSidebar.tsx",
+      "src/components/CallSummaryModal.tsx",
       "src/components/Stage.tsx",
       "src/components/ActivityFeed.tsx",
       "src/lib/contexts/ModelContext.tsx",
@@ -592,7 +681,10 @@
       "src/components/mockups/WebToolsMockups.tsx",
       "src/components/mockups/MockupShells.tsx",
       "src/components/mockups/mockupsMap.tsx",
-      "src/components/views/HomeViewRoute.tsx"
+      "src/components/views/CallsView.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/NotesView.tsx",
+      "src/components/views/BugTrackerView.tsx"
     ],
     "src/components/Onboarding.tsx": [
       "src/components/WelcomeModal.tsx",
@@ -620,9 +712,11 @@
     ],
     "src/lib/contexts/ModelContext.tsx": [
       "src/components/Dashboard.tsx",
+      "src/components/SearchPalette.tsx",
       "src/components/TodayView.tsx",
       "src/components/HomeView.tsx",
       "src/components/TasksView.tsx",
+      "src/components/DocumentsPanel.tsx",
       "src/components/Stage.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/components/views/ArchiveView.tsx",
@@ -630,7 +724,9 @@
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
       "src/components/views/HomeViewRoute.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/NotesView.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/components/views/BugTrackerView.tsx"
     ],
     "src/components/WelcomeModal.tsx": [
       "src/components/Dashboard.tsx"
@@ -649,7 +745,6 @@
     ],
     "src/components/ui/Skeletons.tsx": [
       "src/components/Dashboard.tsx",
-      "src/components/mockups/mockupsMap.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
       "src/components/views/PipelinesView.tsx"
@@ -665,6 +760,9 @@
     "src/components/ChromeShell.tsx": [
       "src/components/Dashboard.tsx"
     ],
+    "src/components/CallSummaryModal.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
     "src/components/views/PipelinesView.tsx": [
       "src/components/Dashboard.tsx"
     ],
@@ -677,6 +775,12 @@
     "src/components/views/ChatView.tsx": [
       "src/components/Dashboard.tsx"
     ],
+    "src/components/views/NotesView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
+    "src/components/views/BugTrackerView.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
     "src/components/views/HomeViewRoute.tsx": [
       "src/components/Dashboard.tsx"
     ],
@@ -686,12 +790,23 @@
     "src/components/WhileAwayDigest.tsx": [
       "src/components/Dashboard.tsx"
     ],
+    "src/components/QuickAddModal.tsx": [
+      "src/components/Dashboard.tsx"
+    ],
     "src/lib/version.ts": [
       "src/components/LoginClient.tsx",
       "src/lib/storage.ts"
     ],
     "src/components/ui/UserPopup.tsx": [
       "src/components/HomeView.tsx"
+    ],
+    "src/lib/subtaskKey.ts": [
+      "src/components/HomeView.tsx",
+      "src/components/TasksView.tsx",
+      "src/components/Stage.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/views/ArchiveView.tsx",
+      "src/components/views/ActivityView.tsx"
     ],
     "src/components/ui/primitives.tsx": [
       "src/components/Onboarding.tsx",
@@ -723,16 +838,16 @@
     ],
     "src/components/ui/ClaimerPills.tsx": [
       "src/components/TasksView.tsx",
-      "src/components/Stage.tsx"
-    ],
-    "src/lib/subtaskKey.ts": [
-      "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
-      "src/lib/contexts/ModelContext.tsx",
-      "src/components/views/ArchiveView.tsx"
+      "src/components/views/PipelinesView.tsx"
     ],
     "src/components/TodayView.tsx": [
       "src/components/TasksView.tsx"
+    ],
+    "src/lib/apiSync.ts": [
+      "src/components/ChatPanel.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useSync.ts"
     ],
     "src/components/mockups/mockupsMap.tsx": [
       "src/components/Stage.tsx"
@@ -740,7 +855,9 @@
     "src/lib/email.ts": [
       "src/lib/mentions.ts",
       "src/lib/sendNotifications.ts",
-      "src/app/api/cron/digest/route.ts"
+      "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts"
     ],
     "src/lib/mongo.ts": [
       "src/lib/notifyRateLimit.ts",
@@ -750,9 +867,13 @@
       "src/app/api/unsubscribe/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      "src/app/api/zoom/summaries/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
@@ -769,6 +890,7 @@
       "src/lib/auth.ts",
       "src/app/api/unsubscribe/route.ts",
       "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
       "src/app/api/auth/prefs/route.ts",
       "src/app/api/auth/signup/route.ts"
     ],
@@ -781,7 +903,8 @@
     ],
     "src/app/api/unsubscribe/route.ts": [
       "src/lib/sendNotifications.ts",
-      "src/app/api/cron/digest/route.ts"
+      "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/reminders/route.ts"
     ],
     "src/lib/notifyRecipients.ts": [
       "src/lib/sendNotifications.ts"
@@ -792,10 +915,6 @@
     ],
     "src/lib/hooks/useUndoStack.ts": [
       "src/lib/contexts/ModelContext.tsx"
-    ],
-    "src/lib/apiSync.ts": [
-      "src/lib/contexts/ModelContext.tsx",
-      "src/lib/hooks/useSync.ts"
     ],
     "src/lib/hooks/useSync.ts": [
       "src/lib/contexts/ModelContext.tsx"
@@ -830,6 +949,7 @@
     "src/lib/rateLimit.ts": [
       "src/app/api/chat/route.ts",
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/call-summary/route.ts",
       "src/app/api/generate-pfp/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/suggest-points/route.ts",
@@ -843,6 +963,7 @@
     "src/lib/validate.ts": [
       "src/app/api/chat/route.ts",
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/call-summary/route.ts",
       "src/app/api/generate-pfp/route.ts",
       "src/app/api/documents/route.ts",
       "src/app/api/documents/[id]/route.ts",
@@ -854,9 +975,15 @@
     "src/lib/log.ts": [
       "src/app/api/chat/route.ts",
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/call-summary/route.ts",
       "src/app/api/generate-pfp/route.ts",
       "src/app/api/suggest-points/route.ts",
       "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/zoom-sync/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
+      "src/app/api/zoom/meeting-summary/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
@@ -864,6 +991,8 @@
     ],
     "src/lib/PipelineState.ts": [
       "src/app/api/pipeline-state/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts",
@@ -889,6 +1018,17 @@
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
     ],
+    "src/lib/zoom.ts": [
+      "src/app/api/zoom/recordings/route.ts",
+      "src/app/api/zoom/status/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
+      "src/app/api/zoom/connect/route.ts",
+      "src/app/api/zoom/meeting-summary/route.ts"
+    ],
+    "src/lib/ZoomCallCache.ts": [
+      "src/app/api/zoom/summaries/route.ts",
+      "src/app/api/zoom/meetings/route.ts"
+    ],
     "src/lib/mentions.ts": [
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts"
@@ -913,14 +1053,25 @@
     "src/app/login/page.tsx": "/login",
     "src/app/api/chat/route.ts": "/api/chat",
     "src/app/api/pipeline-state/route.ts": "/api/pipeline-state",
+    "src/app/api/call-summary/route.ts": "/api/call-summary",
     "src/app/api/unsubscribe/route.ts": "/api/unsubscribe",
     "src/app/api/generate-pfp/route.ts": "/api/generate-pfp",
     "src/app/api/documents/route.ts": "/api/documents",
     "src/app/api/suggest-points/route.ts": "/api/suggest-points",
     "src/app/api/cron/digest/route.ts": "/api/cron/digest",
+    "src/app/api/cron/zoom-sync/route.ts": "/api/cron/zoom-sync",
+    "src/app/api/cron/weekly-digest/route.ts": "/api/cron/weekly-digest",
+    "src/app/api/cron/reminders/route.ts": "/api/cron/reminders",
     "src/app/api/documents/[id]/route.ts": "/api/documents/[id]",
     "src/app/api/documents/[id]/attachments/route.ts": "/api/documents/[id]/attachments",
     "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": "/api/documents/[id]/attachments/[attachmentId]",
+    "src/app/api/zoom/recordings/route.ts": "/api/zoom/recordings",
+    "src/app/api/zoom/status/route.ts": "/api/zoom/status",
+    "src/app/api/zoom/summaries/route.ts": "/api/zoom/summaries",
+    "src/app/api/zoom/meetings/route.ts": "/api/zoom/meetings",
+    "src/app/api/zoom/callback/route.ts": "/api/zoom/callback",
+    "src/app/api/zoom/connect/route.ts": "/api/zoom/connect",
+    "src/app/api/zoom/meeting-summary/route.ts": "/api/zoom/meeting-summary",
     "src/app/api/pipeline-state/comments/route.ts": "/api/pipeline-state/comments",
     "src/app/api/pipeline-state/messages/route.ts": "/api/pipeline-state/messages",
     "src/app/api/pipeline-state/activity/route.ts": "/api/pipeline-state/activity",
@@ -930,6 +1081,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-04-30T08:30:38.637357+00:00",
-  "fileCount": 120
+  "builtAt": "2026-05-04T12:22:09.838938+00:00",
+  "fileCount": 138
 }

@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongo";
 import AuthUser from "@/lib/AuthUser";
+import { ADMIN_IDS, resolveEffectiveUserId } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 
 const ALLOWED_KEYS = new Set([
   "emailNotifications",
+  "inAppNotifications",
   "notifyMention",
   "notifyApproved",
   "notifyAssigned",
@@ -15,7 +17,36 @@ const ALLOWED_KEYS = new Set([
   "notifyStatus",
   "notifyComment",
   "notifySubtask",
+  "notifyReminder",
+  "notifyRequest",
+  "notifyDue",
+  "notifyChat",
+  "notifyDm",
+  "notifyBug",
+  "notifyOther",
+  "inAppMention",
+  "inAppApproved",
+  "inAppAssigned",
+  "inAppClaim",
+  "inAppStatus",
+  "inAppComment",
+  "inAppSubtask",
+  "inAppReminder",
+  "inAppRequest",
+  "inAppDue",
+  "inAppChat",
+  "inAppDm",
+  "inAppBug",
+  "inAppOther",
 ]);
+
+function targetUserFromRequest(req: NextRequest, fixedUserId: string): { ok: true; targetUserId: string } | { ok: false; status: number; error: string } {
+  const actorId = resolveEffectiveUserId(fixedUserId) || fixedUserId;
+  const requested = req.nextUrl.searchParams.get("userId")?.trim();
+  if (!requested || requested === actorId) return { ok: true, targetUserId: actorId };
+  if (!ADMIN_IDS.includes(actorId)) return { ok: false, status: 403, error: "Forbidden" };
+  return { ok: true, targetUserId: requested };
+}
 
 /**
  * PATCH /api/auth/prefs
@@ -29,6 +60,8 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (!session?.user?.fixedUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const target = targetUserFromRequest(req, session.user.fixedUserId);
+  if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status });
 
   let body: Record<string, unknown>;
   try {
@@ -52,7 +85,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   try {
     await connectMongo();
     await AuthUser.findOneAndUpdate(
-      { fixedUserId: session.user.fixedUserId },
+      { fixedUserId: target.targetUserId },
       { $set: update },
       { upsert: false }
     );
@@ -68,15 +101,17 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
  * GET /api/auth/prefs
  * Returns the full prefs object. Missing fields default to true.
  */
-export async function GET(): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.fixedUserId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const target = targetUserFromRequest(req, session.user.fixedUserId);
+  if (!target.ok) return NextResponse.json({ error: target.error }, { status: target.status });
 
   try {
     await connectMongo();
-    const user = await AuthUser.findOne({ fixedUserId: session.user.fixedUserId }).lean() as
+    const user = await AuthUser.findOne({ fixedUserId: target.targetUserId }).lean() as
       | Record<string, unknown> | null;
     const result: Record<string, boolean> = {};
     for (const key of ALLOWED_KEYS) {

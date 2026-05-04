@@ -5,7 +5,9 @@ import { SubtaskKey } from "@/lib/subtaskKey";
 
 export default function ArchiveView() {
   const { archived, stageNameOverrides, pipeMetaOverrides, allPipelinesGlobal, subtasks, restoreStage, restorePipeline, restoreSubtask, t } = useModel();
-  const { stages: archivedStages, pipelines: archivedPipelines, subtasks: archivedSubtasks } = archived;
+  const archivedStages = Array.from(new Set(archived.stages));
+  const archivedPipelines = Array.from(new Set(archived.pipelines));
+  const archivedSubtasks = Array.from(new Set(archived.subtasks));
 
   // Resolve archived subtask keys back to their text + parent stage for display
   const resolvedSubtasks = archivedSubtasks.map(key => {

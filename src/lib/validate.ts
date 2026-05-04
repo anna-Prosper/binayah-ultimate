@@ -3,8 +3,8 @@
  * Returns null on pass, or an error string on fail.
  */
 
-/** Max raw body size in bytes (64 KB). */
-export const MAX_BODY_BYTES = 64 * 1024;
+/** Max raw body size in bytes. Chat attachments are stored as compact data URLs. */
+export const MAX_BODY_BYTES = 2 * 1024 * 1024;
 
 const ALPHANUMERIC_DASH = /^[a-zA-Z0-9_-]+$/;
 
@@ -77,13 +77,18 @@ export const PATCH_KEY_WHITELIST = new Set([
   "approvedStages",
   "approvedSubtasks",
   "approvedPipelines",
+  "reminders",
+  "notes",
+  "bugs",
   "reactions",
   "subtasks",
   "stageStatusOverrides",
   "stageDescOverrides",
+  "stageDueDates",
   "stageNameOverrides",
   "subtaskStages",
   "subtaskDescOverrides",
+  "subtaskDueDates",
   "pipeDescOverrides",
   "pipeMetaOverrides",
   "customStages",

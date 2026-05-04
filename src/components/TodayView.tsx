@@ -14,14 +14,6 @@ interface StageEntry {
   pipelineColor: string;
 }
 
-const STATUS_PRIORITY: Record<string, number> = {
-  "in-progress": 0,
-  "planned": 1,
-  "active": 2,
-  "concept": 3,
-  "blocked": 4,
-};
-
 const STATUS_COLORS: Record<string, string> = {
   "in-progress": "amber",
   "planned": "cyan",
@@ -121,7 +113,7 @@ interface CommentItem {
 
 function TodayRow({
   stageId, displayName, status, pipelineName, pipelineColor, stColor,
-  claimed, currentUser, isCommentOpen, commentInput, commentCount, comments, users, t,
+  claimed, isCommentOpen, commentInput, commentCount, comments, users, t,
   onClaim, onMarkDone, onOpenComment, onCloseComment, onCommentInput, onSendComment,
   pointerData,
 }: {
@@ -210,7 +202,7 @@ function TodayRow({
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
-        onPointerCancel={e => { delete pointerData.current[stageId]; setSwipeDelta(0); }}
+        onPointerCancel={() => { delete pointerData.current[stageId]; setSwipeDelta(0); }}
         style={{
           background: t.bgCard,
           border: `1px solid ${t.border}`,

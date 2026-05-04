@@ -25,6 +25,8 @@ import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
 import ActivityView from "@/components/views/ActivityView";
 import ChatView from "@/components/views/ChatView";
+import NotesView from "@/components/views/NotesView";
+import BugTrackerView from "@/components/views/BugTrackerView";
 import HomeViewRoute from "@/components/views/HomeViewRoute";
 import TeamBar from "@/components/views/TeamBar";
 import WhileAwayDigest from "@/components/WhileAwayDigest";
@@ -117,8 +119,8 @@ function DashboardInner({
   toasts: ToastItem[];
   dismissToast: (id: number) => void;
 }) {
-  const { users, setUsers, currentUser, me, claims, reactions, comments, subtasks, assignments, stageStatusOverrides, approvedStages, stageDescOverrides, stageNameOverrides, subtaskStages, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, workspaces, activityLog, archivedStages, stageImages, chatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs, syncStatus, getStatus, getPoints, sc, ck, allPipelinesGlobal, handleClaim, handleReact, toggleSubtask, renameSubtask, lockSubtask, removeSubtask, archiveStage, setStageDescOverride, setStageNameOverride, setSubtaskStage, assignTask, setStageStatusDirect, cycleStatus, approveStage, addCustomStage, addCustomPipeline, sendChat, handleRemoteMessage, loadMoreMessages, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, addStageImage, removeStageImage, isOfficerOfWorkspace, undo, peek, stackLen, t } = useModel();
-  const { reactOpen, setReactOpen, copied, setCopied, setClaimAnim } = useEphemeral();
+  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, isOfficerOfWorkspace, undo, peek, stackLen, t } = useModel();
+  const { setReactOpen, setCopied, setClaimAnim } = useEphemeral();
 
   // Navigation — always start at "home" on each page load (per user request)
   const [activeNavItem, setActiveNavItem] = useState<NavItem>("home");
@@ -131,7 +133,8 @@ function DashboardInner({
   const [selUser, setSelUser] = useState<string | null>(null); const [selAvatar, setSelAvatar] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false); const [viewingUser, setViewingUser] = useState<string | null>(null);
   const viewingUserPopupRef = useRef<HTMLDivElement>(null);
-  const [showActivity, setShowActivity] = useState(false); const [showChat, setShowChat] = useState(false); const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "ai">("ai");
+  const [showActivity, setShowActivity] = useState(false); const [showChat, setShowChat] = useState(false); const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "dm" | "ai">("ai");
+  const [chatSize, setChatSize] = useState(() => lsGet("chatSize", { width: 360, height: 420 }));
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
@@ -155,6 +158,7 @@ function DashboardInner({
   }, [activityLog.length]);
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
+  useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
   // "While you were away" digest: check on mount, heartbeat while active, persist on unmount
   useEffect(() => {
@@ -251,8 +255,7 @@ function DashboardInner({
     const myPts = getPoints(currentUser);
     if (myPts > prevMyPtsRef.current && prevMyPtsRef.current > 0) { setPtsFlash(true); setTimeout(() => setPtsFlash(false), 1800); }
     prevMyPtsRef.current = myPts;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stageStatusOverrides, claims]);
+  }, [approvedStages, claims, currentUser, getPoints]);
 
   // Approval animation
   useEffect(() => {
@@ -291,7 +294,7 @@ function DashboardInner({
       setToast({ text: `${meUser?.name} owns ${sid}`, pts: `earn +10pts on live`, color: meUser?.color || t.accent });
       setTimeout(() => setClaimAnim(null), 1200); setTimeout(() => setToast(null), 2500);
     }
-  }, [handleClaim, claims, currentUser, users, t.accent]);
+  }, [handleClaim, claims, currentUser, users, t.accent, setClaimAnim]);
 
   // Workspace-scoped pipelines
   const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })() : allPipelinesGlobal;
@@ -302,7 +305,6 @@ function DashboardInner({
     setExpanded(prev => prev.includes(pipelineId) ? prev : [...prev, pipelineId]);
     const p = allPipelines.find(pl => pl.id === pipelineId);
     if (p) { const stages = [...p.stages, ...(customStages[pipelineId] || [])]; const idx = stages.indexOf(stageName); if (idx >= 0) setExpS(`${pipelineId}-${idx}`); setTimeout(() => { const el = document.getElementById(`stage-${CSS.escape(stageName)}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 300); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [allPipelines, customStages]);
 
   const handlePaletteOpenDocument = useCallback((docId: string) => {
@@ -329,7 +331,12 @@ function DashboardInner({
 
   // Computed
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
+  const canSeeCalls = currentUser === "ai";
   const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
+
+  useEffect(() => {
+    if (!canSeeCalls && activeNavItem === "calls") setActiveNavItem("home");
+  }, [activeNavItem, canSeeCalls]);
 
   // Auto-select first available workspace if current selection isn't one the user belongs to
   useEffect(() => {
@@ -362,7 +369,7 @@ function DashboardInner({
   // Compose sidebar and header nodes for ChromeShell
   const sidebarNode = !isMobile ? (
     <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
-      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} />
+      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} hiddenNavItems={canSeeCalls ? [] : ["calls"]} />
     </div>
   ) : null;
 
@@ -389,7 +396,7 @@ function DashboardInner({
           >
             <RotateCcw size={14} strokeWidth={2} />
           </button>
-          <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} title="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>
+          {canSeeCalls && <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} title="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>}
           <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
           {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
@@ -421,12 +428,14 @@ function DashboardInner({
           <>
             {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
             {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></div></Suspense></ErrorBoundary>)}
+            {!isMobile && activeNavItem === "notes" && <NotesView t={t} currentWorkspaceId={currentWorkspaceId} />}
+            {!isMobile && activeNavItem === "bugs" && <BugTrackerView t={t} currentWorkspaceId={currentWorkspaceId} />}
             {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />}
             {!isMobile && activeNavItem === "home" && me && (
               <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} handleClaimWithAnim={handleClaimWithAnim} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
             )}
             {(isMobile || activeNavItem === "pipelines") && <PipelinesView {...pipelinesViewProps} />}
-            {!isMobile && activeNavItem === "calls" && <CallsView t={t} />}
+            {!isMobile && canSeeCalls && activeNavItem === "calls" && <CallsView t={t} />}
 
             {/* Toasts */}
             {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}><span style={{ fontSize: toast.color === t.green ? 20 : 13 }}>{toast.color === t.green ? "⚡" : "💀"}</span><span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span><span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span></div>}
@@ -444,7 +453,14 @@ function DashboardInner({
 
       {/* Mobile overlays */}
       {isMobile && (<BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}><ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></Suspense></ErrorBoundary></BottomSheet>)}
-      {isMobile ? (<BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></BottomSheet>) : showChat ? (<div style={{ position: "fixed", bottom: 160, right: 16, width: "min(340px, calc(100vw - 32px))", zIndex: 500, animation: "slideUp 0.2s ease" }} onClick={e => e.stopPropagation()}><div style={{ position: "relative" }}><button onClick={() => setShowChat(false)} style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, padding: 0 }}>×</button><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></div></div>) : null}
+      {isMobile ? (<BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></BottomSheet>) : showChat ? (
+        <div style={{ position: "fixed", bottom: 160, right: 16, width: `min(${chatSize.width}px, calc(100vw - 32px))`, height: chatSize.height, minWidth: 300, minHeight: 320, maxHeight: "75vh", resize: "both", overflow: "auto", zIndex: 500, animation: "slideUp 0.2s ease", background: t.bgCard, borderRadius: 16 }} onClick={e => e.stopPropagation()} onMouseUp={e => { const rect = e.currentTarget.getBoundingClientRect(); setChatSize({ width: Math.round(rect.width), height: Math.round(rect.height) }); }}>
+          <div style={{ position: "relative", height: "100%" }}>
+            <button onClick={() => setShowChat(false)} style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, padding: 0 }}>×</button>
+            <div style={{ height: "100%" }}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></div>
+          </div>
+        </div>
+      ) : null}
 
       {/* FABs */}
       <button onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); }} title="Team chat" style={{ position: "fixed", bottom: 88, right: 24, zIndex: 600, width: 48, height: 48, borderRadius: "50%", background: t.bgCard, border: `1px solid ${t.border}`, boxShadow: `0 2px 12px rgba(0,0,0,0.25)`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20 } as React.CSSProperties}>💬{chatNotif && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}` }} />}</button>

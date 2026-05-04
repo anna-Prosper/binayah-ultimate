@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { connectMongo } from "@/lib/mongo";
 import AuthUser from "@/lib/AuthUser";

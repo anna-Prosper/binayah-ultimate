@@ -349,19 +349,63 @@ pipelineData.forEach(p => {
 // === TYPES ===
 export interface SubtaskItem { id: number; text: string; done: boolean; by: string; locked?: boolean; points?: number; }
 export interface CommentItem { id: number; text: string; by: string; time: string; }
+export interface NoteItem {
+  id: number;
+  title: string;
+  body: string;
+  by: string;
+  createdAt: number;
+  updatedAt: number;
+  workspaceId?: string;
+  pinnedTo?: string;
+  color?: string;
+}
 export type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; workspaceId?: string; notifyTo?: string[] };
+export interface ReminderItem {
+  id: number;
+  title: string;
+  body: string;
+  createdBy: string;
+  recipientIds: string[];
+  remindAt: string;
+  createdAt: number;
+  emailedTo?: string[];
+  dismissedBy?: string[];
+}
+export type BugSeverity = "low" | "medium" | "high" | "critical";
+export type BugStatus = "open" | "triage" | "testing" | "fixed" | "closed";
+export type BugType = "bug" | "test" | "qa";
+export interface BugItem {
+  id: number;
+  title: string;
+  body: string;
+  steps?: string;
+  expected?: string;
+  actual?: string;
+  type: BugType;
+  severity: BugSeverity;
+  status: BugStatus;
+  ownerId?: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+  workspaceId?: string;
+  linkedTask?: string;
+}
 export interface ExecProposal {
   id: number;
   title: string;
   body: string;
   by: string;
-  status: "pending" | "reviewed" | "rejected";
+  status: "pending" | "reviewed" | "rejected" | "canceled";
   createdAt: number;
   reviewedAt?: number;
   reviewedBy?: string;
   kind?: "strategy" | "edit" | "archive" | "assign";
   target?: string;
   requestedAction?: string;
+  requestedValue?: string | null;
+  requestedUserId?: string | null;
 }
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"];
 

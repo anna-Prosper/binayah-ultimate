@@ -215,7 +215,13 @@ async function syncNewMeetings(
   }));
 
   // Merge with existing (new meetings first)
-  const newMeetings: CachedMeeting[] = newWithSummaries.map(({ summary: _s, ...m }) => m);
+  const newMeetings: CachedMeeting[] = newWithSummaries.map(m => ({
+    id: m.id,
+    uuid: m.uuid,
+    topic: m.topic,
+    startTime: m.startTime,
+    duration: m.duration,
+  }));
   const allMeetings = [...newMeetings, ...existingMeetings.filter(em => !newMeetings.find(nm => nm.uuid === em.uuid))]
     .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 

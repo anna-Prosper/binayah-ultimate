@@ -11,12 +11,12 @@ const ChatPanel = dynamic(() => import("@/components/ChatPanel"), { ssr: false }
 interface ChatViewProps {
   showToast: (msg: string, color: string) => void;
   fullScreen?: boolean;
-  defaultTab?: "team" | "ai";
+  defaultTab?: "team" | "dm" | "ai";
   currentWorkspaceId?: string;
 }
 
 export default function ChatView({ showToast, fullScreen, defaultTab, currentWorkspaceId }: ChatViewProps) {
-  const { chatMessages, sendChat, handleRemoteMessage, users, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customPipelines, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
+  const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
 
   const allPipelines = currentWorkspaceId
     ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })()
@@ -26,6 +26,17 @@ export default function ChatView({ showToast, fullScreen, defaultTab, currentWor
   const filteredMessages = currentWorkspaceId
     ? chatMessages.filter(m => !m.workspaceId || m.workspaceId === currentWorkspaceId)
     : chatMessages;
+
+  const loadThread = async (threadId: string) => {
+    const wsParam = currentWorkspaceId ? `&workspaceId=${encodeURIComponent(currentWorkspaceId)}` : "";
+    const res = await fetch(`/api/pipeline-state/messages?limit=50${wsParam}&threadId=${encodeURIComponent(threadId)}`, { cache: "no-store" });
+    const msgs = await res.json().catch(() => []);
+    if (!Array.isArray(msgs)) return;
+    setChatMessages(prev => {
+      const existing = new Set(prev.map(m => m.id));
+      return [...prev, ...msgs.filter((m: { id: number }) => !existing.has(m.id))].sort((a, b) => a.id - b.id);
+    });
+  };
 
   const buildAiContext = () => {
     const me = users.find(u => u.id === currentUser);
@@ -46,7 +57,7 @@ export default function ChatView({ showToast, fullScreen, defaultTab, currentWor
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
       <Suspense fallback={<ChatSkeleton t={t} />}>
-        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} hasMore={hasMoreMessages} buildAiContext={buildAiContext} />
+        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} workspaceId={currentWorkspaceId || "main"} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} onLoadThread={loadThread} hasMore={hasMoreMessages} buildAiContext={buildAiContext} />
       </Suspense>
     </ErrorBoundary>
   );

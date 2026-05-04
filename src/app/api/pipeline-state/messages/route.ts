@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongo";
 import ChatMessage from "@/lib/ChatMessage";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateText, validateUserId } from "@/lib/validate";
+import { checkContentLength, validateText } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 import { chatBus } from "@/lib/chatBus";
 import { notifyMentions } from "@/lib/mentions";
@@ -15,14 +15,19 @@ const ROUTE = "/api/pipeline-state/messages";
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const sessionUserId = session.user?.fixedUserId;
 
   const before = req.nextUrl.searchParams.get("before");   // optional msgId cursor
   const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "50"), 100);
+  const threadId = req.nextUrl.searchParams.get("threadId") ?? "team";
+  if (threadId.startsWith("dm:") && (!sessionUserId || !threadId.split(":").includes(sessionUserId))) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
   // workspaceId filter: if provided, scope to that workspace; otherwise fall back to "main"
   const workspaceId = req.nextUrl.searchParams.get("workspaceId") ?? "main";
 
   await connectMongo();
-  const query: Record<string, unknown> = { workspaceId };
+  const query: Record<string, unknown> = { workspaceId, threadId };
   if (before) query.id = { $lt: parseInt(before, 10) };
 
   const messages = await ChatMessage.find(query)
@@ -32,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   // Return oldest-first for client rendering
   return NextResponse.json(messages.reverse().map(m => ({
-    id: m.id, userId: m.userId, text: m.text, time: m.time, workspaceId: m.workspaceId,
+    id: m.id, userId: m.userId, text: m.text, time: m.time, workspaceId: m.workspaceId, threadId: m.threadId ?? "team", attachments: m.attachments ?? [],
   })));
 }
 
@@ -57,34 +62,46 @@ export async function POST(req: NextRequest) {
 
   const msg = (await req.json()) as Record<string, unknown>;
 
-  const userIdErr = validateUserId(msg.userId, "userId");
-  if (userIdErr) {
-    logApi(ROUTE, "validation_fail", { reason: userIdErr });
-    return NextResponse.json({ error: userIdErr }, { status: 400 });
-  }
+  const session = await getServerSession(authOptions);
+  const authoredUserId = session?.user?.fixedUserId;
+  if (!authoredUserId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const textErr = validateText(msg.text, "text", 2000);
-  if (textErr) {
+  const attachments = Array.isArray(msg.attachments) ? msg.attachments.slice(0, 4) : [];
+  if (textErr && attachments.length === 0) {
     logApi(ROUTE, "validation_fail", { reason: textErr });
     return NextResponse.json({ error: textErr }, { status: 400 });
+  }
+  for (const file of attachments) {
+    if (!file || typeof file !== "object") return NextResponse.json({ error: "invalid attachment" }, { status: 400 });
+    const f = file as Record<string, unknown>;
+    if (typeof f.name !== "string" || f.name.length > 160) return NextResponse.json({ error: "invalid attachment name" }, { status: 400 });
+    if (typeof f.type !== "string" || f.type.length > 120) return NextResponse.json({ error: "invalid attachment type" }, { status: 400 });
+    if (typeof f.dataUrl !== "string" || !f.dataUrl.startsWith("data:") || f.dataUrl.length > 1_500_000) return NextResponse.json({ error: "invalid attachment data" }, { status: 400 });
   }
 
   // Use workspaceId from body when provided; fall back to "main" for legacy clients
   const workspaceId = typeof msg.workspaceId === "string" && msg.workspaceId ? msg.workspaceId : "main";
+  const threadId = typeof msg.threadId === "string" && msg.threadId ? msg.threadId : "team";
+  if (threadId.startsWith("dm:") && !threadId.split(":").includes(authoredUserId)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
 
   await connectMongo();
   await ChatMessage.create({
     workspaceId,
+    threadId,
     id: msg.id,
-    userId: msg.userId,
-    text: msg.text,
+    userId: authoredUserId,
+    text: typeof msg.text === "string" ? msg.text : "",
+    attachments,
     time: msg.time,
   });
   logApi(ROUTE, "success");
   // Emit to SSE subscribers so all connected clients receive the message instantly
-  chatBus.emit("message", msg);
+  chatBus.emit("message", { ...msg, userId: authoredUserId, workspaceId, threadId, attachments });
   // Fire-and-forget: email mentioned users (Gmail SMTP)
   const text = (msg.text as string) || "";
-  const senderId = (msg.userId as string) || "";
+  const senderId = authoredUserId;
   if (text && senderId) {
     notifyMentions(text, senderId).catch(e => console.warn("[chat-mention] notifyMentions failed:", e));
   }

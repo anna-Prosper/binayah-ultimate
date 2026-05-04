@@ -3,7 +3,7 @@
 import React from "react";
 import { T } from "@/lib/themes";
 import { Browser } from "./MockupShells";
-import { Stat, Bar } from "@/components/ui/primitives";
+import { Stat } from "@/components/ui/primitives";
 
 export function MultilingualDirs({ t }: { t: T }) {
   return (

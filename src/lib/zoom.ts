@@ -96,7 +96,6 @@ export type ZoomMeetingSummaryResult =
 
 /** Zoom response bodies sometimes contain raw control chars — strip before JSON.parse */
 function safeParseZoomJson(raw: string): Record<string, unknown> {
-  // eslint-disable-next-line no-control-regex
   const cleaned = raw.replace(/[\x00-\x08\x0b\x0c\x0e-\x1f]/g, " ");
   return JSON.parse(cleaned) as Record<string, unknown>;
 }

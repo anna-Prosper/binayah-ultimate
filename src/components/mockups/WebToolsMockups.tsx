@@ -3,7 +3,7 @@
 import React from "react";
 import { T } from "@/lib/themes";
 import { Browser } from "./MockupShells";
-import { Bar, ScoreCircle } from "@/components/ui/primitives";
+import { ScoreCircle } from "@/components/ui/primitives";
 
 export function LoginMyList({ t }: { t: T }) {
   return (

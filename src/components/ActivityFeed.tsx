@@ -42,6 +42,7 @@ function isUsefulActivity(item: ActivityItem, currentUserId: string | null | und
   if (item.user === currentUserId) return true;
   if (isMentioned(item, currentUserId, users)) return true;
   if (ADMIN_IDS.includes(currentUserId)) return ["request", "create", "claim", "status", "assign", "archive"].includes(item.type);
+  if (item.type === "reminder") return item.notifyTo?.includes(currentUserId) ?? false;
   if (EXEC_IDS.includes(currentUserId)) return ["create", "claim", "status"].includes(item.type);
   return false;
 }
@@ -81,6 +82,7 @@ export default function ActivityFeed({ activityLog, users, t, currentUserId }: A
                       a.type === "comment" ? "commented on" :
                       a.type === "status" ? "moved" :
                       a.type === "request" ? "requested" :
+                      a.type === "reminder" ? "reminded" :
                       a.type === "assign" ? "assigned task in" :
                       a.type === "create" ? "created" :
                       a.type === "subtask_migrated" ? "moved subtask in" :

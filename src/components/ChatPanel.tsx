@@ -4,20 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
 import { type UserType } from "@/lib/data";
+import { type ChatAttachment } from "@/lib/apiSync";
 
-export type ChatMsg = { id: number; userId: string; text: string; time: string; workspaceId?: string };
+export type ChatMsg = { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: ChatAttachment[] };
 type AiMsg = { role: "user" | "assistant"; content: string; time: string; error?: boolean };
 
 const MAX_MSG_LEN = 2000;
 
 interface Props {
   messages: ChatMsg[];
-  onSend: (text: string) => void;
+  onSend: (text: string, opts?: { threadId?: string; attachments?: ChatAttachment[] }) => void;
   onRemoteMessage?: (msg: ChatMsg) => void;
   users: UserType[];
   currentUser: string;
+  workspaceId?: string;
   t: T;
-  defaultTab?: "team" | "ai";
+  defaultTab?: "team" | "dm" | "ai";
   buildAiContext?: () => string;
   /** When true: renders flat (no outer card border/radius) for embedding in a BottomSheet */
   mobileMode?: boolean;
@@ -25,6 +27,7 @@ interface Props {
   fullScreen?: boolean;
   /** Load older messages (infinite scroll — scroll to top triggers this) */
   onLoadMore?: () => Promise<void>;
+  onLoadThread?: (threadId: string) => Promise<void>;
   /** Whether more messages are available to load */
   hasMore?: boolean;
 }
@@ -51,11 +54,16 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
   return parts.length ? parts : text;
 }
 
-export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, hasMore = true }: Props) {
-  const [tab, setTab] = useState<"team" | "ai">(defaultTab);
+const dmThreadId = (a: string, b: string) => `dm:${[a, b].sort().join(":")}`;
+
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, workspaceId = "main", t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, onLoadThread, hasMore = true }: Props) {
+  const [tab, setTab] = useState<"team" | "dm" | "ai">(defaultTab);
   const [input, setInput] = useState("");
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [dmUserId, setDmUserId] = useState(() => users.find(u => u.id !== currentUser && u.id !== "ai")?.id || "");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   // Filter users by mention query
   const mentionMatches = mentionState.open
@@ -100,9 +108,12 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const backoffRef = useRef<number>(1000);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mountedRef = useRef(true);
+  const activeThreadId = tab === "dm" && dmUserId ? dmThreadId(currentUser, dmUserId) : "team";
+  const visibleMessages = messages.filter(m => (m.threadId || "team") === activeThreadId);
 
-  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages.length]);
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [visibleMessages.length]);
   useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages.length]);
+  useEffect(() => { if (tab !== "ai") void onLoadThread?.(activeThreadId); }, [activeThreadId, tab, onLoadThread]);
 
   // SSE subscription — team chat only. AI tab has no SSE.
   useEffect(() => {
@@ -110,8 +121,10 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
 
     const connect = () => {
       if (!mountedRef.current) return;
-      const lastId = messages.length > 0 ? messages[messages.length - 1].id : 0;
-      const es = new EventSource(`/api/pipeline-state/messages/stream?since=${lastId}`);
+	      const threadMessages = messages.filter(m => (m.threadId || "team") === activeThreadId);
+	      const lastId = threadMessages.length > 0 ? threadMessages[threadMessages.length - 1].id : 0;
+	      const workspace = workspaceId || threadMessages[threadMessages.length - 1]?.workspaceId || messages[messages.length - 1]?.workspaceId || "main";
+	      const es = new EventSource(`/api/pipeline-state/messages/stream?since=${lastId}&workspaceId=${encodeURIComponent(workspace)}&threadId=${encodeURIComponent(activeThreadId)}`);
       esRef.current = es;
 
       es.onopen = () => {
@@ -150,7 +163,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       esRef.current = null;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally only on mount — SSE runs for component lifetime
+  }, [activeThreadId]); // reconnect when switching team/DM thread
 
   const handleScroll = async (e: React.UIEvent<HTMLDivElement>) => {
     const el = e.currentTarget;
@@ -166,13 +179,28 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
     }
   };
 
-  const canSend = input.trim().length > 0 && input.trim().length <= MAX_MSG_LEN;
+  const canSend = (input.trim().length > 0 || attachments.length > 0) && input.trim().length <= MAX_MSG_LEN;
+
+  const addFiles = async (files: FileList | null) => {
+    if (!files) return;
+    const picked = Array.from(files).slice(0, 4 - attachments.length);
+    const next = await Promise.all(picked.map(file => new Promise<ChatAttachment>((resolve, reject) => {
+      if (file.size > 900_000) reject(new Error("file too large"));
+      const reader = new FileReader();
+      reader.onload = () => resolve({ id: `${Date.now()}-${file.name}`, name: file.name, type: file.type || "application/octet-stream", size: file.size, dataUrl: String(reader.result) });
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    }).catch(() => null)));
+    setAttachments(prev => [...prev, ...next.filter((x): x is ChatAttachment => !!x)].slice(0, 4));
+    if (fileRef.current) fileRef.current.value = "";
+  };
 
   const send = () => {
     const text = input.trim();
     if (!text || text.length > MAX_MSG_LEN) return;
-    onSend(text);
+    onSend(text, { threadId: activeThreadId, attachments });
     setInput("");
+    setAttachments([]);
   };
 
   const sendAi = async () => {
@@ -240,32 +268,41 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {/* Header + tabs */}
       <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
         {/* SSE connection dot — only shown on team tab */}
-        {tab === "team" ? (
+          {tab === "team" || tab === "dm" ? (
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: sseConnected ? t.green : t.amber, boxShadow: `0 0 6px ${sseConnected ? t.green : t.amber}88`, transition: "all 0.3s" }} title={sseConnected ? "live" : "reconnecting..."} />
         ) : (
           <div style={{ width: 6, height: 6, borderRadius: "50%", background: t.amber, boxShadow: `0 0 6px ${t.amber}88` }} />
         )}
         <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
-          {tab === "team" ? "team chat" : "binayah ai"}
+          {tab === "team" ? "team chat" : tab === "dm" ? "direct messages" : "binayah ai"}
         </span>
         {/* M-2: Only show "reconnecting" after we've had a successful connection before; otherwise it's just "connecting" */}
-        {tab === "team" && !sseConnected && sseHasConnected && (
+        {(tab === "team" || tab === "dm") && !sseConnected && sseHasConnected && (
           <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>
             // reconnecting...
           </span>
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-          {(["team", "ai"] as const).map(v => (
+	          {(["team", "dm", "ai"] as const).map(v => (
             <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
-              {v === "team" ? "👥 team" : "🤖 ai"}
+	              {v === "team" ? "👥 team" : v === "dm" ? "✉ dm" : "🤖 ai"}
             </button>
           ))}
         </div>
       </div>
 
       {/* Team chat */}
-      {tab === "team" && (
+      {(tab === "team" || tab === "dm") && (
         <>
+          {tab === "dm" && (
+            <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 6, overflowX: "auto" }}>
+              {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => (
+                <button key={u.id} onClick={() => setDmUserId(u.id)} style={{ display: "flex", alignItems: "center", gap: 6, background: dmUserId === u.id ? u.color + "22" : "transparent", border: `1px solid ${dmUserId === u.id ? u.color + "66" : t.border}`, borderRadius: 999, padding: "4px 8px", color: dmUserId === u.id ? u.color : t.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>
+                  <AvatarC user={u} size={18} /> {u.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div onScroll={handleScroll} style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
             {loadingMore && (
               <div style={{ textAlign: "center", padding: "8px", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
@@ -280,12 +317,12 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 </button>
               </div>
             )}
-            {messages.length === 0 && (
+            {visibleMessages.length === 0 && (
               <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
                 <span style={{ fontSize: 24 }}>💬</span>
               </div>
             )}
-            {messages.map(msg => {
+            {visibleMessages.map(msg => {
               const u = users.find(u => u.id === msg.userId);
               const isMe = msg.userId === currentUser;
               return (
@@ -293,9 +330,22 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isMe && <div style={{ fontSize: 10, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
-                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 13, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
-                      {renderMentions(msg.text, users, t.text)}
-                    </div>
+	                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 13, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+	                      {renderMentions(msg.text, users, t.text)}
+	                      {(msg.attachments || []).length > 0 && (
+	                        <div style={{ display: "grid", gap: 6, marginTop: msg.text ? 8 : 0 }}>
+	                          {(msg.attachments || []).map(file => file.type.startsWith("image/")
+	                            ? (
+	                              <a key={file.id} href={file.dataUrl} target="_blank" rel="noreferrer">
+	                                {/* eslint-disable-next-line @next/next/no-img-element */}
+	                                <img src={file.dataUrl} alt={file.name} style={{ maxWidth: 220, maxHeight: 160, borderRadius: 10, border: `1px solid ${t.border}`, display: "block", objectFit: "cover" }} />
+	                              </a>
+	                            )
+	                            : <a key={file.id} href={file.dataUrl} download={file.name} style={{ color: t.accent, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>📎 {file.name}</a>
+	                          )}
+	                        </div>
+	                      )}
+	                    </div>
                     <div style={{ fontSize: 10, color: t.textDim, marginTop: 4, textAlign: isMe ? "right" : "left", paddingInline: 4 }}>{msg.time}</div>
                   </div>
                 </div>
@@ -345,7 +395,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   }
                   if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
                 }}
-                placeholder="message the team... use @ to mention"
+	                placeholder={tab === "dm" ? "private message..." : "message the team... use @ to mention"}
                 maxLength={MAX_MSG_LEN + 50} /* allow overage to show counter */
                 style={{
                   flex: 1,
@@ -359,7 +409,9 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   fontFamily: "inherit",
                   outline: "none",
                 }}
-              />
+	              />
+	              <input ref={fileRef} type="file" multiple onChange={e => addFiles(e.target.files)} style={{ display: "none" }} />
+	              <button onClick={() => fileRef.current?.click()} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 10px", cursor: "pointer", color: t.textMuted }}>📎</button>
               <button
                 onClick={send}
                 disabled={!canSend}
@@ -381,7 +433,14 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   transition: "all 0.15s",
                 }}
               >↵</button>
-            </div>
+	            </div>
+	            {attachments.length > 0 && (
+	              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+	                {attachments.map(file => (
+	                  <button key={file.id} onClick={() => setAttachments(prev => prev.filter(f => f.id !== file.id))} style={{ background: t.accent + "12", border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "3px 7px", color: t.accent, fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer" }}>📎 {file.name} ×</button>
+	                ))}
+	              </div>
+	            )}
             {isInputTooLong && (
               <div style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
                 // {inputCharCount}/{MAX_MSG_LEN} — message too long

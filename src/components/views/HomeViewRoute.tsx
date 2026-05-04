@@ -43,8 +43,8 @@ interface HomeViewRouteProps {
 export default function HomeViewRoute({
   showToast, currentWorkspaceId, setCurrentWorkspaceId, setActiveSidebarPipeline,
   setActiveNavItem, viewingUser, setViewingUser, showActivity, setShowActivity,
-  setLastSeenActivity, showThemePicker, setShowThemePicker, selUser, setSelUser,
-  selAvatar, setSelAvatar, setShowAvatarPicker, handleClaimWithAnim,
+  setLastSeenActivity, showThemePicker, setShowThemePicker, setSelUser,
+  setSelAvatar, setShowAvatarPicker,
   editMode, unseen, themeId, isDark, setThemeId, setIsDark,
 }: HomeViewRouteProps) {
   const {

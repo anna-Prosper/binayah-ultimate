@@ -286,7 +286,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   const deleteAttachment = useCallback(async (attachmentId: string) => {
     if (!activeId) return;
     setConfirmDeleteAttach(attachmentId);
-  }, [activeId, showToast, t.red]);
+  }, [activeId]);
 
   const executeDeleteAttach = useCallback(async (attachmentId: string) => {
     try {
@@ -347,7 +347,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     : pipelineData;
   // Apply workspace scope: show docs with no pipeline OR whose pipelineId is in workspacePipelineIds.
   const filteredDocs = workspacePipelineIds && workspacePipelineIds.length > 0
-    ? docs.filter(doc => !!doc.pipelineId && workspacePipelineIds.includes(doc.pipelineId))
+    ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
     : docs;
 
   // Skeleton row

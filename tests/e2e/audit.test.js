@@ -233,12 +233,6 @@ test('Full dashboard audit', async ({ page }) => {
   const bellAreaCount = await bellArea.count();
   console.log(`Bell component by class: ${bellAreaCount}`);
   
-  // Try clicking all small header buttons
-  const smallHeaderBtns = page.locator('button').filter(async (btn) => {
-    const box = await btn.boundingBox();
-    return box && box.y < 200 && box.x > 800 && box.width < 50;
-  });
-  
   // Alternative: just try all header-area buttons and see if any open a dropdown
   const allHeaderButtons = await page.evaluate(() => {
     return Array.from(document.querySelectorAll('button')).filter(btn => {

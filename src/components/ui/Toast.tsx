@@ -103,9 +103,10 @@ export function useToasts() {
 
   // Clear all pending timers on unmount to prevent state updates on unmounted component
   useEffect(() => {
+    const activeTimers = timers.current;
     return () => {
-      timers.current.forEach(timer => clearTimeout(timer));
-      timers.current.clear();
+      activeTimers.forEach(timer => clearTimeout(timer));
+      activeTimers.clear();
     };
   }, []);
 

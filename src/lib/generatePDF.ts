@@ -39,7 +39,6 @@ function _generatePipelineReport(opts: PDFOptions): PDFResult {
   // Colors
   const dark = "#0d0a18";
   const accent = "#bf5af2";
-  const green = "#00cc6a";
   const amber = "#cc9900";
   const textMain = "#f0ecff";
   const textDim = "#8880aa";

@@ -422,7 +422,7 @@ export default function Stage({
     claims, reactions: rxns, comments, subtasks, users, currentUser, me,
     stageDescOverrides, stageImages, liveNotifs, activityLog,
     handleClaim, handleReact, cycleStatus,
-    addSubtask, toggleSubtask, lockSubtask, archiveSubtask, addComment,
+    addSubtask, archiveSubtask, addComment, deleteComment,
     setStageDescOverride, setStageNameOverride,
     addStageImage, removeStageImage, archiveStage,
     getPoints,
@@ -987,10 +987,11 @@ export default function Stage({
                                   <div style={{ display: "flex", gap: 4 }}>
                                     <AvatarC user={u} size={16} />
                                     <div style={{ flex: 1 }}>
-                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                                        <span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name}</span>
-                                        <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
-                                      </div>
+	                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+	                                        <span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name}</span>
+	                                        <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
+	                                        {(c.by === currentUser || currentUser === "anna") && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 9, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                                      </div>
                                       <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
                                     </div>
                                   </div>
@@ -1186,6 +1187,7 @@ export default function Stage({
                           )}
                           {imgs.map((src, i) => (
                             <div key={i} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${t.border}`, aspectRatio: "4/3", background: t.surface, cursor: "zoom-in" }} onClick={() => setLightboxImg(src)}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={src} alt="" style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
                               <button onClick={e => { e.stopPropagation(); removeStageImage(name, i); }} title="Remove" style={{ position: "absolute", top: 3, right: 3, width: 18, height: 18, borderRadius: "50%", background: "rgba(0,0,0,0.65)", border: "none", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", lineHeight: 1 }}>×</button>
                             </div>
@@ -1236,6 +1238,7 @@ export default function Stage({
         >
           <button onClick={() => setLightboxImg(null)} style={{ position: "absolute", top: 16, right: 16, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 20, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
           <a href={lightboxImg} download="image" onClick={e => e.stopPropagation()} style={{ position: "absolute", top: 16, right: 60, width: 36, height: 36, borderRadius: "50%", background: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.3)", color: "#fff", fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", textDecoration: "none" }} title="Save image">↓</a>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={lightboxImg} alt="" onClick={e => e.stopPropagation()} style={{ maxWidth: "100%", maxHeight: "90vh", borderRadius: 12, objectFit: "contain", boxShadow: "0 8px 48px rgba(0,0,0,0.6)" }} />
         </div>
       )}
@@ -1293,10 +1296,11 @@ export default function Stage({
                   <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <AvatarC user={u} size={22} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
-                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
-                      </div>
+	                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+	                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
+	                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
+	                        {(c.by === currentUser || currentUser === "anna") && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                      </div>
                       <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>
                     </div>
                   </div>

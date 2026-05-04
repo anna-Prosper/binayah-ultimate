@@ -8,7 +8,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { parseMentions } from "@/lib/mentions";
 import { sendNotifications } from "@/lib/sendNotifications";
-import { pipelineData, stageDefaults } from "@/lib/data";
+import { ADMIN_IDS, pipelineData, stageDefaults } from "@/lib/data";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -136,4 +136,48 @@ export async function POST(req: NextRequest) {
     logApi(ROUTE, "db_error", { message: (err as Error).message });
     return NextResponse.json({ error: "COMMENT_FAILED", message: "Failed to save comment — try again" }, { status: 500 });
   }
+}
+
+export async function DELETE(req: NextRequest) {
+  logApi(ROUTE, "delete_request");
+
+  const rl = rateLimit(req, `${ROUTE}:DELETE`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many requests — slow down" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
+  const session = await getServerSession(authOptions);
+  const actorId = session?.user?.fixedUserId;
+  if (!actorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { stage, commentId } = (await req.json()) as { stage?: unknown; commentId?: unknown };
+  const stageErr = validateStageKey(stage);
+  if (stageErr) return NextResponse.json({ error: stageErr }, { status: 400 });
+  if (typeof commentId !== "number" || !Number.isFinite(commentId)) {
+    return NextResponse.json({ error: "commentId must be a number" }, { status: 400 });
+  }
+
+  await connectMongo();
+  const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { comments?: Record<string, Array<{ id: number; by: string }>> } } | null;
+  const stageKey = stage as string;
+  const comment = (doc?.state?.comments?.[stageKey] || []).find(c => c.id === commentId);
+  if (!comment) return NextResponse.json({ ok: true });
+  if (comment.by !== actorId && !ADMIN_IDS.includes(actorId)) {
+    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+  }
+
+  await PipelineState.findOneAndUpdate(
+    WORKSPACE,
+    {
+      $pull: { [`state.comments.${stageKey}`]: { id: commentId } },
+      $unset: { [`state.commentReactions.${stageKey}::${commentId}`]: "" },
+      $set: { updatedAt: new Date() },
+    }
+  );
+
+  logApi(ROUTE, "delete_success", { stage: stageKey, commentId });
+  return NextResponse.json({ ok: true });
 }

@@ -13,12 +13,10 @@
 import dynamic from "next/dynamic";
 import React from "react";
 import { T } from "@/lib/themes";
-import { MockupSkeleton } from "@/components/ui/Skeletons";
 
 type MockupProps = { t: T };
 
-// Skeleton factory — needs t at render time, not at module-level.
-// We use a wrapper component so we can pass t to MockupSkeleton.
+// Skeleton factory — dynamic loading() does not receive props, so this is neutral.
 function makeSkeleton() {
   // This is the loading slot. next/dynamic loading() does NOT receive props,
   // so we render a static placeholder. The real skeleton with t colors

@@ -12,6 +12,5 @@ export function logApi(route: string, event: string, meta?: Meta) {
     event,
     meta: meta || undefined,
   };
-  // eslint-disable-next-line no-console
   console.log(JSON.stringify(entry));
 }

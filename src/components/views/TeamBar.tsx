@@ -69,7 +69,8 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
                   </div>
                 )}
                 {claimedStages.length === 0 && <div style={{ fontSize: 10, color: t.textDim, fontStyle: "italic", marginBottom: isMe ? 10 : 0 }}>no stages claimed yet</div>}
-                {isMe && (<><button onClick={() => { onAvatarClick(u.id, u.avatar); setViewingUser(null); }} style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 12, padding: "8px", cursor: "pointer", fontSize: 11, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>change avatar →</button><NotificationPrefs t={t} /></>)}
+                {isMe && (<button onClick={() => { onAvatarClick(u.id, u.avatar); setViewingUser(null); }} style={{ width: "100%", background: u.color + "18", border: `1px solid ${u.color}44`, borderRadius: 12, padding: "8px", cursor: "pointer", fontSize: 11, color: u.color, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>change avatar →</button>)}
+                {(isMe || (!!currentUser && ADMIN_IDS.includes(currentUser))) && <NotificationPrefs t={t} targetUserId={u.id} targetName={isMe ? undefined : u.name.split(" ")[0]} />}
               </div>
             )}
           </div>

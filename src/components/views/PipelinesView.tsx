@@ -68,7 +68,7 @@ export default function PipelinesView({
     claims, reactions, getPoints,
     stageDescOverrides,
     pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
-    customStages, customPipelines, workspaces, allPipelinesGlobal,
+    customStages, workspaces, allPipelinesGlobal,
     getStatus, sc, ck, pr,
     handleReact,
     setStageDescOverride,

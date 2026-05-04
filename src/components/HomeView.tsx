@@ -58,13 +58,20 @@ function toneColor(t: T, tone: AttentionTone): string {
   return t.accent;
 }
 
-function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, onUpdate }: {
+function isExecutiveProposal(p: ExecProposal) {
+  return p.kind === "strategy" || EXEC_IDS.includes(p.by);
+}
+
+function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, onUpdate, onApply, onDelete, onCancel }: {
   t: T;
   currentUser: string;
   users: UserType[];
   proposals: ExecProposal[];
   onSubmit: (title: string, body: string) => void;
-  onUpdate: (id: number, status: "reviewed" | "rejected") => void;
+  onUpdate: (id: number, status: "reviewed" | "rejected" | "canceled") => void;
+  onApply: (id: number) => void;
+  onDelete: (id: number) => void;
+  onCancel: (id: number) => void;
 }) {
   const mono = "var(--font-dm-mono), monospace";
   const isExec = EXEC_IDS.includes(currentUser);
@@ -72,8 +79,11 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [renderNow] = useState(() => Date.now());
-  const pending = proposals.filter(p => p.status === "pending");
-  const visible = isAdmin ? proposals.slice(0, 8) : proposals.filter(p => p.by === currentUser).slice(0, 6);
+  const executiveProposals = proposals.filter(isExecutiveProposal);
+  const pending = executiveProposals.filter(p => p.status === "pending");
+  const visible = isAdmin
+    ? executiveProposals.slice(0, 8)
+    : proposals.filter(p => p.by === currentUser && isExecutiveProposal(p)).slice(0, 6);
   if (!isExec && !isAdmin) return null;
 
   const submit = () => {
@@ -88,10 +98,10 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
         <div>
           <div style={{ fontSize: 10, color: isAdmin ? t.green : t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>
-            {isAdmin ? "executive requests" : "propose to Anna"}
+            {isAdmin ? "exec requests" : "propose to Anna"}
           </div>
           <div style={{ marginTop: 4, fontSize: 18, color: t.text, fontWeight: 900 }}>
-            {isAdmin ? `${pending.length} request${pending.length === 1 ? "" : "s"} waiting` : "what should the team look at?"}
+            {isAdmin ? "executive requests" : "what should the team look at?"}
           </div>
         </div>
         {isAdmin && pending.length > 0 && <div style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800 }}>{pending.length} open</div>}
@@ -129,7 +139,9 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {visible.map(p => {
             const author = users.find(u => u.id === p.by);
+            const reviewer = p.reviewedBy ? users.find(u => u.id === p.reviewedBy) : null;
             const color = p.status === "pending" ? t.green : p.status === "rejected" ? t.red : t.textDim;
+            const statusLabel = p.status === "reviewed" ? "approved" : p.status;
             return (
               <div key={p.id} style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: "8px 10px", border: `1px solid ${color}33`, background: color + "08", borderRadius: 10 }}>
                 {author && <AvatarC user={author} size={22} />}
@@ -137,16 +149,28 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
                   <div style={{ display: "flex", gap: 8, alignItems: "baseline", flexWrap: "wrap" }}>
                     <span style={{ fontSize: 13, color: t.text, fontWeight: 800 }}>{p.title}</span>
                     {p.kind && <span style={{ fontSize: 10, color: t.accent, fontFamily: mono }}>{p.kind}</span>}
-                    <span style={{ fontSize: 10, color, fontFamily: mono }}>{p.status}</span>
-                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{author?.name.split(" ")[0] || p.by} · {timeAgoFrom(renderNow, p.createdAt)}</span>
+                    <span style={{ fontSize: 10, color, fontFamily: mono }}>{statusLabel}</span>
+                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>requested by {author?.name.split(" ")[0] || p.by} · {timeAgoFrom(renderNow, p.createdAt)}</span>
+                    {p.reviewedBy && <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>reviewed by {reviewer?.name.split(" ")[0] || p.reviewedBy}</span>}
                   </div>
                   {p.target && <div style={{ marginTop: 2, fontSize: 10, color: t.textDim, fontFamily: mono }}>target: {p.target}{p.requestedAction ? ` · ${p.requestedAction}` : ""}</div>}
                   <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>{p.body}</div>
                 </div>
+                {isExec && p.status === "pending" && p.by === currentUser && (
+                  <button type="button" onClick={() => onCancel(p.id)} style={{ background: t.amber + "12", border: `1px solid ${t.amber}44`, color: t.amber, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>cancel</button>
+                )}
                 {isAdmin && p.status === "pending" && (
                   <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                     <button type="button" onClick={() => onUpdate(p.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>approve</button>
                     <button type="button" onClick={() => onUpdate(p.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
+                  </div>
+                )}
+                {isAdmin && p.status !== "pending" && (
+                  <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                    {p.status === "reviewed" && p.kind && p.kind !== "strategy" && (
+                      <button type="button" onClick={() => onApply(p.id)} style={{ background: t.green + "14", border: `1px solid ${t.green}44`, color: t.green, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>apply</button>
+                    )}
+                    <button type="button" onClick={() => onDelete(p.id)} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>archive</button>
                   </div>
                 )}
               </div>
@@ -162,7 +186,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
   );
 }
 
-function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }: {
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate }: {
   t: T;
   attention: {
     roleLabel: string;
@@ -174,6 +198,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
     rawReviewItems: { key: string; title: string; pipelineName: string; kind: string }[];
     rawBlockedItems: { key: string; title: string; pipelineName: string; owners: string[] }[];
     rawUnownedItems: { key: string; title: string; pipelineName: string }[];
+    rawUnownedCount: number;
+    rawDueItems: { key: string; title: string; pipelineName: string }[];
     rawMyItems: { key: string; title: string; pipelineName: string; status: string }[];
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
     rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone }[];
@@ -182,13 +208,15 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
     rawAnnaSignals: { title: string; meta: string; body: string; tone: AttentionTone }[];
   };
   onApprove: (key: string) => void;
-  onClaim: (key: string) => void;
-  onRequestUpdate: (id: number, status: "reviewed" | "rejected") => void;
+  users: UserType[];
+  onAssign: (key: string, userId: string) => void;
+  onRequestUpdate: (id: number, status: "reviewed" | "rejected" | "canceled") => void;
 }) {
   const mono = "var(--font-dm-mono), monospace";
   const isAgent = attention.roleLabel === "agent";
   const isExec = attention.roleLabel === "exec";
   const canOperate = attention.roleLabel === "root" || attention.roleLabel === "operator";
+  const [assigningKey, setAssigningKey] = useState<string | null>(null);
 
   function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
     const color = toneColor(t, tone);
@@ -203,11 +231,12 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
     );
   }
 
-  function ActionGroup({ label, color, items, actionLabel, onAction }: {
+  function ActionGroup({ label, color, items, actionLabel, onAction, assignPicker }: {
     label: string; color: string;
     items: { key: string; title: string; pipelineName: string }[];
     actionLabel?: string;
     onAction?: (key: string) => void;
+    assignPicker?: boolean;
   }) {
     if (items.length === 0) return null;
     return (
@@ -215,12 +244,35 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
         <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>{label}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(item => (
-            <div key={item.key} style={{ display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 8px" }}>
+            <div key={item.key} style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 8px" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
                 <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>{item.pipelineName}</div>
               </div>
-              {actionLabel && onAction && (
+              {assignPicker ? (
+                <>
+                  <button type="button" onClick={() => setAssigningKey(assigningKey === item.key ? null : item.key)}
+                    style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                    + assign
+                  </button>
+                  {assigningKey === item.key && (
+                    <div data-no-close style={{ position: "absolute", right: 8, top: "calc(100% + 4px)", zIndex: 50, minWidth: 210, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 5, boxShadow: "0 10px 30px rgba(0,0,0,0.22)" }}>
+                      <div style={{ padding: "4px 7px 5px", fontSize: 9, color: t.textDim, fontFamily: mono, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>assign to</div>
+                      {users.filter(u => u.id !== "ai").map(u => (
+                        <button
+                          key={u.id}
+                          type="button"
+                          onClick={() => { onAssign(item.key, u.id); setAssigningKey(null); }}
+                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", borderRadius: 8, padding: "6px 7px", color: t.text, cursor: "pointer", textAlign: "left" as const, fontSize: 12, fontWeight: 700 }}
+                        >
+                          <AvatarC user={u} size={20} />
+                          <span>{u.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : actionLabel && onAction && (
                 <button type="button" onClick={() => onAction(item.key)}
                   style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
                   {actionLabel}
@@ -234,13 +286,16 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
   }
 
   return (
-    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
-      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 12 }}>
-        overview · {attention.roleLabel} · {attention.scopeLabel}
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
+          overview · {attention.roleLabel} · {attention.scopeLabel}
+        </div>
+        <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.6fr", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {isAgent ? (
               <>
                 <StatTile label={attention.stats[0]?.label ?? "doing now"} value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawMyItems.filter(i => i.status === "in-progress")} />
@@ -258,7 +313,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
             ) : (
               <>
                 <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
-                <StatTile label="unowned" value={attention.stats[1]?.value ?? 0} tone="amber" items={attention.rawUnownedItems} />
+                <StatTile label="unowned" value={attention.rawUnownedCount} tone="amber" items={attention.rawUnownedItems} />
                 <StatTile label="recent tags" value={attention.stats[2]?.value ?? 0} tone="cyan" items={[]} />
                 <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="accent" items={[]} />
               </>
@@ -309,7 +364,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
             <>
               {attention.rawApprovalRequests.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>requests for Anna</div>
+                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team requests for Anna</div>
                   {attention.rawApprovalRequests.slice(0, 4).map(item => (
                     <div key={item.id} style={{ marginBottom: 4, background: t.amber + "0a", border: `1px solid ${t.amber}33`, borderRadius: 8, padding: "6px 8px", display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -340,7 +395,8 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
                 </div>
               )}
               <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
-              <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} actionLabel="+ claim" onAction={onClaim} />
+              <ActionGroup label="expiring work" color={t.red} items={attention.rawDueItems} />
+              <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} assignPicker />
               {attention.rawRecentInteractions.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
@@ -369,7 +425,7 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
                   ))}
                 </div>
               )}
-              {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
+              {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawDueItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
                 <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
               )}
             </>
@@ -414,20 +470,97 @@ function AttentionOverview({ t, attention, onApprove, onClaim, onRequestUpdate }
   );
 }
 
-type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected"; sourceMeeting?: string; sourceDate?: string; sourceUUID?: string };
+type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected"; sourceMeeting?: string; sourceDate?: string; sourceUUID?: string; dueDate?: string };
 type ZoomMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number };
 
-type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string };
+type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string; dueDate: string };
+
+function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismiss }: {
+  t: T;
+  users: UserType[];
+  currentUser: string;
+  reminders: ReturnType<typeof useModel>["reminders"];
+  onAdd: (input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => void;
+  onDismiss: (id: number) => void;
+}) {
+  const mono = "var(--font-dm-mono), monospace";
+  const [open, setOpen] = useState(false);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [remindAt, setRemindAt] = useState("");
+  const [recipientIds, setRecipientIds] = useState<string[]>([currentUser]);
+  const [now] = useState(() => Date.now());
+  const relevant = reminders
+    .filter(r => r.recipientIds.includes(currentUser) && !(r.dismissedBy || []).includes(currentUser))
+    .sort((a, b) => Date.parse(a.remindAt) - Date.parse(b.remindAt))
+    .slice(0, 4);
+  const toggleRecipient = (id: string) => {
+    setRecipientIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+  const submit = () => {
+    onAdd({ title, body, recipientIds, remindAt });
+    setTitle("");
+    setBody("");
+    setRemindAt("");
+    setRecipientIds([currentUser]);
+    setOpen(false);
+  };
+
+  return (
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 16 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: open || relevant.length > 0 ? 12 : 0 }}>
+        <div>
+          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>reminders</div>
+          <div style={{ marginTop: 3, fontSize: 16, color: t.text, fontWeight: 900 }}>dated app + email notifications</div>
+        </div>
+        <button type="button" onClick={() => setOpen(v => !v)} style={{ background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "5px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>{open ? "close" : "+ reminder"}</button>
+      </div>
+      {open && (
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, .8fr) minmax(180px, 1fr) auto", gap: 8, alignItems: "start", marginBottom: 12 }}>
+          <input value={title} onChange={e => setTitle(e.target.value)} placeholder="title" maxLength={140} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 12, outline: "none" }} />
+          <input value={body} onChange={e => setBody(e.target.value)} placeholder="note (optional)" maxLength={1000} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 12, outline: "none" }} />
+          <input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 9px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
+          <div style={{ gridColumn: "1 / -1", display: "flex", flexWrap: "wrap", gap: 5 }}>
+            {users.filter(u => u.id !== "ai").map(u => {
+              const selected = recipientIds.includes(u.id);
+              return (
+                <button key={u.id} type="button" onClick={() => toggleRecipient(u.id)} style={{ background: selected ? u.color + "20" : t.bgHover || t.bgSoft, border: `1px solid ${selected ? u.color + "77" : t.border}`, color: selected ? u.color : t.textMuted, borderRadius: 999, padding: "4px 9px", fontSize: 11, fontFamily: mono, fontWeight: selected ? 800 : 600, cursor: "pointer" }}>
+                  {selected ? "✓ " : ""}{u.name}
+                </button>
+              );
+            })}
+            <button type="button" onClick={submit} disabled={!title.trim() || !remindAt || recipientIds.length === 0} style={{ marginLeft: "auto", background: title.trim() && remindAt && recipientIds.length ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${title.trim() && remindAt && recipientIds.length ? t.green + "55" : t.border}`, color: title.trim() && remindAt && recipientIds.length ? t.green : t.textDim, borderRadius: 8, padding: "4px 11px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: title.trim() && remindAt && recipientIds.length ? "pointer" : "not-allowed" }}>schedule</button>
+          </div>
+        </div>
+      )}
+      {relevant.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {relevant.map(r => {
+            const due = Date.parse(r.remindAt) <= now;
+            return (
+              <div key={r.id} style={{ display: "flex", gap: 8, alignItems: "center", border: `1px solid ${due ? t.amber + "55" : t.border}`, background: due ? t.amber + "0d" : t.bgHover || t.bgSoft, borderRadius: 9, padding: "7px 9px" }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, color: t.text, fontWeight: 800, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                  <div style={{ fontSize: 10, color: due ? t.amber : t.textMuted, fontFamily: mono }}>{due ? "due now" : new Date(r.remindAt).toLocaleString()} · {r.body || "no note"}</div>
+                </div>
+                {due && <button type="button" onClick={() => onDismiss(r.id)} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 7, padding: "3px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>done</button>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
 
 function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
-  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users } = useModel();
+  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [recordings, setRecordings] = useState<ZoomRecordingsStatus | null>(null);
+  const [, setRecordings] = useState<ZoomRecordingsStatus | null>(null);
   const [zoomMeetings, setZoomMeetings] = useState<ZoomMeeting[]>([]);
-  const [showMeetingPicker, setShowMeetingPicker] = useState(false);
-  const [fetchingSummaryId, setFetchingSummaryId] = useState<string | null>(null);
+  const [, setShowMeetingPicker] = useState(false);
   const [cacheAge, setCacheAge] = useState<string | null>(null);
 
   // Paste-summary flow
@@ -504,7 +637,6 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   if (!isAdmin) return null;
   const configured = status?.configured ?? false;
   const connected = status?.connected ?? false;
-  const missing = status?.missing ?? [];
   const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
 
   const checkZoom = async () => {
@@ -600,55 +732,25 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     finally { setExtracting(false); }
   };
 
-  const fetchMeetingSummaryAndExtract = async (meeting: ZoomMeeting) => {
-    setShowMeetingPicker(false);
-    setFetchingSummaryId(String(meeting.id));
-    setExtractError(null);
-    try {
-      const res = await fetch(`/api/zoom/meeting-summary?meetingId=${encodeURIComponent(String(meeting.id))}`);
-      const data = await res.json();
-      if (!res.ok || !data.ok) {
-        setExtractError(data.error || "No AI summary found for this meeting");
-        setFetchingSummaryId(null);
-        return;
-      }
-      // Auto-extract tasks from the fetched summary
-      setPastedSummary(data.summary ?? "");
-      setFetchingSummaryId(null);
-      // Trigger extraction immediately
-      const pipelines = allPipelinesGlobal.map(p => ({
-        id: p.id, name: p.name, stages: [...p.stages, ...(customStages[p.id] ?? [])],
-      }));
-      setExtracting(true);
-      const extractRes = await fetch("/api/call-summary", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ summary: data.summary, pipelines }),
-      });
-      const extractData = await extractRes.json();
-      if (!extractRes.ok || !extractData.tasks) { setExtractError(extractData.error || "Failed to extract tasks"); return; }
-      const newProposals: TaskProposal[] = (extractData.tasks as { title: string; pipelineId: string; pipelineName: string; stageName: string | null }[]).map((t, i) => ({
-        id: nextId + i, title: t.title, pipelineId: t.pipelineId, pipelineName: t.pipelineName, stageName: t.stageName, status: "pending",
-      }));
-      setNextId(n => n + newProposals.length);
-      setProposals(prev => [...newProposals, ...prev]);
-    } catch { setExtractError("Network error"); }
-    finally { setExtracting(false); setFetchingSummaryId(null); }
-  };
-
   const startEditing = (p: TaskProposal) => {
-    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "", description: "", assigneeId: "" });
+    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "", description: "", assigneeId: "", dueDate: p.dueDate || "" });
   };
   const confirmEdit = () => {
     if (!editing || !editing.title.trim()) return;
     const title = editing.title.trim();
     if (editing.parentStage) {
-      addSubtask(editing.parentStage, title, () => {});
+      const subtaskId = addSubtask(editing.parentStage, title, () => {});
+      if (subtaskId !== null && editing.dueDate) {
+        setTimeout(() => setSubtaskDueDate(SubtaskKey.make(editing.parentStage, subtaskId), editing.dueDate), 120);
+      }
     } else {
       addCustomStage(editing.pipelineId, title);
       // Apply description + assignee after stage is created
       if (editing.description.trim()) {
         setTimeout(() => setStageDescOverride(title, editing.description.trim()), 100);
+      }
+      if (editing.dueDate) {
+        setTimeout(() => setStageDueDate(title, editing.dueDate), 120);
       }
       if (editing.assigneeId) {
         setTimeout(() => assignTask(title, editing.assigneeId), 150);
@@ -855,19 +957,26 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
                             const sel = editing.assigneeId === u.id;
                             return <button key={u.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, assigneeId: sel ? "" : u.id } : null); }}
                               style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? u.color : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
-                              {u.avatar || u.name.split(" ")[0]}
+                              {u.name}
                             </button>;
                           })}
                         </div>
                         {/* Description */}
                         <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// description (optional — points auto-assigned by AI)</div>
-                        <textarea
-                          value={editing.description}
+	                        <textarea
+	                          value={editing.description}
                           onChange={e => setEditing(prev => prev ? { ...prev, description: e.target.value } : null)}
                           placeholder="Add context, acceptance criteria, or notes…"
                           rows={2}
-                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "none", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 }}
-                        />
+	                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "none", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 }}
+	                        />
+	                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// due date (optional)</div>
+	                        <input
+	                          type="date"
+	                          value={editing.dueDate}
+	                          onChange={e => setEditing(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
+	                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.textMuted, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+	                        />
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                           <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>cancel</button>
                           <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
@@ -928,15 +1037,16 @@ interface Props {
 
 export default function HomeView({
   t, me, users, myWorkspaces, allPipelinesGlobal, pipeMetaOverrides,
-  currentUser, isCaptainOfAny, currentWorkspaceId, onSwitchWorkspace,
+  currentUser, isCaptainOfAny, onSwitchWorkspace,
   editMode, onPipelineClick, onUserClick, navbarSlot,
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
     claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
-    owners, assignments, subtasks, subtaskStages, activityLog, chatMessages,
-    getStatus, ck, approveStage, handleClaim,
-    execProposals, addExecProposal, updateExecProposalStatus,
+    owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, activityLog, chatMessages,
+    reminders, addReminder, dismissReminder,
+    getStatus, ck, approveStage, approveSubtask, assignTask,
+    execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, deleteExecProposal,
   } = useModel();
 
   // null = show all workspaces; string = filter to specific workspace
@@ -1024,6 +1134,7 @@ export default function HomeView({
         status: getStatus(stageId),
         owners: itemOwnerIds(stageId),
         priority,
+        dueDate: stageDueDates[stageId],
         kind: "task" as const,
         approved: approvedStages.includes(stageId),
       };
@@ -1041,6 +1152,7 @@ export default function HomeView({
           status: subtaskStages[key] || "planned",
           owners: itemOwnerIds(key),
           priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
+          dueDate: subtaskDueDates[key],
           kind: "subtask" as const,
           approved: approvedSubtasks.includes(key),
           done: sub.done,
@@ -1106,7 +1218,15 @@ export default function HomeView({
     const mentions = recentInteractions.filter(item => item.directedToMe).slice(0, 5);
     const mineBlocked = blockedItems.filter(item => item.owners.includes(currentUser));
     const mineHot = hotItems.filter(item => item.owners.includes(currentUser));
-    const minePlanned = myItems.filter(item => item.status === "planned" || item.status === "concept");
+    const dueTime = (due?: string) => due ? new Date(`${due}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+    const expiredItems = allItems.filter(item => item.dueDate && dueTime(item.dueDate) < overviewNow && item.status !== "active");
+    const soonItems = allItems.filter(item => {
+      const due = dueTime(item.dueDate);
+      return Number.isFinite(due) && due >= overviewNow && due <= overviewNow + 3 * 24 * 60 * 60 * 1000 && item.status !== "active";
+    });
+    const myDueItems = [...expiredItems, ...soonItems]
+      .filter(item => item.owners.includes(currentUser))
+      .sort((a, b) => dueTime(a.dueDate) - dueTime(b.dueDate));
     const activeUpdates = freshActivity
       .filter(a => a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
       .slice(0, 4);
@@ -1116,7 +1236,7 @@ export default function HomeView({
           .slice(0, 5)
       : [];
     const pendingApprovalRequests = isRoot
-      ? execProposals.filter(p => p.status === "pending").slice(0, 5)
+      ? execProposals.filter(p => p.status === "pending" && !isExecutiveProposal(p)).slice(0, 5)
       : [];
     const visibleItemKeys = new Set(allItems.map(item => item.key));
     const visibleItemTitles = new Set(allItems.map(item => item.title));
@@ -1211,14 +1331,14 @@ export default function HomeView({
     const stats = roleLabel === "agent"
       ? [
             { label: "doing now", value: myItems.filter(i => i.status === "in-progress").length, tone: "green" as AttentionTone },
-            { label: "next up", value: minePlanned.length, tone: "accent" as AttentionTone },
+            { label: "due soon", value: myDueItems.length, tone: myDueItems.some(i => dueTime(i.dueDate) < overviewNow) ? "red" as AttentionTone : "accent" as AttentionTone },
             { label: "tags for you", value: mentions.length, tone: "amber" as AttentionTone },
             { label: "done 7d", value: myDone7d, tone: "cyan" as AttentionTone },
         ]
       : roleLabel === "operator"
         ? [
             { label: "needs approval", value: reviewItems.length, tone: "green" as AttentionTone },
-            { label: "unowned work", value: unownedItems.length, tone: "amber" as AttentionTone },
+            { label: "expiring", value: expiredItems.length + soonItems.length, tone: expiredItems.length ? "red" as AttentionTone : "amber" as AttentionTone },
             { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
             { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ]
@@ -1231,7 +1351,7 @@ export default function HomeView({
             ]
         : [
             { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
-            { label: "unowned", value: unownedItems.length, tone: "amber" as AttentionTone },
+            { label: "expiring", value: expiredItems.length + soonItems.length, tone: expiredItems.length ? "red" as AttentionTone : "amber" as AttentionTone },
             { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
             { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ];
@@ -1239,6 +1359,7 @@ export default function HomeView({
     const actions = roleLabel === "agent"
       ? [
           ...mentions.map(m => ({ tone: "amber" as AttentionTone, title: `${commentUserLabel(m.by)} mentioned you`, meta: m.title, body: truncate(m.text, 92) })),
+          ...myDueItems.slice(0, 3).map(item => ({ tone: dueTime(item.dueDate) < overviewNow ? "red" as AttentionTone : "amber" as AttentionTone, title: item.title, meta: dueTime(item.dueDate) < overviewNow ? "expired" : `due ${item.dueDate}`, body: item.pipelineName })),
           ...mineBlocked.slice(0, 3).map(item => ({ tone: "red" as AttentionTone, title: item.title, meta: "blocked", body: item.pipelineName })),
           ...mineHot.slice(0, 3).map(item => ({ tone: "green" as AttentionTone, title: item.title, meta: `${item.priority} priority`, body: item.pipelineName })),
           ...newOwned.slice(0, 2).map(a => ({ tone: "cyan" as AttentionTone, title: a.detail, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
@@ -1282,8 +1403,10 @@ export default function HomeView({
       summary,
       scopeLabel: homeWsFilter ? (myWorkspaces.find(w => w.id === homeWsFilter)?.name || "workspace") : "all workspaces",
       rawReviewItems: reviewItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, kind: i.kind })),
-      rawBlockedItems: blockedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, owners: i.owners })),
+	      rawBlockedItems: blockedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, owners: i.owners })),
       rawUnownedItems: unownedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
+      rawUnownedCount: unownedItems.length,
+      rawDueItems: [...expiredItems, ...soonItems].sort((a, b) => dueTime(a.dueDate) - dueTime(b.dueDate)).slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: `${i.pipelineName} · ${dueTime(i.dueDate) < overviewNow ? "expired" : `due ${i.dueDate}`}` })),
       rawMyItems: myItems.filter(i => i.status !== "active").sort((a, b) => {
         const rank = { "in-progress": 0, planned: 1, concept: 2, blocked: 3 } as Record<string, number>;
         return (rank[a.status] ?? 4) - (rank[b.status] ?? 4);
@@ -1318,7 +1441,7 @@ export default function HomeView({
     };
   }, [
     activityLog, approvedPipelines, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
-    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides,
+    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, subtaskDueDates,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
 
@@ -1412,7 +1535,22 @@ export default function HomeView({
             })}
           </div>
 
-          <AttentionOverview t={t} attention={attention} onApprove={(key) => approveStage(key)} onClaim={(key) => handleClaim(key)} onRequestUpdate={updateExecProposalStatus} />
+          <AttentionOverview
+            t={t}
+            attention={attention}
+            users={users}
+            onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}
+            onAssign={(key, userId) => assignTask(key, userId)}
+            onRequestUpdate={updateExecProposalStatus}
+          />
+          <ReminderPanel
+            t={t}
+            users={users}
+            currentUser={currentUser}
+            reminders={reminders}
+            onAdd={addReminder}
+            onDismiss={dismissReminder}
+          />
           <ExecutiveRequestsPanel
             t={t}
             currentUser={currentUser}
@@ -1420,6 +1558,9 @@ export default function HomeView({
             proposals={execProposals}
             onSubmit={addExecProposal}
             onUpdate={updateExecProposalStatus}
+            onApply={applyExecProposal}
+            onDelete={deleteExecProposal}
+            onCancel={cancelExecProposal}
           />
           <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} />
 

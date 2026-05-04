@@ -8,7 +8,7 @@ import { useRef, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { AvatarC } from "@/components/ui/Avatar";
 import NotificationPrefs from "@/components/NotificationPrefs";
-import { type UserType } from "@/lib/data";
+import { ADMIN_IDS, type UserType } from "@/lib/data";
 
 interface UserPopupProps {
   user: UserType;
@@ -91,8 +91,10 @@ export default function UserPopup({ user, onClose, onChangeAvatar, ptsFlash }: U
           >
             change avatar →
           </button>
-          <NotificationPrefs t={t} />
         </>
+      )}
+      {(isMe || (!!currentUser && ADMIN_IDS.includes(currentUser))) && (
+        <NotificationPrefs t={t} targetUserId={u.id} targetName={isMe ? undefined : u.name.split(" ")[0]} />
       )}
     </div>
   );

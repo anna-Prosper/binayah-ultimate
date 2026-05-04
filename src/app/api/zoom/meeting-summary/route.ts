@@ -18,6 +18,5 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: result.message }, { status: result.status || 502 });
   }
 
-  const { ok: _ok, ...rest } = result;
-  return NextResponse.json({ ok: true, ...rest });
+  return NextResponse.json(result);
 }

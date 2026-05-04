@@ -13,7 +13,7 @@ interface ClaimChipProps {
   pulse?: boolean;
 }
 
-export default function ClaimChip({ claimed, pipelineColor, t, onClaim, variant = "stage", small = false, pulse = false }: ClaimChipProps) {
+export default function ClaimChip({ claimed, pipelineColor, onClaim, variant = "stage", small = false, pulse = false }: ClaimChipProps) {
   const label = claimed
     ? "✓ mine"
     : "+ claim";

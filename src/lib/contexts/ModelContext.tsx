@@ -9,11 +9,11 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal,
-} from "@/lib/data";
+	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugSeverity, type BugStatus, type BugType,
+	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type SharedState } from "@/lib/apiSync";
+import { deleteComment as deleteCommentRemote, patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 
@@ -63,12 +63,16 @@ interface ModelContextValue {
   /** Pipelines that have already paid the +25% completion bonus. */
   approvedPipelines: string[];
   stageDescOverrides: Record<string, string>;
+  stageDueDates: Record<string, string>;
+  setStageDueDate: (name: string, val: string | null) => void;
   stageNameOverrides: Record<string, string>;
   stagePointsOverride: Record<string, number>;
   setStagePointsOverride: (stageId: string, pts: number | null) => void;
   subtaskStages: Record<string, string>;
   subtaskDescOverrides: Record<string, string>;
   setSubtaskDescOverride: (key: string, desc: string | null) => void;
+  subtaskDueDates: Record<string, string>;
+  setSubtaskDueDate: (key: string, val: string | null) => void;
   pipeDescOverrides: Record<string, string>;
   setPipeDescOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   pipeMetaOverrides: Record<string, { name?: string; priority?: string }>;
@@ -78,10 +82,24 @@ interface ModelContextValue {
   workspaces: Workspace[];
   setWorkspaces: React.Dispatch<React.SetStateAction<Workspace[]>>;
   activityLog: ActivityItem[];
+	  reminders: ReminderItem[];
+	  addReminder: (input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => void;
+	  dismissReminder: (id: number) => void;
+	  notes: NoteItem[];
+	  addNote: (input: { title: string; body: string; pinnedTo?: string; color?: string }) => void;
+	  updateNote: (id: number, patch: Partial<Pick<NoteItem, "title" | "body" | "pinnedTo" | "color">>) => void;
+	  deleteNote: (id: number) => void;
+  bugs: BugItem[];
+  addBug: (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string }) => void;
+  updateBug: (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => void;
+  deleteBug: (id: number) => void;
   execProposals: ExecProposal[];
   addExecProposal: (title: string, body: string) => void;
-  requestWorkChange: (input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string }) => void;
-  updateExecProposalStatus: (id: number, status: "reviewed" | "rejected") => void;
+  requestWorkChange: (input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string; requestedValue?: string | null; requestedUserId?: string | null }) => void;
+  updateExecProposalStatus: (id: number, status: "reviewed" | "rejected" | "canceled") => void;
+  applyExecProposal: (id: number) => void;
+  cancelExecProposal: (id: number) => void;
+  deleteExecProposal: (id: number) => void;
   archivedStages: string[];
   archivedPipelines: string[];
   archivedSubtasks: string[];
@@ -120,9 +138,10 @@ interface ModelContextValue {
   allPipelinesGlobal: (typeof pipelineData[number] | CustomPipeline)[];
 
   // Handlers
-  handleClaim: (sid: string) => void;
-  handleReact: (sid: string, emoji: string) => void;
-  addComment: (sid: string, val: string, clearInput: () => void) => void;
+	  handleClaim: (sid: string) => void;
+	  handleReact: (sid: string, emoji: string) => void;
+	  addComment: (sid: string, val: string, clearInput: () => void) => void;
+	  deleteComment: (sid: string, commentId: number) => void;
   addSubtask: (sid: string, val: string, clearInput: () => void) => number | null;
   toggleSubtask: (sid: string, taskId: number) => void;
   renameSubtask: (sid: string, taskId: number, text: string) => void;
@@ -152,7 +171,7 @@ interface ModelContextValue {
   cyclePriority: (pid: string, cur: string) => void;
   addStageImage: (sid: string, dataUrl: string) => void;
   removeStageImage: (sid: string, idx: number) => void;
-  sendChat: (text: string) => void;
+	  sendChat: (text: string, opts?: { threadId?: string; attachments?: ChatAttachment[] }) => void;
   handleRemoteMessage: (msg: ChatMsg) => void;
   loadMoreMessages: () => Promise<void>;
   logActivity: (type: string, target: string, detail: string, notifyTo?: string[]) => void;
@@ -200,8 +219,7 @@ interface ModelProviderProps {
   currentWorkspaceId: string;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const noopToast = (_msg: string, _color: string, _durationMs?: number, _action?: { label: string; onClick: () => void }) => {};
+const noopToast: Required<Pick<ModelProviderProps, "showToast">>["showToast"] = () => {};
 
 export function ModelProvider({
   children,
@@ -259,15 +277,20 @@ export function ModelProvider({
   // a pipeline only ever pays once even if its last stage gets re-approved.
   const [approvedPipelines, setApprovedPipelines] = useState<string[]>(() => lsGet("approvedPipelines", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
+  const [stageDueDates, setStageDueDates] = useState<Record<string, string>>(() => lsGet("stageDueDates", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
   const [subtaskDescOverrides, setSubtaskDescOverrides] = useState<Record<string, string>>(() => lsGet("subtaskDescOverrides", {}));
+  const [subtaskDueDates, setSubtaskDueDates] = useState<Record<string, string>>(() => lsGet("subtaskDueDates", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
   const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
   const [customPipelines, setCustomPipelines] = useState<CustomPipeline[]>(() => lsGet("customPipelines", []));
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
+  const [reminders, setReminders] = useState<ReminderItem[]>(() => lsGet("reminders", []));
+  const [notes, setNotes] = useState<NoteItem[]>(() => lsGet("notes", []));
+  const [bugs, setBugs] = useState<BugItem[]>(() => lsGet("bugs", []));
   const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
@@ -320,7 +343,9 @@ export function ModelProvider({
   useEffect(() => { lsSet("approvedSubtasks", approvedSubtasks) }, [approvedSubtasks]);
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
+  useEffect(() => { lsSet("stageDueDates", stageDueDates) }, [stageDueDates]);
   useEffect(() => { lsSet("subtaskDescOverrides", subtaskDescOverrides) }, [subtaskDescOverrides]);
+  useEffect(() => { lsSet("subtaskDueDates", subtaskDueDates) }, [subtaskDueDates]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
   useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
   useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
@@ -330,6 +355,9 @@ export function ModelProvider({
   useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
   useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
   useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
+  useEffect(() => { lsSet("reminders", reminders) }, [reminders]);
+  useEffect(() => { lsSet("notes", notes) }, [notes]);
+  useEffect(() => { lsSet("bugs", bugs) }, [bugs]);
   useEffect(() => { lsSet("execProposals", execProposals) }, [execProposals]);
   useEffect(() => { lsSet("stagePointsOverride", stagePointsOverride) }, [stagePointsOverride]);
 
@@ -348,7 +376,7 @@ export function ModelProvider({
   useEffect(() => {
     if (typeof window === "undefined") return;
     setWorkspaces(prev => prev.map(w => w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w));
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, []);
 
   // Self-heal + legacy migration:
   //   1. Drop the obsolete `firstMates` rank — merge any holdouts into `captains` (operators).
@@ -394,12 +422,13 @@ export function ModelProvider({
   }, []);
 
   // ── Activity log ──────────────────────────────────────────────────────────
+  const setSyncStatusRef = useRef<(status: string) => void>(() => {});
   const logActivity = useCallback((type: string, target: string, detail: string, notifyTo?: string[]) => {
     if (!currentUser) return;
     const entry: ActivityItem = { type, user: currentUser, target, detail, time: Date.now(), workspaceId: currentWorkspaceId };
     if (notifyTo?.length) entry.notifyTo = Array.from(new Set(notifyTo));
     setActivityLog(prev => [entry, ...prev.slice(0, 99)]);
-    pushActivity(entry).then(result => { if (!result.ok) setSyncStatus("offline"); });
+    pushActivity(entry).then(result => { if (!result.ok) setSyncStatusRef.current("offline"); });
   }, [currentUser, currentWorkspaceId]);
 
   const mentionedUserIds = useCallback((text: string) => {
@@ -467,6 +496,9 @@ export function ModelProvider({
       }
     }
     if (s.activityLog) setActivityLog(s.activityLog);
+    if (s.reminders && !isProtected("reminders")) setReminders(s.reminders as ReminderItem[]);
+    if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
+    if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
     if (s.comments) {
@@ -474,23 +506,25 @@ export function ModelProvider({
       let pendingLiveNotif: { stage: string; name: string } | null = null;
       const newPending: Record<string, CommentItem[]> = {};
       setComments(prev => {
-        const remote = s.comments as Record<string, CommentItem[]>;
-        let changed = false;
-        const merged: Record<string, CommentItem[]> = { ...prev };
-        for (const [stage, msgs] of Object.entries(remote)) {
-          const existing = prev[stage] || [];
-          const existingIds = new Set(existing.map(m => m.id));
-          const incoming = msgs.filter(m => !existingIds.has(m.id));
-          if (incoming.length > 0) {
-            // Anti-jump: if user is currently typing in this stage's comment box, buffer the incoming
-            const isTypingHere =
-              commentTypingState.openStageId === stage &&
-              commentTypingState.hasInput[stage];
-            if (isTypingHere) {
-              newPending[stage] = incoming;
-            } else {
-              merged[stage] = [...existing, ...incoming].sort((a, b) => a.id - b.id);
-              changed = true;
+	        const remote = s.comments as Record<string, CommentItem[]>;
+	        let changed = false;
+	        const merged: Record<string, CommentItem[]> = { ...prev };
+	        for (const [stage, msgs] of Object.entries(remote)) {
+	          const existing = prev[stage] || [];
+	          const existingIds = new Set(existing.map(m => m.id));
+	          const remoteIds = new Set(msgs.map(m => m.id));
+	          const hasDeletion = existing.some(m => !remoteIds.has(m.id));
+	          const incoming = msgs.filter(m => !existingIds.has(m.id));
+	          if (incoming.length > 0 || hasDeletion) {
+	            // Anti-jump: if user is currently typing in this stage's comment box, buffer the incoming
+	            const isTypingHere =
+	              commentTypingState.openStageId === stage &&
+	              commentTypingState.hasInput[stage];
+	            if (isTypingHere && incoming.length > 0) {
+	              newPending[stage] = incoming;
+	            } else {
+	              merged[stage] = hasDeletion ? [...msgs].sort((a, b) => a.id - b.id) : [...existing, ...incoming].sort((a, b) => a.id - b.id);
+	              changed = true;
               const foreign = incoming.find(m => m.by !== currentUser);
               if (foreign) {
                 const sender = users.find(u => u.id === foreign.by);
@@ -528,18 +562,20 @@ export function ModelProvider({
     }
     if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) setStageStatusOverrides(s.stageStatusOverrides);
     if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
+    if (s.stageDueDates && !isProtected("stageDueDates")) setStageDueDates(s.stageDueDates);
     if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
     if (s.subtaskStages && !isProtected("subtaskStages")) setSubtaskStages(s.subtaskStages);
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides")) setSubtaskDescOverrides(s.subtaskDescOverrides as Record<string, string>);
+    if (s.subtaskDueDates && !isProtected("subtaskDueDates")) setSubtaskDueDates(s.subtaskDueDates as Record<string, string>);
     if (s.pipeDescOverrides && !isProtected("pipeDescOverrides")) setPipeDescOverrides(s.pipeDescOverrides);
     if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides")) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
     if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
     if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
     if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
     if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(s.workspaces as Workspace[]);
-    if (s.archivedStages && !isProtected("archivedStages")) setArchivedStages(s.archivedStages as string[]);
-    if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(s.archivedPipelines as string[]);
-    if (s.archivedSubtasks && !isProtected("archivedSubtasks")) setArchivedSubtasks(s.archivedSubtasks as string[]);
+    if (s.archivedStages && !isProtected("archivedStages")) setArchivedStages(Array.from(new Set(s.archivedStages as string[])));
+    if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(Array.from(new Set(s.archivedPipelines as string[])));
+    if (s.archivedSubtasks && !isProtected("archivedSubtasks")) setArchivedSubtasks(Array.from(new Set(s.archivedSubtasks as string[])));
     if (s.stagePointsOverride && !isProtected("stagePointsOverride")) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
     if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
     if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
@@ -555,28 +591,31 @@ export function ModelProvider({
   const getCurrentState = useCallback((): Partial<SharedState> => ({
     owners,
     approvedStages, approvedSubtasks, approvedPipelines,
+    reminders,
+    notes,
+    bugs,
     execProposals,
-    subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
-    subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+    subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
+    subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     stagePointsOverride,
-  }), [owners, approvedStages, approvedSubtasks, approvedPipelines, execProposals,
-       subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides,
-       subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+  }), [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
+       subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
+       subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
        stagePointsOverride]);
 
   const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState });
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const setSyncStatus = (_s: string) => setOffline();
+  const setSyncStatus: (status: string) => void = useCallback(() => setOffline(), [setOffline]);
+  setSyncStatusRef.current = setSyncStatus;
 
   // ── Debounced write — delegate to useSync's scheduleWrite ────────────────
   useEffect(() => {
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, subtaskStages, subtaskDescOverrides, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -586,7 +625,6 @@ export function ModelProvider({
       .then(r => r.json())
       .then((msgs: ChatMsg[]) => { if (Array.isArray(msgs)) setChatMessages(msgs); })
       .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentWorkspaceId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
@@ -692,7 +730,7 @@ export function ModelProvider({
     return !!ws && ws.captains.includes(currentUser);
   }, [currentUser, currentWorkspaceId, workspaces]);
 
-  const requestWorkChange = useCallback((input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string }) => {
+  const requestWorkChange = useCallback((input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string; requestedValue?: string | null; requestedUserId?: string | null }) => {
     if (!currentUser) return;
     markLocalWrite("execProposals");
     const proposal: ExecProposal = {
@@ -705,13 +743,15 @@ export function ModelProvider({
       kind: input.kind,
       target: input.target,
       requestedAction: input.requestedAction,
+      requestedValue: input.requestedValue ?? null,
+      requestedUserId: input.requestedUserId ?? null,
     };
     setExecProposals(prev => [proposal, ...prev].slice(0, 100));
     logActivity("request", input.target, input.requestedAction, ADMIN_IDS);
     showToast("// request sent to Anna", t.green);
-  }, [currentUser, logActivity, showToast, t.green]);
+  }, [currentUser, logActivity, markLocalWrite, showToast, t.green]);
 
-  const requestInsteadOfMutate = useCallback((kind: "edit" | "archive" | "assign", target: string, requestedAction: string, detail: string) => {
+  const requestInsteadOfMutate = useCallback((kind: "edit" | "archive" | "assign", target: string, requestedAction: string, detail: string, meta?: { requestedValue?: string | null; requestedUserId?: string | null }) => {
     if (canMutateDirectly()) return false;
     requestWorkChange({
       kind,
@@ -719,6 +759,8 @@ export function ModelProvider({
       requestedAction,
       title: `${kind}: ${target}`,
       body: detail,
+      requestedValue: meta?.requestedValue ?? null,
+      requestedUserId: meta?.requestedUserId ?? null,
     });
     return true;
   }, [canMutateDirectly, requestWorkChange]);
@@ -755,6 +797,7 @@ export function ModelProvider({
       sid,
       userId ? `assign ${assignee?.name || userId}` : "clear assignees",
       userId ? `Assign "${sid}" to ${assignee?.name || userId}.` : `Clear all assignees from "${sid}".`,
+      { requestedUserId: userId },
     )) return;
     const isSubtask = SubtaskKey.isValid(sid);
     markLocalWrite("owners");
@@ -878,7 +921,7 @@ export function ModelProvider({
   };
   const renameSubtask = (sid: string, taskId: number, text: string) => {
     const key = SubtaskKey.make(sid, taskId);
-    if (requestInsteadOfMutate("edit", key, "rename subtask", `Rename subtask under "${sid}" to "${text}".`)) return;
+    if (requestInsteadOfMutate("edit", key, "rename subtask", `Rename subtask under "${sid}" to "${text}".`, { requestedValue: text })) return;
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId ? { ...t, text } : t) }));
   };
@@ -967,6 +1010,30 @@ export function ModelProvider({
     });
   };
 
+  const deleteComment = (sid: string, commentId: number) => {
+    if (!currentUser) return;
+    const existing = comments[sid] || [];
+    const comment = existing.find(c => c.id === commentId);
+    if (!comment) return;
+    if (comment.by !== currentUser && !ADMIN_IDS.includes(currentUser)) {
+      showToast("// you can only delete your own comment", t.amber);
+      return;
+    }
+    setComments(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(c => c.id !== commentId) }));
+    setCommentReactions(prev => {
+      const next = { ...prev };
+      delete next[`${sid}::${commentId}`];
+      return next;
+    });
+    deleteCommentRemote(sid, commentId).then(result => {
+      if (!result.ok) {
+        setComments(prev => ({ ...prev, [sid]: existing }));
+        setSyncStatus("offline");
+        showToast("// delete failed — refresh and try again", t.red);
+      }
+    });
+  };
+
   // ── flushPendingComments — merge buffered comments into main list ──────────
   const flushPendingComments = useCallback((stageId: string) => {
     setPendingNewComments(prev => {
@@ -1019,14 +1086,14 @@ export function ModelProvider({
       inverse: () => { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); },
     });
     markLocalWrite("archivedStages");
-    setArchivedStages(prev => [...prev, sid]);
+    setArchivedStages(prev => Array.from(new Set([...prev, sid])));
     logActivity("archive", sid, "archived");
     showToast(label, t.textMuted, 8000, {
       label: "undo",
       onClick: () => { undoStack.removeById(op.id); { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; },
     });
   };
-  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
+  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => Array.from(new Set(prev)).filter(s => s !== sid)); }; showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
   const archivePipeline = (pid: string) => {
     if (archivedPipelines.includes(pid)) return;
     const label = `archived pipeline "${pid}"`;
@@ -1035,13 +1102,13 @@ export function ModelProvider({
       inverse: () => setArchivedPipelines(prev => prev.filter(p => p !== pid)),
     });
     markLocalWrite("archivedPipelines");
-    setArchivedPipelines(prev => [...prev, pid]);
+    setArchivedPipelines(prev => Array.from(new Set([...prev, pid])));
     showToast(label, t.textMuted, 8000, {
       label: "undo",
       onClick: () => { undoStack.removeById(op.id); setArchivedPipelines(prev => prev.filter(p => p !== pid)); },
     });
   };
-  const restorePipeline = (pid: string) => { setArchivedPipelines(prev => prev.filter(p => p !== pid)); showToast("pipeline restored", t.green); };
+  const restorePipeline = (pid: string) => { markLocalWrite("archivedPipelines"); setArchivedPipelines(prev => Array.from(new Set(prev)).filter(p => p !== pid)); showToast("pipeline restored", t.green); };
   const archiveSubtask = (key: string) => {
     if (archivedSubtasks.includes(key)) return;
     if (requestInsteadOfMutate("archive", key, "archive subtask", `Archive subtask "${key}".`)) return;
@@ -1050,25 +1117,43 @@ export function ModelProvider({
       inverse: () => setArchivedSubtasks(prev => prev.filter(k => k !== key)),
     });
     markLocalWrite("archivedSubtasks");
-    setArchivedSubtasks(prev => [...prev, key]);
+    setArchivedSubtasks(prev => Array.from(new Set([...prev, key])));
     showToast(`archived subtask`, t.textMuted, 8000, {
       label: "undo",
       onClick: () => { undoStack.removeById(op.id); setArchivedSubtasks(prev => prev.filter(k => k !== key)); },
     });
   };
-  const restoreSubtask = (key: string) => { setArchivedSubtasks(prev => prev.filter(k => k !== key)); };
+  const restoreSubtask = (key: string) => { markLocalWrite("archivedSubtasks"); setArchivedSubtasks(prev => Array.from(new Set(prev)).filter(k => k !== key)); };
 
   const setStageDescOverride = (name: string, val: string) => {
-    if (requestInsteadOfMutate("edit", name, "edit task description", `Change description for "${name}" to:\n\n${val}`)) return;
+    if (requestInsteadOfMutate("edit", name, "edit task description", `Change description for "${name}" to:\n\n${val}`, { requestedValue: val })) return;
     markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val }));
   };
+  const setStageDueDate = (name: string, val: string | null) => {
+    if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
+    markLocalWrite("stageDueDates");
+    setStageDueDates(prev => {
+      const next = { ...prev };
+      if (!val) delete next[name]; else next[name] = val;
+      return next;
+    });
+  };
   const setSubtaskDescOverride = (key: string, desc: string | null) => {
-    if (requestInsteadOfMutate("edit", key, "edit subtask description", `Change description for "${key}" to:\n\n${desc || "(empty)"}`)) return;
+    if (requestInsteadOfMutate("edit", key, "edit subtask description", `Change description for "${key}" to:\n\n${desc || "(empty)"}`, { requestedValue: desc || "" })) return;
     markLocalWrite("subtaskDescOverrides");
     setSubtaskDescOverrides(prev => { const next = { ...prev }; if (desc === null) delete next[key]; else next[key] = desc; return next; });
   };
+  const setSubtaskDueDate = (key: string, val: string | null) => {
+    if (requestInsteadOfMutate("edit", key, "set subtask due date", val ? `Set due date for "${key}" to ${val}.` : `Clear due date for "${key}".`, { requestedValue: val })) return;
+    markLocalWrite("subtaskDueDates");
+    setSubtaskDueDates(prev => {
+      const next = { ...prev };
+      if (!val) delete next[key]; else next[key] = val;
+      return next;
+    });
+  };
   const setStageNameOverride = (name: string, val: string) => {
-    if (requestInsteadOfMutate("edit", name, "rename task", `Rename "${name}" to "${val}".`)) return;
+    if (requestInsteadOfMutate("edit", name, "rename task", `Rename "${name}" to "${val}".`, { requestedValue: val })) return;
     markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val }));
   };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
@@ -1254,10 +1339,18 @@ export function ModelProvider({
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
 
   // ── Chat handlers ─────────────────────────────────────────────────────────
-  const sendChat = (text: string) => {
+  const sendChat = (text: string, opts?: { threadId?: string; attachments?: ChatAttachment[] }) => {
     if (!currentUser) return;
     const msgId = Date.now();
-    const msg: ChatMsg = { id: msgId, userId: currentUser, text, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), workspaceId: currentWorkspaceId };
+    const msg: ChatMsg = {
+      id: msgId,
+      userId: currentUser,
+      text,
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      workspaceId: currentWorkspaceId,
+      threadId: opts?.threadId || "team",
+      attachments: opts?.attachments || [],
+    };
     setChatMessages(prev => [...prev, msg]);
     pushMessage(msg).then(result => {
       if (!result.ok) {
@@ -1287,7 +1380,8 @@ export function ModelProvider({
     const oldest = chatMessages[0];
     try {
       const wsParam = currentWorkspaceId ? `&workspaceId=${encodeURIComponent(currentWorkspaceId)}` : "";
-      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50${wsParam}`);
+      const threadParam = oldest.threadId ? `&threadId=${encodeURIComponent(oldest.threadId)}` : "";
+      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50${wsParam}${threadParam}`);
       const older: ChatMsg[] = await res.json();
       if (!Array.isArray(older) || older.length === 0) { setHasMoreMessages(false); return; }
       setChatMessages(prev => [...older, ...prev]);
@@ -1373,11 +1467,238 @@ export function ModelProvider({
     showToast("// proposal sent to Anna", t.green);
   };
 
-  const updateExecProposalStatus = (id: number, status: "reviewed" | "rejected") => {
+  const addReminder = (input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => {
+    if (!currentUser) return;
+    const title = input.title.trim();
+    const body = input.body.trim();
+    const recipients = Array.from(new Set(input.recipientIds.filter(Boolean)));
+    const due = Date.parse(input.remindAt);
+    if (!title || recipients.length === 0 || !Number.isFinite(due)) {
+      showToast("// reminder needs title, date, and recipient", t.amber);
+      return;
+    }
+    const reminder: ReminderItem = {
+      id: Date.now(),
+      title: title.slice(0, 140),
+      body: body.slice(0, 1000),
+      createdBy: currentUser,
+      recipientIds: recipients,
+      remindAt: new Date(due).toISOString(),
+      createdAt: Date.now(),
+      emailedTo: [],
+      dismissedBy: [],
+    };
+    markLocalWrite("reminders");
+    setReminders(prev => [reminder, ...prev].slice(0, 200));
+    logActivity("reminder", reminder.title, `scheduled for ${new Date(reminder.remindAt).toLocaleString()}`, recipients);
+    showToast("// reminder scheduled", t.green);
+  };
+
+  const dismissReminder = (id: number) => {
+    if (!currentUser) return;
+    markLocalWrite("reminders");
+    setReminders(prev => prev.map(r => r.id === id
+      ? { ...r, dismissedBy: Array.from(new Set([...(r.dismissedBy || []), currentUser])) }
+      : r
+    ));
+  };
+
+  const addNote = (input: { title: string; body: string; pinnedTo?: string; color?: string }) => {
+    if (!currentUser) return;
+    const title = input.title.trim() || "Untitled note";
+    const body = input.body.trim();
+    if (!body && !input.title.trim()) return;
+    const now = Date.now();
+    const note: NoteItem = {
+      id: now,
+      title: title.slice(0, 120),
+      body: body.slice(0, 5000),
+      by: currentUser,
+      createdAt: now,
+      updatedAt: now,
+      workspaceId: currentWorkspaceId,
+      pinnedTo: input.pinnedTo?.trim() || undefined,
+      color: input.color,
+    };
+    markLocalWrite("notes");
+    setNotes(prev => [note, ...prev].slice(0, 300));
+    logActivity("note", note.title, "created note");
+  };
+
+  const updateNote = (id: number, patch: Partial<Pick<NoteItem, "title" | "body" | "pinnedTo" | "color">>) => {
+    if (!currentUser) return;
+    markLocalWrite("notes");
+    setNotes(prev => prev.map(note => {
+      if (note.id !== id) return note;
+      if (note.by !== currentUser && !ADMIN_IDS.includes(currentUser)) return note;
+      return {
+        ...note,
+        ...patch,
+        title: patch.title !== undefined ? patch.title.slice(0, 120) : note.title,
+        body: patch.body !== undefined ? patch.body.slice(0, 5000) : note.body,
+        pinnedTo: patch.pinnedTo !== undefined ? (patch.pinnedTo.trim() || undefined) : note.pinnedTo,
+        updatedAt: Date.now(),
+      };
+    }));
+  };
+
+  const deleteNote = (id: number) => {
+    if (!currentUser) return;
+    markLocalWrite("notes");
+    setNotes(prev => prev.filter(note => note.id !== id || (note.by !== currentUser && !ADMIN_IDS.includes(currentUser))));
+  };
+
+  const addBug = (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string }) => {
+    if (!currentUser) return;
+    const title = input.title.trim();
+    if (!title) {
+      showToast("// bug/test needs a title", t.amber);
+      return;
+    }
+    const now = Date.now();
+    const bug: BugItem = {
+      id: now,
+      title: title.slice(0, 160),
+      body: (input.body || "").trim().slice(0, 2000),
+      steps: input.steps?.trim().slice(0, 2000) || undefined,
+      expected: input.expected?.trim().slice(0, 1000) || undefined,
+      actual: input.actual?.trim().slice(0, 1000) || undefined,
+      type: input.type,
+      severity: input.severity,
+      status: input.status || "open",
+      ownerId: input.ownerId || undefined,
+      createdBy: currentUser,
+      createdAt: now,
+      updatedAt: now,
+      workspaceId: currentWorkspaceId,
+      linkedTask: input.linkedTask?.trim() || undefined,
+    };
+    markLocalWrite("bugs");
+    setBugs(prev => [bug, ...prev].slice(0, 300));
+    logActivity("bug", bug.title, `${bug.type} · ${bug.severity}`, bug.ownerId ? [bug.ownerId] : undefined);
+    showToast("// tracker item added", t.green);
+  };
+
+  const updateBug = (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => {
+    if (!currentUser) return;
+    markLocalWrite("bugs");
+    setBugs(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      const canEdit = ADMIN_IDS.includes(currentUser) || item.createdBy === currentUser || item.ownerId === currentUser;
+      if (!canEdit) return item;
+      return {
+        ...item,
+        ...patch,
+        title: patch.title !== undefined ? patch.title.trim().slice(0, 160) || item.title : item.title,
+        body: patch.body !== undefined ? patch.body.trim().slice(0, 2000) : item.body,
+        steps: patch.steps !== undefined ? patch.steps.trim().slice(0, 2000) || undefined : item.steps,
+        expected: patch.expected !== undefined ? patch.expected.trim().slice(0, 1000) || undefined : item.expected,
+        actual: patch.actual !== undefined ? patch.actual.trim().slice(0, 1000) || undefined : item.actual,
+        ownerId: patch.ownerId !== undefined ? patch.ownerId || undefined : item.ownerId,
+        linkedTask: patch.linkedTask !== undefined ? patch.linkedTask.trim() || undefined : item.linkedTask,
+        updatedAt: Date.now(),
+      };
+    }));
+  };
+
+  const deleteBug = (id: number) => {
+    if (!currentUser) return;
+    markLocalWrite("bugs");
+    setBugs(prev => prev.filter(item => item.id !== id || (item.createdBy !== currentUser && item.ownerId !== currentUser && !ADMIN_IDS.includes(currentUser))));
+  };
+
+  const applyExecProposalAction = (proposal: ExecProposal): boolean => {
+    const target = proposal.target || "";
+    const value = proposal.requestedValue ?? null;
+    if (!target || proposal.kind === "strategy") return true;
+    if (proposal.kind === "archive") {
+        if (SubtaskKey.isValid(target)) {
+          markLocalWrite("archivedSubtasks");
+          setArchivedSubtasks(prev => prev.includes(target) ? prev : [...prev, target]);
+        } else {
+          markLocalWrite("archivedStages");
+          setArchivedStages(prev => prev.includes(target) ? prev : [...prev, target]);
+        }
+        logActivity("archive", target, "approved archive request");
+      return true;
+    }
+    if (proposal.kind === "assign") {
+        const clearAssign = /^clear/i.test(proposal.requestedAction || "");
+        const resolvedUserId = proposal.requestedUserId || (() => {
+          const haystack = `${proposal.requestedAction || ""} ${proposal.body || ""}`.toLowerCase();
+          return users.find(u =>
+            haystack.includes(u.id.toLowerCase()) ||
+            haystack.includes(u.name.toLowerCase()) ||
+            haystack.includes(u.name.split(" ")[0].toLowerCase())
+          )?.id || null;
+        })();
+        if (!resolvedUserId && !clearAssign) {
+          showToast("// assign request is missing who to assign", t.amber);
+          return false;
+        }
+        markLocalWrite("owners");
+        setOwners(prev => {
+          const next = { ...prev };
+          if (!resolvedUserId) {
+            delete next[target];
+            return next;
+          }
+          const current = next[target] || [];
+          next[target] = current.includes(resolvedUserId)
+            ? current
+            : [...current, resolvedUserId].slice(-ASSIGN_CAP);
+          return next;
+        });
+        logActivity("assign", target, resolvedUserId ? `approved assignment to ${resolvedUserId}` : "approved unassign");
+      return true;
+    }
+    if (proposal.kind === "edit") {
+        if (proposal.requestedAction === "rename task" && value) {
+          markLocalWrite("stageNameOverrides");
+          setStageNameOverrides(prev => ({ ...prev, [target]: value }));
+        } else if (proposal.requestedAction === "edit task description") {
+          markLocalWrite("stageDescOverrides");
+          setStageDescOverrides(prev => ({ ...prev, [target]: value || "" }));
+        } else if (proposal.requestedAction === "set due date") {
+          markLocalWrite("stageDueDates");
+          setStageDueDates(prev => {
+            const next = { ...prev };
+            if (!value) delete next[target]; else next[target] = value;
+            return next;
+          });
+        } else if (proposal.requestedAction === "rename subtask" && value) {
+          const parsed = SubtaskKey.parse(target as Parameters<typeof SubtaskKey.parse>[0]);
+          if (parsed) {
+            markLocalWrite("subtasks");
+            setSubtasks(prev => ({
+              ...prev,
+              [parsed.parentStageId]: (prev[parsed.parentStageId] || []).map(s => s.id === parsed.subtaskId ? { ...s, text: value } : s),
+            }));
+          }
+        } else if (proposal.requestedAction === "edit subtask description") {
+          markLocalWrite("subtaskDescOverrides");
+          setSubtaskDescOverrides(prev => ({ ...prev, [target]: value || "" }));
+        } else if (proposal.requestedAction === "set subtask due date") {
+          markLocalWrite("subtaskDueDates");
+          setSubtaskDueDates(prev => {
+            const next = { ...prev };
+            if (!value) delete next[target]; else next[target] = value;
+            return next;
+          });
+        }
+        logActivity("edit", target, `approved ${proposal.requestedAction || "edit request"}`);
+      return true;
+    }
+    return true;
+  };
+
+  const updateExecProposalStatus = (id: number, status: "reviewed" | "rejected" | "canceled") => {
     if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
       showToast("// only Anna can close executive requests", t.amber);
       return;
     }
+    const proposal = execProposals.find(p => p.id === id);
+    if (proposal && status === "reviewed" && proposal.status === "pending" && !applyExecProposalAction(proposal)) return;
     markLocalWrite("execProposals");
     setExecProposals(prev => prev.map(p => p.id === id ? {
       ...p,
@@ -1387,6 +1708,36 @@ export function ModelProvider({
     } : p));
   };
 
+  const applyExecProposal = (id: number) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
+      showToast("// only Anna can apply requests", t.amber);
+      return;
+    }
+    const proposal = execProposals.find(p => p.id === id);
+    if (!proposal) return;
+    if (applyExecProposalAction(proposal)) showToast("// request action applied", t.green);
+  };
+
+  const cancelExecProposal = (id: number) => {
+    if (!currentUser) return;
+    markLocalWrite("execProposals");
+    setExecProposals(prev => prev.map(p => p.id === id && p.by === currentUser && p.status === "pending" ? {
+      ...p,
+      status: "canceled",
+      reviewedAt: Date.now(),
+      reviewedBy: currentUser,
+    } : p));
+  };
+
+  const deleteExecProposal = (id: number) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
+      showToast("// only Anna can delete requests", t.amber);
+      return;
+    }
+    markLocalWrite("execProposals");
+    setExecProposals(prev => prev.filter(p => !(p.id === id && p.status !== "pending")));
+  };
+
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
@@ -1394,17 +1745,20 @@ export function ModelProvider({
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
-    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageNameOverrides,
+    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
-    subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
+    subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
-    execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus,
+    reminders, addReminder, dismissReminder,
+    notes, addNote, updateNote, deleteNote,
+    bugs, addBug, updateBug, deleteBug,
+    execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, deleteExecProposal,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
     syncStatus,
     getStatus, getPoints, sc, ck, pr,
     allPipelinesGlobal,
-    handleClaim, handleReact, addComment, addSubtask, toggleSubtask, renameSubtask,
+    handleClaim, handleReact, addComment, deleteComment, addSubtask, toggleSubtask, renameSubtask,
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
@@ -1440,13 +1794,13 @@ export function useStage(stageId: string) {
 }
 
 export function usePipeline(pipelineId: string) {
-  const { customPipelines, pipeMetaOverrides, pipeDescOverrides, customStages } = useModel();
+  const { pipeMetaOverrides, pipeDescOverrides, customStages } = useModel();
   return useMemo(() => ({
     nameOverride: pipeMetaOverrides[pipelineId]?.name,
     descOverride: pipeDescOverrides[pipelineId],
     priority: pipeMetaOverrides[pipelineId]?.priority,
     customStages: customStages[pipelineId] || [],
-  }), [customPipelines, pipeMetaOverrides, pipeDescOverrides, customStages, pipelineId]);
+  }), [pipeMetaOverrides, pipeDescOverrides, customStages, pipelineId]);
 }
 
 export function useOwnership(stageId: string) {

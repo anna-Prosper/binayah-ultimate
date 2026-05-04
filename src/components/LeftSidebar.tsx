@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Home, Zap, FileText, Activity, MessageSquare, Settings, Phone } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "now" | "pipelines" | "documents" | "activity" | "chat" | "calls";
+export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls";
 
 export interface SidebarPipeline {
   id: string;
@@ -41,6 +41,8 @@ interface Props {
 const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "pipelines", label: "pipelines" },
   { id: "documents", label: "documents" },
+  { id: "notes",     label: "notes"     },
+  { id: "bugs",      label: "testing"   },
   { id: "activity",  label: "activity"  },
   { id: "chat",      label: "chat"      },
   { id: "calls",     label: "calls"     },
@@ -50,6 +52,8 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   home: <Home size={15} strokeWidth={1.8} />,
   pipelines: <Zap size={15} strokeWidth={1.8} />,
   documents: <FileText size={15} strokeWidth={1.8} />,
+  notes: <StickyNote size={15} strokeWidth={1.8} />,
+  bugs: <Bug size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,
   calls: <Phone size={15} strokeWidth={1.8} />,
@@ -59,9 +63,6 @@ export default function LeftSidebar({
   t,
   activeNav,
   onNavChange,
-  pipelines,
-  activePipelineId,
-  onPipelineSelect,
   workspaces,
   currentWorkspaceId,
   onWorkspaceChange,

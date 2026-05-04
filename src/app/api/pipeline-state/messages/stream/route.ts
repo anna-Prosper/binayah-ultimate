@@ -9,7 +9,7 @@ import ChatMessage from "@/lib/ChatMessage";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-type ChatMsg = { id: number; userId: string; text: string; time: string };
+type ChatMsg = { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: unknown[] };
 type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; notifyTo?: string[] };
 
 const WORKSPACE = { workspaceId: "main" };
@@ -23,6 +23,12 @@ export async function GET(req: NextRequest) {
 
   const since = parseInt(req.nextUrl.searchParams.get("since") ?? "0", 10);
   const sinceActivity = req.nextUrl.searchParams.get("sinceActivity") ?? null;
+  const workspaceId = req.nextUrl.searchParams.get("workspaceId") ?? "main";
+  const threadId = req.nextUrl.searchParams.get("threadId") ?? "team";
+  const sessionUserId = session.user?.fixedUserId;
+  if (threadId.startsWith("dm:") && (!sessionUserId || !threadId.split(":").includes(sessionUserId))) {
+    return new NextResponse("Forbidden", { status: 403 });
+  }
 
   const encoder = new TextEncoder();
 
@@ -55,6 +61,7 @@ export async function GET(req: NextRequest) {
       let flushed = false;
 
       const onMessage = (msg: ChatMsg) => {
+        if ((msg.workspaceId ?? "main") !== workspaceId || (msg.threadId ?? "team") !== threadId) return;
         if (flushed) {
           send(msg);
         } else {
@@ -82,7 +89,7 @@ export async function GET(req: NextRequest) {
         await connectMongo();
 
         // Gap-fill chat messages from ChatMessage collection (no cap, infinite history)
-        const missed = await ChatMessage.find({ workspaceId: "main", id: { $gt: since } })
+        const missed = await ChatMessage.find({ workspaceId, threadId, id: { $gt: since } })
           .sort({ id: 1 })
           .limit(200)
           .lean();

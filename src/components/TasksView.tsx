@@ -47,11 +47,11 @@ interface Props {
 
 // Columns in the now-tab kanban — these map 1:1 to stage statuses
 const ALL_COLS = [
-  { status: "in-progress", label: "in progress", colorKey: "amber" },
-  { status: "planned",     label: "planned",     colorKey: "cyan"  },
   { status: "concept",     label: "concept",     colorKey: "slate" },
-  { status: "active",      label: "done",        colorKey: "green" },
+  { status: "planned",     label: "planned",     colorKey: "cyan"  },
+  { status: "in-progress", label: "in progress", colorKey: "amber" },
   { status: "blocked",     label: "blocked",     colorKey: "red"   },
+  { status: "active",      label: "done",        colorKey: "green" },
 ];
 
 function resolveCommentUser(users: UserType[], by: string): UserType {
@@ -70,19 +70,18 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
 }
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, headerLabel, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
     setStageStatusDirect: setStageStatus, approveStage, assignTask,
-    stageNameOverrides, setStageNameOverride, subtaskStages, setSubtaskStage,
+    stageNameOverrides, setStageNameOverride, stageDueDates, setStageDueDate, subtaskStages, setSubtaskStage, subtaskDueDates, setSubtaskDueDate,
     archivedStages, archivedSubtasks, stagePointsOverride,
-    addComment: modelAddComment,
+    addComment: modelAddComment, deleteComment,
     addSubtask: modelAddSubtask,
     addCustomStage: modelAddCustomStage,
     addUnparentedStage,
     migrateSubtask,
-    moveStageToPipeline,
     workspaces, setWorkspaces,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
@@ -117,11 +116,16 @@ export default function TasksView(props: Props) {
   const [commentOpen, setCommentOpen] = useState<string | null>(null);
   const [assignOpen, setAssignOpen] = useState<string | null>(null);
   const [myAllFilter, setMyAllFilter] = useState<"my" | "all">(defaultMyAllFilter || "all");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [assigneeFilter, setAssigneeFilter] = useState<string>("all");
+  const [dueFilter, setDueFilter] = useState<"all" | "overdue" | "soon" | "none">("all");
+  const [filterNow] = useState(() => Date.now());
   // ── Kanban dynamic creation form ─────────────────────────────────────────────
   // none selected → orphan; pipeline only → task; pipeline+stage → subtask.
   // In cross-workspace mode, workspace must be picked first (drives pipeline list + scope).
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
+  const [newSubDueDate, setNewSubDueDate] = useState("");
   const [newSubWsId, setNewSubWsId] = useState<string>(""); // workspace for cross-workspace mode
   const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = orphan
   const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = no parent (task-level)
@@ -140,7 +144,7 @@ export default function TasksView(props: Props) {
     : "";
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage("");
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage("");
   }, []);
 
   const submitNewItem = useCallback(async (colStatus: string) => {
@@ -153,12 +157,14 @@ export default function TasksView(props: Props) {
       const taskId = modelAddSubtask(newSubParentStage, title, () => {});
       if (taskId !== null) {
         const key = `${newSubParentStage}::${taskId}`;
+        if (newSubDueDate) setSubtaskDueDate(key, newSubDueDate);
         if (colStatus !== "planned") setSubtaskStage(key, colStatus);
         if (currentUser) handleClaim(key);
       }
     } else if (newSubPipeId) {
       // Task in a pipeline
       modelAddCustomStage(newSubPipeId, title);
+      if (newSubDueDate) setStageDueDate(title, newSubDueDate);
       if (colStatus !== "planned") setStageStatus(title, colStatus);
       if (currentUser) handleClaim(title);
     } else {
@@ -167,6 +173,7 @@ export default function TasksView(props: Props) {
       const stageName = await addUnparentedStage(title);
       if (stageName) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
+        if (newSubDueDate) setStageDueDate(stageName, newSubDueDate);
         if (currentUser) handleClaim(stageName);
         if (formWsId) {
           setWorkspaces(prev => prev.map(w =>
@@ -178,7 +185,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubWsId, newSubPipeId, newSubParentStage, needsWorkspacePick, formWsId, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageStatus, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubWsId, newSubPipeId, newSubParentStage, needsWorkspacePick, formWsId, currentUser, handleClaim, modelAddSubtask, modelAddCustomStage, addUnparentedStage, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -246,7 +253,7 @@ export default function TasksView(props: Props) {
   });
 
   // Apply my/all filter when in cross-workspace mode
-  const stageTasks = (showMyAllFilter && myAllFilter === "my")
+  const baseStageTasks = (showMyAllFilter && myAllFilter === "my")
     ? allStageTasks.filter(s => {
         if (!currentUser) return false;
         if (s.claimers.includes(currentUser)) return true;
@@ -257,9 +264,21 @@ export default function TasksView(props: Props) {
     : allStageTasks;
 
   // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
+  const dueMatches = (due?: string) => {
+    if (dueFilter === "all") return true;
+    if (dueFilter === "none") return !due;
+    if (!due) return false;
+    const time = new Date(`${due}T23:59:59`).getTime();
+    const now = filterNow;
+    if (dueFilter === "overdue") return time < now;
+    return time >= now && time <= now + 3 * 24 * 60 * 60 * 1000;
+  };
 
-  // visibleStageIds is still needed for stage drop targets (task-card migration)
-  const visibleStageIds = useMemo(() => new Set(pipelines.flatMap(p => p.allStages)), [pipelines]);
+  const stageTasks = baseStageTasks.filter(task => {
+    const taskOwners = owners[task.stageId] || assignments[task.stageId] || [];
+    if (assigneeFilter !== "all" && !taskOwners.includes(assigneeFilter)) return false;
+    return dueMatches(stageDueDates[task.stageId]);
+  });
 
   // For the kanban subtask list we use allPipelinesGlobal so subtasks whose parent
   // pipeline is outside the current workspace still appear — no disappearing on sync.
@@ -312,13 +331,18 @@ export default function TasksView(props: Props) {
   }, [subtasks, subtaskStages, stageNameOverrides, pipelines, allPipelines, customStages, ck, t, archivedSubtaskKeySet, pipelineWorkspaceMap]);
 
   // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
-  const filteredSubtaskKanbanTasks = (showMyAllFilter && myAllFilter === "my" && currentUser)
+  const filteredSubtaskKanbanTasksBase = (showMyAllFilter && myAllFilter === "my" && currentUser)
     ? subtaskKanbanTasks.filter(s => {
         return (claims[s.key] || []).includes(currentUser)
           || (assignments[s.key] || []).includes(currentUser)
           || (owners[s.key] || []).includes(currentUser);
       })
     : subtaskKanbanTasks;
+  const filteredSubtaskKanbanTasks = filteredSubtaskKanbanTasksBase.filter(sub => {
+    const subOwners = owners[sub.key] || assignments[sub.key] || [];
+    if (assigneeFilter !== "all" && !subOwners.includes(assigneeFilter)) return false;
+    return dueMatches(subtaskDueDates[sub.key]);
+  });
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);
@@ -387,7 +411,7 @@ export default function TasksView(props: Props) {
     t, users, currentUser, reactions, comments,
     reactOpen, setReactOpen, commentOpen, setCommentOpen,
     assignOpen, setAssignOpen, assignments, assignTask,
-    handleReact: readOnly ? (() => {}) : handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+    handleReact: readOnly ? (() => {}) : handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
     isAdmin, approveStage, approvedStages, toggleSubtask, subtasks,
     editingStage, setEditingStage: setEditingStage, editingVal, setEditingVal,
     setStageNameOverride,
@@ -466,8 +490,24 @@ export default function TasksView(props: Props) {
           )}
           <button style={flatBtn(view === "kanban")} onClick={() => setView("kanban")}>⊞ kanban</button>
           <button style={flatBtn(view === "list")} onClick={() => setView("list")}>≡ list</button>
+          <button style={flatBtn(filterOpen || assigneeFilter !== "all" || dueFilter !== "all")} onClick={() => setFilterOpen(v => !v)}>⌕ filters</button>
         </div>
       </div>
+      {filterOpen && (
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, padding: 8, border: `1px solid ${t.border}`, borderRadius: 12, background: t.bgCard }}>
+          <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}>
+            <option value="all">all assignees</option>
+            {users.filter(u => u.id !== "ai").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <select value={dueFilter} onChange={e => setDueFilter(e.target.value as typeof dueFilter)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}>
+            <option value="all">all due dates</option>
+            <option value="overdue">overdue</option>
+            <option value="soon">due soon</option>
+            <option value="none">no due date</option>
+          </select>
+          <button onClick={() => { setAssigneeFilter("all"); setDueFilter("all"); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, cursor: "pointer" }}>clear</button>
+        </div>
+      )}
 
       {stageTasks.length === 0 ? (
         <div style={{ padding: "64px 0", textAlign: "center" }}>
@@ -495,7 +535,7 @@ export default function TasksView(props: Props) {
           })}
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 12, alignItems: "flex-start", overflowX: "auto", paddingBottom: 16 }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "stretch", overflowX: "auto", paddingBottom: 16, minHeight: "calc(100vh - 190px)" }}>
           {COLS.map(col => {
             const colTasks = stageTasks.filter(s => s.status === col.status);
             const colSubtasks = filteredSubtaskKanbanTasks.filter(s => s.status === col.status);
@@ -506,7 +546,7 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, minHeight: 220, background: isOver ? t.accent + "0a" : "transparent", borderRadius: 16, transition: "all 0.15s", padding: 0 }}
+                style={{ flex: "1 1 280px", minWidth: 260, minHeight: "calc(100vh - 210px)", background: isOver ? t.accent + "0a" : "transparent", border: `1px solid ${isOver ? t.accent + "55" : "transparent"}`, borderRadius: 16, transition: "all 0.15s", padding: 4, display: "flex", flexDirection: "column" }}
                 onDragEnter={e => {
                   if (readOnly) return;
                   e.preventDefault(); setDragOver(col.status);
@@ -515,7 +555,7 @@ export default function TasksView(props: Props) {
                   if (readOnly) return;
                   e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status);
                 }}
-                onDragLeave={() => setDragOver(null)}
+                onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragOver(null); }}
                 onDrop={e => handleDrop(col.status, e)}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, padding: "4px 4px", borderBottom: `1px solid ${stColor}33` }}>
@@ -523,7 +563,7 @@ export default function TasksView(props: Props) {
                   <span style={{ fontSize: 10, fontWeight: 700, color: stColor, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
                   <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({totalCount})</span>
                 </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {totalCount === 0
                     ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{readOnly ? "// no items" : "// drop to move"}</div>
                     : <>
@@ -532,14 +572,15 @@ export default function TasksView(props: Props) {
                       </>
                   }
                   {/* Drop zone at bottom so dragging over the last card still highlights the column */}
-                  {!readOnly && <div
-                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
-                    style={{ minHeight: 48, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : "transparent"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isOver ? t.accent : "transparent", fontFamily: "var(--font-dm-mono), monospace" }}
-                  >drop here</div>}
+	                  {!readOnly && <div
+	                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
+	                    onDrop={e => handleDrop(col.status, e)}
+	                    style={{ flex: 1, minHeight: 120, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : t.border + "22"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}
+	                  >drop here</div>}
                   {!readOnly && newTaskCol === col.status ? (
                     /* Dynamic creation form — workspace (if cross-ws) → optional pipeline → optional parent task */
                     <div style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 12, padding: 8, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }} data-no-close>
-                      <input
+	                      <input
                         autoFocus
                         value={newSubTitle}
                         onChange={e => setNewSubTitle(e.target.value)}
@@ -550,8 +591,15 @@ export default function TasksView(props: Props) {
                         }}
                         onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage && !newSubWsId) resetNewSub(); }}
                         data-no-close
-                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
-                      />
+	                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+	                      />
+	                      <input
+	                        type="date"
+	                        value={newSubDueDate}
+	                        onChange={e => setNewSubDueDate(e.target.value)}
+	                        data-no-close
+	                        style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+	                      />
                       {/* Workspace picker — visible when 2+ workspaces; otherwise show implicit ws label */}
                       {needsWorkspacePick ? (
                         <>
@@ -732,8 +780,9 @@ interface SharedCardProps {
   commentOpen: string | null;
   setCommentOpen: (v: string | null) => void;
   handleReact: (sid: string, emoji: string) => void;
-  shareStage: (name: string, text: string) => void;
-  addComment: (sid: string) => void;
+	  shareStage: (name: string, text: string) => void;
+	  addComment: (sid: string) => void;
+	  deleteComment: (sid: string, commentId: number) => void;
   commentInput: Record<string, string>;
   setCommentInput: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   copied: string | null;
@@ -796,22 +845,23 @@ function TaskCard({
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
-  handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+  handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
   isAdmin, approveStage, approvedStages, subtasks,
-  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, editMode, onPipelineClick,
+  editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, onPipelineClick,
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
   availablePipelines, getPoints, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, addSubtask: modelAddSubtask, customStages: allCustomStages, allPipelinesGlobal: pipelinesAll, stageNameOverrides: nameOverrides, archivedStages: archStages } = useModel();
-  const [subtaskTargetPipeline, setSubtaskTargetPipeline] = useState<string>(""); // user picked pipeline for "or as subtask of"
+  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
   const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
-  const [isHovered, setIsHovered] = useState(false);
+  const [dueDraft, setDueDraft] = useState(stageDueDates[task.stageId] || "");
+  const [, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setDescDraft(stageDescOverrides[task.stageId] || "");
-  }, [stageDescOverrides, task.stageId, editOpen]);
+    setDueDraft(stageDueDates[task.stageId] || "");
+  }, [stageDescOverrides, stageDueDates, task.stageId, editOpen]);
 
   const isDone = task.status === "active";
   const isApproved = approvedStages.includes(task.stageId);
@@ -919,6 +969,15 @@ function TaskCard({
             </span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
             <span style={{ color: t.accent, fontWeight: 700 }} title="points (sum of subtasks, or override)">· {task.points}pts</span>
+            {stageDueDates[task.stageId] && (() => {
+              const due = new Date(`${stageDueDates[task.stageId]}T23:59:59`);
+              const now = new Date();
+              const ms = due.getTime() - now.getTime();
+              const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
+              const expired = ms < 0;
+              const color = expired ? t.red : soon ? t.amber : t.textDim;
+              return <span style={{ color, fontWeight: expired || soon ? 800 : 500 }}>· due {stageDueDates[task.stageId]}</span>;
+            })()}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
@@ -958,6 +1017,16 @@ function TaskCard({
             placeholder="Stage description..."
             rows={2}
             style={{ width: "100%", background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}
+          />
+          <input
+            type="date"
+            value={dueDraft}
+            onChange={e => setDueDraft(e.target.value)}
+            onBlur={() => {
+              const current = stageDueDates[task.stageId] || "";
+              if (dueDraft !== current) setStageDueDate(task.stageId, dueDraft || null);
+            }}
+            style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
           {(() => {
             // Priority cycler — show if the pipeline has a priority set via pipeMetaOverrides
@@ -1054,6 +1123,13 @@ function TaskCard({
             setEditingStage?.(task.stageId);
             setEditingVal?.(task.displayName || task.stageId);
           } else {
+            const currentDesc = stageDescOverrides[task.stageId] || "";
+            const currentDue = stageDueDates[task.stageId] || "";
+            if (descDraft !== currentDesc) setStageDescOverride(task.stageId, descDraft);
+            if (dueDraft !== currentDue) setStageDueDate(task.stageId, dueDraft || null);
+            if (editingStage === task.stageId && editingVal && editingVal !== (task.displayName || task.stageId)) {
+              setStageNameOverride?.(task.stageId, editingVal);
+            }
             setEditingStage?.(null);
           }
         }}
@@ -1067,9 +1143,11 @@ function TaskCard({
           t={t}
           users={users}
           comments={cmts}
+          currentUser={currentUser}
           inputValue={commentInput[task.stageId] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [task.stageId]: v }))}
           onSend={() => addComment(task.stageId)}
+          onDelete={(commentId) => deleteComment(task.stageId, commentId)}
           readOnly={false}
         />
       )}
@@ -1082,27 +1160,30 @@ function TaskCard({
 // ─── Subtask card (smaller, no description/preview) ──────────────────────────
 
 function SubtaskCard({
-  taskSub, stageId, parentStageName, pipelineColor, pipelineIcon, pipelineName, onToggle,
+  taskSub, stageId, parentStageName, pipelineColor, pipelineIcon, pipelineName,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
-  handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+  handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
   handleClaim, claims, getPoints, readOnly,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
   onToggle: () => void;
 } & SharedCardProps & { handleClaim?: (sid: string) => void; claims?: Record<string, string[]> }) {
-  const [isHovered, setIsHovered] = useState(false);
+  const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [descVal, setDescVal] = useState("");
+  const [dueVal, setDueVal] = useState("");
+  const [renderNow] = useState(() => Date.now());
   const [moveToStageSSC, setMoveToStageSSC] = useState<string>(""); // selected pipeline for 2-step move
 
   const key = SubtaskKey.make(stageId, taskSub.id);
+  const dueDate = subtaskDueDates[key];
 
   const commitRenameSSC = () => {
     const trimmed = editVal.trim();
@@ -1137,7 +1218,6 @@ function SubtaskCard({
   const assignees = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
   const assignee = assignees[0] || null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
-  const creator = users.find(u => u.id === taskSub.by);
   const isClaimed = (claims?.[key] || []).includes(currentUser || "");
   const claimers = claims?.[key] || [];
 
@@ -1165,6 +1245,14 @@ function SubtaskCard({
           </div>
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {pipelineIcon} {parentStageName}
+            {dueDate && (() => {
+              const due = new Date(`${dueDate}T23:59:59`);
+              const ms = due.getTime() - renderNow;
+              const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
+              const expired = ms < 0;
+              const color = expired ? t.red : soon ? t.amber : t.textDim;
+              return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {dueDate}</span>;
+            })()}
             {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
           {subtaskDescOverrides[key] && (
@@ -1214,7 +1302,16 @@ function SubtaskCard({
         archiveLabel="archive"
         showEditButton={!readOnly}
         showEditInput={editOpen}
-        onEditToggle={() => { if (!editOpen) { setEditVal(taskSub.text); setDescVal(subtaskDescOverrides[key] || ""); setMoveToStageSSC(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+        onEditToggle={() => {
+          if (!editOpen) {
+            setEditVal(taskSub.text); setDescVal(subtaskDescOverrides[key] || ""); setDueVal(dueDate || ""); setMoveToStageSSC(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null);
+          } else {
+            commitRenameSSC();
+            if (descVal !== (subtaskDescOverrides[key] || "")) setSubtaskDescOverride(key, descVal.trim() || null);
+            if (dueVal !== (dueDate || "")) setSubtaskDueDate(key, dueVal || null);
+          }
+          setEditOpen(!editOpen);
+        }}
         readOnly={readOnly}
       />
       {editOpen && !readOnly && (
@@ -1230,6 +1327,17 @@ function SubtaskCard({
               rows={2}
               data-no-close
               style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+            />
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
+            <input
+              type="date"
+              value={dueVal}
+              onChange={e => setDueVal(e.target.value)}
+              onBlur={() => { if (dueVal !== (dueDate || "")) setSubtaskDueDate(key, dueVal || null); }}
+              data-no-close
+              style={{ fontSize: 11, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
             />
           </div>
           {/* Move to a different parent stage */}
@@ -1293,9 +1401,11 @@ function SubtaskCard({
           t={t}
           users={users}
           comments={cmts}
+          currentUser={currentUser}
           inputValue={commentInput[key] || ""}
           onInputChange={v => setCommentInput(prev => ({ ...prev, [key]: v }))}
           onSend={() => addComment(key)}
+          onDelete={(commentId) => deleteComment(key, commentId)}
           readOnly={false}
         />
       )}
@@ -1311,19 +1421,21 @@ function SubtaskKanbanCard({
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
-  handleReact, shareStage, addComment, commentInput, setCommentInput, copied,
+  handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
   isAdmin, getPoints, readOnly,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride } = useModel();
-  const [isHovered, setIsHovered] = useState(false);
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate } = useModel();
+  const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [moveToStage, setMoveToStage] = useState<string>(""); // selected pipeline for 2-step move
   const [descVal, setDescVal] = useState("");
+  const [renderNow] = useState(() => Date.now());
+  const [dueVal, setDueVal] = useState("");
   const subtaskRef = useRef<HTMLDivElement>(null);
 
   const rxs = reactions[sub.key] || {};
@@ -1355,8 +1467,8 @@ function SubtaskKanbanCard({
   const assignees = assigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
   const assignee = assignees[0] || null;
   const visibleReactions = Object.entries(rxs).filter(([, us]) => us.length > 0);
-  const creator = users.find(u => u.id === sub.by);
   const isUnknownParent = !sub.pipelineName;
+  const dueDate = subtaskDueDates[sub.key];
   const taskId = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0])?.subtaskId ?? NaN;
 
   const commitRename = () => {
@@ -1398,6 +1510,14 @@ function SubtaskKanbanCard({
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
                 : <>{sub.workspaceIcon && sub.workspaceName && <span style={{ marginRight: 3 }}>{sub.workspaceIcon} {sub.workspaceName} · </span>}{sub.pipelineIcon} {sub.parentStageName}</>}
               <span style={{ color: t.accent, fontWeight: 700, marginLeft: 4 }}>· {sub.points}pts</span>
+              {dueDate && (() => {
+                const due = new Date(`${dueDate}T23:59:59`);
+                const ms = due.getTime() - renderNow;
+                const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
+                const expired = ms < 0;
+                const color = expired ? t.red : soon ? t.amber : t.textDim;
+                return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {dueDate}</span>;
+              })()}
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
             {subtaskDescOverrides[sub.key] && (
@@ -1468,7 +1588,16 @@ function SubtaskKanbanCard({
           archiveLabel="archive"
           showEditButton={!readOnly}
           showEditInput={editOpen}
-          onEditToggle={() => { if (!editOpen) { setEditVal(sub.text); setDescVal(subtaskDescOverrides[sub.key] || ""); setMoveToStage(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null); } setEditOpen(!editOpen); }}
+          onEditToggle={() => {
+            if (!editOpen) {
+              setEditVal(sub.text); setDescVal(subtaskDescOverrides[sub.key] || ""); setDueVal(dueDate || ""); setMoveToStage(""); setReactOpen(null); setCommentOpen(null); setAssignOpen(null);
+            } else {
+              commitRename();
+              if (descVal !== (subtaskDescOverrides[sub.key] || "")) setSubtaskDescOverride(sub.key, descVal.trim() || null);
+              if (dueVal !== (dueDate || "")) setSubtaskDueDate(sub.key, dueVal || null);
+            }
+            setEditOpen(!editOpen);
+          }}
           readOnly={readOnly}
         />
         {editOpen && (
@@ -1484,6 +1613,17 @@ function SubtaskKanbanCard({
                 rows={2}
                 data-no-close
                 style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+              />
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
+              <input
+                type="date"
+                value={dueVal}
+                onChange={e => setDueVal(e.target.value)}
+                onBlur={() => { if (dueVal !== (dueDate || "")) setSubtaskDueDate(sub.key, dueVal || null); }}
+                data-no-close
+                style={{ fontSize: 11, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
               />
             </div>
             {/* Move to a different parent stage — button-based to avoid native-select click-outside issues */}
@@ -1548,9 +1688,11 @@ function SubtaskKanbanCard({
             t={t}
             users={users}
             comments={cmts}
+            currentUser={currentUser}
             inputValue={commentInput[sub.key] || ""}
             onInputChange={v => setCommentInput(prev => ({ ...prev, [sub.key]: v }))}
             onSend={() => addComment(sub.key)}
+            onDelete={(commentId) => deleteComment(sub.key, commentId)}
             readOnly={false}
           />
         )}
@@ -1738,10 +1880,13 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
             background: showEditInput ? t.accent + "22" : t.bgCard,
             border: `1px solid ${showEditInput ? t.accent + "88" : t.border}`,
             borderRadius: 8,
-            width: 28,
+            width: showEditInput ? "auto" : 28,
             height: 28,
+            padding: showEditInput ? "0 9px" : 0,
             cursor: "pointer",
-            fontSize: 13,
+            fontSize: showEditInput ? 10 : 13,
+            fontFamily: "var(--font-dm-mono), monospace",
+            fontWeight: 800,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -1750,16 +1895,16 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
             boxShadow: showEditInput ? `0 2px 8px ${t.accent}33` : "none",
           }}
         >
-          &#9998;
+          {showEditInput ? "✓ save" : "✎"}
         </button>
       )}
     </div>
   );
 }
 
-function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend, readOnly }: {
+function CommentPopover({ t, users, comments, currentUser, inputValue, onInputChange, onSend, onDelete, readOnly }: {
   t: T; users: UserType[]; comments: CommentItem[];
-  inputValue: string; onInputChange: (v: string) => void; onSend: () => void; readOnly?: boolean;
+  currentUser: string | null; inputValue: string; onInputChange: (v: string) => void; onSend: () => void; onDelete: (commentId: number) => void; readOnly?: boolean;
 }) {
   // @mention autocomplete: detect "@word" at cursor and surface user matches
   const mentionMatch = inputValue.match(/(^|\s)@([\w-]*)$/);
@@ -1789,9 +1934,14 @@ function CommentPopover({ t, users, comments, inputValue, onInputChange, onSend,
             return (
               <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
                 <AvatarC user={u} size={18} />
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, color: u.color, fontWeight: 700 }}>{u.name}</div>
-                  <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word" }}>{c.text}</div>
+	                <div style={{ flex: 1, minWidth: 0 }}>
+	                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+	                    <div style={{ fontSize: 10, color: u.color, fontWeight: 700, flex: 1 }}>{u.name}</div>
+	                    {(c.by === currentUser || currentUser === "anna") && (
+	                      <button type="button" onClick={() => onDelete(c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
+	                    )}
+	                  </div>
+	                  <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word" }}>{c.text}</div>
                 </div>
               </div>
             );

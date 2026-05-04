@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { T } from "@/lib/themes";
 import { pipelineData, USERS_DEFAULT, type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
+import { useModel } from "@/lib/contexts/ModelContext";
 
 // ── Module-scope document content cache ──────────────────────────────────────
 interface DocWithContent {
@@ -57,8 +58,14 @@ type PersonResult = {
   user: UserType;
   matchIn: "name" | "role";
 };
+type TextResult = {
+  kind: "note" | "bug" | "comment" | "chat";
+  title: string;
+  snippet: string;
+  meta: string;
+};
 
-type SearchResult = StageResult | DocResult | PersonResult;
+type SearchResult = StageResult | DocResult | PersonResult | TextResult;
 
 // ── Fuzzy match helper — highlights matched substring ─────────────────────────
 function fuzzyMatch(haystack: string, needle: string): { matched: boolean; index: number; length: number } {
@@ -183,23 +190,43 @@ function ResultRow({
   }
 
   // person
-  return (
-    <div ref={rowRef} style={base} onClick={onClick}
-      onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
-      onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-    >
-      <AvatarC user={result.user} size={26} />
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
-          {highlight(result.user.name, query, t.accent)}
+  if (result.kind === "note" || result.kind === "bug" || result.kind === "comment" || result.kind === "chat") {
+    return (
+      <div ref={rowRef} style={base} onClick={onClick}
+        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
+        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+      >
+        <span style={{ fontSize: 15, flexShrink: 0 }}>{result.kind === "note" ? "🗒️" : result.kind === "bug" ? "⚠️" : result.kind === "comment" ? "💬" : "✉️"}</span>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{highlight(result.title, query, t.accent)}</div>
+          <div style={{ fontSize: 11, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{highlight(result.snippet, query, t.accent)}</div>
         </div>
-        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
-          {highlight(result.user.role, query, t.accent)}
-        </div>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>{result.meta}</span>
       </div>
-      <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
-    </div>
-  );
+    );
+  }
+
+  if (result.kind === "person") {
+    return (
+      <div ref={rowRef} style={base} onClick={onClick}
+        onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
+        onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+      >
+        <AvatarC user={result.user} size={26} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
+            {highlight(result.user.name, query, t.accent)}
+          </div>
+          <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+            {highlight(result.user.role, query, t.accent)}
+          </div>
+        </div>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ── Skeleton pulse for loading docs ───────────────────────────────────────────
@@ -240,6 +267,7 @@ export default function SearchPalette({
   const [docsLoading, setDocsLoading] = useState(false);
   const [docsWithContent, setDocsWithContent] = useState<DocWithContent[] | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
+  const { notes, bugs, comments, chatMessages, allPipelinesGlobal, customStages } = useModel();
   const inputRef = useRef<HTMLInputElement>(null);
   const hasFetchedRef = useRef(false);
 
@@ -269,13 +297,13 @@ export default function SearchPalette({
         setDocsWithContent(docCache.data);
       }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
   // ── Build all stage results (instant, in-memory) ───────────────────────────
   const allStageResults = useMemo<StageResult[]>(() => {
-    return pipelineData.flatMap(p =>
-      p.stages.map(stageName => ({
+	    const pipelines = allPipelinesGlobal.length ? allPipelinesGlobal : pipelineData;
+	    return pipelines.flatMap(p =>
+	      [...p.stages, ...(customStages[p.id] || [])].map(stageName => ({
         kind: "stage" as const,
         stageName,
         pipelineId: p.id,
@@ -284,7 +312,7 @@ export default function SearchPalette({
         matchIn: "name" as const,
       }))
     );
-  }, []);
+	  }, [allPipelinesGlobal, customStages]);
 
   // ── Filter results based on query ─────────────────────────────────────────
   const results = useMemo<SearchResult[]>(() => {
@@ -320,16 +348,37 @@ export default function SearchPalette({
         .filter((x): x is PersonResult => x !== null);
     })();
 
-    return [...stageResults, ...docResults, ...personResults];
-  }, [query, allStageResults, docsWithContent]);
+    const textResults: TextResult[] = q ? [
+      ...notes
+        .filter(n => `${n.title} ${n.body}`.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 8)
+        .map(n => ({ kind: "note" as const, title: n.title, snippet: snippetAround(n.body, q), meta: "note" })),
+      ...bugs
+        .filter(b => `${b.title} ${b.body} ${b.steps || ""} ${b.linkedTask || ""}`.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 8)
+        .map(b => ({ kind: "bug" as const, title: b.title, snippet: snippetAround(`${b.body} ${b.steps || ""}`, q), meta: `${b.type} · ${b.status}` })),
+      ...Object.entries(comments)
+        .flatMap(([stage, list]) => list.map(c => ({ stage, c })))
+        .filter(({ stage, c }) => `${stage} ${c.text}`.toLowerCase().includes(q.toLowerCase()))
+        .slice(0, 8)
+        .map(({ stage, c }) => ({ kind: "comment" as const, title: stage, snippet: c.text, meta: "comment" })),
+      ...chatMessages
+        .filter(m => m.text.toLowerCase().includes(q.toLowerCase()))
+        .slice(-8)
+        .map(m => ({ kind: "chat" as const, title: m.threadId?.startsWith("dm:") ? "DM" : "team chat", snippet: m.text, meta: "chat" })),
+    ] : [];
+
+    return [...stageResults, ...docResults, ...personResults, ...textResults];
+  }, [query, allStageResults, docsWithContent, notes, bugs, comments, chatMessages]);
 
   // Group for rendering
   const stageGroup = results.filter(r => r.kind === "stage") as StageResult[];
   const docGroup = results.filter(r => r.kind === "doc") as DocResult[];
   const personGroup = results.filter(r => r.kind === "person") as PersonResult[];
+  const textGroup = results.filter(r => r.kind === "note" || r.kind === "bug" || r.kind === "comment" || r.kind === "chat") as TextResult[];
 
   // Flat ordered list for keyboard nav
-  const flatResults = [...stageGroup, ...docGroup, ...personGroup] as SearchResult[];
+  const flatResults = [...stageGroup, ...docGroup, ...personGroup, ...textGroup] as SearchResult[];
 
   const safeIdx = Math.min(activeIdx, flatResults.length - 1);
 
@@ -362,15 +411,17 @@ export default function SearchPalette({
     } else if (item.kind === "doc") {
       onOpenDocument(item.id);
       onClose();
-    } else {
+    } else if (item.kind === "person") {
       onOpenPerson(item.user.id);
+      onClose();
+    } else {
       onClose();
     }
   }, [onOpenStage, onOpenDocument, onOpenPerson, onClose]);
 
   if (!open) return null;
 
-  const hasAnyResults = stageGroup.length > 0 || docGroup.length > 0 || personGroup.length > 0;
+  const hasAnyResults = stageGroup.length > 0 || docGroup.length > 0 || personGroup.length > 0 || textGroup.length > 0;
   // Running index for flat keyboard nav
   let rowIdx = 0;
 
@@ -492,7 +543,7 @@ export default function SearchPalette({
             </div>
 
             {/* People section */}
-            {personGroup.length > 0 && (
+	            {personGroup.length > 0 && (
               <div>
                 <SectionHeader label="People" t={t} />
                 {personGroup.map((r) => {
@@ -502,7 +553,17 @@ export default function SearchPalette({
                   );
                 })}
               </div>
-            )}
+	            )}
+
+	            {textGroup.length > 0 && (
+	              <div>
+	                <SectionHeader label="Notes, comments, chat" t={t} />
+	                {textGroup.map((r, i) => {
+	                  const idx = rowIdx++;
+	                  return <ResultRow key={`${r.kind}-${i}-${r.title}`} result={r} active={idx === safeIdx} query={query} t={t} onClick={() => activate(r)} />;
+	                })}
+	              </div>
+	            )}
 
             {/* Empty state */}
             {!docsLoading && !hasAnyResults && query.trim() !== "" && (

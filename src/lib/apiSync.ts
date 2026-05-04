@@ -18,28 +18,71 @@ export type SharedState = {
   /** Pipelines that have already paid out the +25% completion bonus. */
   approvedPipelines?: string[];
   reactions?: Record<string, Record<string, string[]>>;
-  chatMessages?: { id: number; userId: string; text: string; time: string }[];
+  chatMessages?: { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: ChatAttachment[] }[];
   activityLog?: { type: string; user: string; target: string; detail: string; time: number; notifyTo?: string[] }[];
+  reminders?: {
+    id: number;
+    title: string;
+    body: string;
+    createdBy: string;
+    recipientIds: string[];
+    remindAt: string;
+    createdAt: number;
+    emailedTo?: string[];
+    dismissedBy?: string[];
+  }[];
+  notes?: {
+    id: number;
+    title: string;
+    body: string;
+    by: string;
+    createdAt: number;
+    updatedAt: number;
+    workspaceId?: string;
+    pinnedTo?: string;
+    color?: string;
+  }[];
+  bugs?: {
+    id: number;
+    title: string;
+    body: string;
+    steps?: string;
+    expected?: string;
+    actual?: string;
+    type: "bug" | "test" | "qa";
+    severity: "low" | "medium" | "high" | "critical";
+    status: "open" | "triage" | "testing" | "fixed" | "closed";
+    ownerId?: string;
+    createdBy: string;
+    createdAt: number;
+    updatedAt: number;
+    workspaceId?: string;
+    linkedTask?: string;
+  }[];
   execProposals?: {
     id: number;
     title: string;
     body: string;
     by: string;
-    status: "pending" | "reviewed" | "rejected";
+    status: "pending" | "reviewed" | "rejected" | "canceled";
     createdAt: number;
     reviewedAt?: number;
     reviewedBy?: string;
     kind?: "strategy" | "edit" | "archive" | "assign";
     target?: string;
     requestedAction?: string;
+    requestedValue?: string | null;
+    requestedUserId?: string | null;
   }[];
   subtasks?: Record<string, { id: number; text: string; done: boolean; by: string }[]>;
   comments?: Record<string, { id: number; text: string; by: string; time: string }[]>;
   stageStatusOverrides?: Record<string, string>;
   stageDescOverrides?: Record<string, string>;
+  stageDueDates?: Record<string, string>;
   stageNameOverrides?: Record<string, string>;
   subtaskStages?: Record<string, string>;
   subtaskDescOverrides?: Record<string, string>;
+  subtaskDueDates?: Record<string, string>;
   pipeDescOverrides?: Record<string, string>;
   pipeMetaOverrides?: Record<string, { name?: string; priority?: string }>;
   customStages?: Record<string, string[]>;
@@ -95,7 +138,9 @@ export async function patchState(patch: Partial<SharedState>): Promise<SyncResul
 }
 
 // Atomically append a single chat message (never clobbers other messages)
-export async function pushMessage(msg: { id: number; userId: string; text: string; time: string; workspaceId?: string }): Promise<SyncResult> {
+export type ChatAttachment = { id: string; name: string; type: string; size: number; dataUrl: string };
+
+export async function pushMessage(msg: { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: ChatAttachment[] }): Promise<SyncResult> {
   try {
     const res = await fetch(`${API_BASE}/messages`, {
       method: "POST",
@@ -119,6 +164,23 @@ export async function pushComment(stage: string, comment: { id: number; text: st
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage, comment }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
+}
+
+export async function deleteComment(stage: string, commentId: number): Promise<SyncResult> {
+  try {
+    const res = await fetch(`${API_BASE}/comments`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage, commentId }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
