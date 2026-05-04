@@ -12,7 +12,7 @@
  */
 import { connectMongo } from "@/lib/mongo";
 import AuthUser from "@/lib/AuthUser";
-import { getEmailForUser } from "@/lib/auth";
+import { getEmailsForUser } from "@/lib/auth";
 import { checkNotifyRateLimit } from "@/lib/notifyRateLimit";
 import { sendStageEmail } from "@/lib/email";
 import {
@@ -81,6 +81,12 @@ function prefKeyForEvent(eventType: EventType): string {
     case "subtask_added":
     case "subtask_approved": return "notifySubtask";
     case "pipeline_completed": return "notifyApproved"; // routed under "approvals" pref bucket
+    case "reminder": return "notifyReminder";
+    case "request": return "notifyRequest";
+    case "due": return "notifyDue";
+    case "chat": return "notifyChat";
+    case "dm": return "notifyDm";
+    case "bug": return "notifyBug";
     default: return "notifyOther";
   }
 }
@@ -152,8 +158,8 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
   // ── Immediate emails ──────────────────────────────────────────────────────
   for (const fixedUserId of plan.immediate) {
     try {
-      const email = getEmailForUser(fixedUserId);
-      if (!email) continue;
+      const emails = getEmailsForUser(fixedUserId);
+      if (emails.length === 0) continue;
       if (!(await userOptedIn(fixedUserId, opts.eventType))) continue;
       if (!(await checkNotifyRateLimit(fixedUserId, opts.stageKey, opts.eventType))) continue;
 
@@ -169,9 +175,11 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
       });
       if (!tmpl) continue;
 
-      sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html }).catch(err =>
-        console.error("[notify] email failed for", fixedUserId, (err as Error).message)
-      );
+      for (const email of emails) {
+        sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html }).catch(err =>
+          console.error("[notify] email failed for", fixedUserId, email, (err as Error).message)
+        );
+      }
     } catch (err) {
       console.error("[notify] immediate error for", fixedUserId, (err as Error).message);
     }

@@ -19,7 +19,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import DigestEntry from "@/lib/DigestEntry";
 import AuthUser from "@/lib/AuthUser";
-import { getEmailForUser } from "@/lib/auth";
+import { getEmailsForUser } from "@/lib/auth";
 import { sendStageEmail } from "@/lib/email";
 import { digestEmailTemplate } from "@/lib/emailTemplates";
 import { buildUnsubscribeToken } from "@/app/api/unsubscribe/route";
@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
         await DigestEntry.deleteMany({ recipientId });
         continue;
       }
-      const email = getEmailForUser(recipientId);
-      if (!email) {
+      const emails = getEmailsForUser(recipientId);
+      if (emails.length === 0) {
         await DigestEntry.deleteMany({ recipientId });
         continue;
       }
@@ -91,7 +91,9 @@ export async function GET(req: NextRequest) {
         unsubscribeUrl: `${appUrl}/api/unsubscribe?t=${buildUnsubscribeToken(recipientId)}`,
       });
 
-      await sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html });
+      for (const email of emails) {
+        await sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html });
+      }
       await DigestEntry.deleteMany({ recipientId });
       sent++;
     } catch (err) {

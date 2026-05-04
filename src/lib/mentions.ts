@@ -3,7 +3,7 @@
  * Used by both the chat messages route and the stage comments route.
  */
 import { USERS_DEFAULT } from "@/lib/data";
-import { getEmailForUser } from "@/lib/auth";
+import { getEmailsForUser } from "@/lib/auth";
 import { sendStageEmail } from "@/lib/email";
 
 /** Resolve @handles in text → array of user IDs. */
@@ -82,12 +82,13 @@ export async function notifyMentions(
     : `${senderName} mentioned you in chat`;
 
   await Promise.allSettled(
-    mentioned.map(uid => {
-      const to = getEmailForUser(uid);
-      if (!to) return Promise.resolve();
-      return sendStageEmail({ to, subject, html }).catch(e => {
-        console.warn(`[mention] failed to email ${uid}:`, e);
-      });
+    mentioned.flatMap(uid => {
+      const emails = getEmailsForUser(uid);
+      return emails.map(to =>
+        sendStageEmail({ to, subject, html }).catch(e => {
+          console.warn(`[mention] failed to email ${uid} at ${to}:`, e);
+        })
+      );
     })
   );
 }

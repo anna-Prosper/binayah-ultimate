@@ -88,7 +88,7 @@ export default function LoginClient() {
       return `NOT_WHITELISTED:${addr}`;
     }
     if (err === "NOT_WHITELISTED") {
-      return email ? `NOT_WHITELISTED:${email}` : "// this email isn't on the access list. ping prajeesh.";
+      return email ? `NOT_WHITELISTED:${email}` : "// this email isn't on the access list. ping the admin.";
     }
     if (err === "NO_ACCOUNT") return "NO_ACCOUNT";
     if (err === "WRONG_PASSWORD") return "WRONG_PASSWORD";
@@ -245,7 +245,7 @@ export default function LoginClient() {
           {" "}
           <span style={{ color: t.text }}>{addr}</span>
           {" "}
-          <span style={{ color: t.red }}>isn&apos;t on the access list. ping prajeesh.</span>
+          <span style={{ color: t.red }}>isn&apos;t on the access list. ping the admin.</span>
         </>
       );
     } else if (error === "OAUTH_ERROR") {
@@ -382,7 +382,7 @@ export default function LoginClient() {
               }}
             >
               {/* t.sub from warroom theme */}
-              {/* eslint-disable-next-line react/no-unescaped-entities */}
+              { }
               // where strategies are forged
             </div>
           </div>
@@ -491,7 +491,7 @@ export default function LoginClient() {
                 type="email"
                 value={email}
                 onChange={e => { setEmail(e.target.value); clearError(); }}
-                placeholder="you@binayah.com"
+                placeholder="email"
                 autoComplete="email"
                 readOnly={authState === "loading_credentials" || authState === "loading_signup"}
                 style={{

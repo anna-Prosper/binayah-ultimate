@@ -15,6 +15,7 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "mamr@binayah.com": "ahsan",
   "pm@binayah.com": "prajeesh",
   "ak@binayah.com": "abdallah",
+  "abdallahkalyar@gmail.com": "abdallah",
   // TEMP users — remove when no longer needed
   "guest1@binayah.com": "guest1",
   "guest2@binayah.com": "guest2",
@@ -33,8 +34,20 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   guest2: "guest2@binayah.com",
 };
 
+// Additional notification emails per user (beyond the primary)
+const USER_EXTRA_EMAILS: Record<string, string[]> = {
+  abdallah: ["abdallahkalyar@gmail.com"],
+};
+
 export function getEmailForUser(fixedUserId: string): string | undefined {
   return USER_PRIMARY_EMAIL[fixedUserId];
+}
+
+/** Returns all notification emails for a user (primary + any extras). */
+export function getEmailsForUser(fixedUserId: string): string[] {
+  const primary = USER_PRIMARY_EMAIL[fixedUserId];
+  const extras = USER_EXTRA_EMAILS[fixedUserId] ?? [];
+  return primary ? [primary, ...extras] : extras;
 }
 
 export function getFixedUserIdForEmail(email: string): string | undefined {
