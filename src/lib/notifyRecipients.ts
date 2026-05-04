@@ -47,7 +47,13 @@ export type EventType =
   | "mentioned"
   | "subtask_added"
   | "subtask_approved"
-  | "pipeline_completed";
+  | "pipeline_completed"
+  | "reminder"
+  | "request"
+  | "due"
+  | "chat"
+  | "dm"
+  | "bug";
 
 export interface RecipientContext {
   eventType: EventType;
