@@ -134,7 +134,7 @@ function renderEmail(
 }
 
 export async function sendNotifications(opts: NotifyOpts): Promise<void> {
-  const appUrl = process.env.NEXTAUTH_URL ?? "https://dashboard-gamification.vercel.app";
+  const appUrl = process.env.DASHBOARD_URL ?? process.env.NEXTAUTH_URL ?? "https://dashboard-gamification.vercel.app";
   const actorDisplay = opts.actorName ?? resolveDisplayName(opts.actorId);
 
   try { await connectMongo(); } catch (err) {

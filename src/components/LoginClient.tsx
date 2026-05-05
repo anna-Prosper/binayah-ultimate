@@ -226,7 +226,7 @@ export default function LoginClient() {
         <>
           <span style={{ color: t.textDim }}>//</span>
           {" "}
-          <span style={{ color: t.red }}>no account found. use &apos;first time? set a password →&apos; below.</span>
+          <span style={{ color: t.red }}>no password set — try &apos;continue with google&apos; above, or set a password below.</span>
         </>
       );
     } else if (error.startsWith("NOT_WHITELISTED:")) {

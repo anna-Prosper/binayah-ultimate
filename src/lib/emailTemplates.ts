@@ -151,6 +151,7 @@ export function approvedEmailTemplate(opts: ApprovedOpts): { subject: string; ht
 
 interface SubtaskApprovedOpts extends BaseOpts {
   detail?: string;
+  points?: number;
 }
 export function subtaskApprovedEmailTemplate(opts: SubtaskApprovedOpts): { subject: string; html: string } {
   const readableTitle = opts.detail?.replace(/^subtask\s+/i, "") || opts.stageName;
@@ -158,11 +159,12 @@ export function subtaskApprovedEmailTemplate(opts: SubtaskApprovedOpts): { subje
     ${eyebrow("Subtask approved", GREEN)}
     ${title(readableTitle)}
     ${meta(opts.pipelineName)}
+    ${opts.points ? `<p style="font-size:22px;font-weight:900;color:${GREEN};margin:0 0 8px 0;">+${opts.points} points earned</p>` : ""}
     ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> approved this subtask.`)}
-    ${ctaLink(opts.appUrl, "Open dashboard", GREEN)}
+    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "Open dashboard", GREEN)}
   `;
   return {
-    subject: `[Binayah Dashboard] subtask approved in ${opts.pipelineName}`,
+    subject: `[Binayah Dashboard] subtask approved in ${opts.pipelineName}${opts.points ? ` (+${opts.points}pts)` : ""}`,
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }

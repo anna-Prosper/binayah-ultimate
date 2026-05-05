@@ -339,7 +339,7 @@ export default function TasksView(props: Props) {
       })
     : subtaskKanbanTasks;
   const filteredSubtaskKanbanTasks = filteredSubtaskKanbanTasksBase.filter(sub => {
-    const subOwners = owners[sub.key] || assignments[sub.key] || [];
+    const subOwners = [...(owners[sub.key] || []), ...(assignments[sub.key] || []), ...(claims[sub.key] || [])];
     if (assigneeFilter !== "all" && !subOwners.includes(assigneeFilter)) return false;
     return dueMatches(subtaskDueDates[sub.key]);
   });
