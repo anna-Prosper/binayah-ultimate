@@ -27,6 +27,6 @@ export const config = {
      * - /_next/* (Next.js internals)
      * - /favicon*, /avatars*, /public static assets
      */
-    "/((?!login|api/auth|api/cron|api/zoom/meetings|api/unsubscribe|api/admin|_next/static|_next/image|favicon|avatars|icons|images).*)",
+    "/((?!login|api/auth|api/cron|api/zoom/meetings|api/unsubscribe|_next/static|_next/image|favicon|avatars|icons|images).*)",
   ],
 };
