@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { T } from "@/lib/themes";
-import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem } from "@/lib/data";
+import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
@@ -1937,7 +1937,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
 	                <div style={{ flex: 1, minWidth: 0 }}>
 	                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 	                    <div style={{ fontSize: 10, color: u.color, fontWeight: 700, flex: 1 }}>{u.name}</div>
-	                    {(c.by === currentUser || currentUser === "anna") && (
+	                    {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && (
 	                      <button type="button" onClick={() => onDelete(c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
 	                    )}
 	                  </div>
