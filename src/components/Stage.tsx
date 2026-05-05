@@ -990,7 +990,7 @@ export default function Stage({
 	                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                                        <span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                                        <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
-	                                        {(c.by === currentUser || currentUser === "anna") && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 9, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 9, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                                      </div>
                                       <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
                                     </div>
@@ -1299,7 +1299,7 @@ export default function Stage({
 	                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
-	                        {(c.by === currentUser || currentUser === "anna") && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                      </div>
                       <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>
                     </div>

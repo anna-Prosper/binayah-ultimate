@@ -11,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { sendStageEmail } from "@/lib/email";
-import { USER_PRIMARY_EMAIL } from "@/lib/auth";
+import { getEmailsForUser, USER_PRIMARY_EMAIL } from "@/lib/auth";
 import { pipelineData } from "@/lib/data";
 import { logApi } from "@/lib/log";
 
@@ -185,11 +185,10 @@ export async function GET(req: NextRequest) {
       }
 
       const html = buildEmail(userName, userId, [], myCompleted, myOpen, myBlocked, teamWins, dashboardUrl);
-      await sendStageEmail({
-        to: email,
-        subject: `Binayah weekly digest — ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`,
-        html,
-      });
+      const subject = `Binayah weekly digest — ${new Date().toLocaleDateString("en-GB", { day: "numeric", month: "short" })}`;
+      for (const addr of getEmailsForUser(userId)) {
+        await sendStageEmail({ to: addr, subject, html });
+      }
 
       results.push({ userId, sent: true });
       logApi(ROUTE, "sent", { userId, myCompleted: myCompleted.length, myOpen: myOpen.length });

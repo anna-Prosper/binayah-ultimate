@@ -21,7 +21,7 @@ export function parseMentions(text: string): string[] {
   return Array.from(ids);
 }
 
-const APP_URL = process.env.NEXTAUTH_URL || "https://dashboard.binayahhub.com";
+const APP_URL = process.env.NEXTAUTH_URL || "https://dashboard-gamification.vercel.app";
 
 function escapeHtml(s: string): string {
   return s
