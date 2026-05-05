@@ -162,7 +162,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
                     <span style={{ fontSize: 13, color: t.text, fontWeight: 800 }}>{p.title}</span>
                     {p.kind && <span style={{ fontSize: 10, color: t.accent, fontFamily: mono }}>{p.kind}</span>}
                     <span style={{ fontSize: 10, color, fontFamily: mono }}>{statusLabel}</span>
-                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>requested by {author?.name.split(" ")[0] || p.by} · {timeAgoFrom(renderNow, p.createdAt)}</span>
+                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>requested by {author?.name.split(" ")[0] || p.by} · {timeAgo(p.createdAt)}</span>
                     {p.reviewedBy && <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>reviewed by {reviewer?.name.split(" ")[0] || p.reviewedBy}</span>}
                   </div>
                   {p.target && <div style={{ marginTop: 2, fontSize: 10, color: t.textDim, fontFamily: mono }}>target: {p.target}{p.requestedAction ? ` · ${p.requestedAction}` : ""}</div>}
@@ -1318,7 +1318,7 @@ export default function HomeView({
           return {
             user: u,
             title,
-            meta: lastActivity ? `${timeAgoFrom(overviewNow, lastActivity)} quiet` : "no updates",
+            meta: lastActivity ? `${timeAgo(lastActivity)} quiet` : "no updates",
             body: `${openItems.length} open item${openItems.length === 1 ? "" : "s"} without recent movement`,
             tone: "amber" as AttentionTone,
           };
@@ -1336,7 +1336,7 @@ export default function HomeView({
           return {
             user: u,
             title,
-            meta: lastActivity ? `clear · ${timeAgoFrom(overviewNow, lastActivity)}` : "available",
+            meta: lastActivity ? `clear · ${timeAgo(lastActivity)}` : "available",
             body: recentComment ? truncate(recentComment.text, 70) : "no open work assigned",
             tone: "accent" as AttentionTone,
           };
@@ -1346,14 +1346,14 @@ export default function HomeView({
             user: u,
             title,
             meta: `${openItems.length} open`,
-            body: lastActivity ? `last update ${timeAgoFrom(overviewNow, lastActivity)}` : "loaded with no visible update",
+            body: lastActivity ? `last update ${timeAgo(lastActivity)}` : "loaded with no visible update",
             tone: "cyan" as AttentionTone,
           };
         }
         return {
           user: u,
           title,
-          meta: lastActivity ? timeAgoFrom(overviewNow, lastActivity) : "quiet",
+          meta: lastActivity ? timeAgo(lastActivity) : "quiet",
           body: recentComment ? truncate(recentComment.text, 70) : `${openItems.length} open item${openItems.length === 1 ? "" : "s"}`,
           tone: openItems.length > 0 ? "cyan" as AttentionTone : "accent" as AttentionTone,
         };
@@ -1404,10 +1404,10 @@ export default function HomeView({
           ...annaSignals.map(a => ({
             tone: a.type === "create" ? "green" as AttentionTone : "cyan" as AttentionTone,
             title: `${commentUserLabel(a.user)} ${a.type === "claim" ? "claimed work" : a.type === "create" ? "created work" : "sent a request"}`,
-            meta: timeAgoFrom(overviewNow, a.time),
+            meta: timeAgo(a.time),
             body: `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
           })),
-          ...activeUpdates.map(a => ({ tone: "green" as AttentionTone, title: `${commentUserLabel(a.user)} marked work in progress`, meta: timeAgoFrom(overviewNow, a.time), body: stageNameLabel(a.target) })),
+          ...activeUpdates.map(a => ({ tone: "green" as AttentionTone, title: `${commentUserLabel(a.user)} marked work in progress`, meta: timeAgo(a.time), body: stageNameLabel(a.target) })),
         ];
 
     const topAction = actions[0];
@@ -1459,21 +1459,21 @@ export default function HomeView({
       rawRecentActivity: activeUpdates.slice(0, 4).map(a => ({
         tone: "green" as AttentionTone,
         title: `${commentUserLabel(a.user)} marked work in progress`,
-        meta: timeAgoFrom(overviewNow, a.time),
+        meta: timeAgo(a.time),
         body: stageNameLabel(a.target),
       })),
       rawApprovalRequests: pendingApprovalRequests.map(p => ({
         id: p.id,
         title: p.title,
         body: truncate(p.body, 100),
-        meta: timeAgoFrom(overviewNow, p.createdAt),
+        meta: timeAgo(p.createdAt),
         kind: p.kind || "request",
         requestedAction: p.requestedAction || "review",
       })),
       rawAnnaSignals: annaSignals.map(a => ({
         tone: a.type === "create" ? "green" as AttentionTone : a.type === "claim" ? "cyan" as AttentionTone : "amber" as AttentionTone,
         title: `${commentUserLabel(a.user)} ${a.type === "claim" ? "claimed work" : a.type === "create" ? "created work" : "sent a request"}`,
-        meta: timeAgoFrom(overviewNow, a.time),
+        meta: timeAgo(a.time),
         body: `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
       })),
     };

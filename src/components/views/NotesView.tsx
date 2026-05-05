@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { ADMIN_IDS } from "@/lib/data";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { type T } from "@/lib/themes";
 
@@ -54,7 +55,7 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10, alignContent: "start" }}>
           {visible.map(note => {
             const author = users.find(u => u.id === note.by);
-            const canEdit = note.by === currentUser || currentUser === "anna";
+            const canEdit = note.by === currentUser || ADMIN_IDS.includes(currentUser!);
             return (
               <article key={note.id} style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 12, minHeight: 150 }}>
                 <div style={{ fontSize: 15, color: t.text, fontWeight: 900, marginBottom: 6 }}>{note.title}</div>

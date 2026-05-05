@@ -3,7 +3,7 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import type { T } from "@/lib/themes";
-import type { BugSeverity, BugStatus, BugType } from "@/lib/data";
+import { ADMIN_IDS, type BugSeverity, type BugStatus, type BugType } from "@/lib/data";
 
 const TYPES: BugType[] = ["bug", "test", "qa"];
 const SEVERITIES: BugSeverity[] = ["critical", "high", "medium", "low"];
@@ -90,7 +90,7 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
             {visible.map(item => {
               const c = colorFor(t, item.severity);
               const owner = users.find(u => u.id === item.ownerId);
-              const canDelete = currentUser && (currentUser === item.createdBy || currentUser === item.ownerId || currentUser === "anna");
+              const canDelete = currentUser && (currentUser === item.createdBy || currentUser === item.ownerId || ADMIN_IDS.includes(currentUser));
               return (
                 <div key={item.id} style={{ border: `1px solid ${c}44`, background: c + "08", borderRadius: 12, padding: 11, minWidth: 0 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
