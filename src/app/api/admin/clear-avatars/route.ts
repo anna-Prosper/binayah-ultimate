@@ -9,7 +9,7 @@ const TARGETS = ["abdallah", "aakarshit", "usama"];
 
 export async function POST(req: NextRequest) {
   const secret = req.headers.get("x-admin-secret");
-  if (secret !== process.env.NEXTAUTH_SECRET) {
+  if (secret !== process.env.ADMIN_PATH_TOKEN) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
