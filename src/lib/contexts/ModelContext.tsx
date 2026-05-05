@@ -28,8 +28,8 @@ export function hydrateUsers(saved: UserType[], current: UserType[] = []): UserT
   const currentMap = Object.fromEntries(current.map(u => [u.id, u]));
   return USERS_DEFAULT.map(def => ({
     ...def,
-    avatar: currentMap[def.id]?.avatar || savedMap[def.id]?.avatar || "",
-    aiAvatar: currentMap[def.id]?.aiAvatar || savedMap[def.id]?.aiAvatar,
+    avatar: savedMap[def.id]?.avatar ?? currentMap[def.id]?.avatar ?? "",
+    aiAvatar: savedMap[def.id]?.aiAvatar ?? currentMap[def.id]?.aiAvatar,
   })) as UserType[];
 }
 
