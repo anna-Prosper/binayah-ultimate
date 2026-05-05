@@ -76,6 +76,7 @@ export default function HomeViewRoute({
           onSwitchWorkspace={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }}
           editMode={editMode}
           onPipelineClick={(pid) => { setActiveNavItem("pipelines"); setActiveSidebarPipeline(pid); }}
+          onChatOpen={() => setActiveNavItem("chat")}
           onUserClick={(uid) => setViewingUser(viewingUser === uid ? null : uid)}
           viewingUser={viewingUser}
           setViewingUser={setViewingUser}

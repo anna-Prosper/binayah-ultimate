@@ -117,9 +117,10 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
     .filter(() => allow("inAppReminder"))
     .filter(r => me && r.recipientIds.includes(me) && Date.parse(r.remindAt) <= now && !(r.dismissedBy || []).includes(me))
     .map(r => ({ type: "reminder", user: r.createdBy, target: r.title, detail: r.body, time: Date.parse(r.remindAt), notifyTo: r.recipientIds }));
+  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
   const filteredLog = currentWorkspaceId
-    ? [...dueReminderLog, ...activityLog].filter(entry => !entry.workspaceId || entry.workspaceId === currentWorkspaceId)
-    : [...dueReminderLog, ...activityLog];
+    ? [...dueReminderLog, ...activityLog].filter(entry => (!entry.workspaceId || entry.workspaceId === currentWorkspaceId) && entry.time >= sevenDaysAgo)
+    : [...dueReminderLog, ...activityLog].filter(entry => entry.time >= sevenDaysAgo);
 
   const center = useMemo(() => {
     const visiblePipelineIds = currentWorkspaceId
@@ -270,8 +271,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
       })) : [];
 
     const inbox = [...reminderItems.filter(i => i.time <= now), ...mentionItems, ...requestItems.filter(i => i.meta.startsWith("pending")), ...dueItems, ...approvalItems, ...assignmentItems.filter(i => i.meta.startsWith("unassigned")), ...bugItems.filter(i => i.meta.includes("critical") || i.meta.includes("high"))]
-      .sort((a, b) => b.time - a.time)
-      .slice(0, 40);
+      .sort((a, b) => b.time - a.time);
 
     return { inbox, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
   }, [allPipelinesGlobal, allow, approvedStages, approvedSubtasks, bugs, chatMessages, comments, currentWorkspaceId, customStages, execProposals, getStatus, isAdmin, me, now, owners, reminders, stageDueDates, subtaskDueDates, subtasks, users, workspaces]);

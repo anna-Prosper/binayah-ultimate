@@ -50,6 +50,18 @@ function timeAgoFrom(now: number, timestamp: number): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+function formatEventTime(ts: number): string {
+  if (!ts) return "";
+  const d = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - ts;
+  const isToday = d.toDateString() === now.toDateString();
+  if (isToday) return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  const diffD = diffMs / 86_400_000;
+  if (diffD < 7) return d.toLocaleDateString("en-US", { weekday: "short" }) + " " + d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  return d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
 function toneColor(t: T, tone: AttentionTone): string {
   if (tone === "green") return t.green;
   if (tone === "amber") return t.amber;
@@ -186,8 +198,43 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
   );
 }
 
-function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate }: {
+function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
+  item: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string };
   t: T;
+  mono: string;
+  onPipelineClick?: (pipelineId: string) => void;
+  onChatOpen?: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const accentColor = t.cyan || t.accent;
+  const handleClick = () => {
+    if (item.source === "chat" && onChatOpen) {
+      onChatOpen();
+    } else if (item.key && onPipelineClick) {
+      onPipelineClick(item.key);
+    }
+  };
+  return (
+    <div
+      onClick={handleClick}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      title={item.body}
+      style={{ marginBottom: 4, background: hovered ? accentColor + "18" : accentColor + "0a", border: `1px solid ${accentColor}33`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", transition: "background 0.15s" }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+        <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+      </div>
+      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+    </div>
+  );
+}
+
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen }: {
+  t: T;
+  onPipelineClick?: (pipelineId: string) => void;
+  onChatOpen?: () => void;
   attention: {
     roleLabel: string;
     scopeLabel: string;
@@ -202,7 +249,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
     rawDueItems: { key: string; title: string; pipelineName: string }[];
     rawMyItems: { key: string; title: string; pipelineName: string; status: string }[];
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
-    rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone }[];
+    rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string }[];
     rawRecentActivity: { title: string; meta: string; body: string; tone: AttentionTone }[];
     rawApprovalRequests: { id: number; title: string; body: string; meta: string; kind: string; requestedAction: string }[];
     rawAnnaSignals: { title: string; meta: string; body: string; tone: AttentionTone }[];
@@ -401,13 +448,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
-                    <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
-                    </div>
+                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
                   ))}
                 </div>
               )}
@@ -435,13 +476,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
-                    <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
-                    </div>
+                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
                   ))}
                 </div>
               )}
@@ -1029,6 +1064,7 @@ interface Props {
   onSwitchWorkspace: (id: string) => void;
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
+  onChatOpen?: () => void;
   onUserClick?: (userId: string) => void;
   viewingUser?: string | null;
   setViewingUser?: (id: string | null) => void;
@@ -1038,7 +1074,7 @@ interface Props {
 export default function HomeView({
   t, me, users, myWorkspaces, allPipelinesGlobal, pipeMetaOverrides,
   currentUser, isCaptainOfAny, onSwitchWorkspace,
-  editMode, onPipelineClick, onUserClick, navbarSlot,
+  editMode, onPipelineClick, onChatOpen, onUserClick, navbarSlot,
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
@@ -1414,9 +1450,11 @@ export default function HomeView({
       rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
       rawRecentInteractions: recentInteractions.slice(0, 5).map(i => ({
         title: `${commentUserLabel(i.by)} tagged you`,
-        meta: i.time ? timeAgoFrom(overviewNow, i.time) : i.title,
+        meta: i.time ? formatEventTime(i.time) : "",
         body: `${i.source === "chat" ? "chat" : i.title}: ${truncate(i.text, 86)}`,
         tone: "amber" as AttentionTone,
+        key: i.target,
+        source: i.source,
       })),
       rawRecentActivity: activeUpdates.slice(0, 4).map(a => ({
         tone: "green" as AttentionTone,
@@ -1542,6 +1580,8 @@ export default function HomeView({
             onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}
             onAssign={(key, userId) => assignTask(key, userId)}
             onRequestUpdate={updateExecProposalStatus}
+            onPipelineClick={onPipelineClick}
+            onChatOpen={onChatOpen}
           />
           <ReminderPanel
             t={t}
