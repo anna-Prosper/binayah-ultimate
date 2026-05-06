@@ -388,7 +388,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
           </div>
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
         </div>
-        {onAddReminder && canOperate && !reminderOpen && (
+        {onAddReminder && !reminderOpen && (
           <button type="button" onClick={() => setReminderOpen(true)}
             style={{ display: "flex", alignItems: "center", gap: 6, background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 9, padding: "6px 12px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const, transition: "background 0.15s" }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = t.accent + "26"}
@@ -400,7 +400,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       </div>
 
       {/* Quick reminder inline form (below header when open) */}
-      {onAddReminder && canOperate && reminderOpen && (
+      {onAddReminder && reminderOpen && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14, padding: 10, background: t.accent + "08", border: `1px solid ${t.accent}33`, borderRadius: 10 }}>
           <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); } if (e.key === "Enter" && reminderTitle.trim() && reminderDate) submitReminder(); }}
             placeholder="🔔 what should I remind you about?"
@@ -1797,18 +1797,9 @@ export default function HomeView({
             onPipelineClick={onPipelineClick}
             onChatOpen={onChatOpen}
           />
-          {/* Reminders + Exec Requests are inline in AttentionOverview for admin/operator —
-              show standalone panels only to execs/agents who don't see them inline */}
-          {!(attention.roleLabel === "root" || attention.roleLabel === "operator") && (
-            <ReminderPanel
-              t={t}
-              users={users}
-              currentUser={currentUser}
-              reminders={reminders}
-              onAdd={addReminder}
-              onDismiss={dismissReminder}
-            />
-          )}
+          {/* Standalone Reminder panel is redundant — inline '+ reminder' button is now in
+              the AttentionOverview header for every role. Standalone Exec Requests panel kept
+              only for non-admins (execs use it to submit; admins approve via the inline banner). */}
           {attention.roleLabel !== "root" && (
             <ExecutiveRequestsPanel
               t={t}
