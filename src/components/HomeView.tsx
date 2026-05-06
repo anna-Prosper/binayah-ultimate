@@ -236,10 +236,14 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
-function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen }: {
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
   onChatOpen?: () => void;
+  currentUser?: string;
+  execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number }[];
+  onAddReminder?: (title: string, remindAt: string) => void;
+  onUpdateExecProposal?: (id: number, status: "reviewed" | "rejected") => void;
   attention: {
     roleLabel: string;
     scopeLabel: string;
@@ -269,6 +273,14 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
   const isExec = attention.roleLabel === "exec";
   const canOperate = attention.roleLabel === "root" || attention.roleLabel === "operator";
   const [assigningKey, setAssigningKey] = useState<string | null>(null);
+  const [reminderOpen, setReminderOpen] = useState(false);
+  const [reminderTitle, setReminderTitle] = useState("");
+  const [reminderDate, setReminderDate] = useState("");
+  const submitReminder = () => {
+    if (!reminderTitle.trim() || !reminderDate) return;
+    onAddReminder?.(reminderTitle.trim(), reminderDate);
+    setReminderTitle(""); setReminderDate(""); setReminderOpen(false);
+  };
 
   function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
     const color = toneColor(t, tone);
@@ -496,6 +508,63 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                       <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Quick reminder */}
+              {onAddReminder && (
+                <div style={{ marginBottom: 8, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
+                  {!reminderOpen ? (
+                    <button type="button" onClick={() => setReminderOpen(true)}
+                      style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px dashed ${t.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: t.textMuted, fontSize: 11, fontFamily: mono, fontWeight: 700, width: "100%" }}>
+                      <span style={{ fontSize: 13 }}>🔔</span> + reminder
+                    </button>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                      <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>new reminder</div>
+                      <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => e.key === "Escape" && setReminderOpen(false)}
+                        placeholder="what to remember?"
+                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 9px", color: t.text, fontSize: 12, outline: "none" }} />
+                      <div style={{ display: "flex", gap: 5 }}>
+                        <input type="datetime-local" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
+                          style={{ flex: 1, background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
+                        <button type="button" onClick={submitReminder} disabled={!reminderTitle.trim() || !reminderDate}
+                          style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "5px 12px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed" }}>save</button>
+                        <button type="button" onClick={() => { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); }}
+                          style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, cursor: "pointer" }}>✕</button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {/* Exec requests inline */}
+              {execProposals && execProposals.filter(p => p.status === "pending").length > 0 && (
+                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 6 }}>
+                    exec requests
+                    <span style={{ background: t.green + "22", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "0 5px" }}>{execProposals.filter(p => p.status === "pending").length}</span>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                    {execProposals.filter(p => p.status === "pending").slice(0, 4).map(p => {
+                      const author = users.find(u => u.id === p.by);
+                      return (
+                        <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.green + "08", border: `1px solid ${t.green}33`, borderRadius: 9, padding: "7px 9px" }}>
+                          {author && <AvatarC user={author} size={20} />}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.body}</div>
+                          </div>
+                          {onUpdateExecProposal && (
+                            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+                              <button type="button" onClick={() => onUpdateExecProposal(p.id, "reviewed")}
+                                style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓</button>
+                              <button type="button" onClick={() => onUpdateExecProposal(p.id, "rejected")}
+                                style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✕</button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
               {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawDueItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
@@ -1640,6 +1709,10 @@ export default function HomeView({
             t={t}
             attention={attention}
             users={users}
+            currentUser={currentUser}
+            execProposals={execProposals.filter(p => p.kind === "strategy" || EXEC_IDS.includes(p.by))}
+            onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt })}
+            onUpdateExecProposal={(id, status) => updateExecProposalStatus(id, status)}
             onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}
             onAssign={(key, userId) => assignTask(key, userId)}
             onRequestUpdate={updateExecProposalStatus}
