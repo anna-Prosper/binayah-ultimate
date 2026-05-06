@@ -42,26 +42,30 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
     if (!files || files.length === 0) return;
     setUploading(true);
     setUploadError(null);
-    try {
-      const newAtts: BugAttachment[] = [];
-      for (const f of Array.from(files)) {
+    const newAtts: BugAttachment[] = [];
+    for (const f of Array.from(files)) {
+      try {
         const fd = new FormData();
         fd.append("file", f);
-        const res = await fetch("/api/bugs/upload", { method: "POST", body: fd });
-        const data = await res.json();
+        const res = await fetch("/api/bugs/upload", { method: "POST", body: fd, credentials: "include" });
+        const text = await res.text();
+        let data: { attachment?: BugAttachment; error?: string } | null = null;
+        try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON body — surfaced below */ }
         if (!res.ok) {
-          setUploadError(data?.error || `failed to upload ${f.name}`);
+          // Surface the actual status + body so the user can see what's wrong
+          const reason = data?.error || (text ? text.slice(0, 200) : `status ${res.status}`);
+          setUploadError(`${f.name}: ${reason}`);
           continue;
         }
-        if (data.attachment) newAtts.push(data.attachment);
+        if (data?.attachment) newAtts.push(data.attachment);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setUploadError(`${f.name}: ${msg}`);
       }
-      if (newAtts.length > 0) setAttachments(prev => [...prev, ...newAtts].slice(0, 8));
-    } catch {
-      setUploadError("network error during upload");
-    } finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+    if (newAtts.length > 0) setAttachments(prev => [...prev, ...newAtts].slice(0, 8));
+    setUploading(false);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const visible = useMemo(() => {
