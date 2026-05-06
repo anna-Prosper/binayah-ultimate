@@ -335,6 +335,7 @@
       "src/lib/data.ts"
     ],
     "src/components/views/NotesView.tsx": [
+      "src/lib/data.ts",
       "src/lib/contexts/ModelContext.tsx",
       "src/lib/themes.ts"
     ],
@@ -477,10 +478,6 @@
       "src/lib/zoom.ts",
       "src/lib/log.ts"
     ],
-    "src/app/api/admin/clear-avatars/route.ts": [
-      "src/lib/mongo.ts",
-      "src/lib/PipelineState.ts"
-    ],
     "src/app/api/pipeline-state/comments/route.ts": [
       "src/lib/mongo.ts",
       "src/lib/PipelineState.ts",
@@ -612,6 +609,7 @@
       "src/components/views/TeamBar.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/NotesView.tsx",
       "src/components/views/PipelinesView.tsx",
       "src/components/views/BugTrackerView.tsx",
       "src/app/api/pipeline-state/route.ts",
@@ -878,7 +876,6 @@
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
       "src/app/api/zoom/summaries/route.ts",
       "src/app/api/zoom/meetings/route.ts",
-      "src/app/api/admin/clear-avatars/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
@@ -998,7 +995,6 @@
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/cron/weekly-digest/route.ts",
       "src/app/api/cron/reminders/route.ts",
-      "src/app/api/admin/clear-avatars/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts",
@@ -1078,7 +1074,6 @@
     "src/app/api/zoom/callback/route.ts": "/api/zoom/callback",
     "src/app/api/zoom/connect/route.ts": "/api/zoom/connect",
     "src/app/api/zoom/meeting-summary/route.ts": "/api/zoom/meeting-summary",
-    "src/app/api/admin/clear-avatars/route.ts": "/api/admin/clear-avatars",
     "src/app/api/pipeline-state/comments/route.ts": "/api/pipeline-state/comments",
     "src/app/api/pipeline-state/messages/route.ts": "/api/pipeline-state/messages",
     "src/app/api/pipeline-state/activity/route.ts": "/api/pipeline-state/activity",
@@ -1088,6 +1083,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-05-05T08:07:18.515116+00:00",
-  "fileCount": 139
+  "builtAt": "2026-05-06T16:02:30.952769+00:00",
+  "fileCount": 138
 }

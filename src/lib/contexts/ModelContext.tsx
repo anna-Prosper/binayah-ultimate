@@ -9,7 +9,7 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugSeverity, type BugStatus, type BugType,
+	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType,
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
@@ -96,7 +96,7 @@ interface ModelContextValue {
 	  updateNote: (id: number, patch: Partial<Pick<NoteItem, "title" | "body" | "pinnedTo" | "color">>) => void;
 	  deleteNote: (id: number) => void;
   bugs: BugItem[];
-  addBug: (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string }) => void;
+  addBug: (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => void;
   updateBug: (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => void;
   deleteBug: (id: number) => void;
   execProposals: ExecProposal[];
@@ -1574,7 +1574,7 @@ export function ModelProvider({
     setNotes(prev => prev.filter(note => note.id !== id || (note.by !== currentUser && !ADMIN_IDS.includes(currentUser))));
   };
 
-  const addBug = (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string }) => {
+  const addBug = (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => {
     if (!currentUser) return;
     const title = input.title.trim();
     if (!title) {
@@ -1598,6 +1598,7 @@ export function ModelProvider({
       updatedAt: now,
       workspaceId: currentWorkspaceId,
       linkedTask: input.linkedTask?.trim() || undefined,
+      attachments: input.attachments && input.attachments.length > 0 ? input.attachments.slice(0, 8) : undefined,
     };
     markLocalWrite("bugs");
     setBugs(prev => [bug, ...prev].slice(0, 300));

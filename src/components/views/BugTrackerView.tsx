@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useMemo, useRef, useState, type CSSProperties } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import type { T } from "@/lib/themes";
-import { ADMIN_IDS, type BugSeverity, type BugStatus, type BugType } from "@/lib/data";
+import { ADMIN_IDS, type BugAttachment, type BugSeverity, type BugStatus, type BugType } from "@/lib/data";
 
 const TYPES: BugType[] = ["bug", "test", "qa"];
 const SEVERITIES: BugSeverity[] = ["critical", "high", "medium", "low"];
@@ -32,6 +32,37 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
     ownerId: "",
     linkedTask: "",
   });
+  const [attachments, setAttachments] = useState<BugAttachment[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [lightbox, setLightbox] = useState<BugAttachment | null>(null);
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const newAtts: BugAttachment[] = [];
+      for (const f of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", f);
+        const res = await fetch("/api/bugs/upload", { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) {
+          setUploadError(data?.error || `failed to upload ${f.name}`);
+          continue;
+        }
+        if (data.attachment) newAtts.push(data.attachment);
+      }
+      if (newAtts.length > 0) setAttachments(prev => [...prev, ...newAtts].slice(0, 8));
+    } catch {
+      setUploadError("network error during upload");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -47,8 +78,10 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
   }, [bugs, currentWorkspaceId, query, status]);
 
   const submit = () => {
-    addBug(draft);
+    addBug({ ...draft, attachments });
     setDraft({ title: "", body: "", steps: "", expected: "", actual: "", type: "bug", severity: "medium", ownerId: "", linkedTask: "" });
+    setAttachments([]);
+    setUploadError(null);
   };
 
   return (
@@ -77,6 +110,44 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
             </select>
             <input value={draft.linkedTask} onChange={e => setDraft(p => ({ ...p, linkedTask: e.target.value }))} placeholder="linked task optional" style={field(t, mono)} />
           </div>
+          {/* Attachments */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+              onChange={e => handleFiles(e.target.files)}
+              style={{ display: "none" }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading || attachments.length >= 8}
+              style={{ background: "transparent", border: `1px dashed ${t.border}`, color: uploading ? t.textDim : t.textMuted, borderRadius: 9, padding: "7px 10px", fontFamily: mono, fontSize: 11, fontWeight: 700, cursor: uploading || attachments.length >= 8 ? "not-allowed" : "pointer", textAlign: "left" }}
+            >
+              {uploading ? "uploading…" : attachments.length >= 8 ? "max 8 files" : "📎 attach file or screenshot"}
+            </button>
+            {uploadError && <div style={{ fontSize: 10, color: t.red, fontFamily: mono }}>{uploadError}</div>}
+            {attachments.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {attachments.map(a => {
+                  const isImg = a.contentType.startsWith("image/");
+                  return (
+                    <div key={a.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: isImg ? 2 : "4px 8px", fontSize: 10, color: t.textMuted, fontFamily: mono, maxWidth: 160 }}>
+                      {isImg
+                        // eslint-disable-next-line @next/next/no-img-element
+                        ? <img src={a.url} alt={a.name} style={{ width: 32, height: 32, objectFit: "cover", borderRadius: 5 }} />
+                        : <span>📄</span>
+                      }
+                      <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 16 }}>{a.name}</span>
+                      <button type="button" onClick={() => setAttachments(prev => prev.filter(x => x.id !== a.id))} title="Remove" style={{ position: "absolute", top: 1, right: 2, background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, padding: 0, lineHeight: 1 }}>✕</button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
           <button type="button" onClick={submit} style={{ background: t.accent, border: "none", color: "#fff", borderRadius: 10, padding: "10px 12px", fontFamily: mono, fontSize: 12, fontWeight: 900, cursor: "pointer" }}>add tracker item</button>
         </div>
 
@@ -104,6 +175,32 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
                   </div>
                   {item.body && <div style={{ marginTop: 8, color: t.textMuted, fontSize: 12, lineHeight: 1.45 }}>{item.body}</div>}
                   {item.steps && <div style={{ marginTop: 8, color: t.textDim, fontSize: 11, fontFamily: mono, whiteSpace: "pre-wrap" }}>{item.steps}</div>}
+                  {item.attachments && item.attachments.length > 0 && (
+                    <div style={{ marginTop: 9, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {item.attachments.map(a => {
+                        const isImg = a.contentType.startsWith("image/");
+                        if (isImg) {
+                          return (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              key={a.id}
+                              src={a.url}
+                              alt={a.name}
+                              title={a.name}
+                              onClick={() => setLightbox(a)}
+                              style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 6, border: `1px solid ${t.border}`, cursor: "zoom-in" }}
+                            />
+                          );
+                        }
+                        return (
+                          <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" title={a.name} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: t.bg, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 10, color: t.textMuted, fontFamily: mono, textDecoration: "none", maxWidth: 160 }}>
+                            <span>📄</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                          </a>
+                        );
+                      })}
+                    </div>
+                  )}
                   <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <select value={item.ownerId || ""} onChange={e => updateBug(item.id, { ownerId: e.target.value })} style={{ ...field(t, mono), width: 140, padding: "5px 7px", fontSize: 10 }}>
                       <option value="">unassigned</option>
@@ -121,6 +218,17 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
           {visible.length === 0 && <div style={{ border: `1px dashed ${t.border}`, borderRadius: 12, padding: 28, color: t.textDim, fontFamily: mono, fontSize: 12, textAlign: "center" }}>// no tracker items here</div>}
         </div>
       </div>
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.78)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: 32, cursor: "zoom-out" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={lightbox.url} alt={lightbox.name} style={{ maxWidth: "95vw", maxHeight: "90vh", objectFit: "contain", borderRadius: 8 }} />
+          <button onClick={e => { e.stopPropagation(); setLightbox(null); }} style={{ position: "absolute", top: 18, right: 22, background: "rgba(255,255,255,0.12)", border: "none", color: "#fff", fontSize: 22, padding: "4px 12px", borderRadius: 8, cursor: "pointer" }}>✕</button>
+          <div style={{ position: "absolute", bottom: 18, left: "50%", transform: "translateX(-50%)", color: "#fff", fontFamily: mono, fontSize: 12, background: "rgba(0,0,0,0.45)", padding: "4px 10px", borderRadius: 8 }}>{lightbox.name}</div>
+        </div>
+      )}
     </div>
   );
 }

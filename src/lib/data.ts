@@ -371,6 +371,14 @@ export interface ReminderItem {
 export type BugSeverity = "low" | "medium" | "high" | "critical";
 export type BugStatus = "open" | "triage" | "testing" | "fixed" | "closed";
 export type BugType = "bug" | "test" | "qa";
+export interface BugAttachment {
+  id: string;
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+  uploadedAt: number;
+}
 export interface BugItem {
   id: number;
   title: string;
@@ -387,6 +395,7 @@ export interface BugItem {
   updatedAt: number;
   workspaceId?: string;
   linkedTask?: string;
+  attachments?: BugAttachment[];
 }
 export interface ExecProposal {
   id: number;
