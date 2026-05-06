@@ -851,18 +851,23 @@ function TaskCard({
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
   availablePipelines, getPoints, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
+  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
+  const stagePriority = stagePriorities[task.stageId];
   const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
   const [dueDraft, setDueDraft] = useState(stageDueDates[task.stageId] || "");
   const [isHovered, setIsHovered] = useState(false);
-  const [actionsOpen, setActionsOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
+  // Re-initialize drafts only when entering edit mode or switching cards.
+  // Excluding stageDescOverrides/stageDueDates from deps prevents external
+  // updates (e.g. from sync) from wiping out the user's mid-edit input —
+  // the previous behaviour caused due-date entries to "go back to not set".
   useEffect(() => {
     setDescDraft(stageDescOverrides[task.stageId] || "");
     setDueDraft(stageDueDates[task.stageId] || "");
-  }, [stageDescOverrides, stageDueDates, task.stageId, editOpen]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOpen, task.stageId]);
 
   const isDone = task.status === "active";
   const isApproved = approvedStages.includes(task.stageId);
@@ -876,7 +881,7 @@ function TaskCard({
   // Only register the click-outside handler when *this* card has a popover open.
   // Otherwise every card on screen would call setCommentOpen(null) on every click in
   // any other card — instantly closing the popover the user just opened.
-  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen || actionsOpen;
+  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen;
   useEffect(() => {
     if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -892,7 +897,6 @@ function TaskCard({
         setCommentOpen(null);
         setAssignOpen(null);
         setEditOpen(false);
-        setActionsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -914,14 +918,6 @@ function TaskCard({
       data-testid="task-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onClick={(e) => {
-        // Toggle actions when the user taps the card body — but ignore clicks on
-        // anything interactive (buttons, inputs, popovers) so existing controls work.
-        const target = e.target as HTMLElement | null;
-        if (!target) return;
-        if (target.closest?.("button, input, textarea, a, [data-no-close], [data-claimer-popup]")) return;
-        setActionsOpen(v => !v);
-      }}
       onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}
       onDragLeave={isStageDropTarget ? () => onStageDragLeave?.(task.stageId) : undefined}
       onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, task.status, e) : undefined}
@@ -978,6 +974,10 @@ function TaskCard({
             </span>
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
             <span style={{ color: t.accent, fontWeight: 700 }} title="points (sum of subtasks, or override)">· {task.points}pts</span>
+            {stagePriority && (() => {
+              const color = stagePriority === "NOW" ? t.red : stagePriority === "HIGH" ? t.amber : stagePriority === "MEDIUM" ? (t.cyan || t.accent) : t.textDim;
+              return <span style={{ background: color + "1f", color, border: `1px solid ${color}55`, borderRadius: 6, padding: "0 6px", fontSize: 9, fontWeight: 800, letterSpacing: 0.4, marginLeft: 4 }}>{stagePriority}</span>;
+            })()}
             {stageDueDates[task.stageId] && (() => {
               const due = new Date(`${stageDueDates[task.stageId]}T23:59:59`);
               const now = new Date();
@@ -1038,13 +1038,37 @@ function TaskCard({
             style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
           {(() => {
-            // Priority cycler — show if the pipeline has a priority set via pipeMetaOverrides
+            // Per-stage priority cycler
+            const PRIORITY_VALS = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+            type Pri = typeof PRIORITY_VALS[number];
+            const cur: Pri | undefined = stagePriority;
+            return (
+              <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                {PRIORITY_VALS.map(p => {
+                  const sel = cur === p;
+                  const color = p === "NOW" ? t.red : p === "HIGH" ? t.amber : p === "MEDIUM" ? (t.cyan || t.accent) : t.textDim;
+                  return (
+                    <button
+                      key={p}
+                      onClick={(e) => { e.stopPropagation(); setStagePriority(task.stageId, sel ? null : p); }}
+                      style={{ background: sel ? color + "22" : "transparent", border: `1px solid ${sel ? color + "88" : t.border}`, borderRadius: 6, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? color : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 800 : 600 }}
+                    >
+                      {p}
+                    </button>
+                  );
+                })}
+              </div>
+            );
+          })()}
+          {(() => {
+            // Pipeline priority cycler — kept for pipelines that have one set
             const pipePriority = pipeMetaOverrides[task.pipelineId]?.priority;
             if (!pipePriority) return null;
             const PRIORITY_CYCLE_VALS = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
             return (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pipeline priority:</span>
                 <button
                   onClick={() => cyclePriority(task.pipelineId, pipePriority)}
                   style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
@@ -1119,7 +1143,7 @@ function TaskCard({
         </div>
       )}
 
-      {(actionsOpen || isAnyOpen) && <ActionRow
+      <ActionRow
         t={t}
         showReactPicker={showReactPicker}
         showCommentPopover={showCommentPopover}
@@ -1134,7 +1158,7 @@ function TaskCard({
         onEmoji={emoji => { if (readOnly) return; handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        isHovered={true}
+        isHovered={isHovered || isAnyOpen}
         onEditToggle={() => {
           const next = !editOpen;
           setEditOpen(next);
@@ -1156,7 +1180,7 @@ function TaskCard({
         showEditButton={!readOnly}
         showEditInput={editOpen || editingStage === task.stageId}
         readOnly={readOnly}
-      />}
+      />
 
       {showCommentPopover && (
         <CommentPopover

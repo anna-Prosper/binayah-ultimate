@@ -65,6 +65,8 @@ interface ModelContextValue {
   stageDescOverrides: Record<string, string>;
   stageDueDates: Record<string, string>;
   setStageDueDate: (name: string, val: string | null) => void;
+  stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">;
+  setStagePriority: (stageId: string, val: "NOW" | "HIGH" | "MEDIUM" | "LOW" | null) => void;
   stageNameOverrides: Record<string, string>;
   stagePointsOverride: Record<string, number>;
   setStagePointsOverride: (stageId: string, pts: number | null) => void;
@@ -278,6 +280,7 @@ export function ModelProvider({
   const [approvedPipelines, setApprovedPipelines] = useState<string[]>(() => lsGet("approvedPipelines", []));
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [stageDueDates, setStageDueDates] = useState<Record<string, string>>(() => lsGet("stageDueDates", {}));
+  const [stagePriorities, setStagePriorities] = useState<Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">>(() => lsGet("stagePriorities", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
   const [subtaskDescOverrides, setSubtaskDescOverrides] = useState<Record<string, string>>(() => lsGet("subtaskDescOverrides", {}));
@@ -344,6 +347,7 @@ export function ModelProvider({
   useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
   useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
   useEffect(() => { lsSet("stageDueDates", stageDueDates) }, [stageDueDates]);
+  useEffect(() => { lsSet("stagePriorities", stagePriorities) }, [stagePriorities]);
   useEffect(() => { lsSet("subtaskDescOverrides", subtaskDescOverrides) }, [subtaskDescOverrides]);
   useEffect(() => { lsSet("subtaskDueDates", subtaskDueDates) }, [subtaskDueDates]);
   useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
@@ -563,6 +567,7 @@ export function ModelProvider({
     if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) setStageStatusOverrides(s.stageStatusOverrides);
     if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
     if (s.stageDueDates && !isProtected("stageDueDates")) setStageDueDates(s.stageDueDates);
+    if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities && !isProtected("stagePriorities")) setStagePriorities((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities);
     if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
     if (s.subtaskStages && !isProtected("subtaskStages")) setSubtaskStages(s.subtaskStages);
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides")) setSubtaskDescOverrides(s.subtaskDescOverrides as Record<string, string>);
@@ -599,11 +604,12 @@ export function ModelProvider({
     subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     stagePointsOverride,
-  }), [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
+    stagePriorities,
+  } as Partial<SharedState> & { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }), [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride]);
+       stagePointsOverride, stagePriorities]);
 
   const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState });
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
@@ -615,7 +621,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, workspaces]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1135,6 +1141,15 @@ export function ModelProvider({
     setStageDueDates(prev => {
       const next = { ...prev };
       if (!val) delete next[name]; else next[name] = val;
+      return next;
+    });
+  };
+  const setStagePriority = (stageId: string, val: "NOW" | "HIGH" | "MEDIUM" | "LOW" | null) => {
+    if (requestInsteadOfMutate("edit", stageId, "set priority", val ? `Set priority for "${stageId}" to ${val}.` : `Clear priority for "${stageId}".`, { requestedValue: val })) return;
+    markLocalWrite("stagePriorities");
+    setStagePriorities(prev => {
+      const next = { ...prev };
+      if (!val) delete next[stageId]; else next[stageId] = val;
       return next;
     });
   };
@@ -1745,7 +1760,7 @@ export function ModelProvider({
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
     pendingNewComments, flushPendingComments,
-    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stageNameOverrides,
+    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
