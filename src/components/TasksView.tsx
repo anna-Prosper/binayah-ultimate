@@ -856,7 +856,7 @@ function TaskCard({
   const [editOpen, setEditOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
   const [dueDraft, setDueDraft] = useState(stageDueDates[task.stageId] || "");
-  const [, setIsHovered] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setDescDraft(stageDescOverrides[task.stageId] || "");
@@ -981,9 +981,8 @@ function TaskCard({
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
-          {/* Unified claimer pills with click-to-show user popup */}
-          <ClaimerPills claimerIds={task.claimers} users={users} getPoints={getPoints} t={t} />
-          {/* assign is in ActionRow — no duplicate here */}
+          {/* Owner display: bare avatars (no name pill — saves space) */}
+          <ClaimerPills claimerIds={task.claimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
           {isPending && isAdmin && (
             <button onClick={e => { e.stopPropagation(); approveStage(task.stageId); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
               ✓ approve
@@ -991,7 +990,8 @@ function TaskCard({
           )}
           {isPending && !isAdmin && <span style={badge(t.amber)}>⏳ pending</span>}
           {isDone && isApproved && <span style={badge(t.green)}>✓ approved</span>}
-          {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (
+          {/* Claim button only when no owner yet — once claimed, the avatar carries that signal */}
+          {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (isMine || task.claimers.length === 0) && (
             <ClaimChip claimed={isMine} pipelineColor={task.pipelineColor} t={t} onClaim={() => onClaim()} />
           )}
         </div>
@@ -1115,6 +1115,7 @@ function TaskCard({
         copied={copied === task.stageId}
         onArchive={canArchive ? () => { archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); } : undefined}
         archiveLabel="archive"
+        isHovered={isHovered || isAnyOpen}
         onEditToggle={() => {
           const next = !editOpen;
           setEditOpen(next);
@@ -1732,7 +1733,7 @@ function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, dragga
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact, readOnly }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact, readOnly, isHovered }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
   commentCount: number;
   /** primary assignee — first in the list, kept for backwards compat label/color */
@@ -1744,6 +1745,8 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   /** toggle a userId in/out of the assignee list (max 2). null clears all. */
   onAssign: (userId: string | null) => void;
   onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onArchive?: () => void; archiveLabel?: string; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean; readOnly?: boolean;
+  /** parent card hover state — controls fade-in of secondary actions (copy/archive) */
+  isHovered?: boolean;
 }) {
   const assigneeList = assignees && assignees.length > 0 ? assignees : (assignee ? [assignee] : []);
   const iconBtn: React.CSSProperties = {
@@ -1762,8 +1765,13 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
     color: active ? color : t.textMuted,
   });
 
+  // Secondary (rarely-used) actions fade in on hover — opacity stays clickable for touch
+  const secondaryStyle: React.CSSProperties = {
+    opacity: isHovered ? 1 : 0.35,
+    transition: "opacity 0.18s",
+  };
   return (
-    <div style={{ display: "flex", gap: 4, alignItems: "center", borderTop: `1px solid ${t.border}`, paddingTop: compact ? 6 : 8, marginTop: 0, flexWrap: "wrap" }}>
+    <div style={{ display: "flex", gap: 4, alignItems: "center", paddingTop: compact ? 8 : 10, marginTop: 0, flexWrap: "wrap" }}>
       {!readOnly && <div style={{ position: "relative" }}>
         <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={activeBtn(showReactPicker)} title="Add reaction">
           😀 <span style={{ fontSize: 10 }}>+</span>
@@ -1857,14 +1865,16 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           </div>
         )}
       </div>}
-      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title="Copy">
+      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={{ ...iconBtn, ...secondaryStyle }} title="Copy">
         {copied ? "✓ copied" : "📋 copy"}
       </button>
       {onArchive && (
         <button
           onClick={e => { e.stopPropagation(); onArchive(); }}
-          style={{ ...iconBtn, background: t.amber + "10", borderColor: t.amber + "55", color: t.amber }}
-          title="Archive subtask"
+          style={{ ...iconBtn, ...secondaryStyle }}
+          title="Archive"
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "10"; (e.currentTarget as HTMLElement).style.borderColor = t.amber + "55"; (e.currentTarget as HTMLElement).style.color = t.amber; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
         >
           📦 {archiveLabel || "archive"}
         </button>
