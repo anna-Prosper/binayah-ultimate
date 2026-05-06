@@ -236,6 +236,52 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
+function RecentCallsCard({ t, mono }: { t: T; mono: string }) {
+  const [calls, setCalls] = useState<{ uuid: string; topic: string; startTime: string; taskCount: number }[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/zoom/meetings", { cache: "no-store" })
+      .then(r => r.json())
+      .then((data: { ok?: boolean; meetings?: { uuid: string; topic: string; startTime: string }[]; proposals?: { sourceUUID?: string; status?: string }[] }) => {
+        if (!alive || !data?.ok || !data.meetings) return;
+        const taskByUuid = new Map<string, number>();
+        for (const p of data.proposals || []) {
+          if (p.sourceUUID) taskByUuid.set(p.sourceUUID, (taskByUuid.get(p.sourceUUID) || 0) + 1);
+        }
+        const sorted = data.meetings
+          .map(m => ({ ...m, taskCount: taskByUuid.get(m.uuid) || 0 }))
+          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
+          .slice(0, 4);
+        setCalls(sorted);
+      })
+      .catch(() => { if (alive) setCalls([]); });
+    return () => { alive = false; };
+  }, []);
+  if (!calls || calls.length === 0) return null;
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 12 }}>📞</span> recent calls · {calls.length}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {calls.map(call => (
+          <div key={call.uuid} style={{ display: "flex", alignItems: "center", gap: 8, background: t.accent + "08", border: `1px solid ${t.accent}22`, borderRadius: 8, padding: "6px 9px" }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{call.topic}</div>
+              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>
+                {call.startTime ? new Date(call.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
+              </div>
+            </div>
+            {call.taskCount > 0 && (
+              <span style={{ background: t.accent + "22", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "1px 7px", fontSize: 10, fontFamily: mono, fontWeight: 700, flexShrink: 0 }}>{call.taskCount} task{call.taskCount === 1 ? "" : "s"}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
@@ -475,29 +521,80 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {attention.people.length > 0 && (
-            <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 2 }}>people · {attention.people.length}</div>
-          )}
-          {attention.people.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-              {attention.people.map(person => {
-                const color = toneColor(t, person.tone);
-                const isStale = person.tone === "amber";
-                return (
-                  <div key={person.user.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", border: `1px solid ${isStale ? color + "55" : t.border}`, background: isStale ? color + "08" : t.bgHover || t.bgSoft, borderRadius: 9 }}>
-                    <AvatarC user={person.user} size={22} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                        <span style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{person.title}</span>
-                        <span style={{ fontSize: 10, color, fontFamily: mono, whiteSpace: "nowrap" }}>{person.meta}</span>
+          {(() => {
+            const idle = attention.people.filter(p => p.meta === "available" || /no open work assigned/i.test(p.body));
+            const active = attention.people.filter(p => !(p.meta === "available" || /no open work assigned/i.test(p.body)));
+            return (attention.people.length > 0 || true) && (
+              <>
+                {attention.people.length > 0 && (
+                  <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 2 }}>people · {attention.people.length}</div>
+                )}
+                {(active.length > 0 || idle.length > 0) && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                    {active.map(person => {
+                      const color = toneColor(t, person.tone);
+                      const isStale = person.tone === "amber";
+                      return (
+                        <div key={person.user.id} style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", border: `1px solid ${isStale ? color + "55" : t.border}`, background: isStale ? color + "08" : t.bgHover || t.bgSoft, borderRadius: 9 }}>
+                          <AvatarC user={person.user} size={22} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                              <span style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{person.title}</span>
+                              <span style={{ fontSize: 10, color, fontFamily: mono, whiteSpace: "nowrap" }}>{person.meta}</span>
+                            </div>
+                            <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{person.body}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {idle.length > 0 && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 9, padding: "7px 10px", border: `1px dashed ${t.border}`, background: "transparent", borderRadius: 9 }}>
+                        <div style={{ display: "flex", marginLeft: 0 }}>
+                          {idle.slice(0, 4).map((p, i) => (
+                            <div key={p.user.id} style={{ marginLeft: i === 0 ? 0 : -6, border: `2px solid ${t.bgCard}`, borderRadius: "50%" }}>
+                              <AvatarC user={p.user} size={20} />
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 700 }}>{idle.length} teammate{idle.length === 1 ? "" : "s"} idle</div>
+                          <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{idle.map(p => p.title).join(" · ")}</div>
+                        </div>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{person.body}</div>
-                    </div>
+                    )}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                )}
+                <RecentCallsCard t={t} mono={mono} />
+                {/* Notifications moved to left column to balance layout */}
+                {attention.rawAnnaSignals.length > 0 && (
+                  <div style={{ marginTop: 4 }}>
+                    <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6 }}>notifications · {attention.rawAnnaSignals.length}</div>
+                    {(() => {
+                      const groups = new Map<string, { title: string; meta: string; body: string; tone: AttentionTone; count: number }>();
+                      for (const s of attention.rawAnnaSignals) {
+                        const key = `${s.title}|${s.body}`;
+                        const g = groups.get(key);
+                        if (g) g.count++;
+                        else groups.set(key, { ...s, count: 1 });
+                      }
+                      return Array.from(groups.values()).slice(0, 4).map((item, i) => (
+                        <div key={i} style={{ marginBottom: 4, background: toneColor(t, item.tone) + "0a", border: `1px solid ${toneColor(t, item.tone)}33`, borderRadius: 8, padding: "6px 8px" }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                              {item.count > 1 && <span style={{ background: toneColor(t, item.tone) + "26", border: `1px solid ${toneColor(t, item.tone)}55`, color: toneColor(t, item.tone), borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800, flexShrink: 0 }}>×{item.count}</span>}
+                            </div>
+                            <div style={{ fontSize: 10, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                          </div>
+                          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
         <div style={{ minWidth: 0 }}>
           {isAgent ? (
@@ -539,20 +636,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                   ))}
                 </div>
               )}
-              {attention.rawAnnaSignals.length > 0 && (
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>notifications for Anna</div>
-                  {attention.rawAnnaSignals.slice(0, 4).map((item, i) => (
-                    <div key={i} style={{ marginBottom: 4, background: toneColor(t, item.tone) + "0a", border: `1px solid ${toneColor(t, item.tone)}33`, borderRadius: 8, padding: "6px 8px" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
-                    </div>
-                  ))}
-                </div>
-              )}
+              {/* Notifications moved to left column for layout balance */}
               <ActionGroup label="approve now" color={t.green} items={attention.rawReviewItems} actionLabel="✓ approve" onAction={onApprove} />
               <ActionGroup label="expiring work" color={t.red} items={attention.rawDueItems} />
               <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} assignPicker />
@@ -1730,25 +1814,31 @@ export default function HomeView({
             onPipelineClick={onPipelineClick}
             onChatOpen={onChatOpen}
           />
-          <ReminderPanel
-            t={t}
-            users={users}
-            currentUser={currentUser}
-            reminders={reminders}
-            onAdd={addReminder}
-            onDismiss={dismissReminder}
-          />
-          <ExecutiveRequestsPanel
-            t={t}
-            currentUser={currentUser}
-            users={users}
-            proposals={execProposals}
-            onSubmit={addExecProposal}
-            onUpdate={updateExecProposalStatus}
-            onApply={applyExecProposal}
-            onDelete={deleteExecProposal}
-            onCancel={cancelExecProposal}
-          />
+          {/* Reminders + Exec Requests are inline in AttentionOverview for admin/operator —
+              show standalone panels only to execs/agents who don't see them inline */}
+          {!(attention.roleLabel === "root" || attention.roleLabel === "operator") && (
+            <ReminderPanel
+              t={t}
+              users={users}
+              currentUser={currentUser}
+              reminders={reminders}
+              onAdd={addReminder}
+              onDismiss={dismissReminder}
+            />
+          )}
+          {attention.roleLabel !== "root" && (
+            <ExecutiveRequestsPanel
+              t={t}
+              currentUser={currentUser}
+              users={users}
+              proposals={execProposals}
+              onSubmit={addExecProposal}
+              onUpdate={updateExecProposalStatus}
+              onApply={applyExecProposal}
+              onDelete={deleteExecProposal}
+              onCancel={cancelExecProposal}
+            />
+          )}
           <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} />
 
           {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
