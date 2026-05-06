@@ -19,23 +19,22 @@ export default function ClaimChip({ claimed, pipelineColor, onClaim, variant = "
     : "+ claim";
 
   const isSubtask = variant === "subtask";
-  // When not claimed, render as filled primary CTA. When claimed, subtle ghost.
+  // Ghost-styled chip; unclaimed is more contrasty than claimed for clearer CTA.
   const style: React.CSSProperties = {
-    background: claimed ? pipelineColor + "18" : pipelineColor,
-    border: `1px solid ${claimed ? pipelineColor + "55" : pipelineColor}`,
+    background: claimed ? pipelineColor + "18" : pipelineColor + "22",
+    border: `1px solid ${claimed ? pipelineColor + "55" : pipelineColor + "aa"}`,
     borderRadius: 8,
-    padding: small ? "3px 7px" : "4px 10px",
+    padding: small ? "3px 7px" : "4px 9px",
     cursor: "pointer",
     fontSize: claimed ? 10 : (isSubtask ? 11 : 12),
     fontWeight: 800,
     fontFamily: "var(--font-dm-mono), monospace",
-    color: claimed ? pipelineColor : "#fff",
+    color: pipelineColor,
     whiteSpace: "nowrap" as const,
     flexShrink: 0,
     transition: "all 0.15s",
     display: "inline-flex",
     alignItems: "center",
-    boxShadow: claimed ? "none" : `0 1px 3px ${pipelineColor}55`,
     animation: !claimed && pulse ? "claimPulse 2s ease-in-out infinite" : "none",
   };
 
@@ -47,15 +46,15 @@ export default function ClaimChip({ claimed, pipelineColor, onClaim, variant = "
       onMouseEnter={e => {
         const el = e.currentTarget as HTMLElement;
         if (!claimed) {
-          el.style.transform = "scale(1.04)";
-          el.style.boxShadow = `0 2px 6px ${pipelineColor}88`;
+          el.style.background = pipelineColor + "33";
+          el.style.transform = "scale(1.03)";
         }
       }}
       onMouseLeave={e => {
         const el = e.currentTarget as HTMLElement;
         if (!claimed) {
+          el.style.background = pipelineColor + "22";
           el.style.transform = "scale(1)";
-          el.style.boxShadow = `0 1px 3px ${pipelineColor}55`;
         }
       }}
     >

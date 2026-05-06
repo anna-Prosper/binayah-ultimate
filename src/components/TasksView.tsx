@@ -1081,6 +1081,18 @@ function TaskCard({
               </div>
             </div>
           )}
+          {/* Destructive: archive lives inside edit so it can't be hit accidentally */}
+          {canArchive && (
+            <button
+              onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
+              title="Archive this task"
+              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >
+              📦 archive task
+            </button>
+          )}
         </div>
       )}
 
@@ -1113,8 +1125,6 @@ function TaskCard({
         onEmoji={emoji => { if (readOnly) return; handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        onArchive={canArchive ? () => { archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); } : undefined}
-        archiveLabel="archive"
         isHovered={isHovered || isAnyOpen}
         onEditToggle={() => {
           const next = !editOpen;
@@ -1865,20 +1875,9 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           </div>
         )}
       </div>}
-      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={{ ...iconBtn, ...secondaryStyle }} title="Copy">
-        {copied ? "✓ copied" : "📋 copy"}
+      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={{ ...iconBtn, ...secondaryStyle }} title={copied ? "Copied" : "Copy link"}>
+        {copied ? "✓" : "📋"}
       </button>
-      {onArchive && (
-        <button
-          onClick={e => { e.stopPropagation(); onArchive(); }}
-          style={{ ...iconBtn, ...secondaryStyle }}
-          title="Archive"
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "10"; (e.currentTarget as HTMLElement).style.borderColor = t.amber + "55"; (e.currentTarget as HTMLElement).style.color = t.amber; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
-        >
-          📦 {archiveLabel || "archive"}
-        </button>
-      )}
       {onEditToggle && showEditButton && (
         <button
           onClick={e => { e.stopPropagation(); onEditToggle(); }}
