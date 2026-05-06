@@ -857,6 +857,7 @@ function TaskCard({
   const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
   const [dueDraft, setDueDraft] = useState(stageDueDates[task.stageId] || "");
   const [isHovered, setIsHovered] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     setDescDraft(stageDescOverrides[task.stageId] || "");
@@ -875,7 +876,7 @@ function TaskCard({
   // Only register the click-outside handler when *this* card has a popover open.
   // Otherwise every card on screen would call setCommentOpen(null) on every click in
   // any other card — instantly closing the popover the user just opened.
-  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen;
+  const isAnyOpen = showReactPicker || showCommentPopover || showAssignPicker || editOpen || actionsOpen;
   useEffect(() => {
     if (!isAnyOpen) return;
     const handleClickOutside = (e: MouseEvent) => {
@@ -891,6 +892,7 @@ function TaskCard({
         setCommentOpen(null);
         setAssignOpen(null);
         setEditOpen(false);
+        setActionsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -912,6 +914,14 @@ function TaskCard({
       data-testid="task-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
+      onClick={(e) => {
+        // Toggle actions when the user taps the card body — but ignore clicks on
+        // anything interactive (buttons, inputs, popovers) so existing controls work.
+        const target = e.target as HTMLElement | null;
+        if (!target) return;
+        if (target.closest?.("button, input, textarea, a, [data-no-close], [data-claimer-popup]")) return;
+        setActionsOpen(v => !v);
+      }}
       onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}
       onDragLeave={isStageDropTarget ? () => onStageDragLeave?.(task.stageId) : undefined}
       onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, task.status, e) : undefined}
@@ -1109,7 +1119,7 @@ function TaskCard({
         </div>
       )}
 
-      <ActionRow
+      {(actionsOpen || isAnyOpen) && <ActionRow
         t={t}
         showReactPicker={showReactPicker}
         showCommentPopover={showCommentPopover}
@@ -1124,7 +1134,7 @@ function TaskCard({
         onEmoji={emoji => { if (readOnly) return; handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        isHovered={isHovered || isAnyOpen}
+        isHovered={true}
         onEditToggle={() => {
           const next = !editOpen;
           setEditOpen(next);
@@ -1146,7 +1156,7 @@ function TaskCard({
         showEditButton={!readOnly}
         showEditInput={editOpen || editingStage === task.stageId}
         readOnly={readOnly}
-      />
+      />}
 
       {showCommentPopover && (
         <CommentPopover
