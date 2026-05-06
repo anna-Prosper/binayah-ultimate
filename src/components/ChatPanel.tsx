@@ -295,12 +295,36 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {(tab === "team" || tab === "dm") && (
         <>
           {tab === "dm" && (
-            <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 6, overflowX: "auto" }}>
-              {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => (
-                <button key={u.id} onClick={() => setDmUserId(u.id)} style={{ display: "flex", alignItems: "center", gap: 6, background: dmUserId === u.id ? u.color + "22" : "transparent", border: `1px solid ${dmUserId === u.id ? u.color + "66" : t.border}`, borderRadius: 999, padding: "4px 8px", color: dmUserId === u.id ? u.color : t.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 800, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>
-                  <AvatarC user={u} size={18} /> {u.name}
-                </button>
-              ))}
+            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0, position: "sticky", top: 0, background: t.bg, zIndex: 5 }}>
+              {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => {
+                const selected = dmUserId === u.id;
+                return (
+                  <button
+                    key={u.id}
+                    onClick={() => setDmUserId(u.id)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: selected ? u.color + "22" : t.bgCard,
+                      border: `1px solid ${selected ? u.color + "88" : t.border}`,
+                      borderRadius: 999,
+                      padding: "6px 14px 6px 6px",
+                      color: selected ? u.color : t.text,
+                      cursor: "pointer",
+                      fontSize: 13,
+                      fontWeight: selected ? 800 : 600,
+                      fontFamily: "var(--font-dm-mono), monospace",
+                      whiteSpace: "nowrap",
+                      transition: "background 0.15s, border-color 0.15s, transform 0.1s",
+                      transform: selected ? "scale(1.04)" : "scale(1)",
+                    }}
+                    onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.borderColor = u.color + "66"; }}
+                    onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
+                  >
+                    <AvatarC user={u} size={26} />
+                    {u.name}
+                  </button>
+                );
+              })}
             </div>
           )}
           <div onScroll={handleScroll} style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
