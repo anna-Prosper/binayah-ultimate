@@ -587,7 +587,11 @@ export default function TasksView(props: Props) {
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {totalCount === 0
-                    ? <div style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{readOnly ? "// no items" : "// drop to move"}</div>
+                    ? <div
+                        onDragOver={e => { if (readOnly) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
+                        onDrop={e => handleDrop(col.status, e)}
+                        style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                      >{readOnly ? "// no items" : "// drop to move"}</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!readOnly} hideSubs subtaskStages={subtaskStages} {...cardShared} />)}
                         {colSubtasks.map(sub => <SubtaskKanbanCard key={sub.key} sub={sub} isMine={currentUser ? (assignments[sub.key] || []).includes(currentUser) : false} onRename={(taskId, text) => renameSubtask?.(sub.parentStageId, taskId, text)} onDragSubtaskStart={() => { if (!readOnly) setDraggingSubtaskKey(sub.key); }} onDragSubtaskEnd={() => { setDraggingSubtaskKey(null); setStageDropOver(null); }} {...cardShared} />)}
