@@ -1414,8 +1414,6 @@ function SubtaskCard({
         onEmoji={emoji => { if (readOnly) return; handleReact(key, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(key, `${taskSub.text} (subtask of ${parentStageName} · ${pipelineName})`)}
         copied={copied === key}
-        onArchive={readOnly ? undefined : () => setArchiveConfirm(true)}
-        archiveLabel="archive"
         showEditButton={!readOnly}
         showEditInput={editOpen}
         onEditToggle={() => {
@@ -1499,6 +1497,16 @@ function SubtaskCard({
               );
             })()}
           </div>
+          {/* Destructive: archive at the bottom of the edit panel */}
+          <button
+            type="button"
+            data-no-close
+            onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }}
+            title="Archive this subtask"
+            style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+          >📦 archive subtask</button>
         </div>
       )}
       <ConfirmModal
@@ -1700,8 +1708,6 @@ function SubtaskKanbanCard({
           onEmoji={emoji => { if (readOnly) return; handleReact(sub.key, emoji); setReactOpen(null); }}
           onCopy={() => shareStage(sub.key, `${sub.text} (subtask · ${sub.pipelineName})`)}
           copied={copied === sub.key}
-          onArchive={readOnly ? undefined : () => setArchiveConfirm(true)}
-          archiveLabel="archive"
           showEditButton={!readOnly}
           showEditInput={editOpen}
           onEditToggle={() => {
@@ -1786,6 +1792,16 @@ function SubtaskKanbanCard({
                 );
               })()}
             </div>
+            {/* Destructive: archive at the bottom of the edit panel */}
+            <button
+              type="button"
+              data-no-close
+              onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }}
+              title="Archive this subtask"
+              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+            >📦 archive subtask</button>
           </div>
         )}
         <ConfirmModal
