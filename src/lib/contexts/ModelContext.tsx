@@ -1413,7 +1413,8 @@ export function ModelProvider({
       if (!result.ok) {
         setChatMessages(prev => prev.filter(m => m.id !== msgId));
         setSyncStatus("offline");
-        showToast("// message lost — try again", t.red);
+        const reason = result.error ? `// ${result.error}` : "// message lost — try again";
+        showToast(reason, t.red);
       }
     });
   };

@@ -284,7 +284,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
 	          {(["team", "dm", "ai"] as const).map(v => (
-            <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
 	              {v === "team" ? "👥 team" : v === "dm" ? "✉ dm" : "🤖 ai"}
             </button>
           ))}
@@ -426,16 +426,16 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   background: "transparent",
                   border: `1px solid ${isInputTooLong ? t.red + "88" : t.border}`,
                   borderRadius: 12,
-                  padding: mobileMode ? "12px" : "8px 12px",
-                  minHeight: mobileMode ? 44 : undefined,
-                  fontSize: 13,
+                  padding: mobileMode ? "12px" : "12px 14px",
+                  minHeight: mobileMode ? 44 : 42,
+                  fontSize: 14,
                   color: t.text,
                   fontFamily: "inherit",
                   outline: "none",
                 }}
 	              />
 	              <input ref={fileRef} type="file" multiple onChange={e => addFiles(e.target.files)} style={{ display: "none" }} />
-	              <button onClick={() => fileRef.current?.click()} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "8px 10px", cursor: "pointer", color: t.textMuted }}>📎</button>
+	              <button onClick={() => fileRef.current?.click()} title="Attach file" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 14px", minHeight: 42, cursor: "pointer", color: t.textMuted, fontSize: 16 }}>📎</button>
               <button
                 onClick={send}
                 disabled={!canSend}
@@ -443,13 +443,13 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                   background: canSend ? t.accent : t.surface,
                   border: "none",
                   borderRadius: 12,
-                  padding: mobileMode ? "12px 20px" : "8px 16px",
-                  minHeight: mobileMode ? 44 : undefined,
-                  minWidth: mobileMode ? 44 : undefined,
+                  padding: mobileMode ? "12px 20px" : "0 20px",
+                  minHeight: mobileMode ? 44 : 42,
+                  minWidth: mobileMode ? 44 : 56,
                   cursor: canSend ? "pointer" : "not-allowed",
-                  fontSize: 15,
+                  fontSize: 17,
                   color: canSend ? "#fff" : t.textMuted,
-                  fontWeight: 700,
+                  fontWeight: 800,
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
