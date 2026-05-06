@@ -295,7 +295,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       {(tab === "team" || tab === "dm") && (
         <>
           {tab === "dm" && (
-            <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 8, flexWrap: "wrap", flexShrink: 0, position: "sticky", top: 0, background: t.bg, zIndex: 5 }}>
+            <div style={{ padding: "8px 12px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 6, flexWrap: "wrap", flexShrink: 0, position: "sticky", top: 0, background: t.bg, zIndex: 5 }}>
               {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => {
                 const selected = dmUserId === u.id;
                 return (
@@ -303,24 +303,23 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                     key={u.id}
                     onClick={() => setDmUserId(u.id)}
                     style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      background: selected ? u.color + "22" : t.bgCard,
+                      display: "flex", alignItems: "center", gap: 6,
+                      background: selected ? u.color + "22" : "transparent",
                       border: `1px solid ${selected ? u.color + "88" : t.border}`,
                       borderRadius: 999,
-                      padding: "6px 14px 6px 6px",
+                      padding: "3px 10px 3px 3px",
                       color: selected ? u.color : t.text,
                       cursor: "pointer",
-                      fontSize: 13,
+                      fontSize: 12,
                       fontWeight: selected ? 800 : 600,
                       fontFamily: "var(--font-dm-mono), monospace",
                       whiteSpace: "nowrap",
-                      transition: "background 0.15s, border-color 0.15s, transform 0.1s",
-                      transform: selected ? "scale(1.04)" : "scale(1)",
+                      transition: "background 0.15s, border-color 0.15s",
                     }}
                     onMouseEnter={e => { if (!selected) (e.currentTarget as HTMLElement).style.borderColor = u.color + "66"; }}
                     onMouseLeave={e => { if (!selected) (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
                   >
-                    <AvatarC user={u} size={26} />
+                    <AvatarC user={u} size={20} />
                     {u.name}
                   </button>
                 );

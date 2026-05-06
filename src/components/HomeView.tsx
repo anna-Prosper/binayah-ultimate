@@ -236,7 +236,7 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
-function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal }: {
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal, reminders, onDismissReminder }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
   onChatOpen?: () => void;
@@ -244,6 +244,8 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
   execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number }[];
   onAddReminder?: (title: string, remindAt: string) => void;
   onUpdateExecProposal?: (id: number, status: "reviewed" | "rejected") => void;
+  reminders?: { id: number; title: string; body: string; remindAt: string; recipientIds: string[]; dismissedBy?: string[] }[];
+  onDismissReminder?: (id: number) => void;
   attention: {
     roleLabel: string;
     scopeLabel: string;
@@ -519,6 +521,43 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                     })()}
                   </div>
                 )}
+                {/* User's pending reminders — fills the empty space below notifications */}
+                {(() => {
+                  if (!currentUser || !reminders) return null;
+                  const now = Date.now();
+                  const mine = reminders
+                    .filter(r => r.recipientIds.includes(currentUser) && !(r.dismissedBy || []).includes(currentUser))
+                    .sort((a, b) => Date.parse(a.remindAt) - Date.parse(b.remindAt))
+                    .slice(0, 6);
+                  if (mine.length === 0) return null;
+                  return (
+                    <div style={{ marginTop: 4 }}>
+                      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: 12 }}>🔔</span> reminders · {mine.length}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                        {mine.map(r => {
+                          const due = Date.parse(r.remindAt) <= now;
+                          const color = due ? t.amber : t.accent;
+                          return (
+                            <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 9px" }}>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12, color: t.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                                <div style={{ fontSize: 10, color, fontFamily: mono, marginTop: 1 }}>
+                                  {due ? "due now" : new Date(r.remindAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
+                                  {r.body ? ` · ${r.body}` : ""}
+                                </div>
+                              </div>
+                              {onDismissReminder && (
+                                <button type="button" onClick={() => onDismissReminder(r.id)} title="Mark done" style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓</button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </>
             );
           })()}
@@ -1791,6 +1830,8 @@ export default function HomeView({
             execProposals={execProposals.filter(p => p.kind === "strategy" || EXEC_IDS.includes(p.by))}
             onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt })}
             onUpdateExecProposal={(id, status) => updateExecProposalStatus(id, status)}
+            reminders={reminders}
+            onDismissReminder={dismissReminder}
             onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}
             onAssign={(key, userId) => assignTask(key, userId)}
             onRequestUpdate={updateExecProposalStatus}
