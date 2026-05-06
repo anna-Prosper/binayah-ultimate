@@ -424,7 +424,9 @@ function DashboardInner({
         contentStyle={{ padding: isMobile ? "0 12px 16px" : "0 20px 24px" }}
       >
         {activeNavItem === "chat" && !isMobile ? (
-          <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
+          <div style={{ height: "calc(100vh - 88px)", display: "flex", flexDirection: "column" }}>
+            <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
+          </div>
         ) : (
           <>
             {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
@@ -458,7 +460,7 @@ function DashboardInner({
         <div style={{ position: "fixed", bottom: 160, right: 16, width: `min(${chatSize.width}px, calc(100vw - 32px))`, height: chatSize.height, minWidth: 300, minHeight: 320, maxHeight: "75vh", resize: "both", overflow: "auto", zIndex: 500, animation: "slideUp 0.2s ease", background: t.bgCard, borderRadius: 16 }} onClick={e => e.stopPropagation()} onMouseUp={e => { const rect = e.currentTarget.getBoundingClientRect(); setChatSize({ width: Math.round(rect.width), height: Math.round(rect.height) }); }}>
           <div style={{ position: "relative", height: "100%" }}>
             <button onClick={() => setShowChat(false)} style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, padding: 0 }}>×</button>
-            <div style={{ height: "100%" }}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></div>
+            <div style={{ height: "100%" }}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} fullScreen /></div>
           </div>
         </div>
       ) : null}

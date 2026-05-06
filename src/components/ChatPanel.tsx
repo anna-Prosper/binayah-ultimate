@@ -260,7 +260,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
 
   return (
     <div style={fullScreen
-      ? { display: "flex", flexDirection: "column", height: "100vh", background: t.bgCard, overflow: "hidden" }
+      ? { display: "flex", flexDirection: "column", height: "100%", minHeight: 0, background: t.bgCard, overflow: "hidden" }
       : mobileMode
       ? { background: t.bgCard, overflow: "hidden", display: "flex", flexDirection: "column", flex: 1 }
       : { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, marginBottom: 16, overflow: "hidden", animation: "fadeIn 0.2s ease" }
