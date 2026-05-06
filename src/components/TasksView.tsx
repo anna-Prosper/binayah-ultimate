@@ -959,7 +959,6 @@ function TaskCard({
             >{task.displayName}</div>
           )}
           <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-            {task.workspaceIcon && task.workspaceName && <span>{task.workspaceIcon} {task.workspaceName} · </span>}
             <span
               onClick={onPipelineClick ? e => { e.stopPropagation(); onPipelineClick(task.pipelineId); } : undefined}
               style={{ cursor: onPipelineClick ? "pointer" : "default", color: onPipelineClick ? t.accent : t.textDim, display: "flex", alignItems: "center", gap: 3 }}
@@ -1519,7 +1518,7 @@ function SubtaskKanbanCard({
             <div style={{ fontSize: 11, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isUnknownParent
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
-                : <>{sub.workspaceIcon && sub.workspaceName && <span style={{ marginRight: 3 }}>{sub.workspaceIcon} {sub.workspaceName} · </span>}{sub.pipelineIcon} {sub.parentStageName}</>}
+                : <>{sub.pipelineIcon} {sub.parentStageName}</>}
               <span style={{ color: t.accent, fontWeight: 700, marginLeft: 4 }}>· {sub.points}pts</span>
               {dueDate && (() => {
                 const due = new Date(`${dueDate}T23:59:59`);
@@ -1875,7 +1874,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           </div>
         )}
       </div>}
-      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={{ ...iconBtn, ...secondaryStyle }} title={copied ? "Copied" : "Copy link"}>
+      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title={copied ? "Copied" : "Copy link"}>
         {copied ? "✓" : "📋"}
       </button>
       {onEditToggle && showEditButton && (
