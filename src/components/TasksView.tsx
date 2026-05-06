@@ -403,17 +403,31 @@ export default function TasksView(props: Props) {
     setStageDropOver(prev => prev === stageId ? null : prev);
   }, []);
   const handleStageDrop = useCallback((stageId: string, targetStatus: string, e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation(); // prevent bubbling to column onDrop (which would also setSubtaskStage)
     if (readOnly) return;
     setStageDropOver(null);
-    const key = e.dataTransfer.getData("subtaskKey");
-    if (!key || !SubtaskKey.isValid(key)) return;
-    migrateSubtask(key as Parameters<typeof migrateSubtask>[0], stageId);
-    const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
-    const statusKey = parsed ? SubtaskKey.make(stageId, parsed.subtaskId) : key;
-    setSubtaskStage(statusKey, targetStatus);
-  }, [migrateSubtask, setSubtaskStage, readOnly]);
+    // Subtask-into-stage migration
+    const subtaskKey = e.dataTransfer.getData("subtaskKey");
+    if (subtaskKey && SubtaskKey.isValid(subtaskKey)) {
+      e.preventDefault();
+      e.stopPropagation();
+      migrateSubtask(subtaskKey as Parameters<typeof migrateSubtask>[0], stageId);
+      const parsed = SubtaskKey.parse(subtaskKey as Parameters<typeof SubtaskKey.parse>[0]);
+      const statusKey = parsed ? SubtaskKey.make(stageId, parsed.subtaskId) : subtaskKey;
+      setSubtaskStage(statusKey, targetStatus);
+      return;
+    }
+    // Stage-onto-stage drop: move the dragged stage into the target column's status.
+    // Without this, dropping over another card relied entirely on event bubbling
+    // reaching the column's onDrop, which intermittently failed in Chrome.
+    const draggedStageId = e.dataTransfer.getData("stageId");
+    if (draggedStageId && draggedStageId !== stageId) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (getStatus(draggedStageId) !== targetStatus) {
+        setStageStatus(draggedStageId, targetStatus);
+      }
+    }
+  }, [migrateSubtask, setSubtaskStage, readOnly, getStatus, setStageStatus]);
 
   const cardShared = {
     t, users, currentUser, reactions, comments,
@@ -926,9 +940,19 @@ function TaskCard({
       data-testid="task-card"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      onDragOver={isStageDropTarget ? (e) => onStageDragOver?.(task.stageId, e) : undefined}
+      // The card is an explicit drop target for both stage and subtask drags.
+      // Without this, drops on card content relied on event bubbling reaching
+      // the column's onDrop — which Chrome misses ~50% of the time when the
+      // event lands on a deeply nested child.
+      onDragOver={(e) => {
+        if (isStageDropTarget) { onStageDragOver?.(task.stageId, e); return; }
+        if (e.dataTransfer.types.includes("stageid")) {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }
+      }}
       onDragLeave={isStageDropTarget ? () => onStageDragLeave?.(task.stageId) : undefined}
-      onDrop={isStageDropTarget ? (e) => onStageDrop?.(task.stageId, task.status, e) : undefined}
+      onDrop={(e) => onStageDrop?.(task.stageId, task.status, e)}
     >
       <CardShell
         t={t}
