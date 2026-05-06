@@ -55,8 +55,6 @@ export default function PipelinesView({
   const [addingPipeline, setAddingPipeline] = useState(false);
   // Hover state for revealing secondary actions per row
   const [hoveredPipeline, setHoveredPipeline] = useState<string | null>(null);
-  // "Show more" toggle per pipeline for the stage-chip preview
-  const [showAllChips, setShowAllChips] = useState<Record<string, boolean>>({});
   const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" });
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Per-pipeline edit mode (pencil toggle)
@@ -291,7 +289,22 @@ export default function PipelinesView({
                           {pipelineEditMode === p.id && <span onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0, cursor: "pointer" }}>{"✎"}</span>}
                         </p>
                       )}
-                      {/* #2: action row — fades out when row not hovered (still tappable for touch) */}
+                      {/* Existing reactions — always visible (engagement signal). The picker
+                          only opens via the hover-revealed '+ react' button below. */}
+                      {pipeReactExist.length > 0 && reactOpen !== pipeReactKey && (
+                        <div style={{ display: "flex", gap: 4, marginTop: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
+                          {pipeReactExist.map(([emoji, arr]) => {
+                            const mine = arr.includes(currentUser!);
+                            return (
+                              <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "0 6px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
+                                <span style={{ fontSize: 13 }}>{emoji}</span>
+                                <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {/* Action row — fades out when row not hovered (still tappable for touch) */}
                       <div
                         style={{
                           display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap",
@@ -307,8 +320,7 @@ export default function PipelinesView({
                         <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
                           {reactOpen === pipeReactKey
                             ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
-                            : <>{pipeReactExist.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (<button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit" }}><span style={{ fontSize: 13 }}>{emoji}</span><span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span></button>); })}
-                            <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button></>
+                            : <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
                           }
                         </div>
                         <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{isO ? "▾ collapse" : "▸ details"}</button>
@@ -340,10 +352,9 @@ export default function PipelinesView({
                       </div>
                     </div>
                   )}
-                  {/* #7: clean points label, no dot-grid */}
+                  {/* #7: clean points label, no dot-grid; progress bar above conveys completion */}
                   <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
                     <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
-                    <div style={{ fontSize: 10, color: pctColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</div>
                     {canEditPipeline(p.id) && (
                       <button
                         onClick={e => { e.stopPropagation(); setPipelineEditMode(pipelineEditMode === p.id ? null : p.id); setEditingPipeName(p.id); setEditingPipeDesc(p.id); }}
@@ -353,50 +364,7 @@ export default function PipelinesView({
                     )}
                   </div>
                 </div>
-                {!isO && (() => {
-                  // #1: prioritize active/in-progress chips, cap at 8, then "+N more" toggle
-                  const STATUS_SORT: Record<string, number> = { "in-progress": 0, planned: 1, concept: 2, blocked: 3, active: 4 };
-                  const sorted = [...allPStages].sort((a, b) => (STATUS_SORT[getStatus(a)] ?? 5) - (STATUS_SORT[getStatus(b)] ?? 5));
-                  const CHIP_CAP = 8;
-                  const expanded = !!showAllChips[p.id];
-                  const visible = expanded ? sorted : sorted.slice(0, CHIP_CAP);
-                  const overflow = sorted.length - CHIP_CAP;
-                  return (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingLeft: 20 }}>
-                      {visible.map((s, i) => {
-                        const status = getStatus(s);
-                        const stC = sc[status] || { l: status, c: t.textDim };
-                        const isClaimed = (claims[s] || []).length > 0;
-                        return (
-                          <span
-                            key={i}
-                            title={`${stC.l}${isClaimed ? " · claimed" : ""}`}
-                            style={{ fontSize: 10, color: stC.c, background: stC.c + "12", padding: "1px 6px 1px 4px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: `1px solid ${stC.c}33`, display: "inline-flex", alignItems: "center", gap: 4, fontWeight: isClaimed ? 700 : 600 }}
-                          >
-                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: stC.c, flexShrink: 0, boxShadow: status === "active" ? `0 0 4px ${stC.c}` : "none" }} />
-                            {s}
-                          </span>
-                        );
-                      })}
-                      {!expanded && overflow > 0 && (
-                        <button
-                          onClick={e => { e.stopPropagation(); setShowAllChips(prev => ({ ...prev, [p.id]: true })); }}
-                          style={{ fontSize: 10, color: t.textMuted, background: "transparent", padding: "1px 8px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: `1px dashed ${t.border}`, cursor: "pointer", fontWeight: 700 }}
-                        >
-                          +{overflow} more
-                        </button>
-                      )}
-                      {expanded && overflow > 0 && (
-                        <button
-                          onClick={e => { e.stopPropagation(); setShowAllChips(prev => ({ ...prev, [p.id]: false })); }}
-                          style={{ fontSize: 10, color: t.textMuted, background: "transparent", padding: "1px 8px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: `1px dashed ${t.border}`, cursor: "pointer", fontWeight: 700 }}
-                        >
-                          show less
-                        </button>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* Stage chip preview removed — expand the row to see stages. */}
               </div>
               {/* Pipeline edit mode panel */}
               {pipelineEditMode === p.id && (
