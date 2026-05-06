@@ -22,14 +22,18 @@ export type CustomPipeline = {
   colorKey: string; priority: string; totalHours?: string; points: number; stages: string[];
 };
 
-// Always take name/role/avatar/color from USERS_DEFAULT — only preserve aiAvatar from saved state
+// Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
+// Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
+// user's chosen avatar in local state. Without this, picking an avatar would briefly
+// stick, then revert as soon as a sync poll merged a server users array where that
+// user's avatar hadn't been persisted yet.
 export function hydrateUsers(saved: UserType[], current: UserType[] = []): UserType[] {
   const savedMap = Object.fromEntries(saved.map(u => [u.id, u]));
   const currentMap = Object.fromEntries(current.map(u => [u.id, u]));
   return USERS_DEFAULT.map(def => ({
     ...def,
-    avatar: savedMap[def.id]?.avatar ?? currentMap[def.id]?.avatar ?? "",
-    aiAvatar: savedMap[def.id]?.aiAvatar ?? currentMap[def.id]?.aiAvatar,
+    avatar: savedMap[def.id]?.avatar || currentMap[def.id]?.avatar || "",
+    aiAvatar: savedMap[def.id]?.aiAvatar || currentMap[def.id]?.aiAvatar,
   })) as UserType[];
 }
 
