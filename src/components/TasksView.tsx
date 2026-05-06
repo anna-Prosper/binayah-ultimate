@@ -207,10 +207,21 @@ export default function TasksView(props: Props) {
   const pipelines = allPipelines.map(p => {
     const ownCustom = new Set(customStages[p.id] || []);
     const deduped = p.stages.filter(s => !allCustomStageSet.has(s) || ownCustom.has(s));
+    // Dedupe by stage name — names are IDs, so duplicates would render the same
+    // task multiple times (all pointing at the same state). Earlier writes via
+    // addCustomStage didn't enforce uniqueness, leaving repeated entries in
+    // customStages that we silently fold here.
+    const seen = new Set<string>();
+    const merged: string[] = [];
+    for (const s of [...deduped, ...(customStages[p.id] || [])]) {
+      if (seen.has(s)) continue;
+      seen.add(s);
+      merged.push(s);
+    }
     return {
       ...p,
       displayName: pipeMetaOverrides[p.id]?.name || p.name,
-      allStages: [...deduped, ...(customStages[p.id] || [])],
+      allStages: merged,
       color: ck[p.colorKey] || t.accent,
     };
   });

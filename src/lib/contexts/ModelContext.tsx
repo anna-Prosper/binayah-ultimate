@@ -298,7 +298,26 @@ export function ModelProvider({
   const [subtaskDueDates, setSubtaskDueDates] = useState<Record<string, string>>(() => lsGet("subtaskDueDates", {}));
   const [pipeDescOverrides, setPipeDescOverrides] = useState<Record<string, string>>(() => lsGet("pipeDescOverrides", {}));
   const [pipeMetaOverrides, setPipeMetaOverrides] = useState<Record<string, { name?: string; priority?: string }>>(() => lsGet("pipeMetaOverrides", {}));
-  const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => lsGet("customStages", {}));
+  const [customStages, setCustomStages] = useState<Record<string, string[]>>(() => {
+    const raw = lsGet("customStages", {}) as Record<string, string[]>;
+    // One-time self-heal: dedupe any pre-existing duplicate stage names per pipeline.
+    // Stage names are the IDs, so duplicates produced phantom cards aliased onto the
+    // same state. Earlier addCustomStage didn't guard against re-adding the same name.
+    const cleaned: Record<string, string[]> = {};
+    for (const [pid, stages] of Object.entries(raw)) {
+      if (!Array.isArray(stages)) continue;
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const s of stages) {
+        const t = (s ?? "").trim();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        out.push(t);
+      }
+      cleaned[pid] = out;
+    }
+    return cleaned;
+  });
   const [customPipelines, setCustomPipelines] = useState<CustomPipeline[]>(() => lsGet("customPipelines", []));
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
@@ -1287,9 +1306,21 @@ export function ModelProvider({
 
   const addCustomStage = (pid: string, val: string) => {
     if (!val) return;
+    const trimmed = val.trim();
+    if (!trimmed) return;
+    // Stage names are the IDs in this dashboard. Adding a duplicate would alias
+    // the new card onto the existing stage's state (claims, comments, status…),
+    // which is what produced the "many duplicate cards" rendering bug.
+    const pipe = allPipelinesGlobal.find(p => p.id === pid);
+    const existingDefault = pipe?.stages || [];
+    const existingCustom = customStages[pid] || [];
+    if (existingDefault.includes(trimmed) || existingCustom.includes(trimmed)) {
+      showToast(`// "${trimmed}" already exists in this pipeline`, t.amber);
+      return;
+    }
     markLocalWrite("customStages");
-    setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), val] }));
-    logActivity("create", val, `added task to ${pid}`, ADMIN_IDS);
+    setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), trimmed] }));
+    logActivity("create", trimmed, `added task to ${pid}`, ADMIN_IDS);
   };
 
   // Inbox sentinel — used inline (also exported at module top for cross-file imports)
