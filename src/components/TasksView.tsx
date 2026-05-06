@@ -54,6 +54,14 @@ const ALL_COLS = [
   { status: "active",      label: "done",        colorKey: "green" },
 ];
 
+function formatDueDate(iso: string): string {
+  // "2026-05-07" → "May 7" (or "May 7, 2025" if different year from now)
+  const d = new Date(`${iso}T23:59:59`);
+  if (isNaN(d.getTime())) return iso;
+  const sameYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleDateString("en-US", sameYear ? { month: "long", day: "numeric" } : { month: "long", day: "numeric", year: "numeric" });
+}
+
 function resolveCommentUser(users: UserType[], by: string): UserType {
   const normalized = by.toLowerCase();
   return users.find(u =>
@@ -1010,7 +1018,7 @@ function TaskCard({
               const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
               const expired = ms < 0;
               const color = expired ? t.red : soon ? t.amber : t.textDim;
-              return <span style={{ color, fontWeight: expired || soon ? 800 : 500 }}>· due {stageDueDates[task.stageId]}</span>;
+              return <span style={{ color, fontWeight: expired || soon ? 800 : 500 }}>· due {formatDueDate(stageDueDates[task.stageId])}</span>;
             })()}
           </div>
         </div>
@@ -1320,7 +1328,7 @@ function SubtaskCard({
               const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
               const expired = ms < 0;
               const color = expired ? t.red : soon ? t.amber : t.textDim;
-              return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {dueDate}</span>;
+              return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {formatDueDate(dueDate)}</span>;
             })()}
             {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
@@ -1585,7 +1593,7 @@ function SubtaskKanbanCard({
                 const soon = ms >= 0 && ms <= 3 * 24 * 60 * 60 * 1000;
                 const expired = ms < 0;
                 const color = expired ? t.red : soon ? t.amber : t.textDim;
-                return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {dueDate}</span>;
+                return <span style={{ color, fontWeight: expired || soon ? 800 : 500, marginLeft: 4 }}>· due {formatDueDate(dueDate)}</span>;
               })()}
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
