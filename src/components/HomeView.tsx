@@ -376,40 +376,108 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
     );
   }
 
+  const pendingExec = (execProposals || []).filter(p => p.status === "pending");
+
   return (
-    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
-        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
-          overview · {attention.roleLabel} · {attention.scopeLabel}
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 18 }}>
+      {/* Header — title left, summary middle, quick reminder right */}
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
+          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
+            overview · {attention.roleLabel} · {attention.scopeLabel}
+          </div>
+          <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
         </div>
-        <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
+        {onAddReminder && canOperate && !reminderOpen && (
+          <button type="button" onClick={() => setReminderOpen(true)}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 9, padding: "6px 12px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const, transition: "background 0.15s" }}
+            onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = t.accent + "26"}
+            onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = t.accent + "16"}
+          >
+            <span style={{ fontSize: 13 }}>🔔</span> + reminder
+          </button>
+        )}
       </div>
+
+      {/* Quick reminder inline form (below header when open) */}
+      {onAddReminder && canOperate && reminderOpen && (
+        <div style={{ display: "flex", gap: 6, marginBottom: 14, padding: 10, background: t.accent + "08", border: `1px solid ${t.accent}33`, borderRadius: 10 }}>
+          <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); } if (e.key === "Enter" && reminderTitle.trim() && reminderDate) submitReminder(); }}
+            placeholder="🔔 what should I remind you about?"
+            style={{ flex: 2, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 12, outline: "none" }} />
+          <input type="datetime-local" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
+            style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 9px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
+          <button type="button" onClick={submitReminder} disabled={!reminderTitle.trim() || !reminderDate}
+            style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed", whiteSpace: "nowrap" as const }}>save</button>
+          <button type="button" onClick={() => { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); }}
+            style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "6px 10px", fontSize: 11, fontFamily: mono, cursor: "pointer" }}>✕</button>
+        </div>
+      )}
+
+      {/* Stats — full-width 4-column strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
+        {isAgent ? (
+          <>
+            <StatTile label={attention.stats[0]?.label ?? "doing now"} value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawMyItems.filter(i => i.status === "in-progress")} />
+            <StatTile label={attention.stats[1]?.label ?? "next up"} value={attention.stats[1]?.value ?? 0} tone="accent" items={attention.rawMyItems.filter(i => i.status !== "in-progress")} />
+            <StatTile label={attention.stats[2]?.label ?? "tags"} value={attention.stats[2]?.value ?? 0} tone="amber" items={[]} />
+            <StatTile label={attention.stats[3]?.label ?? "done 7d"} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
+          </>
+        ) : isExec ? (
+          <>
+            <StatTile label={attention.stats[0]?.label ?? "done 7d"} value={attention.stats[0]?.value ?? 0} tone="green" items={[]} />
+            <StatTile label={attention.stats[1]?.label ?? "done 30d"} value={attention.stats[1]?.value ?? 0} tone="cyan" items={[]} />
+            <StatTile label={attention.stats[2]?.label ?? "total done"} value={attention.stats[2]?.value ?? 0} tone="accent" items={[]} />
+            <StatTile label={attention.stats[3]?.label ?? "pipelines done"} value={attention.stats[3]?.value ?? 0} tone="amber" items={[]} />
+          </>
+        ) : (
+          <>
+            <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
+            <StatTile label="unowned" value={attention.rawUnownedCount} tone="amber" items={attention.rawUnownedItems} />
+            <StatTile label="recent tags" value={attention.stats[2]?.value ?? 0} tone="cyan" items={[]} />
+            <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="accent" items={[]} />
+          </>
+        )}
+      </div>
+
+      {/* Exec requests banner — surfaces above the grid when pending */}
+      {pendingExec.length > 0 && canOperate && (
+        <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${t.green}10, ${t.accent}10)`, border: `1px solid ${t.green}44`, borderRadius: 12 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <span style={{ fontSize: 14 }}>📨</span>
+            <span style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" as const }}>exec requests</span>
+            <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+            {pendingExec.slice(0, 3).map(p => {
+              const author = users.find(u => u.id === p.by);
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 9, padding: "8px 10px" }}>
+                  {author && <AvatarC user={author} size={22} />}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                    <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{author?.name.split(" ")[0] || p.by} · {p.body}</div>
+                  </div>
+                  {onUpdateExecProposal && (
+                    <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+                      <button type="button" onClick={() => onUpdateExecProposal(p.id, "reviewed")}
+                        style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓ approve</button>
+                      <button type="button" onClick={() => onUpdateExecProposal(p.id, "rejected")}
+                        style={{ background: "transparent", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 16, alignItems: "start" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {isAgent ? (
-              <>
-                <StatTile label={attention.stats[0]?.label ?? "doing now"} value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawMyItems.filter(i => i.status === "in-progress")} />
-                <StatTile label={attention.stats[1]?.label ?? "next up"} value={attention.stats[1]?.value ?? 0} tone="accent" items={attention.rawMyItems.filter(i => i.status !== "in-progress")} />
-                <StatTile label={attention.stats[2]?.label ?? "tags"} value={attention.stats[2]?.value ?? 0} tone="amber" items={[]} />
-                <StatTile label={attention.stats[3]?.label ?? "done 7d"} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
-              </>
-            ) : isExec ? (
-              <>
-                <StatTile label={attention.stats[0]?.label ?? "done 7d"} value={attention.stats[0]?.value ?? 0} tone="green" items={[]} />
-                <StatTile label={attention.stats[1]?.label ?? "done 30d"} value={attention.stats[1]?.value ?? 0} tone="cyan" items={[]} />
-                <StatTile label={attention.stats[2]?.label ?? "total done"} value={attention.stats[2]?.value ?? 0} tone="accent" items={[]} />
-                <StatTile label={attention.stats[3]?.label ?? "pipelines done"} value={attention.stats[3]?.value ?? 0} tone="amber" items={[]} />
-              </>
-            ) : (
-              <>
-                <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
-                <StatTile label="unowned" value={attention.rawUnownedCount} tone="amber" items={attention.rawUnownedItems} />
-                <StatTile label="recent tags" value={attention.stats[2]?.value ?? 0} tone="cyan" items={[]} />
-                <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="accent" items={[]} />
-              </>
-            )}
-          </div>
+          {attention.people.length > 0 && (
+            <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 2 }}>people · {attention.people.length}</div>
+          )}
           {attention.people.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
               {attention.people.map(person => {
@@ -508,63 +576,6 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                       <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
                     </div>
                   ))}
-                </div>
-              )}
-              {/* Quick reminder */}
-              {onAddReminder && (
-                <div style={{ marginBottom: 8, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
-                  {!reminderOpen ? (
-                    <button type="button" onClick={() => setReminderOpen(true)}
-                      style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: `1px dashed ${t.border}`, borderRadius: 8, padding: "6px 10px", cursor: "pointer", color: t.textMuted, fontSize: 11, fontFamily: mono, fontWeight: 700, width: "100%" }}>
-                      <span style={{ fontSize: 13 }}>🔔</span> + reminder
-                    </button>
-                  ) : (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                      <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>new reminder</div>
-                      <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => e.key === "Escape" && setReminderOpen(false)}
-                        placeholder="what to remember?"
-                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 9px", color: t.text, fontSize: 12, outline: "none" }} />
-                      <div style={{ display: "flex", gap: 5 }}>
-                        <input type="datetime-local" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
-                          style={{ flex: 1, background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
-                        <button type="button" onClick={submitReminder} disabled={!reminderTitle.trim() || !reminderDate}
-                          style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "5px 12px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed" }}>save</button>
-                        <button type="button" onClick={() => { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); }}
-                          style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, cursor: "pointer" }}>✕</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {/* Exec requests inline */}
-              {execProposals && execProposals.filter(p => p.status === "pending").length > 0 && (
-                <div style={{ borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 9, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 6 }}>
-                    exec requests
-                    <span style={{ background: t.green + "22", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "0 5px" }}>{execProposals.filter(p => p.status === "pending").length}</span>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {execProposals.filter(p => p.status === "pending").slice(0, 4).map(p => {
-                      const author = users.find(u => u.id === p.by);
-                      return (
-                        <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.green + "08", border: `1px solid ${t.green}33`, borderRadius: 9, padding: "7px 9px" }}>
-                          {author && <AvatarC user={author} size={20} />}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
-                            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.body}</div>
-                          </div>
-                          {onUpdateExecProposal && (
-                            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                              <button type="button" onClick={() => onUpdateExecProposal(p.id, "reviewed")}
-                                style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓</button>
-                              <button type="button" onClick={() => onUpdateExecProposal(p.id, "rejected")}
-                                style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✕</button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
                 </div>
               )}
               {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawDueItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
