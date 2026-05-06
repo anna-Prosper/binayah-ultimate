@@ -8,7 +8,7 @@ import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage"
 import { EphemeralProvider, useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { ModelProvider, useModel } from "@/lib/contexts/ModelContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
+import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
 import WelcomeModal from "@/components/WelcomeModal";
@@ -331,7 +331,8 @@ function DashboardInner({
 
   // Computed
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
-  const canSeeCalls = currentUser === "ai";
+  const binayahAiWorkspace = workspaces.find(w => w.id === DEFAULT_WORKSPACE_ID);
+  const canSeeCalls = !!currentUser && (isExec || !!binayahAiWorkspace?.members.includes(currentUser));
   const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
 
   useEffect(() => {
