@@ -1922,6 +1922,7 @@ export default function HomeView({
         currentWorkspaceId={homeWsFilter}
         availableWorkspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds }))}
         readOnly={false}
+        hideConcept
       />
     </div>
   );
