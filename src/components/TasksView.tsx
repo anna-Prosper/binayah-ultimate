@@ -975,8 +975,33 @@ function TaskCard({
             {subCount > 0 && <span style={{ color: subDone === subCount ? t.green : t.textDim }}>· {subDone}/{subCount}</span>}
             <span style={{ color: t.accent, fontWeight: 700 }} title="points (sum of subtasks, or override)">· {task.points}pts</span>
             {stagePriority && (() => {
-              const color = stagePriority === "NOW" ? t.red : stagePriority === "HIGH" ? t.amber : stagePriority === "MEDIUM" ? (t.cyan || t.accent) : t.textDim;
-              return <span style={{ background: color + "1f", color, border: `1px solid ${color}55`, borderRadius: 6, padding: "0 6px", fontSize: 9, fontWeight: 800, letterSpacing: 0.4, marginLeft: 4 }}>{stagePriority}</span>;
+              const cfg = stagePriority === "NOW"
+                ? { color: t.red, icon: "🔥", label: "NOW" }
+                : stagePriority === "HIGH"
+                ? { color: t.amber, icon: "⬆", label: "HIGH" }
+                : stagePriority === "MEDIUM"
+                ? { color: t.cyan || t.accent, icon: "→", label: "MED" }
+                : { color: t.textDim, icon: "⬇", label: "LOW" };
+              const isUrgent = stagePriority === "NOW";
+              return <span style={{
+                background: isUrgent ? cfg.color : cfg.color + "22",
+                color: isUrgent ? "#fff" : cfg.color,
+                border: `1px solid ${isUrgent ? cfg.color : cfg.color + "88"}`,
+                borderRadius: 6,
+                padding: "1px 7px",
+                fontSize: 9,
+                fontWeight: 900,
+                letterSpacing: 0.6,
+                marginLeft: 4,
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 3,
+                boxShadow: isUrgent ? `0 0 8px ${cfg.color}66` : "none",
+                animation: isUrgent ? "claimPulse 2s ease-in-out infinite" : "none",
+              }}>
+                <span style={{ fontSize: 9 }}>{cfg.icon}</span>
+                <span>{cfg.label}</span>
+              </span>;
             })()}
             {stageDueDates[task.stageId] && (() => {
               const due = new Date(`${stageDueDates[task.stageId]}T23:59:59`);
