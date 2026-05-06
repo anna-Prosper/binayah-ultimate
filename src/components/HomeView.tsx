@@ -91,6 +91,10 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [renderNow] = useState(() => Date.now());
+  const [sectionCollapsed, setSectionCollapsed] = useState(() => {
+    try { return localStorage.getItem("home_section_exec") === "1"; } catch { return false; }
+  });
+  const toggleSection = () => setSectionCollapsed(v => { const next = !v; try { localStorage.setItem("home_section_exec", next ? "1" : "0"); } catch {} return next; });
   const executiveProposals = proposals.filter(isExecutiveProposal);
   const pending = executiveProposals.filter(p => p.status === "pending");
   const visible = isAdmin
@@ -107,19 +111,20 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
 
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", marginBottom: 12 }}>
+      <button type="button" onClick={toggleSection} style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", marginBottom: sectionCollapsed ? 0 : 12 }}>
         <div>
-          <div style={{ fontSize: 10, color: isAdmin ? t.green : t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: isAdmin ? t.green : t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>
             {isAdmin ? "exec requests" : "propose to Anna"}
+            {isAdmin && pending.length > 0 && <span style={{ background: t.green + "22", border: `1px solid ${t.green}44`, color: t.green, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{pending.length} open</span>}
           </div>
           <div style={{ marginTop: 4, fontSize: 18, color: t.text, fontWeight: 900 }}>
             {isAdmin ? "executive requests" : "what should the team look at?"}
           </div>
         </div>
-        {isAdmin && pending.length > 0 && <div style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800 }}>{pending.length} open</div>}
-      </div>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{sectionCollapsed ? "▼" : "▲"}</span>
+      </button>
 
-      {isExec && (
+      {!sectionCollapsed && isExec && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 0.7fr) 1fr auto", gap: 8, alignItems: "stretch", marginBottom: visible.length > 0 ? 12 : 0 }}>
           <input
             value={title}
@@ -147,7 +152,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
         </div>
       )}
 
-      {visible.length > 0 ? (
+      {!sectionCollapsed && (visible.length > 0 ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {visible.map(p => {
             const author = users.find(u => u.id === p.by);
@@ -193,7 +198,7 @@ function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, on
         <div style={{ padding: "20px 0", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10, textAlign: "center" }}>
           {isAdmin ? "no executive requests yet" : "no proposals sent yet"}
         </div>
-      )}
+      ))}
     </section>
   );
 }
@@ -267,13 +272,32 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
 
   function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
     const color = toneColor(t, tone);
+    const [expanded, setExpanded] = useState(false);
+    const urgent = value >= 10;
+    const hasItems = items.length > 0;
+    const borderColor = urgent ? color + "77" : color + "44";
+    const bgColor = urgent ? color + "18" : color + "0f";
     return (
-      <div style={{ border: `1px solid ${color}44`, background: color + "0f", borderRadius: 10, padding: "10px 12px", minWidth: 0 }}>
-        <div style={{ fontSize: 22, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+      <div
+        onClick={() => hasItems && setExpanded(v => !v)}
+        style={{ border: `1px solid ${borderColor}`, background: bgColor, borderRadius: 10, padding: "10px 12px", minWidth: 0, cursor: hasItems ? "pointer" : "default", transition: "border-color 0.15s, background 0.15s", position: "relative" }}
+      >
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+          <div style={{ fontSize: 26, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
+          {urgent && <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}`, marginTop: 3, animation: "urgentPulse 2s ease-in-out infinite" }} />}
+        </div>
         <div style={{ marginTop: 3, fontSize: 10, color: t.textMuted, fontFamily: mono, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
-        {items.slice(0, 2).map((item, i) => (
-          <div key={i} style={{ marginTop: 4, fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.8 }}>· {item.title}</div>
-        ))}
+        {hasItems && !expanded && (
+          <div style={{ marginTop: 4, fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75 }}>· {items[0].title}{items.length > 1 ? ` +${items.length - 1} more` : ""}</div>
+        )}
+        {expanded && (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
+            {items.map((item, i) => (
+              <div key={i} style={{ fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>· {item.title}</div>
+            ))}
+          </div>
+        )}
+        {hasItems && <div style={{ position: "absolute", bottom: 6, right: 8, fontSize: 9, color, fontFamily: mono, opacity: 0.6 }}>{expanded ? "▲" : "▼"}</div>}
       </div>
     );
   }
@@ -285,10 +309,17 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
     onAction?: (key: string) => void;
     assignPicker?: boolean;
   }) {
+    const [collapsed, setCollapsed] = useState(false);
     if (items.length === 0) return null;
     return (
       <div style={{ marginBottom: 8 }}>
-        <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>{label}</div>
+        <button type="button" onClick={() => setCollapsed(v => !v)}
+          style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: "0 0 4px 0", cursor: "pointer", width: "100%" }}>
+          <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>{label}</div>
+          <span style={{ background: color + "22", border: `1px solid ${color}44`, color, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{items.length}</span>
+          <span style={{ marginLeft: "auto", fontSize: 9, color, fontFamily: mono, opacity: 0.6 }}>{collapsed ? "▼" : "▲"}</span>
+        </button>
+        {!collapsed && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(item => (
             <div key={item.key} style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 8px" }}>
@@ -328,6 +359,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
             </div>
           ))}
         </div>
+        )}
       </div>
     );
   }
@@ -541,16 +573,29 @@ function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismiss }: {
     setOpen(false);
   };
 
+  const [sectionCollapsed, setSectionCollapsed] = useState(() => {
+    try { return localStorage.getItem("home_section_reminders") === "1"; } catch { return false; }
+  });
+  const toggleSection = () => setSectionCollapsed(v => { const next = !v; try { localStorage.setItem("home_section_reminders", next ? "1" : "0"); } catch {} return next; });
+
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 16 }}>
-      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: open || relevant.length > 0 ? 12 : 0 }}>
-        <div>
-          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>reminders</div>
+      <button type="button" onClick={toggleSection} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", marginBottom: (!sectionCollapsed && (open || relevant.length > 0)) ? 12 : 0 }}>
+        <div style={{ textAlign: "left" as const }}>
+          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, display: "flex", alignItems: "center", gap: 6 }}>
+            reminders
+            {relevant.length > 0 && <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}44`, color: t.amber, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{relevant.length}</span>}
+          </div>
           <div style={{ marginTop: 3, fontSize: 16, color: t.text, fontWeight: 900 }}>dated app + email notifications</div>
         </div>
-        <button type="button" onClick={() => setOpen(v => !v)} style={{ background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "5px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>{open ? "close" : "+ reminder"}</button>
-      </div>
-      {open && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>{sectionCollapsed ? "▼" : "▲"}</span>
+        </div>
+      </button>
+      {!sectionCollapsed && <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", marginBottom: open || relevant.length > 0 ? 8 : 0 }}>
+        <button type="button" onClick={e => { e.stopPropagation(); setOpen(v => !v); }} style={{ background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "5px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>{open ? "close" : "+ reminder"}</button>
+      </div>}
+      {!sectionCollapsed && open && (
         <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, .8fr) minmax(180px, 1fr) auto", gap: 8, alignItems: "start", marginBottom: 12 }}>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="title" maxLength={140} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 12, outline: "none" }} />
           <input value={body} onChange={e => setBody(e.target.value)} placeholder="note (optional)" maxLength={1000} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 12, outline: "none" }} />
@@ -568,7 +613,7 @@ function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismiss }: {
           </div>
         </div>
       )}
-      {relevant.length > 0 && (
+      {!sectionCollapsed && relevant.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
           {relevant.map(r => {
             const due = Date.parse(r.remindAt) <= now;
@@ -669,10 +714,16 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
     return () => { alive = false; };
   }, [isAdmin]);
 
+  const [sectionCollapsed, setSectionCollapsed] = useState(() => {
+    try { return localStorage.getItem("home_section_zoom") === "1"; } catch { return false; }
+  });
+  const toggleSection = () => setSectionCollapsed((v: boolean) => { const next = !v; try { localStorage.setItem("home_section_zoom", next ? "1" : "0"); } catch {} return next; });
+
   if (!isAdmin) return null;
   const configured = status?.configured ?? false;
   const connected = status?.connected ?? false;
   const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
+  const pendingCount = proposals.filter(p => p.status === "pending").length;
 
   const checkZoom = async () => {
     if (!configured || checking) return;
@@ -802,11 +853,22 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
   const mono = "var(--font-dm-mono), monospace";
 
   return (
-    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16, display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
+    <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
+      {/* Collapsible header */}
+      <button type="button" onClick={toggleSection} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", marginBottom: sectionCollapsed ? 0 : 16 }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
+            zoom intelligence
+            {pendingCount > 0 && <span style={{ background: t.accent + "22", border: `1px solid ${t.accent}44`, color: t.accent, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{pendingCount} pending</span>}
+            <span style={{ color: stateColor, fontSize: 9, fontFamily: mono }}>{connected ? "● connected" : configured ? "◌ configured" : "○ setup needed"}</span>
+          </div>
+          <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>call summaries and proposed tasks</div>
+        </div>
+        <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{sectionCollapsed ? "▼" : "▲"}</span>
+      </button>
+      {!sectionCollapsed && <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>zoom intelligence</div>
-        <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>call summaries and proposed tasks</div>
-        <div style={{ marginTop: 8, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
+        <div style={{ marginTop: 0, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
           Paste any call summary or meeting notes — AI extracts action items and queues them here for approval. Each approved task becomes a stage in the relevant pipeline.
         </div>
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
@@ -1046,6 +1108,7 @@ function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
           })()}
         </div>
       </div>
+      </div>}
     </section>
   );
 }
