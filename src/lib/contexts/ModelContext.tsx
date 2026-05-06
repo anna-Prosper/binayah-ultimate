@@ -242,7 +242,14 @@ export function ModelProvider({
     if (initialUserId) return initialUserId;
     return lsGet("currentUser", null);
   });
-  const [users, setUsers] = useState(() => hydrateUsers(lsGet("users", []) as UserType[]));
+  const [users, setUsersInternal] = useState(() => hydrateUsers(lsGet("users", []) as UserType[]));
+  // Wrap setUsers to mark a local-write protection window so a poll merge during
+  // the 1.5s scheduleWrite debounce can't clobber a fresh avatar pick. The
+  // protection is read in mergePatch's `s.users` branch.
+  const setUsers: React.Dispatch<React.SetStateAction<UserType[]>> = useCallback((updater) => {
+    localWritesRef.current["users"] = Date.now();
+    setUsersInternal(updater);
+  }, []);
 
   useEffect(() => {
     if (initialUserId) {
@@ -580,7 +587,7 @@ export function ModelProvider({
     if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides")) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
     if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
     if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
-    if (s.users) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
+    if (s.users && !isProtected("users")) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
     if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(s.workspaces as Workspace[]);
     if (s.archivedStages && !isProtected("archivedStages")) setArchivedStages(Array.from(new Set(s.archivedStages as string[])));
     if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(Array.from(new Set(s.archivedPipelines as string[])));
