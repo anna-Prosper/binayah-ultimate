@@ -38,12 +38,20 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [lightbox, setLightbox] = useState<BugAttachment | null>(null);
 
+  const MAX_BYTES = 25 * 1024 * 1024;
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploading(true);
     setUploadError(null);
     const newAtts: BugAttachment[] = [];
     for (const f of Array.from(files)) {
+      // Reject too-big files locally — Vercel's 4.5MB function payload limit
+      // would otherwise truncate the request before it reaches our API.
+      if (f.size > MAX_BYTES) {
+        const mb = (f.size / 1024 / 1024).toFixed(1);
+        setUploadError(`${f.name} is ${mb} MB — max is 25 MB. Compress or screenshot a smaller version.`);
+        continue;
+      }
       try {
         const fd = new FormData();
         fd.append("file", f);

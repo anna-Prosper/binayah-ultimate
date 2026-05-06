@@ -330,12 +330,6 @@ export default function PipelinesView({
                           <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
                         )}
                       </div>
-                      {/* claimers stay always visible — they convey ownership state */}
-                      {uClaim.length > 0 && (
-                        <div style={{ marginTop: 4, display: "flex" }} onClick={e => e.stopPropagation()}>
-                          <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="pill" size={16} maxVisible={2} />
-                        </div>
-                      )}
                     </div>
                   </div>
                   {isMobile && (
@@ -352,9 +346,16 @@ export default function PipelinesView({
                       </div>
                     </div>
                   )}
-                  {/* #7: clean points label, no dot-grid; progress bar above conveys completion */}
-                  <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
+                  {/* Top-right: owner avatars (kanban-style) + points + edit pencil */}
+                  <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      {uClaim.length > 0 && (
+                        <div onClick={e => e.stopPropagation()}>
+                          <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} maxVisible={3} />
+                        </div>
+                      )}
+                      <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
+                    </div>
                     {canEditPipeline(p.id) && (
                       <button
                         onClick={e => { e.stopPropagation(); setPipelineEditMode(pipelineEditMode === p.id ? null : p.id); setEditingPipeName(p.id); setEditingPipeDesc(p.id); }}
