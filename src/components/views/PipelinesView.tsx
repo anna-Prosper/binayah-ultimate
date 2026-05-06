@@ -53,6 +53,10 @@ export default function PipelinesView({
   const [editingPipeName, setEditingPipeName] = useState<string | null>(null);
   const [newStageInput, setNewStageInput] = useState<Record<string, string>>({});
   const [addingPipeline, setAddingPipeline] = useState(false);
+  // Hover state for revealing secondary actions per row
+  const [hoveredPipeline, setHoveredPipeline] = useState<string | null>(null);
+  // "Show more" toggle per pipeline for the stage-chip preview
+  const [showAllChips, setShowAllChips] = useState<Record<string, boolean>>({});
   const [newPipeForm, setNewPipeForm] = useState({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" });
   const [pipeMenuOpen, setPipeMenuOpen] = useState<string | null>(null);
   // Per-pipeline edit mode (pencil toggle)
@@ -218,35 +222,88 @@ export default function PipelinesView({
           const pipeReactKey = `_pipe_${p.id}`;
           const pipeReactions = reactions[pipeReactKey] || {};
           const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
+          // #6: dim "settled" pipelines — only concept/done stages, nothing in flight
+          const hasActive = allPStages.some(s => {
+            const st = getStatus(s);
+            return st === "in-progress" || st === "planned" || st === "blocked";
+          });
+          const isSettled = allPStages.length > 0 && !hasActive;
+          // #4: priority config (icon + visual treatment matches task-card style)
+          const priCfg = pipePriority === "NOW"
+            ? { color: t.red, icon: "🔥", label: "NOW", urgent: true }
+            : pipePriority === "HIGH"
+            ? { color: t.amber, icon: "⬆", label: "HIGH", urgent: false }
+            : pipePriority === "MEDIUM"
+            ? { color: t.cyan || t.accent, icon: "→", label: "MED", urgent: false }
+            : { color: t.textDim, icon: "⬇", label: "LOW", urgent: false };
+          // #3: progress-bar tint — red < 30, amber 30–70, green > 70
+          const pctColor = pct >= 70 ? t.green : pct >= 30 ? t.amber : pct > 0 ? t.red : t.textDim;
+          const isRowHovered = hoveredPipeline === p.id;
           return (
-            <div key={p.id} ref={pipelineEditMode === p.id ? pipelineEditRef : null} style={{ background: t.bgCard, border: `1px solid ${pipelineEditMode === p.id ? pC + "55" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s", position: "relative" as const }}>
-              <div style={{ height: 2, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} /></div>
-              <div onClick={() => toggleExpand(p.id)} style={{ padding: "12px 16px", cursor: "pointer" }}>
+            <div
+              key={p.id}
+              ref={pipelineEditMode === p.id ? pipelineEditRef : null}
+              onMouseEnter={() => setHoveredPipeline(p.id)}
+              onMouseLeave={() => setHoveredPipeline(prev => prev === p.id ? null : prev)}
+              style={{ background: t.bgCard, border: `1px solid ${pipelineEditMode === p.id ? pC + "55" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s, opacity 0.2s", opacity: isSettled && !isO ? 0.55 : 1, position: "relative" as const }}
+            >
+              {/* #3: thicker, status-tinted progress bar replacing the % text */}
+              <div style={{ height: 4, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pctColor},${pctColor}aa)`, transition: "width 0.5s" }} /></div>
+              {/* #5: tighter row padding */}
+              <div onClick={() => toggleExpand(p.id)} style={{ padding: "8px 14px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 8, flex: 1 }}>
                     <Chev open={isO} color={pC} />
                     <div style={{ flex: 1 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap", marginBottom: 4 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", marginBottom: 2 }}>
                         <span style={{ fontSize: 16 }}>{p.icon}</span>
                         {editingPipeName === p.id ? (
                           <input value={pipeName} onChange={e => setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), name: e.target.value } }))} onBlur={() => setEditingPipeName(null)} onKeyDown={e => { if (e.key === "Enter") setEditingPipeName(null); }} autoFocus onClick={e => e.stopPropagation()} style={{ fontSize: 15, fontWeight: 900, color: t.text, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "0 8px", outline: "none", fontFamily: "inherit" }} />
                         ) : (
                           <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
                         )}
-                        <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 8px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
-                        <span onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }} style={{ fontSize: 10, color: prC.c, background: prC.c + "12", padding: "0 8px", borderRadius: 8, fontWeight: 800, cursor: "pointer" }} title="Click to cycle">{pipePriority}</span>
-                        {pct > 0 && <span style={{ fontSize: 10, color: pC, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</span>}
+                        <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                        {/* #4: priority badge — icon + tight pill, urgent state filled */}
+                        <span
+                          onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }}
+                          title="Click to cycle priority"
+                          style={{
+                            display: "inline-flex", alignItems: "center", gap: 3,
+                            background: priCfg.urgent ? priCfg.color : priCfg.color + "22",
+                            color: priCfg.urgent ? "#fff" : priCfg.color,
+                            border: `1px solid ${priCfg.urgent ? priCfg.color : priCfg.color + "88"}`,
+                            borderRadius: 6, padding: "1px 7px",
+                            fontSize: 9, fontWeight: 900, letterSpacing: 0.5,
+                            cursor: "pointer",
+                            boxShadow: priCfg.urgent ? `0 0 8px ${priCfg.color}55` : "none",
+                          }}
+                        >
+                          <span style={{ fontSize: 9 }}>{priCfg.icon}</span>
+                          <span>{priCfg.label}</span>
+                        </span>
                       </div>
+                      {/* #5: description — single truncated line by default, full edit mode unchanged */}
                       {editingPipeDesc === p.id ? (
                         <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 0 }} />
                       ) : (
-                        <p style={{ fontSize: 13, color: t.textSec, margin: "0 0 0", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4 }}>
-                          <span>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
+                        <p style={{ fontSize: 12, color: t.textSec, margin: "0", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isO ? "normal" : "nowrap" }}>
+                          <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
                           {pipelineEditMode === p.id && <span onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0, cursor: "pointer" }}>{"✎"}</span>}
                         </p>
                       )}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap" }} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓ copied" : "📋 copy"}</button>
+                      {/* #2: action row — fades out when row not hovered (still tappable for touch) */}
+                      <div
+                        style={{
+                          display: "flex", alignItems: "center", gap: 4, marginTop: 4, flexWrap: "wrap",
+                          opacity: (isRowHovered || isO || reactOpen === pipeReactKey || pipelineEditMode === p.id) ? 1 : 0,
+                          maxHeight: (isRowHovered || isO || reactOpen === pipeReactKey || pipelineEditMode === p.id) ? 60 : 0,
+                          overflow: "hidden",
+                          transition: "opacity 0.18s, max-height 0.18s",
+                          pointerEvents: (isRowHovered || isO || reactOpen === pipeReactKey || pipelineEditMode === p.id) ? "auto" : "none",
+                        }}
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓" : "📋"}</button>
                         <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
                           {reactOpen === pipeReactKey
                             ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
@@ -260,10 +317,13 @@ export default function PipelinesView({
                         ) : (
                           <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
                         )}
-                        {uClaim.length > 0 && (
-                          <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="pill" size={16} maxVisible={2} />
-                        )}
                       </div>
+                      {/* claimers stay always visible — they convey ownership state */}
+                      {uClaim.length > 0 && (
+                        <div style={{ marginTop: 4, display: "flex" }} onClick={e => e.stopPropagation()}>
+                          <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="pill" size={16} maxVisible={2} />
+                        </div>
+                      )}
                     </div>
                   </div>
                   {isMobile && (
@@ -280,24 +340,30 @@ export default function PipelinesView({
                       </div>
                     </div>
                   )}
+                  {/* #7: clean points label, no dot-grid */}
                   <div className="bu-pipe-right" style={{ textAlign: "right", flexShrink: 0, marginLeft: 12, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-                    <div style={{ display: "flex", gap: 0, justifyContent: "flex-end" }}>{allPStages.map((s, i) => { const stC = sc[getStatus(s)] || { c: t.textDim }; return <div key={i} style={{ width: 6, height: 6, borderRadius: 2, background: stC.c + "33", border: `1px solid ${stC.c}` }} />; })}</div>
-                    <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>{p.points}pts</div>
+                    <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
+                    <div style={{ fontSize: 10, color: pctColor, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{pct}%</div>
                     {canEditPipeline(p.id) && (
                       <button
                         onClick={e => { e.stopPropagation(); setPipelineEditMode(pipelineEditMode === p.id ? null : p.id); setEditingPipeName(p.id); setEditingPipeDesc(p.id); }}
                         title={pipelineEditMode === p.id ? "Exit edit mode (Esc)" : "Edit pipeline"}
-                        style={{ background: pipelineEditMode === p.id ? pC + "22" : "transparent", border: `1px solid ${pipelineEditMode === p.id ? pC + "88" : t.border}`, borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", color: pipelineEditMode === p.id ? pC : t.textMuted, transition: "all 0.15s" }}
+                        style={{ background: pipelineEditMode === p.id ? pC + "22" : "transparent", border: `1px solid ${pipelineEditMode === p.id ? pC + "88" : t.border}`, borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", color: pipelineEditMode === p.id ? pC : t.textMuted, transition: "all 0.15s", opacity: isRowHovered ? 1 : 0.4 }}
                       >&#9998;</button>
                     )}
                   </div>
                 </div>
                 {!isO && (() => {
+                  // #1: prioritize active/in-progress chips, cap at 8, then "+N more" toggle
                   const STATUS_SORT: Record<string, number> = { "in-progress": 0, planned: 1, concept: 2, blocked: 3, active: 4 };
                   const sorted = [...allPStages].sort((a, b) => (STATUS_SORT[getStatus(a)] ?? 5) - (STATUS_SORT[getStatus(b)] ?? 5));
+                  const CHIP_CAP = 8;
+                  const expanded = !!showAllChips[p.id];
+                  const visible = expanded ? sorted : sorted.slice(0, CHIP_CAP);
+                  const overflow = sorted.length - CHIP_CAP;
                   return (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8, paddingLeft: 20 }}>
-                      {sorted.map((s, i) => {
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6, paddingLeft: 20 }}>
+                      {visible.map((s, i) => {
                         const status = getStatus(s);
                         const stC = sc[status] || { l: status, c: t.textDim };
                         const isClaimed = (claims[s] || []).length > 0;
@@ -312,6 +378,22 @@ export default function PipelinesView({
                           </span>
                         );
                       })}
+                      {!expanded && overflow > 0 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setShowAllChips(prev => ({ ...prev, [p.id]: true })); }}
+                          style={{ fontSize: 10, color: t.textMuted, background: "transparent", padding: "1px 8px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: `1px dashed ${t.border}`, cursor: "pointer", fontWeight: 700 }}
+                        >
+                          +{overflow} more
+                        </button>
+                      )}
+                      {expanded && overflow > 0 && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setShowAllChips(prev => ({ ...prev, [p.id]: false })); }}
+                          style={{ fontSize: 10, color: t.textMuted, background: "transparent", padding: "1px 8px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", border: `1px dashed ${t.border}`, cursor: "pointer", fontWeight: 700 }}
+                        >
+                          show less
+                        </button>
+                      )}
                     </div>
                   );
                 })()}
