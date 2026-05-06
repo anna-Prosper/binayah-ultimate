@@ -1727,6 +1727,62 @@ export default function HomeView({
             })}
           </div>
 
+          {/* Compact summary strip — team + stats for the selected scope */}
+          {(() => {
+            const isAll = homeWsFilter === null;
+            const activeWs = isAll ? null : myWorkspaces.find(w => w.id === homeWsFilter);
+            const allPipelineIds = new Set<string>();
+            if (isAll) for (const w of myWorkspaces) for (const pid of w.pipelineIds) allPipelineIds.add(pid);
+            else if (activeWs) for (const pid of activeWs.pipelineIds) allPipelineIds.add(pid);
+            const relevantPipelines = allPipelinesGlobal.filter(p => allPipelineIds.has(p.id));
+            const totalStages = relevantPipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
+            const memberIds = new Set<string>();
+            if (isAll) for (const w of myWorkspaces) for (const m of w.members) memberIds.add(m);
+            else if (activeWs) for (const m of activeWs.members) memberIds.add(m);
+            const teamMembers = users.filter(u => memberIds.has(u.id));
+            if (teamMembers.length === 0 && relevantPipelines.length === 0) return null;
+            return (
+              <div style={{ marginBottom: 20, padding: "10px 14px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 12, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
+                  <span style={{ color: t.green }}>● {relevantPipelines.length} pipelines</span>
+                  <span style={{ color: t.cyan || t.accent }}>• {totalStages} stages</span>
+                </div>
+                <div style={{ width: 1, height: 16, background: t.border, flexShrink: 0 }} />
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+                  {teamMembers.map(u => {
+                    const uPts = modelGetPoints(u.id);
+                    const isMe = u.id === currentUser;
+                    const role: "root" | "operator" | null =
+                      ADMIN_IDS.includes(u.id) ? "root"
+                      : activeWs?.captains.includes(u.id) ? "operator"
+                      : null;
+                    return (
+                      <div key={u.id} style={{ position: "relative" }}>
+                        <button
+                          type="button"
+                          data-testid="team-avatar"
+                          onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
+                          style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 8px 4px 4px", background: isMe ? t.accent + "11" : "transparent", borderRadius: 999, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "border-color 0.15s" }}
+                          title={`${u.name} · ${uPts}pts${role ? ` · ${role}` : ""}`}
+                        >
+                          <AvatarC user={u} size={20} />
+                          <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</span>
+                          {role && <span style={{ fontSize: 9 }} title={role}>{role === "root" ? "🔑" : "⚡"}</span>}
+                          {uPts > 0 && <span style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{uPts}</span>}
+                        </button>
+                        {viewingUser === u.id && setViewingUser && (
+                          <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+
           <AttentionOverview
             t={t}
             attention={attention}
@@ -1767,139 +1823,6 @@ export default function HomeView({
             />
           )}
           <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} />
-
-          {/* Summary card — shows aggregate "all" view when no workspace selected, or specific workspace when one is */}
-          <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
-              {(() => {
-                // "All" mode: aggregate across every workspace the user is in
-                if (homeWsFilter === null) {
-                  const allPipelineIds = new Set<string>();
-                  for (const w of myWorkspaces) for (const pid of w.pipelineIds) allPipelineIds.add(pid);
-                  const allPipelines = allPipelinesGlobal.filter(p => allPipelineIds.has(p.id));
-                  const totalStages = allPipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
-                  const allMemberIds = new Set<string>();
-                  for (const w of myWorkspaces) for (const m of w.members) allMemberIds.add(m);
-                  const allTeamMembers = users.filter(u => allMemberIds.has(u.id));
-                  return (
-                    <>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ fontSize: 32, lineHeight: 1 }}>🌐</div>
-                        <div>
-                          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, lineHeight: 1.2, marginBottom: 4 }}>All workspaces</div>
-                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", display: "flex", gap: 12, flexWrap: "wrap" }}>
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.accent }}>◆ {myWorkspaces.length} workspaces</span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.green }}>● {allPipelines.length} pipelines</span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.cyan || t.accent }}>• {totalStages} stages</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
-                          team ({allTeamMembers.length})
-                        </div>
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                          {allTeamMembers.map(u => {
-                            const uPts = modelGetPoints(u.id);
-                            const isMe = u.id === currentUser;
-                            return (
-                              <div key={u.id} style={{ position: "relative" }}>
-                                <button
-                                  type="button"
-                                  data-testid="team-avatar"
-                                  onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
-                                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
-                                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
-                                  style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
-                                >
-                                  <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
-                                    <AvatarC user={u} size={24} />
-                                  </div>
-                                  <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</div>
-                                    <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
-                                  </div>
-                                </button>
-                                {viewingUser === u.id && setViewingUser && (
-                                  <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </>
-                  );
-                }
-
-                // Specific workspace selected
-                const activeWs = myWorkspaces.find(w => w.id === homeWsFilter);
-                if (!activeWs) return null;
-                const activePipelines = allPipelinesGlobal.filter(p => activeWs.pipelineIds.includes(p.id));
-                const totalStages = activePipelines.reduce((sum, p) => sum + p.stages.length + (customStages[p.id]?.length || 0), 0);
-                const wsMembers = activeWs.members;
-                const wsTeamMembers = users.filter(u => wsMembers.includes(u.id));
-
-                return (
-                  <>
-                    {/* Header: icon, name, stats */}
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 16, justifyContent: "space-between", flexWrap: "wrap" }}>
-                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ fontSize: 32, lineHeight: 1 }}>{activeWs.icon}</div>
-                        <div>
-                          <div style={{ fontSize: 24, fontWeight: 800, color: t.text, lineHeight: 1.2, marginBottom: 4 }}>{activeWs.name}</div>
-                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", display: "flex", gap: 12 }}>
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.green }}>● {activePipelines.length} pipelines</span>
-                            <span style={{ display: "flex", alignItems: "center", gap: 3, color: t.cyan || t.accent }}>• {totalStages} stages</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Team members section */}
-                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>
-                        team ({wsTeamMembers.length})
-                      </div>
-                      <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                        {wsTeamMembers.map((u) => {
-                          const uPts = modelGetPoints(u.id);
-                          const isMe = u.id === currentUser;
-                          const role: "root" | "operator" | null =
-                            ADMIN_IDS.includes(u.id) ? "root"
-                            : activeWs.captains.includes(u.id) ? "operator"
-                            : null;
-                          return (
-                            <div key={u.id} style={{ position: "relative" }}>
-                              <button
-                                type="button"
-                                onClick={e => { e.stopPropagation(); onUserClick?.(u.id); }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1.05)"; (e.currentTarget as HTMLElement).style.borderColor = u.color + "88"; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = "scale(1)"; (e.currentTarget as HTMLElement).style.borderColor = isMe ? t.accent + "44" : t.border; }}
-                                style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 10px", background: isMe ? t.accent + "11" : t.bgHover, borderRadius: 10, border: isMe ? `1px solid ${t.accent}44` : `1px solid ${t.border}`, cursor: "pointer", fontFamily: "inherit", transition: "transform 0.15s, border-color 0.15s" }}
-                              >
-                                <div style={{ borderRadius: "50%", padding: isMe ? 2 : 0, background: isMe ? `linear-gradient(135deg,${u.color},${u.color}88)` : "transparent", flexShrink: 0 }}>
-                                  <AvatarC user={u} size={24} />
-                                </div>
-                                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: t.text, display: "flex", gap: 6, alignItems: "center" }}>
-                                    {u.name.split(" ")[0]}
-                                    {role && <span style={{ fontSize: 11, color: t.text, fontWeight: 800 }} title={role}>{role === "root" ? "🔑" : "⚡"}</span>}
-                                  </div>
-                                  <div style={{ fontSize: 10, color: uPts > 0 ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{uPts}pts</div>
-                                </div>
-                              </button>
-                              {viewingUser === u.id && setViewingUser && (
-                                <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  </>
-                );
-              })()}
-            </div>
         </div>
       )}
 
