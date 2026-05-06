@@ -236,52 +236,6 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
-function RecentCallsCard({ t, mono }: { t: T; mono: string }) {
-  const [calls, setCalls] = useState<{ uuid: string; topic: string; startTime: string; taskCount: number }[] | null>(null);
-  useEffect(() => {
-    let alive = true;
-    fetch("/api/zoom/meetings", { cache: "no-store" })
-      .then(r => r.json())
-      .then((data: { ok?: boolean; meetings?: { uuid: string; topic: string; startTime: string }[]; proposals?: { sourceUUID?: string; status?: string }[] }) => {
-        if (!alive || !data?.ok || !data.meetings) return;
-        const taskByUuid = new Map<string, number>();
-        for (const p of data.proposals || []) {
-          if (p.sourceUUID) taskByUuid.set(p.sourceUUID, (taskByUuid.get(p.sourceUUID) || 0) + 1);
-        }
-        const sorted = data.meetings
-          .map(m => ({ ...m, taskCount: taskByUuid.get(m.uuid) || 0 }))
-          .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-          .slice(0, 4);
-        setCalls(sorted);
-      })
-      .catch(() => { if (alive) setCalls([]); });
-    return () => { alive = false; };
-  }, []);
-  if (!calls || calls.length === 0) return null;
-  return (
-    <div style={{ marginTop: 4 }}>
-      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-        <span style={{ fontSize: 12 }}>📞</span> recent calls · {calls.length}
-      </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        {calls.map(call => (
-          <div key={call.uuid} style={{ display: "flex", alignItems: "center", gap: 8, background: t.accent + "08", border: `1px solid ${t.accent}22`, borderRadius: 8, padding: "6px 9px" }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{call.topic}</div>
-              <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>
-                {call.startTime ? new Date(call.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : ""}
-              </div>
-            </div>
-            {call.taskCount > 0 && (
-              <span style={{ background: t.accent + "22", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "1px 7px", fontSize: 10, fontFamily: mono, fontWeight: 700, flexShrink: 0 }}>{call.taskCount} task{call.taskCount === 1 ? "" : "s"}</span>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
@@ -460,32 +414,6 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
         </div>
       )}
 
-      {/* Stats — full-width 4-column strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 10, marginBottom: 16 }}>
-        {isAgent ? (
-          <>
-            <StatTile label={attention.stats[0]?.label ?? "doing now"} value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawMyItems.filter(i => i.status === "in-progress")} />
-            <StatTile label={attention.stats[1]?.label ?? "next up"} value={attention.stats[1]?.value ?? 0} tone="accent" items={attention.rawMyItems.filter(i => i.status !== "in-progress")} />
-            <StatTile label={attention.stats[2]?.label ?? "tags"} value={attention.stats[2]?.value ?? 0} tone="amber" items={[]} />
-            <StatTile label={attention.stats[3]?.label ?? "done 7d"} value={attention.stats[3]?.value ?? 0} tone="cyan" items={[]} />
-          </>
-        ) : isExec ? (
-          <>
-            <StatTile label={attention.stats[0]?.label ?? "done 7d"} value={attention.stats[0]?.value ?? 0} tone="green" items={[]} />
-            <StatTile label={attention.stats[1]?.label ?? "done 30d"} value={attention.stats[1]?.value ?? 0} tone="cyan" items={[]} />
-            <StatTile label={attention.stats[2]?.label ?? "total done"} value={attention.stats[2]?.value ?? 0} tone="accent" items={[]} />
-            <StatTile label={attention.stats[3]?.label ?? "pipelines done"} value={attention.stats[3]?.value ?? 0} tone="amber" items={[]} />
-          </>
-        ) : (
-          <>
-            <StatTile label="approval queue" value={attention.stats[0]?.value ?? 0} tone="green" items={attention.rawReviewItems} />
-            <StatTile label="unowned" value={attention.rawUnownedCount} tone="amber" items={attention.rawUnownedItems} />
-            <StatTile label="recent tags" value={attention.stats[2]?.value ?? 0} tone="cyan" items={[]} />
-            <StatTile label={attention.stats[3]?.label ?? ""} value={attention.stats[3]?.value ?? 0} tone="accent" items={[]} />
-          </>
-        )}
-      </div>
-
       {/* Exec requests banner — surfaces above the grid when pending */}
       {pendingExec.length > 0 && canOperate && (
         <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${t.green}10, ${t.accent}10)`, border: `1px solid ${t.green}44`, borderRadius: 12 }}>
@@ -564,7 +492,6 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                     )}
                   </div>
                 )}
-                <RecentCallsCard t={t} mono={mono} />
                 {/* Notifications moved to left column to balance layout */}
                 {attention.rawAnnaSignals.length > 0 && (
                   <div style={{ marginTop: 4 }}>
