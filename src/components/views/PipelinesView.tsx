@@ -234,8 +234,8 @@ export default function PipelinesView({
             : pipePriority === "MEDIUM"
             ? { color: t.cyan || t.accent, icon: "→", label: "MED", urgent: false }
             : { color: t.textDim, icon: "⬇", label: "LOW", urgent: false };
-          // #3: progress-bar tint — red < 30, amber 30–70, green > 70
-          const pctColor = pct >= 70 ? t.green : pct >= 30 ? t.amber : pct > 0 ? t.red : t.textDim;
+          // Progress bar uses each pipeline's own theme color so it stays cohesive
+          // with the rest of the row tinting (chevron, claim button, edit highlight).
           const isRowHovered = hoveredPipeline === p.id;
           return (
             <div
@@ -246,7 +246,7 @@ export default function PipelinesView({
               style={{ background: t.bgCard, border: `1px solid ${pipelineEditMode === p.id ? pC + "55" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s, opacity 0.2s", opacity: isSettled && !isO ? 0.55 : 1, position: "relative" as const }}
             >
               {/* #3: thicker, status-tinted progress bar replacing the % text */}
-              <div style={{ height: 4, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pctColor},${pctColor}aa)`, transition: "width 0.5s" }} /></div>
+              <div style={{ height: 4, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} /></div>
               {/* #5: tighter row padding */}
               <div onClick={() => toggleExpand(p.id)} style={{ padding: "8px 14px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
