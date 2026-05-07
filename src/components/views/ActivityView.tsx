@@ -51,9 +51,12 @@ function ItemRow({
   onMarkRead?: (id: string) => void;
 }) {
   const color = priorityColor(t, item.priority);
-  // Both buckets dim when read — the "still needs action" signal is conveyed
-  // by remaining in the list, not by visual prominence.
-  const dim = isRead;
+  // Read vs unread is signalled by COLOR — unread cards carry the priority tint
+  // (border + faint bg), read cards drop to a neutral border with no tint. No
+  // opacity change so text stays fully legible either way.
+  const borderCol = isRead ? t.border : color + "55";
+  const bgCol = isRead ? "transparent" : color + "0d";
+  const hoverBg = isRead ? (t.bgHover || t.bgSoft || "transparent") : color + "1a";
   // Click anywhere on the row → mark this item read. Navigation (if href) still
   // happens via the wrapping <Link>; we just call the read callback in addition.
   const handleRowClick = () => {
@@ -68,18 +71,17 @@ function ItemRow({
         gridTemplateColumns: "auto 1fr auto auto",
         alignItems: "start",
         gap: 10,
-        border: `1px solid ${color}33`,
-        background: color + "0a",
+        border: `1px solid ${borderCol}`,
+        background: bgCol,
         borderRadius: 10,
         padding: "10px 12px",
-        opacity: dim ? 0.55 : 1,
         textDecoration: "none",
         color: "inherit",
         cursor: item.href || !isRead ? "pointer" : "default",
-        transition: "background 0.15s",
+        transition: "background 0.15s, border-color 0.15s",
       }}
-      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = color + "14"; }}
-      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color + "0a"; }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = hoverBg; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = bgCol; }}
     >
       {/* Unread dot — clickable per-item read affordance. Action-required items
           stay in the list when read (state still needs resolving), but dim. */}
