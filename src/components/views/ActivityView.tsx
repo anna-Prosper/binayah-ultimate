@@ -276,11 +276,12 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
         time: item.updatedAt,
       })) : [];
 
-    // "important" = the same union of high-urgency items as the old inbox, BUT
-    // filtered to only things newer than the last time the user opened the tab.
-    // Activity log entries (status changes, claims, etc.) are also surfaced here
-    // so the user sees recent state changes from other people.
-    const importantBase = [
+    // "important" = full set of high-urgency items that need attention right now.
+    // These are ongoing STATES (approvals pending, unassigned tasks, due dates,
+    // critical bugs) — they persist until resolved, so filtering by "seen at"
+    // would hide things that still need action. Always show the full list.
+    // The badge count on the tab shows how many are NEW since lastSeenImportant.
+    const important = [
       ...reminderItems.filter(i => i.time <= now),
       ...mentionItems,
       ...requestItems.filter(i => i.meta.startsWith("pending")),
@@ -288,16 +289,16 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
       ...approvalItems,
       ...assignmentItems.filter(i => i.meta.startsWith("unassigned")),
       ...bugItems.filter(i => i.meta.includes("critical") || i.meta.includes("high")),
-    ];
-    const important = importantBase
-      .filter(i => i.time > lastSeenImportant)
-      .sort((a, b) => b.time - a.time);
+    ].sort((a, b) => b.time - a.time);
 
-    return { important, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
+    // New-since-last-visit count drives the badge only.
+    const importantNewCount = important.filter(i => i.time > lastSeenImportant).length;
+
+    return { important, importantNewCount, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
   }, [allPipelinesGlobal, allow, approvedStages, approvedSubtasks, bugs, chatMessages, comments, currentWorkspaceId, customStages, execProposals, getStatus, isAdmin, lastSeenImportant, me, now, owners, reminders, stageDueDates, subtaskDueDates, subtasks, users, workspaces]);
 
   const tabs: Array<{ id: CenterTab; label: string; count: number }> = [
-    { id: "important", label: "important", count: center.important.length },
+    { id: "important", label: "important", count: center.importantNewCount },
     { id: "reminders", label: "reminders", count: center.reminders.length },
     { id: "mentions", label: "mentions", count: center.mentions.length },
     { id: "requests", label: "requests", count: center.requests.length },
@@ -310,18 +311,24 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
 
   const tabItems = activeTab === "activity" ? [] : center[activeTab];
 
-  // When the user opens the "important" tab, mark "now" as the new lastSeen
-  // baseline so the count clears for next time. Updated after a small delay
-  // so they actually see the count before it goes to 0.
+  // Mark "now" as lastSeen when the user LEAVES the important tab (or on unmount).
+  // This way: badge shows new count while they're reading, clears after they navigate away.
+  // We do NOT clear on open — that would hide all items immediately.
   useEffect(() => {
-    if (activeTab !== "important") return;
-    const timer = setTimeout(() => {
+    if (activeTab === "important") return;
+    // User just switched away — stamp it so next visit badge shows only newer items.
+    const stamp = Date.now();
+    lsSet(LAST_SEEN_IMPORTANT_KEY, stamp);
+    setLastSeenImportant(stamp);
+  }, [activeTab]);
+
+  // Also stamp on unmount (panel closed while on important tab).
+  useEffect(() => {
+    return () => {
       const stamp = Date.now();
       lsSet(LAST_SEEN_IMPORTANT_KEY, stamp);
-      setLastSeenImportant(stamp);
-    }, 1500);
-    return () => clearTimeout(timer);
-  }, [activeTab]);
+    };
+  }, []);
 
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
