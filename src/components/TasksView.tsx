@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
-import { User, Clipboard, Check, Cat, Globe } from "lucide-react";
+import { User, Clipboard, Check, Cat, Globe, MessageSquare } from "lucide-react";
 import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
@@ -1916,8 +1916,8 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           </div>
         )}
       </div>}
-      <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={activeBtn(showCommentPopover)} title="Comments">
-        💬 <span style={{ fontSize: 10 }}>{commentCount}</span>
+      <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={{ ...activeBtn(showCommentPopover), display: "inline-flex", alignItems: "center", gap: 5 }} title="Comments">
+        <MessageSquare size={12} /> <span style={{ fontSize: 10 }}>{commentCount}</span>
       </button>
       {!readOnly && <div style={{ position: "relative" }}>
         <button
