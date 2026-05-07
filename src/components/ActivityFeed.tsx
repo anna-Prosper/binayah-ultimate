@@ -36,7 +36,7 @@ function isMentioned(item: ActivityItem, currentUserId: string, users: UserType[
   return detail.includes(`@${currentUserId.toLowerCase()}`) || (!!first && detail.includes(`@${first}`));
 }
 
-function isUsefulActivity(item: ActivityItem, currentUserId: string | null | undefined, users: UserType[]): boolean {
+export function isUsefulActivity(item: ActivityItem, currentUserId: string | null | undefined, users: UserType[]): boolean {
   if (!currentUserId) return true;
   if (item.type === "status_change") return false;
   if (item.user === currentUserId) return true;

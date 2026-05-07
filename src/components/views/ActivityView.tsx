@@ -11,6 +11,7 @@ import { ACTIVITY_LOG_VISIBLE_DAYS, MS_PER_DAY } from "@/lib/constants";
 import type { NotificationItem, NotificationKind } from "@/lib/notificationKinds";
 
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: false });
+import { isUsefulActivity } from "@/components/ActivityFeed";
 
 type Filter = "all" | "unread" | "mentions" | "approvals" | "bugs" | "activity";
 
@@ -201,14 +202,16 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
     markAllNotifsRead(allUnreadIds);
   }, [allUnreadKey, allUnreadIds, markAllNotifsRead]);
 
-  // Raw activity log content for the "activity" filter chip — replaces the
-  // separate /activity/log route with an in-place tab.
+  // Activity log content for the "activity log" tab. Apply the same noise
+  // filter as ActivityFeed so the chip count matches the rendered feed count
+  // (drops status_change spam + role-irrelevant entries).
   const activityLogFiltered = useMemo(() => {
     const cutoff = Date.now() - ACTIVITY_LOG_VISIBLE_DAYS * MS_PER_DAY;
-    return currentWorkspaceId
+    const wsFiltered = currentWorkspaceId
       ? activityLog.filter(e => (!e.workspaceId || e.workspaceId === currentWorkspaceId) && e.time >= cutoff)
       : activityLog.filter(e => e.time >= cutoff);
-  }, [activityLog, currentWorkspaceId]);
+    return wsFiltered.filter(e => isUsefulActivity(e, currentUser, users));
+  }, [activityLog, currentWorkspaceId, currentUser, users]);
 
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },
