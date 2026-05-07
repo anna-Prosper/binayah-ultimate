@@ -5,6 +5,11 @@ import {
 } from "react";
 import { useUndoStack, type UndoOp } from "@/lib/hooks/useUndoStack";
 import { lsGet, lsSet } from "@/lib/storage";
+import {
+  LOCAL_WRITE_PROTECT_MS as _LOCAL_WRITE_PROTECT_MS,
+  NOTIF_DISMISS_MS, COMMENT_NOTIF_DISMISS_MS, CONFLICT_TOAST_THROTTLE_MS,
+  HEARTBEAT_INTERVAL_MS, MAX_BODY_TEXT_LEN,
+} from "@/lib/constants";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
@@ -16,6 +21,9 @@ import { SubtaskKey } from "@/lib/subtaskKey";
 import { deleteComment as deleteCommentRemote, patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
+import { useChatHandlers } from "@/lib/hooks/useChatHandlers";
+import { useWorkspaceHandlers } from "@/lib/hooks/useWorkspaceHandlers";
+import { useContentHandlers } from "@/lib/hooks/useContentHandlers";
 
 export type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -354,10 +362,7 @@ export function ModelProvider({
   // localWrites: timestamps of recent optimistic writes by slice — poll merges skip slices written within the window
   // Window must comfortably exceed the scheduleWrite debounce (1.5s) + server round-trip (~500ms) so writes survive merge.
   const localWritesRef = useRef<Record<string, number>>({});
-  // Protect optimistic writes from poll-merge clobber. Window must comfortably
-  // exceed scheduleWrite debounce (1.5s) + PATCH retry attempts (up to ~5×100ms
-  // backoff under contention) + server round-trip on slow networks.
-  const LOCAL_WRITE_PROTECT_MS = 10000;
+  const LOCAL_WRITE_PROTECT_MS = _LOCAL_WRITE_PROTECT_MS;
 
   // Diff-based delete tracking. The server merges every slice instead of
   // wholesale-replacing it (per-key for maps, by-id for arrays-of-objects,
@@ -560,7 +565,7 @@ export function ModelProvider({
     // values differ from our local values, a teammate edited the same place
     // we're working in. Don't apply (protect window already prevents that),
     // but surface a toast so the user knows their pending write will overwrite.
-    if (!isInitialHydrateRef.current && Date.now() - lastConflictToastRef.current > 30000) {
+    if (!isInitialHydrateRef.current && Date.now() - lastConflictToastRef.current > CONFLICT_TOAST_THROTTLE_MS) {
       const mirror = stateMirrorRef.current;
       const conflictSlices = ([
         ["stageStatusOverrides", mirror.stageStatusOverrides],
@@ -604,7 +609,7 @@ export function ModelProvider({
             const owner = users.find(u => u.id === newOwners[0]);
             setChatNotif({ name: owner?.name || newOwners[0], text: `joined "${stage}"`, isClaim: true });
             playNotifSound();
-            setTimeout(() => setChatNotif(null), 4000);
+            setTimeout(() => setChatNotif(null), NOTIF_DISMISS_MS);
           }
         }
       }
@@ -623,7 +628,7 @@ export function ModelProvider({
               const reactor = users.find(u => u.id === newReactors[0]);
               setChatNotif({ name: reactor?.name || newReactors[0], text: `reacted ${emoji} on "${stage}"`, isReaction: true });
               playNotifSound();
-              setTimeout(() => setChatNotif(null), 4000);
+              setTimeout(() => setChatNotif(null), NOTIF_DISMISS_MS);
               setLiveNotifs(prev => ({ ...prev, [stage]: { ...prev[stage], reaction: emoji } }));
               setTimeout(() => setLiveNotifs(prev => { const n = { ...prev }; if (n[stage]) { delete n[stage].reaction; if (!Object.keys(n[stage]).length) delete n[stage]; } return n; }), 3500);
               break outer;
@@ -692,7 +697,7 @@ export function ModelProvider({
           return next;
         });
       }
-      if (pendingCommentNotif) { setChatNotif(pendingCommentNotif); playNotifSound(); setTimeout(() => setChatNotif(null), 5000); }
+      if (pendingCommentNotif) { setChatNotif(pendingCommentNotif); playNotifSound(); setTimeout(() => setChatNotif(null), COMMENT_NOTIF_DISMISS_MS); }
       if (pendingLiveNotif) {
         const { stage: stg, name } = pendingLiveNotif;
         setLiveNotifs(prev => ({ ...prev, [stg]: { ...prev[stg], comment: name } }));
@@ -1600,406 +1605,77 @@ export function ModelProvider({
   const removeStageImage = (sid: string, idx: number) => { setStageImages(prev => ({ ...prev, [sid]: (prev[sid] || []).filter((_, i) => i !== idx) })); };
 
   // ── Chat handlers ─────────────────────────────────────────────────────────
-  const sendChat = (text: string, opts?: { threadId?: string; attachments?: ChatAttachment[] }) => {
-    if (!currentUser) return;
-    const msgId = Date.now();
-    const msg: ChatMsg = {
-      id: msgId,
-      userId: currentUser,
-      text,
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      workspaceId: currentWorkspaceId,
-      threadId: opts?.threadId || "team",
-      attachments: opts?.attachments || [],
-    };
-    setChatMessages(prev => [...prev, msg]);
-    pushMessage(msg).then(result => {
-      if (!result.ok) {
-        setChatMessages(prev => prev.filter(m => m.id !== msgId));
-        setSyncStatus("offline");
-        const reason = result.error ? `// ${result.error}` : "// message lost — try again";
-        showToast(reason, t.red);
-      }
-    });
-  };
-
-  const handleRemoteMessage = useCallback((msg: ChatMsg) => {
-    let pendingNotif: { name: string; text: string } | null = null;
-    setChatMessages(prev => {
-      if (prev.some(m => m.id === msg.id)) return prev;
-      if (msg.userId !== currentUser) {
-        const sender = users.find(u => u.id === msg.userId);
-        pendingNotif = { name: sender?.name || msg.userId, text: msg.text };
-      }
-      return [...prev, msg].sort((a, b) => a.id - b.id);
-    });
-    if (pendingNotif) { setChatNotif(pendingNotif); playNotifSound(); setTimeout(() => setChatNotif(null), 4000); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentUser, users]);
-
-  const loadMoreMessages = async () => {
-    if (!hasMoreMessages || chatMessages.length === 0) return;
-    const oldest = chatMessages[0];
-    try {
-      const wsParam = currentWorkspaceId ? `&workspaceId=${encodeURIComponent(currentWorkspaceId)}` : "";
-      const threadParam = oldest.threadId ? `&threadId=${encodeURIComponent(oldest.threadId)}` : "";
-      const res = await fetch(`/api/pipeline-state/messages?before=${oldest.id}&limit=50${wsParam}${threadParam}`);
-      const older: ChatMsg[] = await res.json();
-      if (!Array.isArray(older) || older.length === 0) { setHasMoreMessages(false); return; }
-      setChatMessages(prev => [...older, ...prev]);
-      if (older.length < 50) setHasMoreMessages(false);
-    } catch { /* ignore */ }
-  };
+  const { sendChat, handleRemoteMessage, loadMoreMessages } = useChatHandlers({
+    currentUser,
+    currentWorkspaceId,
+    users,
+    chatMessages,
+    hasMoreMessages,
+    setChatMessages,
+    setHasMoreMessages,
+    setChatNotif,
+    setSyncStatus,
+    playNotifSound,
+    showToast,
+    tRed: t.red,
+  });
 
   // ── Workspace handlers ────────────────────────────────────────────────────
-  const createWorkspace = (name: string, icon: string, colorKey: string) => {
-    if (!currentUser) return;
-    if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can create a workspace", t.amber); return; }
-    const trimmed = name.trim();
-    if (!trimmed) { showToast("// workspace needs a name", t.amber); return; }
-    const id = `ws-${Date.now()}`;
-    markLocalWrite("workspaces");
-    setWorkspaces(prev => [...prev, { id, name: trimmed, icon: icon || "🏴", colorKey: colorKey || "purple", members: [currentUser], captains: [currentUser], pipelineIds: [] }]);
-    showToast(`// workspace "${trimmed}" created`, t.green);
-    logActivity("claim", id, `created workspace ${trimmed}`);
-  };
+  const { createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace } = useWorkspaceHandlers({
+    currentUser,
+    workspaces,
+    setWorkspaces,
+    markLocalWrite,
+    logActivity,
+    showToast,
+    tAmber: t.amber,
+    tGreen: t.green,
+    tRed: t.red,
+  });
 
-  const addMemberToWorkspace = (workspaceId: string, userId: string) => {
-    if (!currentUser) return;
-    const ws = workspaces.find(w => w.id === workspaceId);
-    if (!ws) return;
-    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", t.amber); return; }
-    if (ws.members.includes(userId)) return;
-    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: [...w.members, userId] } : w));
-  };
+  // ── Content handlers ──────────────────────────────────────────────────────
+  const {
+    addExecProposal,
+    addReminder,
+    dismissReminder,
+    addNote,
+    updateNote,
+    deleteNote,
+    addBug,
+    updateBug,
+    deleteBug,
+    updateExecProposalStatus,
+    applyExecProposal,
+    cancelExecProposal,
+    deleteExecProposal,
+  } = useContentHandlers({
+    currentUser,
+    currentWorkspaceId,
+    users,
+    execProposals,
+    reminders,
+    notes,
+    bugs,
+    setExecProposals,
+    setReminders,
+    setNotes,
+    setBugs,
+    setOwners,
+    setArchivedStages,
+    setArchivedSubtasks,
+    setStageNameOverrides,
+    setStageDescOverrides,
+    setStageDueDates,
+    setSubtasks,
+    setSubtaskDescOverrides,
+    setSubtaskDueDates,
+    markLocalWrite,
+    logActivity,
+    showToast,
+    tAmber: t.amber,
+    tGreen: t.green,
+  });
 
-  const removeMemberFromWorkspace = (workspaceId: string, userId: string) => {
-    if (!currentUser) return;
-    const ws = workspaces.find(w => w.id === workspaceId);
-    if (!ws) return;
-    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", t.amber); return; }
-    if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only operator", t.red); return; }
-    setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: w.members.filter(id => id !== userId), captains: w.captains.filter(id => id !== userId) } : w));
-  };
-
-  const setMemberRank = (workspaceId: string, userId: string, rank: "operator" | "agent") => {
-    if (!currentUser) return;
-    const ws = workspaces.find(w => w.id === workspaceId);
-    if (!ws) return;
-    if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can change ranks", t.amber); return; }
-    if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "operator") { showToast("// can't demote the only operator", t.red); return; }
-    setWorkspaces(prev => prev.map(w => {
-      if (w.id !== workspaceId) return w;
-      const captains = w.captains.filter(id => id !== userId);
-      if (rank === "operator") captains.push(userId);
-      return { ...w, captains, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
-    }));
-  };
-
-  const deleteWorkspace = (workspaceId: string) => {
-    if (!currentUser) return;
-    const ws = workspaces.find(w => w.id === workspaceId);
-    if (!ws) return;
-    if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can delete a workspace", t.amber); return; }
-    if (workspaces.length === 1) { showToast("// can't delete your last workspace", t.red); return; }
-    setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
-    showToast(`// workspace "${ws.name}" deleted`, t.amber);
-  };
-
-  const addExecProposal = (title: string, body: string) => {
-    if (!currentUser) return;
-    const cleanTitle = title.trim();
-    const cleanBody = body.trim();
-    if (!cleanTitle || !cleanBody) {
-      showToast("// proposal needs a title and detail", t.amber);
-      return;
-    }
-    markLocalWrite("execProposals");
-    const proposal: ExecProposal = {
-      id: Date.now(),
-      title: cleanTitle.slice(0, 120),
-      body: cleanBody.slice(0, 1200),
-      by: currentUser,
-      status: "pending",
-      createdAt: Date.now(),
-      kind: "strategy",
-    };
-    setExecProposals(prev => [proposal, ...prev].slice(0, 80));
-    logActivity("proposal", proposal.title, "submitted executive request");
-    showToast("// proposal sent to Anna", t.green);
-  };
-
-  const addReminder = (input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => {
-    if (!currentUser) return;
-    const title = input.title.trim();
-    const body = input.body.trim();
-    const recipients = Array.from(new Set(input.recipientIds.filter(Boolean)));
-    const due = Date.parse(input.remindAt);
-    if (!title || recipients.length === 0 || !Number.isFinite(due)) {
-      showToast("// reminder needs title, date, and recipient", t.amber);
-      return;
-    }
-    const reminder: ReminderItem = {
-      id: Date.now(),
-      title: title.slice(0, 140),
-      body: body.slice(0, 1000),
-      createdBy: currentUser,
-      recipientIds: recipients,
-      remindAt: new Date(due).toISOString(),
-      createdAt: Date.now(),
-      emailedTo: [],
-      dismissedBy: [],
-    };
-    markLocalWrite("reminders");
-    setReminders(prev => [reminder, ...prev].slice(0, 200));
-    logActivity("reminder", reminder.title, `scheduled for ${new Date(reminder.remindAt).toLocaleString()}`, recipients);
-    showToast("// reminder scheduled", t.green);
-  };
-
-  const dismissReminder = (id: number) => {
-    if (!currentUser) return;
-    markLocalWrite("reminders");
-    setReminders(prev => prev.map(r => r.id === id
-      ? { ...r, dismissedBy: Array.from(new Set([...(r.dismissedBy || []), currentUser])) }
-      : r
-    ));
-  };
-
-  const addNote = (input: { title: string; body: string; pinnedTo?: string; color?: string }) => {
-    if (!currentUser) return;
-    const title = input.title.trim() || "Untitled note";
-    const body = input.body.trim();
-    if (!body && !input.title.trim()) return;
-    const now = Date.now();
-    const note: NoteItem = {
-      id: now,
-      title: title.slice(0, 120),
-      body: body.slice(0, 5000),
-      by: currentUser,
-      createdAt: now,
-      updatedAt: now,
-      workspaceId: currentWorkspaceId,
-      pinnedTo: input.pinnedTo?.trim() || undefined,
-      color: input.color,
-    };
-    markLocalWrite("notes");
-    setNotes(prev => [note, ...prev].slice(0, 300));
-    logActivity("note", note.title, "created note");
-  };
-
-  const updateNote = (id: number, patch: Partial<Pick<NoteItem, "title" | "body" | "pinnedTo" | "color">>) => {
-    if (!currentUser) return;
-    markLocalWrite("notes");
-    setNotes(prev => prev.map(note => {
-      if (note.id !== id) return note;
-      if (note.by !== currentUser && !ADMIN_IDS.includes(currentUser)) return note;
-      return {
-        ...note,
-        ...patch,
-        title: patch.title !== undefined ? patch.title.slice(0, 120) : note.title,
-        body: patch.body !== undefined ? patch.body.slice(0, 5000) : note.body,
-        pinnedTo: patch.pinnedTo !== undefined ? (patch.pinnedTo.trim() || undefined) : note.pinnedTo,
-        updatedAt: Date.now(),
-      };
-    }));
-  };
-
-  const deleteNote = (id: number) => {
-    if (!currentUser) return;
-    markLocalWrite("notes");
-    setNotes(prev => prev.filter(note => note.id !== id || (note.by !== currentUser && !ADMIN_IDS.includes(currentUser))));
-  };
-
-  const addBug = (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => {
-    if (!currentUser) return;
-    const title = input.title.trim();
-    if (!title) {
-      showToast("// bug/test needs a title", t.amber);
-      return;
-    }
-    const now = Date.now();
-    const bug: BugItem = {
-      id: now,
-      title: title.slice(0, 160),
-      body: (input.body || "").trim().slice(0, 2000),
-      steps: input.steps?.trim().slice(0, 2000) || undefined,
-      expected: input.expected?.trim().slice(0, 1000) || undefined,
-      actual: input.actual?.trim().slice(0, 1000) || undefined,
-      type: input.type,
-      severity: input.severity,
-      status: input.status || "open",
-      ownerId: input.ownerId || undefined,
-      createdBy: currentUser,
-      createdAt: now,
-      updatedAt: now,
-      workspaceId: currentWorkspaceId,
-      linkedTask: input.linkedTask?.trim() || undefined,
-      attachments: input.attachments && input.attachments.length > 0 ? input.attachments.slice(0, 8) : undefined,
-    };
-    markLocalWrite("bugs");
-    setBugs(prev => [bug, ...prev].slice(0, 300));
-    logActivity("bug", bug.title, `${bug.type} · ${bug.severity}`, bug.ownerId ? [bug.ownerId] : undefined);
-    showToast("// tracker item added", t.green);
-  };
-
-  const updateBug = (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => {
-    if (!currentUser) return;
-    markLocalWrite("bugs");
-    setBugs(prev => prev.map(item => {
-      if (item.id !== id) return item;
-      const canEdit = ADMIN_IDS.includes(currentUser) || item.createdBy === currentUser || item.ownerId === currentUser;
-      if (!canEdit) return item;
-      return {
-        ...item,
-        ...patch,
-        title: patch.title !== undefined ? patch.title.trim().slice(0, 160) || item.title : item.title,
-        body: patch.body !== undefined ? patch.body.trim().slice(0, 2000) : item.body,
-        steps: patch.steps !== undefined ? patch.steps.trim().slice(0, 2000) || undefined : item.steps,
-        expected: patch.expected !== undefined ? patch.expected.trim().slice(0, 1000) || undefined : item.expected,
-        actual: patch.actual !== undefined ? patch.actual.trim().slice(0, 1000) || undefined : item.actual,
-        ownerId: patch.ownerId !== undefined ? patch.ownerId || undefined : item.ownerId,
-        linkedTask: patch.linkedTask !== undefined ? patch.linkedTask.trim() || undefined : item.linkedTask,
-        updatedAt: Date.now(),
-      };
-    }));
-  };
-
-  const deleteBug = (id: number) => {
-    if (!currentUser) return;
-    markLocalWrite("bugs");
-    setBugs(prev => prev.filter(item => item.id !== id || (item.createdBy !== currentUser && item.ownerId !== currentUser && !ADMIN_IDS.includes(currentUser))));
-  };
-
-  const applyExecProposalAction = (proposal: ExecProposal): boolean => {
-    const target = proposal.target || "";
-    const value = proposal.requestedValue ?? null;
-    if (!target || proposal.kind === "strategy") return true;
-    if (proposal.kind === "archive") {
-        if (SubtaskKey.isValid(target)) {
-          markLocalWrite("archivedSubtasks");
-          setArchivedSubtasks(prev => prev.includes(target) ? prev : [...prev, target]);
-        } else {
-          markLocalWrite("archivedStages");
-          setArchivedStages(prev => prev.includes(target) ? prev : [...prev, target]);
-        }
-        logActivity("archive", target, "approved archive request");
-      return true;
-    }
-    if (proposal.kind === "assign") {
-        const clearAssign = /^clear/i.test(proposal.requestedAction || "");
-        const resolvedUserId = proposal.requestedUserId || (() => {
-          const haystack = `${proposal.requestedAction || ""} ${proposal.body || ""}`.toLowerCase();
-          return users.find(u =>
-            haystack.includes(u.id.toLowerCase()) ||
-            haystack.includes(u.name.toLowerCase()) ||
-            haystack.includes(u.name.split(" ")[0].toLowerCase())
-          )?.id || null;
-        })();
-        if (!resolvedUserId && !clearAssign) {
-          showToast("// assign request is missing who to assign", t.amber);
-          return false;
-        }
-        markLocalWrite("owners");
-        setOwners(prev => {
-          const next = { ...prev };
-          if (!resolvedUserId) {
-            delete next[target];
-            return next;
-          }
-          const current = next[target] || [];
-          next[target] = current.includes(resolvedUserId)
-            ? current
-            : [...current, resolvedUserId].slice(-ASSIGN_CAP);
-          return next;
-        });
-        logActivity("assign", target, resolvedUserId ? `approved assignment to ${resolvedUserId}` : "approved unassign");
-      return true;
-    }
-    if (proposal.kind === "edit") {
-        if (proposal.requestedAction === "rename task" && value) {
-          markLocalWrite("stageNameOverrides");
-          setStageNameOverrides(prev => ({ ...prev, [target]: value }));
-        } else if (proposal.requestedAction === "edit task description") {
-          markLocalWrite("stageDescOverrides");
-          setStageDescOverrides(prev => ({ ...prev, [target]: value || "" }));
-        } else if (proposal.requestedAction === "set due date") {
-          markLocalWrite("stageDueDates");
-          setStageDueDates(prev => {
-            const next = { ...prev };
-            if (!value) delete next[target]; else next[target] = value;
-            return next;
-          });
-        } else if (proposal.requestedAction === "rename subtask" && value) {
-          const parsed = SubtaskKey.parse(target as Parameters<typeof SubtaskKey.parse>[0]);
-          if (parsed) {
-            markLocalWrite("subtasks");
-            setSubtasks(prev => ({
-              ...prev,
-              [parsed.parentStageId]: (prev[parsed.parentStageId] || []).map(s => s.id === parsed.subtaskId ? { ...s, text: value } : s),
-            }));
-          }
-        } else if (proposal.requestedAction === "edit subtask description") {
-          markLocalWrite("subtaskDescOverrides");
-          setSubtaskDescOverrides(prev => ({ ...prev, [target]: value || "" }));
-        } else if (proposal.requestedAction === "set subtask due date") {
-          markLocalWrite("subtaskDueDates");
-          setSubtaskDueDates(prev => {
-            const next = { ...prev };
-            if (!value) delete next[target]; else next[target] = value;
-            return next;
-          });
-        }
-        logActivity("edit", target, `approved ${proposal.requestedAction || "edit request"}`);
-      return true;
-    }
-    return true;
-  };
-
-  const updateExecProposalStatus = (id: number, status: "reviewed" | "rejected" | "canceled") => {
-    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
-      showToast("// only Anna can close executive requests", t.amber);
-      return;
-    }
-    const proposal = execProposals.find(p => p.id === id);
-    if (proposal && status === "reviewed" && proposal.status === "pending" && !applyExecProposalAction(proposal)) return;
-    markLocalWrite("execProposals");
-    setExecProposals(prev => prev.map(p => p.id === id ? {
-      ...p,
-      status,
-      reviewedAt: Date.now(),
-      reviewedBy: currentUser,
-    } : p));
-  };
-
-  const applyExecProposal = (id: number) => {
-    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
-      showToast("// only Anna can apply requests", t.amber);
-      return;
-    }
-    const proposal = execProposals.find(p => p.id === id);
-    if (!proposal) return;
-    if (applyExecProposalAction(proposal)) showToast("// request action applied", t.green);
-  };
-
-  const cancelExecProposal = (id: number) => {
-    if (!currentUser) return;
-    markLocalWrite("execProposals");
-    setExecProposals(prev => prev.map(p => p.id === id && p.by === currentUser && p.status === "pending" ? {
-      ...p,
-      status: "canceled",
-      reviewedAt: Date.now(),
-      reviewedBy: currentUser,
-    } : p));
-  };
-
-  const deleteExecProposal = (id: number) => {
-    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
-      showToast("// only Anna can delete requests", t.amber);
-      return;
-    }
-    markLocalWrite("execProposals");
-    setExecProposals(prev => prev.filter(p => !(p.id === id && p.status !== "pending")));
-  };
 
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,

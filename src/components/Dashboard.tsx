@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { HEARTBEAT_INTERVAL_MS } from "@/lib/constants";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import BottomSheet from "@/components/ui/BottomSheet";
 import { signOut } from "next-auth/react";
@@ -178,7 +179,7 @@ function DashboardInner({
     // (force quit, crash, Safari ITP) still leaves a recent marker.
     const writeNow = () => { try { localStorage.setItem(lsKey, String(Date.now())); } catch { /* quota */ } };
     writeNow();
-    const interval = setInterval(writeNow, 60_000);
+    const interval = setInterval(writeNow, HEARTBEAT_INTERVAL_MS);
     const onBeforeUnload = () => writeNow();
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => {

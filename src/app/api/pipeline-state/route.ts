@@ -4,6 +4,7 @@ import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
 import { mergeStateWithPatch, type DeletesEnvelope } from "@/lib/pipelineStateMerge";
+import { PatchBodySchema } from "@/lib/patchSchema";
 import { logApi } from "@/lib/log";
 import { pipelineData, stageDefaults } from "@/lib/data";
 import { sendNotifications } from "@/lib/sendNotifications";
@@ -183,14 +184,25 @@ export async function PATCH(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _pipelineId, ...cleanPatch } = patch;
 
-  // Whitelist check — reject unknown keys and keys containing . $ __proto__ etc.
+  // Zod structural validation — catches wrong types, enum violations, length
+  // overflows, and unknown top-level keys before any DB work.
+  const zodResult = PatchBodySchema.safeParse(cleanPatch);
+  if (!zodResult.success) {
+    const reason = zodResult.error.issues.map(e => `${e.path.map(String).join(".")}: ${e.message}`).join("; ");
+    logApi(ROUTE, "zod_validation_failed", { reason });
+    return NextResponse.json({ error: "INVALID_PATCH", reason }, { status: 400 });
+  }
+
+  // Whitelist + forbidden-character check (defence-in-depth — Zod .strict() already
+  // rejects unknown keys, but keep the manual check for belt-and-suspenders safety
+  // since Zod doesn't block $ / . inside map key names).
   const keyErr = validatePatchKeys(cleanPatch);
   if (keyErr) {
     logApi(ROUTE, "key_injection_blocked", { reason: keyErr });
     return NextResponse.json({ error: keyErr }, { status: 400 });
   }
 
-  // Recursive nested-key validation — runs before DB connection to avoid wasted round-trip
+  // Recursive nested-key validation — blocks $ / . in map keys at any depth.
   if (!validateNestedKeys(cleanPatch)) {
     logApi(ROUTE, "key_injection_blocked", { reason: "nested key contains forbidden characters" });
     return NextResponse.json({ error: "INVALID_KEY" }, { status: 400 });

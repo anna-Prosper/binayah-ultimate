@@ -7,11 +7,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "jest --no-coverage",
+    "test:coverage": "jest --coverage",
     "test:behavioral": "playwright test --config=playwright.config.ts",
     "test:behavioral:local": "BASE_URL=http://localhost:3000 playwright test --config=playwright.config.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
+    "@sentry/nextjs": "^10.51.0",
     "@tailwindcss/postcss": "^4",
     "@tiptap/pm": "^2.27.2",
     "@tiptap/react": "^2.27.2",
@@ -32,12 +35,17 @@
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.59.1",
+    "@types/jest": "^30.0.0",
     "@types/jspdf": "^1.3.3",
     "eslint": "^9",
-    "eslint-config-next": "16.2.3"
+    "eslint-config-next": "16.2.3",
+    "jest": "^30.3.0",
+    "ts-jest": "^29.4.9",
+    "ts-node": "^10.9.2"
   }
 }

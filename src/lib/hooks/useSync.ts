@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
 import { fetchState, patchState, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { SYNC_POLL_INTERVAL_MS, SYNC_WRITE_DEBOUNCE_MS } from "@/lib/constants";
 
 export type SyncStatus = "hydrating" | "live" | "offline" | "error";
 
@@ -11,7 +12,7 @@ interface UseSyncOptions {
   intervalMs?: number;                      // default 5000
 }
 
-export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = 5000 }: UseSyncOptions) {
+export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_POLL_INTERVAL_MS }: UseSyncOptions) {
   const [status, setStatus] = useState<SyncStatus>("hydrating");
   const isInitializedRef = useRef(false);
 
@@ -105,7 +106,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = 5000 }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void doWrite();
-    }, 1500);
+    }, SYNC_WRITE_DEBOUNCE_MS);
   }, [doWrite]);
 
   const setOffline = useCallback(() => setStatus("offline"), []);
