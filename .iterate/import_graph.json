@@ -374,7 +374,8 @@
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
       "src/lib/constants.ts",
-      "src/lib/notificationKinds.ts"
+      "src/lib/notificationKinds.ts",
+      "src/components/ActivityFeed.tsx"
     ],
     "src/components/views/PipelinesViewPage.tsx": [
       "src/hooks/useIsMobile.ts",
@@ -2170,6 +2171,9 @@
       "src/components/mockups/ContentMockups.tsx",
       "src/components/mockups/WebToolsMockups.tsx"
     ],
+    "src/components/ActivityFeed.tsx": [
+      "src/components/views/ActivityView.tsx"
+    ],
     "src/components/views/PipelinesView.tsx": [
       "src/components/views/PipelinesViewPage.tsx",
       "src/app/(app)/page.tsx",
@@ -2499,6 +2503,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-07T13:40:16.045428+00:00",
+  "builtAt": "2026-05-07T13:41:22.517313+00:00",
   "fileCount": 340
 }
