@@ -97,6 +97,12 @@ export type SharedState = {
   commentReactions?: Record<string, Record<string, string[]>>;
   // stagePointsOverride: user-set point overrides per stage name
   stagePointsOverride?: Record<string, number>;
+  // notifReads: userId → ms-since-epoch timestamp of "mark all updates read".
+  // Items in the updates feed with time > timestamp count as unread for that user.
+  notifReads?: Record<string, number>;
+  // notifDismissed: userId → list of notif item ids the user has explicitly dismissed.
+  // Dismissals never expire — they keep an item out of the feed permanently.
+  notifDismissed?: Record<string, string[]>;
   updatedAt?: number;
 };
 

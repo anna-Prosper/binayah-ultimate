@@ -75,6 +75,11 @@ export const PatchBodySchema = z.object({
   reactions: z.record(z.string(), z.record(z.string(), z.array(z.string()))).optional(),
   commentReactions: StringMap.optional(),
 
+  // Per-user notification state. notifReads is userId → last-read ms timestamp;
+  // notifDismissed is userId → array of explicitly dismissed item ids.
+  notifReads: z.record(z.string(), z.number()).optional(),
+  notifDismissed: z.record(z.string(), z.array(z.string())).optional(),
+
   // Arrays of objects with stable ids
   reminders: z.array(z.object({
     id: z.number().int(),

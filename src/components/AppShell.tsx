@@ -9,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { EphemeralProvider, useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { ModelProvider, useModel } from "@/lib/contexts/ModelContext";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 import { AppShellProvider, type AppShellContextValue } from "@/lib/contexts/AppShellContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
@@ -336,7 +337,13 @@ function ShellInner({
   const currentWorkspace = myWorkspaces.find(w => w.id === currentWorkspaceId) || null;
   // const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);  // moved to PipelinesView page
   const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipelines.flatMap(p => p.stages), ...Object.values(customStages).flat()];
-  const unseen = activityLog.length - lastSeenActivity;
+  // Bell badge now reflects the role-aware notifications panel: count of
+  // action-required items + count of unread updates. The legacy `unseen`
+  // (raw activityLog length minus lastSeenActivity) drove a number that
+  // didn't match what the panel showed — see useNotifications for the
+  // authoritative tally.
+  const { totalAttentionCount } = useNotifications();
+  const unseen = totalAttentionCount;
 
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
 

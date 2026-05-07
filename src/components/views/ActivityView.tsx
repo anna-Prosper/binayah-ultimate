@@ -1,53 +1,17 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
+import Link from "next/link";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { useNotifications } from "@/lib/hooks/useNotifications";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
-import { lsGet, lsSet } from "@/lib/storage";
-import dynamic from "next/dynamic";
-import { ADMIN_IDS, type ActivityItem, type UserType } from "@/lib/data";
-import { SubtaskKey } from "@/lib/subtaskKey";
+import type { NotificationItem, NotificationKind } from "@/lib/notificationKinds";
 
-const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: false });
-
-type CenterTab = "important" | "reminders" | "mentions" | "requests" | "due" | "approvals" | "assignments" | "bugs" | "activity";
-
-// Local-only timestamp (ms) marking the last time the user opened the
-// "important" tab. Items with `time > lastSeenImportantAt` are considered new.
-const LAST_SEEN_IMPORTANT_KEY = "lastSeenImportantAt";
-type InAppPrefs = {
-  inAppNotifications: boolean;
-  inAppMention: boolean;
-  inAppApproved: boolean;
-  inAppAssigned: boolean;
-  inAppReminder: boolean;
-  inAppRequest: boolean;
-  inAppDue: boolean;
-  inAppBug: boolean;
-  inAppOther: boolean;
-};
-const DEFAULT_IN_APP_PREFS: InAppPrefs = {
-  inAppNotifications: true,
-  inAppMention: true,
-  inAppApproved: true,
-  inAppAssigned: true,
-  inAppReminder: true,
-  inAppRequest: true,
-  inAppDue: true,
-  inAppBug: true,
-  inAppOther: true,
-};
-type CenterItem = {
-  id: string;
-  title: string;
-  meta: string;
-  body: string;
-  tone: "accent" | "green" | "amber" | "red" | "cyan";
-  time: number;
-};
+type Filter = "all" | "unread" | "mentions" | "approvals" | "bugs";
 
 function timeLabel(timestamp: number) {
+  if (!timestamp) return "";
   const diff = Date.now() - timestamp;
   if (diff < 60_000) return "just now";
   if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
@@ -55,303 +19,260 @@ function timeLabel(timestamp: number) {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
-function toneColor(t: ReturnType<typeof useModel>["t"], tone: CenterItem["tone"]) {
-  if (tone === "green") return t.green;
-  if (tone === "amber") return t.amber;
-  if (tone === "red") return t.red;
-  if (tone === "cyan") return t.cyan || t.accent;
+function priorityColor(t: ReturnType<typeof useModel>["t"], priority?: NotificationItem["priority"]) {
+  if (priority === "high") return t.red;
+  if (priority === "medium") return t.amber;
   return t.accent;
 }
 
-function userName(users: UserType[], id: string) {
-  return users.find(u => u.id === id)?.name || id;
+const MENTION_KINDS: NotificationKind[] = ["mention"];
+const APPROVAL_KINDS: NotificationKind[] = ["approval", "exec-pending", "approval-given", "exec-update"];
+const BUG_KINDS: NotificationKind[] = ["bug"];
+
+function matchesFilter(item: NotificationItem, filter: Filter, lastReadAt: number): boolean {
+  if (filter === "all") return true;
+  if (filter === "unread") {
+    // Action-required items always count as "needs attention"; updates only if unread.
+    return item.actionRequired || item.time > lastReadAt;
+  }
+  if (filter === "mentions") return MENTION_KINDS.includes(item.kind);
+  if (filter === "approvals") return APPROVAL_KINDS.includes(item.kind);
+  if (filter === "bugs") return BUG_KINDS.includes(item.kind);
+  return true;
 }
 
-function CenterList({ items, empty, t }: { items: CenterItem[]; empty: string; t: ReturnType<typeof useModel>["t"] }) {
-  if (items.length === 0) {
-    return (
-      <div style={{ border: `1px dashed ${t.border}`, borderRadius: 10, padding: "28px 12px", color: t.textDim, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>
-        {empty}
-      </div>
-    );
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      {items.map(item => {
-        const color = toneColor(t, item.tone);
-        return (
-          <div key={item.id} style={{ border: `1px solid ${color}33`, background: color + "0a", borderRadius: 10, padding: "9px 10px", display: "grid", gridTemplateColumns: "1fr auto", gap: 8 }}>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 850, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-              <div style={{ marginTop: 2, fontSize: 11, color, fontFamily: "var(--font-dm-mono), monospace", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.meta}</div>
-              {item.body && <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.4 }}>{item.body}</div>}
-            </div>
-            <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}>{timeLabel(item.time)}</div>
+function ItemRow({
+  item, t, isRead, onDismiss,
+}: {
+  item: NotificationItem;
+  t: ReturnType<typeof useModel>["t"];
+  isRead: boolean;
+  onDismiss?: (id: string) => void;
+}) {
+  const color = priorityColor(t, item.priority);
+  const dim = isRead && !item.actionRequired;
+  const inner = (
+    <div
+      style={{
+        position: "relative",
+        display: "grid",
+        gridTemplateColumns: "auto 1fr auto auto",
+        alignItems: "start",
+        gap: 10,
+        border: `1px solid ${color}33`,
+        background: color + "0a",
+        borderRadius: 10,
+        padding: "10px 12px",
+        opacity: dim ? 0.55 : 1,
+        textDecoration: "none",
+        color: "inherit",
+        cursor: item.href ? "pointer" : "default",
+        transition: "background 0.15s",
+      }}
+      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = color + "14"; }}
+      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color + "0a"; }}
+    >
+      {/* Unread dot for updates only — action-required items don't have read state. */}
+      <div
+        aria-hidden
+        style={{
+          width: 6, height: 6, borderRadius: "50%",
+          marginTop: 7,
+          background: !item.actionRequired && !isRead ? color : "transparent",
+        }}
+      />
+      <div style={{ minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          {item.title}
+        </div>
+        {item.body && (
+          <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            {item.body}
           </div>
-        );
-      })}
+        )}
+      </div>
+      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", paddingTop: 3 }}>
+        {item.actionRequired ? "" : timeLabel(item.time)}
+      </div>
+      {onDismiss ? (
+        <button
+          type="button"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); onDismiss(item.id); }}
+          aria-label="dismiss"
+          title="dismiss"
+          style={{
+            background: "transparent",
+            border: `1px solid ${t.border}`,
+            borderRadius: 6,
+            color: t.textDim,
+            cursor: "pointer",
+            padding: "2px 6px",
+            fontSize: 11,
+            lineHeight: 1,
+          }}
+        >
+          ×
+        </button>
+      ) : <div />}
+    </div>
+  );
+  if (item.href) {
+    return <Link href={item.href} style={{ textDecoration: "none", color: "inherit", display: "block" }}>{inner}</Link>;
+  }
+  return inner;
+}
+
+function SectionHeader({ label, count, t }: { label: string; count: number; t: ReturnType<typeof useModel>["t"] }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "14px 2px 8px" }}>
+      <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
+        — {label}
+      </div>
+      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+        {count}
+      </div>
     </div>
   );
 }
 
-export default function ActivityView({ showToast, currentWorkspaceId }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
-  const {
-    activityLog, reminders, execProposals, comments, chatMessages, users, currentUser, t,
-    allPipelinesGlobal, customStages, subtasks, owners, stageDueDates, subtaskDueDates, workspaces,
-    approvedStages, approvedSubtasks, bugs, getStatus,
-  } = useModel();
-  const [activeTab, setActiveTab] = useState<CenterTab>("important");
-  const [lastSeenImportant, setLastSeenImportant] = useState<number>(() => lsGet<number>(LAST_SEEN_IMPORTANT_KEY, 0));
-  const [prefs, setPrefs] = useState<InAppPrefs>(DEFAULT_IN_APP_PREFS);
-  const [now] = useState(() => Date.now());
+export default function ActivityView({ showToast }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
+  const { t, currentUser, notifReads, markAllNotifsRead, dismissNotif } = useModel();
+  const { actionRequired, updates, unreadUpdatesCount } = useNotifications();
+  const [filter, setFilter] = useState<Filter>("all");
   const mono = "var(--font-dm-mono), monospace";
   const me = currentUser || "";
-  const isAdmin = ADMIN_IDS.includes(me);
+  const lastReadAt = notifReads?.[me] || 0;
 
-  useEffect(() => {
-    fetch("/api/auth/prefs")
-      .then(r => r.ok ? r.json() : null)
-      .then((data: Partial<InAppPrefs> | null) => {
-        if (data) setPrefs({ ...DEFAULT_IN_APP_PREFS, ...data });
-      })
-      .catch(() => {});
-  }, []);
+  // Per-filter counts derived from the FULL lists, not the currently filtered list,
+  // so the chip count is stable regardless of which filter is active.
+  const counts = useMemo(() => {
+    const all = actionRequired.length + updates.length;
+    const unread = actionRequired.length + unreadUpdatesCount;
+    const inKind = (kinds: NotificationKind[]) =>
+      actionRequired.filter(n => kinds.includes(n.kind)).length +
+      updates.filter(n => kinds.includes(n.kind)).length;
+    return {
+      all,
+      unread,
+      mentions: inKind(MENTION_KINDS),
+      approvals: inKind(APPROVAL_KINDS),
+      bugs: inKind(BUG_KINDS),
+    };
+  }, [actionRequired, updates, unreadUpdatesCount]);
 
-  const allow = useCallback((key: keyof InAppPrefs) => prefs.inAppNotifications !== false && prefs[key] !== false, [prefs]);
+  const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, lastReadAt));
+  const visibleUp = updates.filter(n => matchesFilter(n, filter, lastReadAt));
 
-  const dueReminderLog: ActivityItem[] = reminders
-    .filter(() => allow("inAppReminder"))
-    .filter(r => me && r.recipientIds.includes(me) && Date.parse(r.remindAt) <= now && !(r.dismissedBy || []).includes(me))
-    .map(r => ({ type: "reminder", user: r.createdBy, target: r.title, detail: r.body, time: Date.parse(r.remindAt), notifyTo: r.recipientIds }));
-  const sevenDaysAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const filteredLog = currentWorkspaceId
-    ? [...dueReminderLog, ...activityLog].filter(entry => (!entry.workspaceId || entry.workspaceId === currentWorkspaceId) && entry.time >= sevenDaysAgo)
-    : [...dueReminderLog, ...activityLog].filter(entry => entry.time >= sevenDaysAgo);
-
-  const center = useMemo(() => {
-    const visiblePipelineIds = currentWorkspaceId
-      ? new Set(workspaces.find(w => w.id === currentWorkspaceId)?.pipelineIds || [])
-      : new Set(allPipelinesGlobal.map(p => p.id));
-    if (visiblePipelineIds.size === 0) allPipelinesGlobal.forEach(p => visiblePipelineIds.add(p.id));
-
-    const stageToPipeline = new Map<string, string>();
-    const pipelineName = new Map<string, string>();
-    allPipelinesGlobal.forEach(p => {
-      pipelineName.set(p.id, p.name);
-      [...p.stages, ...(customStages[p.id] || [])].forEach(stage => stageToPipeline.set(stage, p.id));
-    });
-
-    const taskItems = [...stageToPipeline.entries()]
-      .filter(([, pid]) => visiblePipelineIds.has(pid))
-      .map(([stage, pid]) => ({
-        key: stage,
-        title: stage,
-        pipeline: pipelineName.get(pid) || pid,
-        owners: owners[stage] || [],
-        due: stageDueDates[stage],
-        approved: approvedStages.includes(stage),
-        status: getStatus(stage),
-        kind: "task" as const,
-      }));
-
-    const subtaskItems = Object.entries(subtasks).flatMap(([parent, list]) => {
-      const pid = stageToPipeline.get(parent);
-      if (pid && !visiblePipelineIds.has(pid)) return [];
-      return list.map(sub => {
-        const key = SubtaskKey.make(parent, sub.id);
-        return {
-          key,
-          title: sub.text,
-          pipeline: pipelineName.get(pid || "") || parent,
-          owners: owners[key] || [],
-          due: subtaskDueDates[key],
-          approved: approvedSubtasks.includes(key),
-          status: sub.done ? "done" : "planned",
-          kind: "subtask" as const,
-        };
-      });
-    });
-    const workItems = [...taskItems, ...subtaskItems];
-
-    const dueItems: CenterItem[] = allow("inAppDue") ? workItems
-      .filter(item => item.due)
-      .map(item => {
-        const dueTime = Date.parse(`${item.due}T23:59:59`);
-        return { item, dueTime };
-      })
-      .filter(({ dueTime }) => Number.isFinite(dueTime) && dueTime <= now + 3 * 24 * 60 * 60 * 1000)
-      .sort((a, b) => a.dueTime - b.dueTime)
-      .slice(0, 20)
-      .map(({ item, dueTime }) => ({
-        id: `due-${item.key}`,
-        title: item.title,
-        meta: dueTime < now ? `expired · ${item.pipeline}` : `due ${item.due} · ${item.pipeline}`,
-        body: item.owners.length ? `assigned to ${item.owners.map(id => userName(users, id)).join(", ")}` : "unassigned",
-        tone: dueTime < now ? "red" : "amber",
-        time: dueTime,
-      })) : [];
-
-    const approvalItems: CenterItem[] = allow("inAppApproved") ? workItems
-      .filter(item => !item.approved && (item.status === "active" || item.status === "done"))
-      .slice(0, 20)
-      .map(item => ({
-        id: `approval-${item.key}`,
-        title: item.title,
-        meta: `needs approval · ${item.pipeline}`,
-        body: item.owners.length ? `owners: ${item.owners.map(id => userName(users, id)).join(", ")}` : "no owner",
-        tone: "green",
-        time: now,
-      })) : [];
-
-    const assignmentItems: CenterItem[] = allow("inAppAssigned") ? workItems
-      .filter(item => item.owners.includes(me) || (isAdmin && item.owners.length === 0))
-      .slice(0, 30)
-      .map(item => ({
-        id: `assignment-${item.key}`,
-        title: item.title,
-        meta: item.owners.includes(me) ? `assigned to you · ${item.pipeline}` : `unassigned · ${item.pipeline}`,
-        body: item.status,
-        tone: item.owners.includes(me) ? "cyan" : "amber",
-        time: now,
-      })) : [];
-
-    const mentionNeedles = users
-      .filter(u => u.id === me)
-      .flatMap(u => [`@${u.id.toLowerCase()}`, `@${u.name.split(" ")[0].toLowerCase()}`]);
-    const mentionItems: CenterItem[] = allow("inAppMention") ? [
-      ...Object.entries(comments).flatMap(([target, list]) => list.map(c => ({ target, text: c.text, by: c.by, time: Date.parse(c.time || String(c.id)) || c.id }))),
-      ...chatMessages.map(m => ({ target: "team chat", text: m.text, by: m.userId, time: m.id })),
-    ]
-      .filter(item => mentionNeedles.some(n => item.text.toLowerCase().includes(n)))
-      .sort((a, b) => b.time - a.time)
-      .slice(0, 20)
-      .map(item => ({
-        id: `mention-${item.target}-${item.time}`,
-        title: `${userName(users, item.by)} mentioned you`,
-        meta: item.target,
-        body: item.text,
-        tone: "accent",
-        time: item.time,
-      })) : [];
-
-    const requestItems: CenterItem[] = allow("inAppRequest") ? execProposals
-      .filter(p => isAdmin || p.by === me)
-      .slice(0, 25)
-      .map(p => ({
-        id: `request-${p.id}`,
-        title: p.title,
-        meta: `${p.status === "reviewed" ? "approved" : p.status} · ${p.kind || "request"}`,
-        body: p.body,
-        tone: p.status === "pending" ? "amber" : p.status === "rejected" ? "red" : "green",
-        time: p.createdAt,
-      })) : [];
-
-    const reminderItems: CenterItem[] = allow("inAppReminder") ? reminders
-      .filter(r => r.recipientIds.includes(me) && !(r.dismissedBy || []).includes(me))
-      .sort((a, b) => Date.parse(a.remindAt) - Date.parse(b.remindAt))
-      .slice(0, 25)
-      .map(r => {
-        const due = Date.parse(r.remindAt);
-        return {
-          id: `reminder-${r.id}`,
-          title: r.title,
-          meta: due <= now ? "due now" : `scheduled ${new Date(r.remindAt).toLocaleString()}`,
-          body: r.body || `from ${userName(users, r.createdBy)}`,
-          tone: due <= now ? "amber" : "cyan",
-          time: due,
-        };
-      }) : [];
-
-    const bugItems: CenterItem[] = allow("inAppBug") ? bugs
-      .filter(item => !currentWorkspaceId || !item.workspaceId || item.workspaceId === currentWorkspaceId)
-      .filter(item => item.status !== "closed" && (isAdmin || item.ownerId === me || item.createdBy === me))
-      .sort((a, b) => b.updatedAt - a.updatedAt)
-      .slice(0, 20)
-      .map(item => ({
-        id: `bug-${item.id}`,
-        title: item.title,
-        meta: `${item.type} · ${item.severity} · ${item.status}`,
-        body: item.ownerId ? `owner: ${userName(users, item.ownerId)}` : "unassigned",
-        tone: item.severity === "critical" || item.severity === "high" ? "red" : "amber",
-        time: item.updatedAt,
-      })) : [];
-
-    // "important" = full set of high-urgency items that need attention right now.
-    // These are ongoing STATES (approvals pending, unassigned tasks, due dates,
-    // critical bugs) — they persist until resolved, so filtering by "seen at"
-    // would hide things that still need action. Always show the full list.
-    // The badge count on the tab shows how many are NEW since lastSeenImportant.
-    const important = [
-      ...reminderItems.filter(i => i.time <= now),
-      ...mentionItems,
-      ...requestItems.filter(i => i.meta.startsWith("pending")),
-      ...dueItems,
-      ...approvalItems,
-      ...assignmentItems.filter(i => i.meta.startsWith("unassigned")),
-      ...bugItems.filter(i => i.meta.includes("critical") || i.meta.includes("high")),
-    ].sort((a, b) => b.time - a.time);
-
-    // New-since-last-visit count drives the badge only.
-    const importantNewCount = important.filter(i => i.time > lastSeenImportant).length;
-
-    return { important, importantNewCount, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
-  }, [allPipelinesGlobal, allow, approvedStages, approvedSubtasks, bugs, chatMessages, comments, currentWorkspaceId, customStages, execProposals, getStatus, isAdmin, lastSeenImportant, me, now, owners, reminders, stageDueDates, subtaskDueDates, subtasks, users, workspaces]);
-
-  const tabs: Array<{ id: CenterTab; label: string; count: number }> = [
-    { id: "important", label: "important", count: center.importantNewCount },
-    { id: "reminders", label: "reminders", count: center.reminders.length },
-    { id: "mentions", label: "mentions", count: center.mentions.length },
-    { id: "requests", label: "requests", count: center.requests.length },
-    { id: "due", label: "due dates", count: center.due.length },
-    { id: "approvals", label: "approvals", count: center.approvals.length },
-    { id: "assignments", label: "assignments", count: center.assignments.length },
-    { id: "bugs", label: "bugs/tests", count: center.bugs.length },
-    { id: "activity", label: "activity", count: filteredLog.length },
+  const filterChips: Array<{ id: Filter; label: string; count: number }> = [
+    { id: "all", label: "all", count: counts.all },
+    { id: "unread", label: "unread", count: counts.unread },
+    { id: "mentions", label: "mentions", count: counts.mentions },
+    { id: "approvals", label: "approvals", count: counts.approvals },
+    { id: "bugs", label: "bugs", count: counts.bugs },
   ];
 
-  const tabItems = activeTab === "activity" ? [] : center[activeTab];
-
-  // Mark "now" as lastSeen when the user LEAVES the important tab (or on unmount).
-  // This way: badge shows new count while they're reading, clears after they navigate away.
-  // We do NOT clear on open — that would hide all items immediately.
-  useEffect(() => {
-    if (activeTab === "important") return;
-    // User just switched away — stamp it so next visit badge shows only newer items.
-    const stamp = Date.now();
-    lsSet(LAST_SEEN_IMPORTANT_KEY, stamp);
-    setLastSeenImportant(stamp);
-  }, [activeTab]);
-
-  // Also stamp on unmount (panel closed while on important tab).
-  useEffect(() => {
-    return () => {
-      const stamp = Date.now();
-      lsSet(LAST_SEEN_IMPORTANT_KEY, stamp);
-    };
-  }, []);
-
   return (
-    <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
+    <ErrorBoundary onError={() => showToast("// failed to load notifications — refresh to retry", t.red)}>
       <Suspense fallback={<ActivitySkeleton t={t} />}>
-        <div style={{ marginTop: 16, padding: 12 }}>
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>notification center</div>
-            <div style={{ marginTop: 3, fontSize: 18, color: t.text, fontWeight: 900 }}>signals, reminders, requests, and activity</div>
+        <div style={{ marginTop: 16, padding: 12, maxWidth: 720 }}>
+          {/* Header */}
+          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+            <div>
+              <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
+                notifications
+              </div>
+              <div style={{ marginTop: 3, fontSize: 18, color: t.text, fontWeight: 900 }}>
+                signals, requests, mentions
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => markAllNotifsRead()}
+              disabled={unreadUpdatesCount === 0}
+              style={{
+                background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8,
+                padding: "6px 10px", cursor: unreadUpdatesCount ? "pointer" : "default",
+                opacity: unreadUpdatesCount ? 1 : 0.45,
+                color: t.textMuted, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                whiteSpace: "nowrap",
+              }}
+              title="mark all updates as read"
+            >
+              ✓ all read
+            </button>
           </div>
-          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
-            {tabs.map(tab => {
-              const active = activeTab === tab.id;
+
+          {/* Filter chips */}
+          <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 4 }}>
+            {filterChips.map(chip => {
+              const active = filter === chip.id;
               return (
-                <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)} style={{ background: active ? t.accent + "18" : t.bgCard, border: `1px solid ${active ? t.accent + "66" : t.border}`, color: active ? t.accent : t.textMuted, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>
-                  {tab.label}{tab.count > 0 ? ` · ${tab.count}` : ""}
+                <button
+                  key={chip.id}
+                  type="button"
+                  onClick={() => setFilter(chip.id)}
+                  style={{
+                    background: active ? t.accent + "18" : t.bgCard,
+                    border: `1px solid ${active ? t.accent + "66" : t.border}`,
+                    color: active ? t.accent : t.textMuted,
+                    borderRadius: 8, padding: "5px 9px", fontSize: 10,
+                    fontFamily: mono, fontWeight: 800, cursor: "pointer",
+                  }}
+                >
+                  {chip.label}{chip.count > 0 ? ` · ${chip.count}` : ""}
                 </button>
               );
             })}
+            <Link
+              href="/activity/log"
+              style={{
+                background: t.bgCard, border: `1px solid ${t.border}`,
+                color: t.textMuted, borderRadius: 8, padding: "5px 9px",
+                fontSize: 10, fontFamily: mono, fontWeight: 800,
+                textDecoration: "none",
+              }}
+            >
+              activity log →
+            </Link>
           </div>
-          {activeTab === "activity" ? (
-            <ActivityFeed activityLog={filteredLog} users={users} t={t} currentUserId={currentUser} />
-          ) : (
-            <CenterList items={tabItems} empty="// no signals in this lane" t={t} />
+
+          {/* Empty state */}
+          {visibleAr.length === 0 && visibleUp.length === 0 && (
+            <div style={{ marginTop: 24, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 12, fontFamily: mono, textAlign: "center" }}>
+              {filter === "all"
+                ? "// you're all caught up — no signals."
+                : "// nothing in this filter."}
+            </div>
+          )}
+
+          {/* Action required */}
+          {visibleAr.length > 0 && (
+            <>
+              <SectionHeader label="action required" count={visibleAr.length} t={t} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {visibleAr.map(item => (
+                  <ItemRow key={item.id} item={item} t={t} isRead={false} />
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Updates */}
+          {visibleUp.length > 0 && (
+            <>
+              <SectionHeader label="updates" count={visibleUp.length} t={t} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {visibleUp.map(item => (
+                  <ItemRow
+                    key={item.id}
+                    item={item}
+                    t={t}
+                    isRead={item.time <= lastReadAt}
+                    onDismiss={dismissNotif}
+                  />
+                ))}
+              </div>
+            </>
           )}
         </div>
       </Suspense>

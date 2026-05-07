@@ -101,6 +101,10 @@ export const PATCH_KEY_WHITELIST = new Set([
   "stagePointsOverride",
   "stagePriorities",
   "execProposals",
+  // Per-user notification read state — userId → last-read timestamp.
+  "notifReads",
+  // Per-user notification dismissals — userId → string[] of dismissed item ids.
+  "notifDismissed",
   "updatedAt",
   // Envelope for explicit per-key deletions on map slices. Shape:
   //   { _deletes: { stageStatusOverrides: ["StageA"], owners: ["StageB::1"] } }
@@ -130,6 +134,10 @@ export const MAP_SLICE_KEYS = new Set([
   "customStages",
   "subtasks",
   "reactions",
+  // Per-user maps — keys are userIds, values are scalars/arrays. Per-key merge so
+  // one user's "mark read" doesn't clobber another user's dismiss list.
+  "notifReads",
+  "notifDismissed",
 ]);
 
 /** Arrays of objects with stable numeric `id` — merged by id (upsert each item),

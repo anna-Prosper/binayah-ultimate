@@ -124,6 +124,14 @@ interface ModelContextValue {
   commentReactions: Record<string, Record<string, string[]>>;
   handleCommentReact: (stageId: string, commentId: number, emoji: string) => void;
 
+  // Per-user notification read state (server-synced, not localStorage-only).
+  // notifReads: userId → ms timestamp of "mark all updates read".
+  // notifDismissed: userId → list of dismissed notif item ids.
+  notifReads: Record<string, number>;
+  notifDismissed: Record<string, string[]>;
+  markAllNotifsRead: () => void;
+  dismissNotif: (id: string) => void;
+
   // Anti-jump pending comments (buffered when user is typing)
   pendingNewComments: Record<string, CommentItem[]>;
   flushPendingComments: (stageId: string) => void;
@@ -340,6 +348,11 @@ export function ModelProvider({
   const [commentReactions, setCommentReactions] = useState<Record<string, Record<string, string[]>>>({});
   const [stagePointsOverride, setStagePointsOverrideState] = useState<Record<string, number>>(() => lsGet("stagePointsOverride", {}));
   const [pendingNewComments, setPendingNewComments] = useState<Record<string, CommentItem[]>>({});
+  // Per-user notification state — synced via the same MAP_SLICES merge path so
+  // multi-device read tracking actually works (localStorage-only would mean a
+  // user marking notifs read on phone wouldn't dim them on desktop).
+  const [notifReads, setNotifReads] = useState<Record<string, number>>(() => lsGet("notifReads", {}));
+  const [notifDismissed, setNotifDismissed] = useState<Record<string, string[]>>(() => lsGet("notifDismissed", {}));
 
   // Streaks — server-derived, set via mergePatch from GET response
   const [streakByUser, setStreakByUser] = useState<Record<string, number>>({});
@@ -374,6 +387,7 @@ export function ModelProvider({
     "stageNameOverrides", "stagePriorities", "stagePointsOverride",
     "subtaskStages", "subtaskDescOverrides", "subtaskDueDates",
     "pipeDescOverrides", "pipeMetaOverrides", "customStages",
+    "notifReads", "notifDismissed",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
     "execProposals", "reminders", "notes", "bugs", "customPipelines",
@@ -450,6 +464,7 @@ export function ModelProvider({
       subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
       workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+      notifReads, notifDismissed,
     };
     if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
     lsFlushTimerRef.current = setTimeout(() => {
@@ -469,6 +484,7 @@ export function ModelProvider({
     subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+    notifReads, notifDismissed,
   ]);
 
   // One-time workspace migration
@@ -733,6 +749,8 @@ export function ModelProvider({
     if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
     if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
     if (s.approvedPipelines && !isProtected("approvedPipelines")) setApprovedPipelines(s.approvedPipelines as string[]);
+    if (s.notifReads && !isProtected("notifReads")) setNotifReads(s.notifReads as Record<string, number>);
+    if (s.notifDismissed && !isProtected("notifDismissed")) setNotifDismissed(s.notifDismissed as Record<string, string[]>);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     setTimeout(() => { isPollUpdateRef.current = false; }, 50);
@@ -754,6 +772,8 @@ export function ModelProvider({
       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       stagePointsOverride,
       stagePriorities,
+      notifReads,
+      notifDismissed,
     };
     // Compute _deletes by diffing current state against the last server-known
     // membership. Anything the server thinks exists but no longer exists locally
@@ -811,7 +831,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
+       stagePointsOverride, stagePriorities, notifReads, notifDismissed, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
 
   // After a successful PATCH, the server's truth now matches what we sent —
   // record those memberships as the new server-known set so we don't re-send
@@ -865,7 +885,7 @@ export function ModelProvider({
     if (isPollUpdateRef.current) return;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1693,12 +1713,36 @@ export function ModelProvider({
   });
 
 
+  // ── Notification read/dismiss handlers ───────────────────────────────────
+  // markAllNotifsRead stamps "now" against the current user — items in the
+  // updates feed with time > stamp count as unread. dismissNotif appends a
+  // single id; dismissals never expire so the user only sees an item again if
+  // its underlying state changes (action-required) or a new event arrives
+  // (updates).
+  const markAllNotifsRead = useCallback(() => {
+    if (!currentUser) return;
+    const stamp = Date.now();
+    markLocalWrite("notifReads");
+    setNotifReads(prev => ({ ...prev, [currentUser]: stamp }));
+  }, [currentUser, markLocalWrite]);
+
+  const dismissNotif = useCallback((id: string) => {
+    if (!currentUser) return;
+    markLocalWrite("notifDismissed");
+    setNotifDismissed(prev => {
+      const existing = prev[currentUser] || [];
+      if (existing.includes(id)) return prev;
+      return { ...prev, [currentUser]: [...existing, id] };
+    });
+  }, [currentUser, markLocalWrite]);
+
   const value: ModelContextValue = {
     users, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
     owners,
     claims, reactions, comments, subtasks, assignments, ownership,
     commentReactions, handleCommentReact,
+    notifReads, notifDismissed, markAllNotifsRead, dismissNotif,
     pendingNewComments, flushPendingComments,
     stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
