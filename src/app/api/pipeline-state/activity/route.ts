@@ -75,15 +75,34 @@ export async function POST(req: NextRequest) {
   await connectMongo();
   await ensureDoc();
 
-  // $slice: 200 keeps the most recent 200 entries (prepended, so slice from front)
-  await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    {
-      $push: { "state.activityLog": { $each: [entry], $position: 0, $slice: 200 } },
-      $set: { updatedAt: new Date() },
-    },
-    { new: true }
-  );
+  // CAS retry — $push the activity entry, but require updatedAt to match the
+  // value we read so a concurrent writer can't drop our entry into a doc that
+  // was rewritten between our read and write. Same pattern as the main PATCH
+  // handler in /api/pipeline-state/route.ts.
+  let casOk = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await PipelineState.findOne(WORKSPACE).lean() as
+      | { updatedAt?: Date }
+      | null;
+    const lockUpdatedAt = current?.updatedAt;
+    const writeFilter = lockUpdatedAt
+      ? { ...WORKSPACE, updatedAt: lockUpdatedAt }
+      : { ...WORKSPACE, updatedAt: { $exists: false } };
+    const result = await PipelineState.findOneAndUpdate(
+      writeFilter,
+      {
+        $push: { "state.activityLog": { $each: [entry], $position: 0, $slice: 200 } },
+        $set: { updatedAt: new Date() },
+      },
+      { new: true }
+    ).lean();
+    if (result) { casOk = true; break; }
+    await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
+  }
+  if (!casOk) {
+    logApi(ROUTE, "cas_contention_exhausted");
+    return NextResponse.json({ error: "WRITE_CONTENTION" }, { status: 409 });
+  }
 
   // Fan out to SSE subscribers for bell-relevant event types only
   const entryType = typeof entry.type === "string" ? entry.type : "";

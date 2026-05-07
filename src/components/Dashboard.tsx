@@ -20,7 +20,7 @@ import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Skull, Handshake, Eye, X } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Handshake, Eye, X } from "lucide-react";
 import CallSummaryModal from "@/components/CallSummaryModal";
 import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
@@ -138,7 +138,7 @@ function DashboardInner({
   const [chatSize, setChatSize] = useState(() => lsGet("chatSize", { width: 360, height: 420 }));
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
-  const [toast, setToast] = useState<{ text: string; pts: string; color: string } | null>(null); const [ptsFlash, setPtsFlash] = useState(false);
+  const [ptsFlash, setPtsFlash] = useState(false);
   const [showCallSummary, setShowCallSummary] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
@@ -194,7 +194,7 @@ function DashboardInner({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowPalette(prev => !prev); }
-      if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); }
+      if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); setShowChat(false); setShowActivity(false); }
       // Undo: Cmd/Ctrl+Z — don't fire when focus is in an input/textarea
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
@@ -263,10 +263,9 @@ function DashboardInner({
     if (!currentUser) { prevApprovedRef.current = [...approvedStages]; return; }
     approvedStages.forEach(stage => {
       if (!prevApprovedRef.current.includes(stage) && (claims[stage] || []).includes(currentUser)) {
-        setToast({ text: `🎉 ${stage} approved!`, pts: `+10pts earned`, color: t.green });
+        showToast(`// ${stage} approved · +10pts earned`, t.green, 3500);
         setClaimAnim({ stage, pts: 10 });
         setTimeout(() => setClaimAnim(null), 1400);
-        setTimeout(() => setToast(null), 3500);
       }
     });
     prevApprovedRef.current = [...approvedStages];
@@ -292,10 +291,10 @@ function DashboardInner({
     if (!alreadyClaimed && currentUser) {
       const meUser = users.find(u => u.id === currentUser);
       setClaimAnim({ stage: sid, pts: 10 });
-      setToast({ text: `${meUser?.name} owns ${sid}`, pts: `earn +10pts on live`, color: meUser?.color || t.accent });
-      setTimeout(() => setClaimAnim(null), 1200); setTimeout(() => setToast(null), 2500);
+      showToast(`// ${meUser?.name} owns ${sid} · +10pts on live`, meUser?.color || t.accent, 2500);
+      setTimeout(() => setClaimAnim(null), 1200);
     }
-  }, [handleClaim, claims, currentUser, users, t.accent, setClaimAnim]);
+  }, [handleClaim, claims, currentUser, users, t.accent, setClaimAnim, showToast]);
 
   // Workspace-scoped pipelines
   const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })() : allPipelinesGlobal;
@@ -442,7 +441,6 @@ function DashboardInner({
             {!isMobile && canSeeCalls && activeNavItem === "calls" && <CallsView t={t} />}
 
             {/* Toasts */}
-            {toast && <div style={{ position: "fixed", bottom: 28, left: "50%", transform: "translateX(-50%)", background: toast.color === t.green ? `linear-gradient(135deg,${t.bgCard},${t.green}18)` : t.bgCard, border: `1.5px solid ${toast.color}55`, borderRadius: 16, padding: "12px 24px", display: "flex", alignItems: "center", gap: 12, boxShadow: `0 8px 40px rgba(0,0,0,0.5)`, animation: "slideUp 0.3s ease", zIndex: 100, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" }}><span style={{ display: "inline-flex", alignItems: "center", color: toast.color }}>{toast.color === t.green ? <Zap size={18} /> : <Skull size={16} />}</span><span style={{ fontSize: 13, color: toast.color === t.green ? toast.color : t.text, fontWeight: 800 }}>{toast.text}</span><span style={{ fontSize: 13, color: t.textSec, fontWeight: 700 }}>{toast.pts}</span></div>}
             {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent }}>{chatNotif.isClaim ? <Handshake size={16} /> : chatNotif.isReaction ? <Zap size={16} /> : chatNotif.isComment ? <MessageSquare size={16} /> : <Eye size={16} />}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, padding: 0, marginLeft: 4, display: "inline-flex", alignItems: "center" }}><X size={15} /></button></div>)}
           </>
         )}

@@ -434,37 +434,42 @@ export function ModelProvider({
     return t !== undefined && Date.now() - t < LOCAL_WRITE_PROTECT_MS;
   };
 
-  // ── LocalStorage persistence ──────────────────────────────────────────────
-  useEffect(() => { lsSet("currentUser", currentUser) }, [currentUser]);
-  useEffect(() => { lsSet("users", users) }, [users]);
-  useEffect(() => { lsSet("reactions", reactions) }, [reactions]);
-  useEffect(() => { lsSet("owners", owners) }, [owners]);
-  useEffect(() => { lsSet("approvedPipelines", approvedPipelines) }, [approvedPipelines]);
-  useEffect(() => { lsSet("subtasks", subtasks) }, [subtasks]);
-  useEffect(() => { lsSet("comments", comments) }, [comments]);
-  useEffect(() => { lsSet("stageStatusOverrides", stageStatusOverrides) }, [stageStatusOverrides]);
-  useEffect(() => { lsSet("approvedStages", approvedStages) }, [approvedStages]);
-  useEffect(() => { lsSet("approvedSubtasks", approvedSubtasks) }, [approvedSubtasks]);
-  useEffect(() => { lsSet("stageImages", stageImages) }, [stageImages]);
-  useEffect(() => { lsSet("stageDescOverrides", stageDescOverrides) }, [stageDescOverrides]);
-  useEffect(() => { lsSet("stageDueDates", stageDueDates) }, [stageDueDates]);
-  useEffect(() => { lsSet("stagePriorities", stagePriorities) }, [stagePriorities]);
-  useEffect(() => { lsSet("subtaskDescOverrides", subtaskDescOverrides) }, [subtaskDescOverrides]);
-  useEffect(() => { lsSet("subtaskDueDates", subtaskDueDates) }, [subtaskDueDates]);
-  useEffect(() => { lsSet("pipeDescOverrides", pipeDescOverrides) }, [pipeDescOverrides]);
-  useEffect(() => { lsSet("pipeMetaOverrides", pipeMetaOverrides) }, [pipeMetaOverrides]);
-  useEffect(() => { lsSet("customStages", customStages) }, [customStages]);
-  useEffect(() => { lsSet("customPipelines", customPipelines) }, [customPipelines]);
-  useEffect(() => { lsSet("workspaces", workspaces) }, [workspaces]);
-  useEffect(() => { lsSet("archivedStages", archivedStages) }, [archivedStages]);
-  useEffect(() => { lsSet("archivedPipelines", archivedPipelines) }, [archivedPipelines]);
-  useEffect(() => { lsSet("archivedSubtasks", archivedSubtasks) }, [archivedSubtasks]);
-  useEffect(() => { lsSet("activityLog", activityLog) }, [activityLog]);
-  useEffect(() => { lsSet("reminders", reminders) }, [reminders]);
-  useEffect(() => { lsSet("notes", notes) }, [notes]);
-  useEffect(() => { lsSet("bugs", bugs) }, [bugs]);
-  useEffect(() => { lsSet("execProposals", execProposals) }, [execProposals]);
-  useEffect(() => { lsSet("stagePointsOverride", stagePointsOverride) }, [stagePointsOverride]);
+  // ── LocalStorage persistence (batched) ────────────────────────────────────
+  // Replaces 30+ individual useEffect+lsSet pairs. Tracks previous values via a
+  // ref; on any state change we debounce 300ms and flush ONLY the keys whose
+  // value reference actually changed since the last flush. This trims a 30-key
+  // bulk-render storm down to a single setTimeout + N writes for keys that
+  // really moved.
+  const lsPrevRef = useRef<Record<string, unknown>>({});
+  const lsFlushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    const snapshot: Record<string, unknown> = {
+      currentUser, users, reactions, owners, approvedPipelines, subtasks, comments,
+      stageStatusOverrides, approvedStages, approvedSubtasks, stageImages,
+      stageDescOverrides, stageDueDates, stagePriorities, subtaskDescOverrides,
+      subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+      workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+      activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+    };
+    if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
+    lsFlushTimerRef.current = setTimeout(() => {
+      const prev = lsPrevRef.current;
+      for (const [key, val] of Object.entries(snapshot)) {
+        if (!Object.is(prev[key], val)) {
+          lsSet(key, val);
+          prev[key] = val;
+        }
+      }
+    }, 300);
+    return () => { if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current); };
+  }, [
+    currentUser, users, reactions, owners, approvedPipelines, subtasks, comments,
+    stageStatusOverrides, approvedStages, approvedSubtasks, stageImages,
+    stageDescOverrides, stageDueDates, stagePriorities, subtaskDescOverrides,
+    subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+    workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+    activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+  ]);
 
   // One-time workspace migration
   useEffect(() => {
@@ -1242,7 +1247,10 @@ export function ModelProvider({
     if (!val || !currentUser) return;
     if (val.length > MAX_COMMENT_LEN) { showToast("// comment too long — max 1000 chars", t.red); return; }
     const commentId = Date.now();
-    const c = { id: commentId, text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) };
+    // Optimistic: mark pending=true so the UI can dim or show a spinner until
+    // the server confirms. On success we strip the flag in place; on failure
+    // we remove the comment entirely and surface a toast.
+    const c: CommentItem = { id: commentId, text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), pending: true };
     setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] }));
     clearInput();
     logActivity("comment", sid, val.slice(0, 100), mentionedUserIds(val));
@@ -1251,7 +1259,15 @@ export function ModelProvider({
         setComments(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(x => x.id !== commentId) }));
         setSyncStatus("offline");
         showToast("// comment lost — try again", t.red);
+        return;
       }
+      // Server accepted — clear pending flag in place. (A subsequent sync poll
+      // would also overwrite this slice with server data, but flipping the
+      // flag here gives an instant green-light without waiting up to 5s.)
+      setComments(prev => ({
+        ...prev,
+        [sid]: (prev[sid] || []).map(x => x.id === commentId ? { ...x, pending: false } : x),
+      }));
     });
   };
 

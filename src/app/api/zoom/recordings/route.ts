@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 import { getRecentZoomRecordings } from "@/lib/zoom";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const session = await getServerSession(authOptions);
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const result = await getRecentZoomRecordings(30);
   if (!result.ok) {
     return NextResponse.json(

@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import PipelineStateBackup from "@/lib/PipelineStateBackup";
 import { logApi } from "@/lib/log";
+
+/** Constant-time string compare. Returns false on null/length mismatch. */
+function safeStrEqual(a: string | null | undefined, b: string | null | undefined): boolean {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  try {
+    const ba = Buffer.from(a);
+    const bb = Buffer.from(b);
+    if (ba.length !== bb.length) return false;
+    return crypto.timingSafeEqual(ba, bb);
+  } catch {
+    return false;
+  }
+}
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -28,7 +42,7 @@ export async function GET(req: NextRequest) {
   const isVercelCron = req.headers.get("x-vercel-cron") !== null
     || req.headers.get("user-agent")?.toLowerCase().includes("vercel-cron");
   const adminSecret = req.headers.get("x-admin-secret");
-  if (!isVercelCron && adminSecret !== process.env.ADMIN_SECRET) {
+  if (!isVercelCron && !safeStrEqual(adminSecret, process.env.ADMIN_SECRET)) {
     return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
   }
 

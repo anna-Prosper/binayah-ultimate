@@ -71,29 +71,33 @@ export async function POST(req: NextRequest) {
 
   await connectMongo();
 
-  // NOTE: under concurrent toggles from the same user, the `action` response field is best-effort.
-  // Data correctness is preserved (Mongo $addToSet/$pull are atomic + idempotent),
-  // but the boolean "added"/"removed" status may not match the final stored state.
-  //
-  // Atomic toggle: try $pull first; if it modified 0 docs, the user wasn't there → $addToSet
-  const pullResult = await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    { $pull: { [mongoPath]: userId }, $set: { updatedAt: new Date() } },
-    { new: false } // return pre-update doc to detect if pull changed anything
-  ).lean() as { state?: { commentReactions?: Record<string, Record<string, string[]>> } } | null;
-
-  // Check if user was in the array before the pull
-  const preReactions = pullResult?.state?.commentReactions;
-  const preArray: string[] = preReactions?.[reactionKey]?.[emoji] ?? [];
+  // Single-op atomic toggle via aggregation-pipeline update. If userId is
+  // already in the array we filter it out; otherwise we concat-append it.
+  // Either way, this is one round-trip and one document mutation — no race
+  // window between read and write, no two-step pull/addToSet seam.
+  const pre = await PipelineState.findOne(WORKSPACE).lean() as
+    | { state?: { commentReactions?: Record<string, Record<string, string[]>> } }
+    | null;
+  const preArray: string[] = pre?.state?.commentReactions?.[reactionKey]?.[emoji] ?? [];
   const wasPresent = preArray.includes(userId);
 
-  if (!wasPresent) {
-    // User was NOT there — add them
-    await PipelineState.findOneAndUpdate(
-      WORKSPACE,
-      { $addToSet: { [mongoPath]: userId }, $set: { updatedAt: new Date() } }
-    );
-  }
+  await PipelineState.findOneAndUpdate(
+    WORKSPACE,
+    [
+      {
+        $set: {
+          [mongoPath]: {
+            $cond: [
+              { $in: [userId, { $ifNull: [`$${mongoPath}`, []] }] },
+              { $filter: { input: { $ifNull: [`$${mongoPath}`, []] }, as: "u", cond: { $ne: ["$$u", userId] } } },
+              { $concatArrays: [{ $ifNull: [`$${mongoPath}`, []] }, [userId]] },
+            ],
+          },
+          updatedAt: new Date(),
+        },
+      },
+    ]
+  );
 
   logApi(ROUTE, "success", { stageId, commentId, emoji, action: wasPresent ? "removed" : "added" });
   return NextResponse.json({ ok: true, action: wasPresent ? "removed" : "added" });

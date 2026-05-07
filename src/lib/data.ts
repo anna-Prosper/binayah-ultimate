@@ -344,7 +344,7 @@ pipelineData.forEach(p => {
 
 // === TYPES ===
 export interface SubtaskItem { id: number; text: string; done: boolean; by: string; locked?: boolean; points?: number; }
-export interface CommentItem { id: number; text: string; by: string; time: string; }
+export interface CommentItem { id: number; text: string; by: string; time: string; pending?: boolean; }
 export interface NoteItem {
   id: number;
   title: string;

@@ -977,7 +977,7 @@ export default function Stage({
                               const cRxs = getCommentReactions(c.id);
                               const cRxEntries = Object.entries(cRxs).filter(([, arr]) => arr.length > 0);
                               return (
-                                <div key={c.id} style={{ marginBottom: 6 }}>
+                                <div key={c.id} style={{ marginBottom: 6, opacity: c.pending ? 0.55 : 1, transition: "opacity 0.2s" }}>
                                   {isFirstUnseen && (
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0" }}>
                                       <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />

@@ -108,11 +108,32 @@ export async function GET(req: NextRequest) {
   }));
 
   if (changed) {
-    await PipelineState.findOneAndUpdate(
-      WORKSPACE,
-      { $set: { "state.reminders": nextReminders, updatedAt: new Date() } },
-      { upsert: true }
-    );
+    // CAS retry loop — read current state, merge our reminders update, write
+    // with updatedAt filter. Same pattern as the main PATCH handler in
+    // /api/pipeline-state/route.ts so concurrent writers don't lose data.
+    let casOk = false;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const current = await PipelineState.findOne(WORKSPACE).lean() as
+        | { state?: Record<string, unknown>; updatedAt?: Date }
+        | null;
+      const currentState = current?.state ?? {};
+      const lockUpdatedAt = current?.updatedAt;
+      const newUpdatedAt = new Date();
+      const writeFilter = lockUpdatedAt
+        ? { ...WORKSPACE, updatedAt: lockUpdatedAt }
+        : { ...WORKSPACE, updatedAt: { $exists: false } };
+      const result = await PipelineState.findOneAndUpdate(
+        writeFilter,
+        { $set: { state: { ...currentState, reminders: nextReminders }, updatedAt: newUpdatedAt } },
+        { new: true, upsert: !current }
+      ).lean();
+      if (result) { casOk = true; break; }
+      // CAS lost — brief jittered backoff and retry.
+      await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
+    }
+    if (!casOk) {
+      logApi(ROUTE, "cas_contention_exhausted");
+    }
   }
 
   logApi(ROUTE, "complete", { sent, failed });

@@ -161,22 +161,46 @@ export async function DELETE(req: NextRequest) {
   }
 
   await connectMongo();
-  const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: { comments?: Record<string, Array<{ id: number; by: string }>> } } | null;
   const stageKey = stage as string;
-  const comment = (doc?.state?.comments?.[stageKey] || []).find(c => c.id === commentId);
-  if (!comment) return NextResponse.json({ ok: true });
-  if (comment.by !== actorId && !ADMIN_IDS.includes(actorId)) {
-    return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
-  }
 
-  await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    {
-      $pull: { [`state.comments.${stageKey}`]: { id: commentId } },
-      $unset: { [`state.commentReactions.${stageKey}::${commentId}`]: "" },
-      $set: { updatedAt: new Date() },
+  // Read-check-write under CAS so an update that lands between our read and
+  // write (eg. another tab editing comments on the same stage) doesn't cause
+  // us to delete based on a stale ownership check, and so $pull+$unset run as
+  // one atomic findOneAndUpdate against a known-fresh updatedAt.
+  let casOk = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await PipelineState.findOne(WORKSPACE).lean() as
+      | { state?: { comments?: Record<string, Array<{ id: number; by: string }>> }; updatedAt?: Date }
+      | null;
+    const comment = (doc?.state?.comments?.[stageKey] || []).find(c => c.id === commentId);
+    if (!comment) {
+      // Already gone — nothing to do, treat as success.
+      logApi(ROUTE, "delete_noop", { stage: stageKey, commentId });
+      return NextResponse.json({ ok: true });
     }
-  );
+    if (comment.by !== actorId && !ADMIN_IDS.includes(actorId)) {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
+    const lockUpdatedAt = doc?.updatedAt;
+    const writeFilter = lockUpdatedAt
+      ? { ...WORKSPACE, updatedAt: lockUpdatedAt }
+      : { ...WORKSPACE, updatedAt: { $exists: false } };
+    const result = await PipelineState.findOneAndUpdate(
+      writeFilter,
+      {
+        $pull: { [`state.comments.${stageKey}`]: { id: commentId } },
+        $unset: { [`state.commentReactions.${stageKey}::${commentId}`]: "" },
+        $set: { updatedAt: new Date() },
+      },
+      { new: true }
+    ).lean();
+    if (result) { casOk = true; break; }
+    await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
+  }
+  if (!casOk) {
+    logApi(ROUTE, "delete_cas_exhausted", { stage: stageKey, commentId });
+    return NextResponse.json({ error: "WRITE_CONTENTION" }, { status: 409 });
+  }
 
   logApi(ROUTE, "delete_success", { stage: stageKey, commentId });
   return NextResponse.json({ ok: true });

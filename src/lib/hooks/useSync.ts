@@ -15,9 +15,30 @@ interface UseSyncOptions {
 export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_POLL_INTERVAL_MS }: UseSyncOptions) {
   const [status, setStatus] = useState<SyncStatus>("hydrating");
   const isInitializedRef = useRef(false);
+  // Hydration gate — scheduleWrite is a no-op until first fetchState resolves.
+  // Without this a fast-typing user can fire a write before the server's truth
+  // has been merged in; we'd ship a partial state envelope and clobber server
+  // keys we never read.
+  const isHydratedRef = useRef(false);
+  // Set to true if scheduleWrite fires before hydrate completes. After hydrate
+  // resolves we flush exactly one debounced write so the user's pre-hydrate
+  // change isn't lost.
+  const pendingWriteRef = useRef(false);
 
   // Track last-known server updatedAt for delta sync
   const lastUpdatedAtRef = useRef<number | undefined>(undefined);
+
+  // Adaptive polling: track current interval, idle (304) count, and a "snap" flag
+  // that lets activity/data events kick the timer back to the fast cadence. Start
+  // fast (5s); after IDLE_BEFORE_BACKOFF_TICKS consecutive 304s switch to slow
+  // (SLOW_INTERVAL_MS = 30s). Snap back on user activity or real data.
+  const FAST_INTERVAL_MS = intervalMs;
+  const SLOW_INTERVAL_MS = 30_000;
+  // 24 ticks at 5s = 120s = 2min idle threshold
+  const IDLE_BEFORE_BACKOFF_TICKS = Math.max(1, Math.floor((2 * 60_000) / FAST_INTERVAL_MS));
+  const idleTickRef = useRef(0);
+  const currentIntervalRef = useRef(FAST_INTERVAL_MS);
+  const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Initial hydrate
   useEffect(() => {
@@ -30,14 +51,20 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
         setStatus("offline");
       }
       isInitializedRef.current = true;
+      isHydratedRef.current = true;
+      // Flush any write that was queued before hydration completed.
+      if (pendingWriteRef.current) {
+        pendingWriteRef.current = false;
+        scheduleWriteRef.current?.();
+      }
     }).catch(() => setStatus("error"));
   // onPatch is stable (useCallback) — safe to include
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Poll — only after initial hydrate completes; pass since= for 304 short-circuit
+  // Poll loop — uses a self-rescheduling setInterval so we can adjust cadence.
   useEffect(() => {
-    const id = setInterval(async () => {
+    const tick = async () => {
       if (!isInitializedRef.current) return;
       try {
         const s = await fetchState(lastUpdatedAtRef.current);
@@ -46,15 +73,50 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
           onPatch(s);
           if (s.updatedAt) lastUpdatedAtRef.current = s.updatedAt;
           setStatus("live");
+          // Real data → snap back to fast cadence
+          idleTickRef.current = 0;
+          if (currentIntervalRef.current !== FAST_INTERVAL_MS) {
+            armPoll(FAST_INTERVAL_MS);
+          }
         } else if (lastUpdatedAtRef.current !== undefined) {
           // 304 — still live, just no new data
           setStatus("live");
+          idleTickRef.current += 1;
+          if (idleTickRef.current >= IDLE_BEFORE_BACKOFF_TICKS && currentIntervalRef.current !== SLOW_INTERVAL_MS) {
+            armPoll(SLOW_INTERVAL_MS);
+          }
         } else {
           setStatus("offline");
         }
       } catch { setStatus("offline"); }
-    }, intervalMs);
-    return () => clearInterval(id);
+    };
+    const armPoll = (ms: number) => {
+      if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+      currentIntervalRef.current = ms;
+      intervalIdRef.current = setInterval(tick, ms);
+    };
+    armPoll(FAST_INTERVAL_MS);
+
+    // User activity → snap back to fast cadence
+    const onActivity = () => {
+      if (currentIntervalRef.current !== FAST_INTERVAL_MS) {
+        idleTickRef.current = 0;
+        armPoll(FAST_INTERVAL_MS);
+      }
+    };
+    if (typeof document !== "undefined") {
+      document.addEventListener("mousemove", onActivity, { passive: true });
+      document.addEventListener("keydown", onActivity);
+      window.addEventListener("focus", onActivity);
+    }
+    return () => {
+      if (intervalIdRef.current) clearInterval(intervalIdRef.current);
+      if (typeof document !== "undefined") {
+        document.removeEventListener("mousemove", onActivity);
+        document.removeEventListener("keydown", onActivity);
+        window.removeEventListener("focus", onActivity);
+      }
+    };
   // onPatch + intervalMs are stable references
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intervalMs]);
@@ -67,6 +129,8 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
   const retryCountRef = useRef(0);
+  // Forward ref so the hydrate effect can call scheduleWrite without depending on it
+  const scheduleWriteRef = useRef<(() => void) | null>(null);
 
   const doWrite = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -99,15 +163,34 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
       retryCountRef.current = 0;
     } finally {
       inFlightRef.current = false;
+      // If a state change landed during the in-flight write, arm a fresh debounce
+      // so the user's latest local edits get pushed.
+      if (pendingWriteRef.current) {
+        pendingWriteRef.current = false;
+        scheduleWriteRef.current?.();
+      }
     }
   }, [getPatch, onWriteSuccess]);
 
   const scheduleWrite = useCallback(() => {
+    // Pre-hydrate: queue a flush once hydrate resolves.
+    if (!isHydratedRef.current) {
+      pendingWriteRef.current = true;
+      return;
+    }
+    // In-flight: queue a re-arm after current write completes.
+    if (inFlightRef.current) {
+      pendingWriteRef.current = true;
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       void doWrite();
     }, SYNC_WRITE_DEBOUNCE_MS);
   }, [doWrite]);
+
+  // Keep ref in sync so hydrate / doWrite can re-arm without a circular dep
+  scheduleWriteRef.current = scheduleWrite;
 
   const setOffline = useCallback(() => setStatus("offline"), []);
 

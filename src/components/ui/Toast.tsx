@@ -16,8 +16,9 @@ interface ToastContainerProps {
   onDismiss: (id: number) => void;
 }
 
-// Toast container — renders up to 3 stacked toasts, fixed bottom-center
+// Toast container — renders up to 5 stacked toasts, fixed bottom-center
 export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
+  const MAX_VISIBLE = 5;
   if (toasts.length === 0) return null;
   return (
     <>
@@ -45,7 +46,7 @@ export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
           pointerEvents: "none",
         }}
       >
-        {toasts.slice(0, 3).map((toast, i) => (
+        {toasts.slice(0, MAX_VISIBLE).map((toast, i) => (
           <div
             key={toast.id}
             style={{
@@ -112,7 +113,7 @@ export function useToasts() {
 
   const showToast = useCallback((message: string, color: string, durationMs = 3000, action?: { label: string; onClick: () => void }) => {
     const id = ++counterRef.current;
-    setToasts(prev => [...prev.slice(-2), { id, message, color, action }]); // max 3
+    setToasts(prev => [...prev.slice(-4), { id, message, color, action }]); // max 5
     const timer = setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
       timers.current.delete(id);
