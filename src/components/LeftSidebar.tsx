@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug } from "lucide-react";
 import { T } from "@/lib/themes";
 
@@ -21,11 +23,13 @@ export interface SidebarWorkspace {
 
 interface Props {
   t: T;
-  activeNav: NavItem;
-  onNavChange: (item: NavItem) => void;
-  pipelines: SidebarPipeline[];
-  activePipelineId: string | null;
-  onPipelineSelect: (id: string) => void;
+  /**
+   * Optional side-effect hook fired when a nav item is clicked.
+   * Navigation itself happens via <Link>; this is for things like
+   * "mark activity feed as seen" that should fire on click but
+   * shouldn't prevent navigation.
+   */
+  onNavClick?: (item: NavItem) => void;
   // Workspace switcher
   workspaces: SidebarWorkspace[];
   currentWorkspaceId: string | null;
@@ -35,6 +39,32 @@ interface Props {
   canManageCurrentWorkspace: boolean;
   onManageCurrentWorkspace: () => void;
   hiddenNavItems?: NavItem[];
+}
+
+// Map NavItem → URL. Single source of truth used by both the sidebar
+// (to render Links) and AppShell (to derive activeNavItem from pathname).
+export const NAV_HREFS: Record<NavItem, string> = {
+  home: "/",
+  now: "/", // legacy/unused — falls back to home
+  pipelines: "/pipelines",
+  documents: "/documents",
+  notes: "/notes",
+  bugs: "/bugs",
+  activity: "/activity",
+  chat: "/chat",
+  calls: "/calls",
+};
+
+export function navItemFromPathname(pathname: string): NavItem {
+  if (!pathname || pathname === "/" || pathname === "") return "home";
+  if (pathname.startsWith("/pipelines")) return "pipelines";
+  if (pathname.startsWith("/chat")) return "chat";
+  if (pathname.startsWith("/notes")) return "notes";
+  if (pathname.startsWith("/bugs")) return "bugs";
+  if (pathname.startsWith("/activity")) return "activity";
+  if (pathname.startsWith("/documents")) return "documents";
+  if (pathname.startsWith("/calls")) return "calls";
+  return "home";
 }
 
 // Home is rendered separately at the top
@@ -61,8 +91,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
 
 export default function LeftSidebar({
   t,
-  activeNav,
-  onNavChange,
+  onNavClick,
   workspaces,
   currentWorkspaceId,
   onWorkspaceChange,
@@ -72,6 +101,9 @@ export default function LeftSidebar({
   onManageCurrentWorkspace,
   hiddenNavItems = [],
 }: Props) {
+  const pathname = usePathname() || "/";
+  const activeNav = navItemFromPathname(pathname);
+
   const [wsOpen, setWsOpen] = useState(false);
   const wsDropdownRef = useRef<HTMLDivElement>(null);
   // Click-outside + Escape closes workspace dropdown
@@ -93,9 +125,10 @@ export default function LeftSidebar({
   const renderNavItem = (item: { id: NavItem; label: string }) => {
     const isActive = activeNav === item.id;
     return (
-      <button
+      <Link
         key={item.id}
-        onClick={() => onNavChange(item.id)}
+        href={NAV_HREFS[item.id]}
+        onClick={() => { onNavClick?.(item.id); }}
         style={{
           display: "flex",
           alignItems: "center",
@@ -115,6 +148,7 @@ export default function LeftSidebar({
           textAlign: "left",
           transition: "all 0.15s",
           borderRadius: 6,
+          textDecoration: "none",
         }}
         onMouseEnter={e => {
           if (!isActive) {
@@ -131,7 +165,7 @@ export default function LeftSidebar({
       >
         <span style={{ display: "flex", alignItems: "center" }}>{NAV_ICONS[item.id]}</span>
         <span>{item.label}</span>
-      </button>
+      </Link>
     );
   };
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, Suspense } from "react";
+import { useState, useEffect, useCallback, useRef, Suspense, useMemo } from "react";
+import { useRouter, usePathname } from "next/navigation";
 import { HEARTBEAT_INTERVAL_MS } from "@/lib/constants";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import BottomSheet from "@/components/ui/BottomSheet";
@@ -8,6 +9,7 @@ import { signOut } from "next-auth/react";
 import { lsGet, lsSet, checkSchemaVersion, clearAllLsKeys } from "@/lib/storage";
 import { EphemeralProvider, useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { ModelProvider, useModel } from "@/lib/contexts/ModelContext";
+import { AppShellProvider, type AppShellContextValue } from "@/lib/contexts/AppShellContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -17,37 +19,48 @@ import { ToastContainer, RecoveryToast, useToasts, type ToastItem } from "@/comp
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
 import dynamic from "next/dynamic";
-import LeftSidebar, { type NavItem, type SidebarPipeline } from "@/components/LeftSidebar";
+import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
 import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Handshake, Eye, X } from "lucide-react";
 import CallSummaryModal from "@/components/CallSummaryModal";
-import PipelinesView from "@/components/views/PipelinesView";
 import ArchiveView from "@/components/views/ArchiveView";
 import ActivityView from "@/components/views/ActivityView";
 import ChatView from "@/components/views/ChatView";
-import NotesView from "@/components/views/NotesView";
-import BugTrackerView from "@/components/views/BugTrackerView";
-import HomeViewRoute from "@/components/views/HomeViewRoute";
 import TeamBar from "@/components/views/TeamBar";
 import WhileAwayDigest from "@/components/WhileAwayDigest";
 const CreateWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.CreateWorkspaceModal), { ssr: false });
 const ManageWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.ManageWorkspaceModal), { ssr: false });
 const DocumentsPanel = dynamic(() => import("@/components/DocumentsPanel"), { ssr: false, loading: () => null });
-const CallsView = dynamic(() => import("@/components/views/CallsView"), { ssr: false, loading: () => null });
 import QuickAddModal from "@/components/QuickAddModal";
 
-// ── Outer wrapper ──────────────────────────────────────────────────────────────
-export default function Dashboard({ initialUserId }: { initialUserId?: string }) {
+/**
+ * AppShell — the persistent chrome around all (app)/* route pages.
+ *
+ * Replaces the legacy Dashboard.tsx single-page-app. Mounts the
+ * EphemeralProvider + ModelProvider, renders the sidebar/header/FABs/modals,
+ * and wraps {children} so each route renders its own view inside the shell.
+ *
+ * Active nav state is derived from usePathname() — no more activeNavItem
+ * useState. Navigation goes through <Link>/router.push() so browser
+ * back/forward and refresh-keeps-place all work.
+ */
+export default function AppShell({
+  initialUserId,
+  children,
+}: {
+  initialUserId?: string;
+  children: React.ReactNode;
+}) {
   return (
     <EphemeralProvider>
-      <DashboardShell initialUserId={initialUserId} />
+      <ShellWithTheme initialUserId={initialUserId}>{children}</ShellWithTheme>
     </EphemeralProvider>
   );
 }
 
-// ── DashboardShell: theme state + useToasts → ModelProvider ───────────────────
-function DashboardShell({ initialUserId }: { initialUserId?: string }) {
+// ── Theme + toasts + ModelProvider ────────────────────────────────────────────
+function ShellWithTheme({ initialUserId, children }: { initialUserId?: string; children: React.ReactNode }) {
   const [isRecovering] = useState(() => {
     if (typeof window === "undefined") return false;
     return !checkSchemaVersion();
@@ -95,22 +108,25 @@ function DashboardShell({ initialUserId }: { initialUserId?: string }) {
 
   return (
     <ModelProvider initialUserId={initialUserId} themeId={themeId} isDark={isDark} showToast={showToast} currentWorkspaceId={currentWorkspaceId}>
-      <DashboardInner
+      <ShellInner
         initialUserId={initialUserId}
         isDark={isDark} setIsDark={setIsDark}
         themeId={themeId} setThemeId={setThemeId}
         currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId}
         showToast={showToast} toasts={toasts} dismissToast={dismissToast}
-      />
+      >
+        {children}
+      </ShellInner>
     </ModelProvider>
   );
 }
 
-// ── DashboardInner: navigation state + Chrome (sidebar, header) + route switch ──
-function DashboardInner({
+// ── Chrome (sidebar, header, FABs, modals) + AppShellProvider ─────────────────
+function ShellInner({
   initialUserId, isDark, setIsDark, themeId, setThemeId,
   currentWorkspaceId, setCurrentWorkspaceId,
   showToast, toasts, dismissToast,
+  children,
 }: {
   initialUserId?: string;
   isDark: boolean; setIsDark: (v: boolean) => void;
@@ -119,40 +135,45 @@ function DashboardInner({
   showToast: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
   toasts: ToastItem[];
   dismissToast: (id: number) => void;
+  children: React.ReactNode;
 }) {
-  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, isOfficerOfWorkspace, undo, peek, stackLen, t } = useModel();
+  const router = useRouter();
+  const pathname = usePathname() || "/";
+  const activeNavItem: NavItem = navItemFromPathname(pathname);
+
+  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, undo, peek, stackLen, t } = useModel();
   const { setReactOpen, setCopied, setClaimAnim } = useEphemeral();
 
-  // Navigation — always start at "home" on each page load (per user request)
-  const [activeNavItem, setActiveNavItem] = useState<NavItem>("home");
-  const [activeSidebarPipeline, setActiveSidebarPipeline] = useState<string | null>(null);
-  const [view, setView] = useState<"list" | "kanban" | "overview">("list");
-  const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
-  const [expS, setExpS] = useState<string | null>(null);
-  const [searchQ, setSearchQ] = useState(""); const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [isHydrating, setIsHydrating] = useState(true); const [showThemePicker, setShowThemePicker] = useState(false);
-  const [selUser, setSelUser] = useState<string | null>(null); const [selAvatar, setSelAvatar] = useState<string | null>(null);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false); const [viewingUser, setViewingUser] = useState<string | null>(null);
+  // Hover/UI state — no more activeNavItem; that lives in the URL
+  const [isHydrating, setIsHydrating] = useState(true);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  const [selUser, setSelUser] = useState<string | null>(null);
+  const [selAvatar, setSelAvatar] = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [viewingUser, setViewingUser] = useState<string | null>(null);
   const viewingUserPopupRef = useRef<HTMLDivElement>(null);
-  const [showActivity, setShowActivity] = useState(false); const [showChat, setShowChat] = useState(false); const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "dm" | "ai">("ai");
+  const [showActivity, setShowActivity] = useState(false);
+  const [showChat, setShowChat] = useState(false);
+  const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "dm" | "ai">("ai");
   const [chatSize, setChatSize] = useState(() => lsGet("chatSize", { width: 360, height: 420 }));
-  const [showDocumentsMobile, setShowDocumentsMobile] = useState(false); const [showPalette, setShowPalette] = useState(false); const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
+  const [showDocumentsMobile, setShowDocumentsMobile] = useState(false);
+  const [showPalette, setShowPalette] = useState(false);
+  const [paletteDocId, setPaletteDocId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"create" | "manage" | null>(null);
   const [ptsFlash, setPtsFlash] = useState(false);
   const [showCallSummary, setShowCallSummary] = useState(false);
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
   const [digestLastSession, setDigestLastSession] = useState(0);
-  const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0)); const [showArchive, setShowArchive] = useState(false);
+  const [lastSeenActivity, setLastSeenActivity] = useState(() => lsGet("lastSeenActivity", 0));
+  const [showArchive, setShowArchive] = useState(false);
   const [showWelcome, setShowWelcome] = useState(() => { if (typeof window === "undefined" || !initialUserId) return false; return !localStorage.getItem(`binayah_welcomed_${initialUserId}`); });
-  const prevMyPtsRef = useRef(0); const prevApprovedRef = useRef<string[]>([]);
+  const prevMyPtsRef = useRef(0);
+  const prevApprovedRef = useRef<string[]>([]);
   const isMobile = useIsMobile(768);
 
-  useEffect(() => { lsSet("expanded", expanded); }, [expanded]);
-  useEffect(() => { lsSet("view", view); }, [view]);
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
-  // On first ever visit (lastSeenActivity === 0 and activityLog loaded), mark everything as seen
-  // so the badge doesn't show "200+" to a new team member logging in for the first time.
+  // On first ever visit, mark everything as seen so the badge doesn't show "200+" to a brand-new user.
   useEffect(() => {
     if (lastSeenActivity === 0 && activityLog.length > 0) setLastSeenActivity(activityLog.length);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -161,7 +182,7 @@ function DashboardInner({
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
   useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
-  // "While you were away" digest: check on mount, heartbeat while active, persist on unmount
+  // "While you were away" digest
   useEffect(() => {
     if (typeof window === "undefined" || !currentUser || activityLog.length === 0) return;
     const lsKey = `binayah_lastSession_${currentUser}`;
@@ -169,14 +190,10 @@ function DashboardInner({
     const parsed = raw ? parseInt(raw, 10) : NaN;
     const last = Number.isFinite(parsed) && parsed > 0 ? parsed : null;
     const TWELVE_HOURS = 12 * 60 * 60 * 1000;
-    // Only open digest when we have a *real* prior timestamp AND it's been >12h.
-    // First-time-on-this-device users have nothing to summarize — skip silently.
     if (last !== null && Date.now() - last > TWELVE_HOURS) {
       setDigestLastSession(last);
       setShowDigest(true);
     }
-    // Heartbeat — write current time every 60s so closing the tab unexpectedly
-    // (force quit, crash, Safari ITP) still leaves a recent marker.
     const writeNow = () => { try { localStorage.setItem(lsKey, String(Date.now())); } catch { /* quota */ } };
     writeNow();
     const interval = setInterval(writeNow, HEARTBEAT_INTERVAL_MS);
@@ -195,7 +212,6 @@ function DashboardInner({
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowPalette(prev => !prev); }
       if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); setShowChat(false); setShowActivity(false); }
-      // Undo: Cmd/Ctrl+Z — don't fire when focus is in an input/textarea
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
         if (tag !== "input" && tag !== "textarea") {
@@ -230,26 +246,6 @@ function DashboardInner({
     return () => document.removeEventListener("mousedown", handler);
   }, [viewingUser]);
 
-  // Deep-link
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const targetPipeline = params.get("pipeline"); const targetStage = params.get("stage");
-    if (!targetPipeline && !targetStage) return;
-    const all = [...pipelineData, ...customPipelines];
-    if (targetPipeline) { const found = all.find(p => p.name === targetPipeline || p.id === targetPipeline); if (found) setExpanded(prev => prev.includes(found.id) ? prev : [...prev, found.id]); }
-    if (targetStage) { setExpS(targetStage); setTimeout(() => { const el = document.getElementById(`stage-${CSS.escape(targetStage)}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 400); }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Auto-expand on search
-  useEffect(() => {
-    if (!searchQ) return;
-    const q = searchQ.toLowerCase();
-    const ids = [...pipelineData, ...customPipelines].filter(p => p.name.toLowerCase().includes(q) || p.stages.some(s => s.toLowerCase().includes(q))).map(p => p.id);
-    setExpanded(prev => [...new Set([...prev, ...ids])]);
-  }, [searchQ, customPipelines]);
-
   // Points flash
   useEffect(() => {
     if (!currentUser) return;
@@ -272,17 +268,8 @@ function DashboardInner({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approvedStages]);
 
-  // sharePipeline uses model state + ephemeral copied
-  const sharePipeline = useCallback((pid: string, pname: string, pdesc: string, priority: string, stageList: string[]) => {
-    const stageLines = stageList.map(s => `  · ${s}  [${getStatus(s).toUpperCase()}]`).join("\n");
-    const owners = [...new Set(stageList.flatMap(s => claims[s] || []))].map(uid => users.find(u => u.id === uid)?.name).filter(Boolean);
-    const lines = ["Binayah AI  //  Pipeline", "────────────────────────────────", pname, `Priority: ${priority}  ·  ${stageList.length} stages`];
-    if (pdesc) { lines.push(""); lines.push(pdesc); }
-    lines.push(""); lines.push("Stages:"); lines.push(stageLines);
-    if (owners.length) { lines.push(""); lines.push(`Owners: ${owners.join(", ")}`); }
-    navigator.clipboard?.writeText(lines.join("\n")).catch(() => {});
-    setCopied(`pipe-${pid}`); setTimeout(() => setCopied(null), 2000);
-  }, [setCopied, getStatus, claims, users]);
+  // sharePipeline (kept here in case future pages need to share — currently unused at shell level)
+  // const sharePipeline ... (lives in PipelinesView via its own props from the page)
 
   // Claim with animation
   const handleClaimWithAnim = useCallback((sid: string) => {
@@ -299,18 +286,17 @@ function DashboardInner({
   // Workspace-scoped pipelines
   const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })() : allPipelinesGlobal;
 
-  // Palette callbacks
+  // Palette callbacks — navigation now goes via router.push
   const handlePaletteOpenStage = useCallback((pipelineId: string, stageName: string) => {
-    setActiveNavItem("pipelines"); setView("list");
-    setExpanded(prev => prev.includes(pipelineId) ? prev : [...prev, pipelineId]);
-    const p = allPipelines.find(pl => pl.id === pipelineId);
-    if (p) { const stages = [...p.stages, ...(customStages[pipelineId] || [])]; const idx = stages.indexOf(stageName); if (idx >= 0) setExpS(`${pipelineId}-${idx}`); setTimeout(() => { const el = document.getElementById(`stage-${CSS.escape(stageName)}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 300); }
-  }, [allPipelines, customStages]);
+    router.push(`/pipelines?expand=${encodeURIComponent(pipelineId)}&stage=${encodeURIComponent(stageName)}`);
+    setTimeout(() => { const el = document.getElementById(`stage-${CSS.escape(stageName)}`); if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 400);
+  }, [router]);
 
   const handlePaletteOpenDocument = useCallback((docId: string) => {
-    setActiveNavItem("documents"); if (isMobile) setShowDocumentsMobile(true);
+    router.push("/documents");
+    if (isMobile) setShowDocumentsMobile(true);
     setPaletteDocId(null); requestAnimationFrame(() => setPaletteDocId(docId));
-  }, [isMobile]);
+  }, [router, isMobile]);
 
   const handlePaletteOpenPerson = useCallback((userId: string) => {
     setViewingUser(userId); setTimeout(() => { const el = document.querySelector(`[data-user-id='${userId}']`) as HTMLElement | null; if (el) el.scrollIntoView({ behavior: "smooth", block: "center" }); }, 100);
@@ -335,9 +321,10 @@ function DashboardInner({
   const canSeeCalls = !!currentUser && (isExec || !!binayahAiWorkspace?.members.includes(currentUser));
   const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
 
+  // If user lands on /calls without permission, bounce home
   useEffect(() => {
-    if (!canSeeCalls && activeNavItem === "calls") setActiveNavItem("home");
-  }, [activeNavItem, canSeeCalls]);
+    if (!canSeeCalls && activeNavItem === "calls") router.replace("/");
+  }, [activeNavItem, canSeeCalls, router]);
 
   // Auto-select first available workspace if current selection isn't one the user belongs to
   useEffect(() => {
@@ -347,11 +334,38 @@ function DashboardInner({
   }, [myWorkspaces, currentWorkspaceId, setCurrentWorkspaceId]);
 
   const currentWorkspace = myWorkspaces.find(w => w.id === currentWorkspaceId) || null;
-  const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);
+  // const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);  // moved to PipelinesView page
   const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipelines.flatMap(p => p.stages), ...Object.values(customStages).flat()];
   const unseen = activityLog.length - lastSeenActivity;
 
   const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
+
+  // Build context value for downstream pages — memoized so rendering pages
+  // don't re-render unnecessarily on every shell tick.
+  const shellContextValue: AppShellContextValue = useMemo(() => ({
+    showToast,
+    currentWorkspaceId,
+    setCurrentWorkspaceId,
+    viewingUser, setViewingUser,
+    selUser, setSelUser,
+    selAvatar, setSelAvatar,
+    setShowAvatarPicker,
+    showActivity, setShowActivity,
+    setLastSeenActivity,
+    unseen,
+    showThemePicker, setShowThemePicker,
+    themeId, setThemeId,
+    isDark, setIsDark,
+    handleClaimWithAnim,
+    paletteDocId,
+  }), [
+    showToast, currentWorkspaceId, setCurrentWorkspaceId,
+    viewingUser, selUser, selAvatar,
+    showActivity, unseen,
+    showThemePicker, themeId, isDark,
+    handleClaimWithAnim, paletteDocId,
+    setIsDark, setThemeId,
+  ]);
 
   if (isHydrating) {
     return (
@@ -365,12 +379,25 @@ function DashboardInner({
   }
   if (!me) return <div style={{ background: t.bg, minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 15, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>// session error — please sign out and back in</span></div>;
 
-  const pipelinesViewProps = { view, setView, expanded, setExpanded, expS, setExpS, searchQ, setSearchQ, statusFilter, setStatusFilter, isMobile, currentWorkspaceId, currentWorkspace, isAdmin, readOnly: false, showToast, handleClaimWithAnim, sharePipeline, onPipelineClick: (pid: string) => setActiveSidebarPipeline(pid) };
-
-  // Compose sidebar and header nodes for ChromeShell
+  // Compose sidebar — Links handle navigation; onNavClick fires side effects.
   const sidebarNode = !isMobile ? (
     <div style={{ position: "sticky", top: 0, height: "100vh", flexShrink: 0, overflowY: "auto" }}>
-      <LeftSidebar t={t} activeNav={activeNavItem} onNavChange={(item) => { setActiveNavItem(item); if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); } else if (item === "chat") { setShowChat(false); setChatNotif(null); } else { setShowActivity(false); setShowChat(false); } }} pipelines={allPipelines as SidebarPipeline[]} activePipelineId={activeSidebarPipeline} onPipelineSelect={(id) => { setActiveSidebarPipeline(id); setExpanded(prev => prev.includes(id) ? prev : [...prev, id]); setActiveNavItem("pipelines"); }} workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))} currentWorkspaceId={currentWorkspaceId} onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); setActiveSidebarPipeline(null); }} canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)} onCreateWorkspace={() => setWorkspaceModal("create")} canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)} onManageCurrentWorkspace={() => setWorkspaceModal("manage")} hiddenNavItems={canSeeCalls ? [] : ["calls"]} />
+      <LeftSidebar
+        t={t}
+        onNavClick={(item) => {
+          if (item === "activity") { setShowActivity(true); setLastSeenActivity(activityLog.length); }
+          else if (item === "chat") { setShowChat(false); setChatNotif(null); }
+          else { setShowActivity(false); setShowChat(false); }
+        }}
+        workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
+        currentWorkspaceId={currentWorkspaceId}
+        onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); }}
+        canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)}
+        onCreateWorkspace={() => setWorkspaceModal("create")}
+        canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)}
+        onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
+        hiddenNavItems={canSeeCalls ? [] : ["calls"]}
+      />
     </div>
   ) : null;
 
@@ -398,7 +425,7 @@ function DashboardInner({
             <RotateCcw size={14} strokeWidth={2} />
           </button>
           {canSeeCalls && <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} title="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>}
-          <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
+          <button onClick={e => { e.stopPropagation(); router.push("/chat"); setShowChat(false); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && activeNavItem !== "chat" && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
           {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
           <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
@@ -423,27 +450,15 @@ function DashboardInner({
         outerStyle={{ minHeight: "100vh" }}
         contentStyle={{ padding: isMobile ? "0 12px 16px" : "0 20px 24px" }}
       >
-        {activeNavItem === "chat" && !isMobile ? (
-          <div style={{ height: "calc(100vh - 88px)", display: "flex", flexDirection: "column" }}>
-            <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
-          </div>
-        ) : (
-          <>
-            {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
-            {!isMobile && activeNavItem === "documents" && (<ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><div style={{ marginTop: 16, height: "calc(100vh - 80px)" }}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></div></Suspense></ErrorBoundary>)}
-            {activeNavItem === "notes" && <NotesView t={t} currentWorkspaceId={currentWorkspaceId} />}
-            {activeNavItem === "bugs" && <BugTrackerView t={t} currentWorkspaceId={currentWorkspaceId} />}
-            {!isMobile && activeNavItem === "activity" && <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />}
-            {!isMobile && activeNavItem === "home" && me && (
-              <HomeViewRoute showToast={showToast} currentWorkspaceId={currentWorkspaceId} setCurrentWorkspaceId={setCurrentWorkspaceId} setActiveSidebarPipeline={setActiveSidebarPipeline} setActiveNavItem={setActiveNavItem} viewingUser={viewingUser} setViewingUser={setViewingUser} showActivity={showActivity} setShowActivity={setShowActivity} setLastSeenActivity={setLastSeenActivity} showThemePicker={showThemePicker} setShowThemePicker={setShowThemePicker} selUser={selUser} setSelUser={setSelUser} selAvatar={selAvatar} setSelAvatar={setSelAvatar} setShowAvatarPicker={setShowAvatarPicker} handleClaimWithAnim={handleClaimWithAnim} unseen={unseen} themeId={themeId} isDark={isDark} setThemeId={setThemeId} setIsDark={setIsDark} />
-            )}
-            {(isMobile || activeNavItem === "pipelines") && <PipelinesView {...pipelinesViewProps} />}
-            {!isMobile && canSeeCalls && activeNavItem === "calls" && <CallsView t={t} />}
+        <AppShellProvider value={shellContextValue}>
+          {children}
+        </AppShellProvider>
 
-            {/* Toasts */}
-            {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent }}>{chatNotif.isClaim ? <Handshake size={16} /> : chatNotif.isReaction ? <Zap size={16} /> : chatNotif.isComment ? <MessageSquare size={16} /> : <Eye size={16} />}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, padding: 0, marginLeft: 4, display: "inline-flex", alignItems: "center" }}><X size={15} /></button></div>)}
-          </>
-        )}
+        {/* Mobile activity bottom sheet — independent of route */}
+        {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
+
+        {/* Toasts */}
+        {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent }}>{chatNotif.isClaim ? <Handshake size={16} /> : chatNotif.isReaction ? <Zap size={16} /> : chatNotif.isComment ? <MessageSquare size={16} /> : <Eye size={16} />}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 11, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 10, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, padding: 0, marginLeft: 4, display: "inline-flex", alignItems: "center" }}><X size={15} /></button></div>)}
       </ChromeShell>
 
       {/* WORKSPACE MODALS */}
@@ -470,8 +485,7 @@ function DashboardInner({
         <span style={{ color: "#fff", display: "inline-flex", alignItems: "center" }}>{(showChat && chatDefaultTab === "ai") ? <X size={20} /> : <Bot size={22} />}</span>
       </button>
 
-      {/* Archive FAB + panel — bottom-left, away from chat FABs on the right.
-          Only operators (or root) see this. */}
+      {/* Archive FAB + panel — operators only */}
       {!isMobile && currentUser && (ADMIN_IDS.includes(currentUser) || workspaces.some(w => w.captains.includes(currentUser))) && (<button onClick={e => { e.stopPropagation(); setShowArchive(v => !v); }} title="Archive" style={{ position: "fixed", bottom: 28, left: 28, width: 44, height: 44, borderRadius: "50%", background: showArchive ? t.amber + "22" : t.bgCard, border: `2px solid ${showArchive ? t.amber : t.border}`, color: showArchive ? t.amber : t.textMuted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.15)", zIndex: 500 }}>📦</button>)}
       {showArchive && (<div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 80, left: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16 }}><ArchiveView /></div>)}
 
@@ -534,3 +548,4 @@ function DashboardInner({
     </div>
   );
 }
+
