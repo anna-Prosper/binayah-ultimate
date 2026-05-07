@@ -36,8 +36,10 @@ const BUG_KINDS: NotificationKind[] = ["bug"];
 function matchesFilter(item: NotificationItem, filter: Filter, isReadCheck: (n: NotificationItem) => boolean): boolean {
   if (filter === "all") return true;
   if (filter === "unread") {
-    // Action-required items always count as "needs attention"; updates only if unread.
-    return item.actionRequired || !isReadCheck(item);
+    // Both buckets follow read state — once acknowledged (per-item or 'all read'),
+    // the item drops out of the unread filter. Underlying state still drives
+    // the action-required bucket on the 'all' tab.
+    return !isReadCheck(item);
   }
   if (filter === "mentions") return MENTION_KINDS.includes(item.kind);
   if (filter === "approvals") return APPROVAL_KINDS.includes(item.kind);

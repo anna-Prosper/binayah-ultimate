@@ -1,8 +1,5 @@
 {
   "forwardEdges": {
-    "next-env.d.ts": [
-      ".next/types/routes.d.ts"
-    ],
     "src/app/layout.tsx": [
       "src/app/globals.css",
       "src/components/SessionProviderWrapper.tsx"
@@ -376,6 +373,7 @@
       "src/lib/hooks/useNotifications.ts",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
+      "src/lib/constants.ts",
       "src/lib/notificationKinds.ts"
     ],
     "src/components/views/PipelinesViewPage.tsx": [
@@ -668,11 +666,6 @@
     ],
     "src/app/(app)/pipelines/[id]/page.tsx": [
       "src/components/views/PipelinesViewPage.tsx"
-    ],
-    "src/app/(app)/activity/log/page.tsx": [
-      "src/lib/contexts/ModelContext.tsx",
-      "src/lib/contexts/AppShellContext.tsx",
-      "src/hooks/useIsMobile.ts"
     ],
     ".claude/worktrees/agent-a30374958356a4c11/next-env.d.ts": [
       ".claude/worktrees/agent-a30374958356a4c11/.next/types/routes.d.ts"
@@ -1346,9 +1339,6 @@
     ]
   },
   "reverseEdges": {
-    ".next/types/routes.d.ts": [
-      "next-env.d.ts"
-    ],
     "src/app/globals.css": [
       "src/app/layout.tsx"
     ],
@@ -1604,6 +1594,7 @@
       "src/lib/hooks/useChatHandlers.ts",
       "src/lib/hooks/useContentHandlers.ts",
       "src/lib/hooks/useSync.ts",
+      "src/components/views/ActivityView.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/lib/timeHelpers.ts",
       ".claude/worktrees/agent-a30374958356a4c11/src/lib/patchSchema.ts",
@@ -1622,7 +1613,6 @@
       "src/app/(app)/chat/page.tsx",
       "src/app/(app)/activity/page.tsx",
       "src/app/(app)/documents/page.tsx",
-      "src/app/(app)/activity/log/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
@@ -1692,7 +1682,6 @@
       "src/app/(app)/bugs/page.tsx",
       "src/app/(app)/notes/page.tsx",
       "src/app/(app)/documents/page.tsx",
-      "src/app/(app)/activity/log/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx",
@@ -1731,7 +1720,6 @@
       "src/app/(app)/bugs/page.tsx",
       "src/app/(app)/notes/page.tsx",
       "src/app/(app)/documents/page.tsx",
-      "src/app/(app)/activity/log/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx",
@@ -2461,7 +2449,6 @@
     "src/app/(app)/notes/page.tsx": "/(app)/notes",
     "src/app/(app)/documents/page.tsx": "/(app)/documents",
     "src/app/(app)/pipelines/[id]/page.tsx": "/(app)/pipelines/[id]",
-    "src/app/(app)/activity/log/page.tsx": "/(app)/activity/log",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/robots.ts": "/.claude/worktrees/agent-a30374958356a4c11/robots.ts",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx": "/.claude/worktrees/agent-a30374958356a4c11",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/error.tsx": "/.claude/worktrees/agent-a30374958356a4c11/error.tsx",
@@ -2512,6 +2499,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-07T13:32:48.233411+00:00",
-  "fileCount": 341
+  "builtAt": "2026-05-07T13:37:12.734204+00:00",
+  "fileCount": 340
 }
