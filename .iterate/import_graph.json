@@ -178,6 +178,9 @@
       "src/lib/mongo.ts",
       "src/lib/NotifyLog.ts"
     ],
+    "src/lib/pipelineStateMerge.ts": [
+      "src/lib/validate.ts"
+    ],
     "src/lib/sendNotifications.ts": [
       "src/lib/mongo.ts",
       "src/lib/AuthUser.ts",
@@ -371,6 +374,7 @@
       "src/lib/PipelineState.ts",
       "src/lib/rateLimit.ts",
       "src/lib/validate.ts",
+      "src/lib/pipelineStateMerge.ts",
       "src/lib/log.ts",
       "src/lib/data.ts",
       "src/lib/sendNotifications.ts",
@@ -422,6 +426,12 @@
       "src/lib/email.ts",
       "src/lib/auth.ts",
       "src/lib/data.ts",
+      "src/lib/log.ts"
+    ],
+    "src/app/api/cron/backup/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/PipelineStateBackup.ts",
       "src/lib/log.ts"
     ],
     "src/app/api/cron/reminders/route.ts": [
@@ -878,6 +888,7 @@
       "src/app/api/documents/route.ts",
       "src/app/api/cron/digest/route.ts",
       "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/backup/route.ts",
       "src/app/api/cron/reminders/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
@@ -894,6 +905,19 @@
     ],
     "src/lib/NotifyLog.ts": [
       "src/lib/notifyRateLimit.ts"
+    ],
+    "src/lib/validate.ts": [
+      "src/lib/pipelineStateMerge.ts",
+      "src/app/api/chat/route.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/call-summary/route.ts",
+      "src/app/api/generate-pfp/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
     "src/lib/AuthUser.ts": [
       "src/lib/sendNotifications.ts",
@@ -971,18 +995,6 @@
       "src/app/api/pipeline-state/activity/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
-    "src/lib/validate.ts": [
-      "src/app/api/chat/route.ts",
-      "src/app/api/pipeline-state/route.ts",
-      "src/app/api/call-summary/route.ts",
-      "src/app/api/generate-pfp/route.ts",
-      "src/app/api/documents/route.ts",
-      "src/app/api/documents/[id]/route.ts",
-      "src/app/api/pipeline-state/comments/route.ts",
-      "src/app/api/pipeline-state/messages/route.ts",
-      "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts"
-    ],
     "src/lib/log.ts": [
       "src/app/api/chat/route.ts",
       "src/app/api/pipeline-state/route.ts",
@@ -992,6 +1004,7 @@
       "src/app/api/cron/digest/route.ts",
       "src/app/api/cron/zoom-sync/route.ts",
       "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/backup/route.ts",
       "src/app/api/cron/reminders/route.ts",
       "src/app/api/zoom/meetings/route.ts",
       "src/app/api/zoom/meeting-summary/route.ts",
@@ -1003,11 +1016,15 @@
     "src/lib/PipelineState.ts": [
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/backup/route.ts",
       "src/app/api/cron/reminders/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts",
       "src/app/api/pipeline-state/messages/stream/route.ts"
+    ],
+    "src/lib/pipelineStateMerge.ts": [
+      "src/app/api/pipeline-state/route.ts"
     ],
     "src/lib/sendNotifications.ts": [
       "src/app/api/pipeline-state/route.ts",
@@ -1024,6 +1041,9 @@
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
+    ],
+    "src/lib/PipelineStateBackup.ts": [
+      "src/app/api/cron/backup/route.ts"
     ],
     "src/lib/s3.ts": [
       "src/app/api/documents/[id]/attachments/route.ts",
@@ -1073,6 +1093,7 @@
     "src/app/api/cron/digest/route.ts": "/api/cron/digest",
     "src/app/api/cron/zoom-sync/route.ts": "/api/cron/zoom-sync",
     "src/app/api/cron/weekly-digest/route.ts": "/api/cron/weekly-digest",
+    "src/app/api/cron/backup/route.ts": "/api/cron/backup",
     "src/app/api/cron/reminders/route.ts": "/api/cron/reminders",
     "src/app/api/documents/[id]/route.ts": "/api/documents/[id]",
     "src/app/api/documents/[id]/attachments/route.ts": "/api/documents/[id]/attachments",
@@ -1094,6 +1115,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-05-07T05:40:21.058815+00:00",
-  "fileCount": 139
+  "builtAt": "2026-05-07T06:05:03.658011+00:00",
+  "fileCount": 142
 }

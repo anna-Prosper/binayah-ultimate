@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import { User, Clipboard, Check, Cat, Globe } from "lucide-react";
 import { T } from "@/lib/themes";
 import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
@@ -516,8 +517,8 @@ export default function TasksView(props: Props) {
         <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
           {showMyAllFilter && (
             <>
-              <button style={flatBtn(myAllFilter === "my")} onClick={() => setMyAllFilter("my")}>🐱 mine</button>
-              <button style={flatBtn(myAllFilter === "all")} onClick={() => setMyAllFilter("all")}>🌍 all</button>
+              <button style={{ ...flatBtn(myAllFilter === "my"), display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => setMyAllFilter("my")}><Cat size={12} /> mine</button>
+              <button style={{ ...flatBtn(myAllFilter === "all"), display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => setMyAllFilter("all")}><Globe size={12} /> all</button>
               <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
             </>
           )}
@@ -1932,7 +1933,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         >
           {assigneeList.length === 0 ? (
             <>
-              <span style={{ fontSize: 11, opacity: 0.7 }}>👤</span>
+              <User size={11} style={{ opacity: 0.7 }} />
               <span style={{ fontSize: 10 }}>assign</span>
             </>
           ) : (
@@ -1996,8 +1997,8 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           </div>
         )}
       </div>}
-      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={iconBtn} title={copied ? "Copied" : "Copy link"}>
-        {copied ? "✓" : "📋"}
+      <button onClick={e => { e.stopPropagation(); onCopy(); }} style={{ ...iconBtn, display: "inline-flex", alignItems: "center", justifyContent: "center" }} title={copied ? "Copied" : "Copy link"}>
+        {copied ? <Check size={12} /> : <Clipboard size={12} />}
       </button>
       {onEditToggle && showEditButton && (
         <button

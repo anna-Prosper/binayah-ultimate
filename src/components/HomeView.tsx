@@ -1809,7 +1809,7 @@ export default function HomeView({
                         >
                           <AvatarC user={u} size={20} />
                           <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</span>
-                          {role && <span style={{ display: "inline-flex", alignItems: "center", color: t.accent }} title={role}>{role === "root" ? <Key size={9} /> : <Zap size={9} />}</span>}
+                          {role && <span style={{ display: "inline-flex", alignItems: "center", color: role === "root" ? (t.amber || "#f59e0b") : t.accent }} title={role}>{role === "root" ? <Key size={9} /> : <Zap size={9} />}</span>}
                           {uPts > 0 && <span style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{uPts}</span>}
                         </button>
                         {viewingUser === u.id && setViewingUser && (

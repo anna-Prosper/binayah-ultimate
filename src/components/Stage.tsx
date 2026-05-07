@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
+import { MessageSquare, User, Clipboard, Check } from "lucide-react";
 import { T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { REACTIONS, stageDefaults, stageLongDescs, type SubtaskItem, type UserType, ADMIN_IDS } from "@/lib/data";
@@ -266,7 +267,7 @@ function StageSubtaskCard({
             </div>
           )}
         </div>
-        <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); setAssignOpen(false); }} style={iconBtn}>💬 {cmts.length}</button>
+        <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); setAssignOpen(false); }} style={{ ...iconBtn, display: "inline-flex", alignItems: "center", gap: 5 }}><MessageSquare size={12} /> {cmts.length}</button>
         {/* Assign chip — same pattern as TaskCard: avatars stacked, name + " +1" if 2 */}
         <div style={{ position: "relative" }}>
           <button
@@ -281,7 +282,7 @@ function StageSubtaskCard({
             title={assigneeList.length > 0 ? `Assigned: ${assigneeList.map(u => u.name).join(", ")}` : "Assign"}
           >
             {assigneeList.length === 0 ? (
-              <><span style={{ fontSize: 11, opacity: 0.7 }}>👤</span><span style={{ fontSize: 10 }}>assign</span></>
+              <><User size={11} style={{ opacity: 0.7 }} /><span style={{ fontSize: 10 }}>assign</span></>
             ) : (
               <>
                 <span style={{ display: "inline-flex" }}>
@@ -322,7 +323,7 @@ function StageSubtaskCard({
             </div>
           )}
         </div>
-        <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}>{copied === key ? "✓ copied" : "📋 copy"}</button>
+        <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{copied === key ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}</span></button>
         <button
           onClick={e => {
             e.stopPropagation();
@@ -714,7 +715,7 @@ export default function Stage({
 
             {claimedBy.length > 0 && <ClaimerPills claimerIds={claimedBy} users={users} getPoints={getPoints} t={t} variant="pill" size={isMobile ? 22 : 16} maxVisible={2} />}
             {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
-            {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted }}>{"💬"}{cmts.length}</span>}
+            {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted, display: "inline-flex", alignItems: "center", gap: 3 }}><MessageSquare size={10} />{cmts.length}</span>}
             <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{derivedPoints}</span>
           </div>
         </div>
@@ -880,7 +881,7 @@ export default function Stage({
                   if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
                   shareStage(name, lines.join("\n"));
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
-                  {copied === name ? "✓ copied" : "📋 copy"}
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{copied === name ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}</span>
                 </button>
                 {canArchive && (
                   <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
