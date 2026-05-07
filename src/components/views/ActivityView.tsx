@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { useNotifications } from "@/lib/hooks/useNotifications";
@@ -51,11 +51,13 @@ function ItemRow({
   onMarkRead?: (id: string) => void;
 }) {
   const color = priorityColor(t, item.priority);
-  const dim = isRead && !item.actionRequired;
-  // Click anywhere on the row → mark this update read. Navigation (if href) still
+  // Both buckets dim when read — the "still needs action" signal is conveyed
+  // by remaining in the list, not by visual prominence.
+  const dim = isRead;
+  // Click anywhere on the row → mark this item read. Navigation (if href) still
   // happens via the wrapping <Link>; we just call the read callback in addition.
   const handleRowClick = () => {
-    if (!item.actionRequired && !isRead && onMarkRead) onMarkRead(item.id);
+    if (!isRead && onMarkRead) onMarkRead(item.id);
   };
   const inner = (
     <div
@@ -73,32 +75,28 @@ function ItemRow({
         opacity: dim ? 0.55 : 1,
         textDecoration: "none",
         color: "inherit",
-        cursor: item.href || (!item.actionRequired && !isRead) ? "pointer" : "default",
+        cursor: item.href || !isRead ? "pointer" : "default",
         transition: "background 0.15s",
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = color + "14"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color + "0a"; }}
     >
-      {/* Unread dot for updates only — action-required items don't have read state.
-          Clickable: lets users mark a single item read without navigating. */}
-      {!item.actionRequired ? (
-        <button
-          type="button"
-          onClick={e => { e.preventDefault(); e.stopPropagation(); if (!isRead && onMarkRead) onMarkRead(item.id); }}
-          aria-label={isRead ? "read" : "mark as read"}
-          title={isRead ? "read" : "mark as read"}
-          style={{
-            width: 14, height: 14, marginTop: 3, padding: 0,
-            display: "flex", alignItems: "center", justifyContent: "center",
-            background: "transparent", border: "none",
-            cursor: isRead ? "default" : "pointer",
-          }}
-        >
-          <span style={{ width: 6, height: 6, borderRadius: "50%", background: !isRead ? color : "transparent", display: "block" }} />
-        </button>
-      ) : (
-        <div aria-hidden style={{ width: 14, height: 14 }} />
-      )}
+      {/* Unread dot — clickable per-item read affordance. Action-required items
+          stay in the list when read (state still needs resolving), but dim. */}
+      <button
+        type="button"
+        onClick={e => { e.preventDefault(); e.stopPropagation(); if (!isRead && onMarkRead) onMarkRead(item.id); }}
+        aria-label={isRead ? "read" : "mark as read"}
+        title={isRead ? "read" : "mark as read"}
+        style={{
+          width: 14, height: 14, marginTop: 3, padding: 0,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: "transparent", border: "none",
+          cursor: isRead ? "default" : "pointer",
+        }}
+      >
+        <span style={{ width: 6, height: 6, borderRadius: "50%", background: !isRead ? color : "transparent", display: "block" }} />
+      </button>
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.title}
@@ -155,7 +153,7 @@ function SectionHeader({ label, count, t }: { label: string; count: number; t: R
 
 export default function ActivityView({ showToast }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
   const { t, markAllNotifsRead, markNotifRead, dismissNotif } = useModel();
-  const { actionRequired, updates, unreadUpdatesCount, isUpdateRead } = useNotifications();
+  const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
   const mono = "var(--font-dm-mono), monospace";
 
@@ -163,7 +161,7 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
   // so the chip count is stable regardless of which filter is active.
   const counts = useMemo(() => {
     const all = actionRequired.length + updates.length;
-    const unread = actionRequired.length + unreadUpdatesCount;
+    const unread = unreadActionCount + unreadUpdatesCount;
     const inKind = (kinds: NotificationKind[]) =>
       actionRequired.filter(n => kinds.includes(n.kind)).length +
       updates.filter(n => kinds.includes(n.kind)).length;
@@ -174,10 +172,31 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
       approvals: inKind(APPROVAL_KINDS),
       bugs: inKind(BUG_KINDS),
     };
-  }, [actionRequired, updates, unreadUpdatesCount]);
+  }, [actionRequired, updates, unreadUpdatesCount, unreadActionCount]);
 
-  const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, isUpdateRead));
-  const visibleUp = updates.filter(n => matchesFilter(n, filter, isUpdateRead));
+  const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, isItemRead));
+  const visibleUp = updates.filter(n => matchesFilter(n, filter, isItemRead));
+
+  // Auto-mark-read after 3 seconds on the page. Mirrors Slack/Linear behavior:
+  // user opens the panel, sees what's new, badge clears once they've had time
+  // to absorb. Items don't disappear — they just dim. Only fires once per
+  // unique unread set; if new items arrive while the user is still on the page
+  // they re-arm a fresh 3s timer.
+  const allUnreadIds = useMemo(
+    () => [...actionRequired, ...updates].filter(n => !isItemRead(n)).map(n => n.id),
+    [actionRequired, updates, isItemRead]
+  );
+  const allUnreadKey = allUnreadIds.join(",");
+  const autoReadFiredRef = useRef("");
+  useEffect(() => {
+    if (allUnreadIds.length === 0) return;
+    if (autoReadFiredRef.current === allUnreadKey) return;
+    const timer = setTimeout(() => {
+      autoReadFiredRef.current = allUnreadKey;
+      markAllNotifsRead(allUnreadIds);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [allUnreadKey, allUnreadIds, markAllNotifsRead]);
 
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },
@@ -203,7 +222,7 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
             </div>
             <button
               type="button"
-              onClick={() => markAllNotifsRead()}
+              onClick={() => markAllNotifsRead(allUnreadIds)}
               disabled={unreadUpdatesCount === 0}
               style={{
                 background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8,
@@ -267,7 +286,7 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
               <SectionHeader label="action required" count={visibleAr.length} t={t} />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {visibleAr.map(item => (
-                  <ItemRow key={item.id} item={item} t={t} isRead={false} />
+                  <ItemRow key={item.id} item={item} t={t} isRead={isItemRead(item)} onMarkRead={markNotifRead} />
                 ))}
               </div>
             </>
@@ -283,7 +302,7 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
                     key={item.id}
                     item={item}
                     t={t}
-                    isRead={isUpdateRead(item)}
+                    isRead={isItemRead(item)}
                     onDismiss={dismissNotif}
                     onMarkRead={markNotifRead}
                   />

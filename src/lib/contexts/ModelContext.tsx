@@ -130,7 +130,10 @@ interface ModelContextValue {
   notifReads: Record<string, number>;
   notifDismissed: Record<string, string[]>;
   notifReadIds: Record<string, string[]>;
-  markAllNotifsRead: () => void;
+  /** Mark all visible notifications as read. If `ids` is supplied, those ids are
+   *  added to notifReadIds (so action-required items dim too); always stamps the
+   *  notifReads cutoff for time-based unread tracking. */
+  markAllNotifsRead: (ids?: string[]) => void;
   markNotifRead: (id: string) => void;
   dismissNotif: (id: string) => void;
 
@@ -1724,14 +1727,26 @@ export function ModelProvider({
   // single id; dismissals never expire so the user only sees an item again if
   // its underlying state changes (action-required) or a new event arrives
   // (updates).
-  const markAllNotifsRead = useCallback(() => {
+  const markAllNotifsRead = useCallback((ids?: string[]) => {
     if (!currentUser) return;
     const stamp = Date.now();
     markLocalWrite("notifReads");
     markLocalWrite("notifReadIds");
     setNotifReads(prev => ({ ...prev, [currentUser]: stamp }));
-    // Cutoff replaces the per-item set — anything older is read by timestamp now.
-    setNotifReadIds(prev => ({ ...prev, [currentUser]: [] }));
+    // Action-required items have time=0 (no trigger timestamp), so the cutoff
+    // alone can't dim them. Adding their ids to the per-item read set does.
+    // Items with real timestamps are read via the cutoff and don't need to be
+    // tracked individually — keep the set bounded by passing only ids of items
+    // that wouldn't otherwise be covered by the cutoff.
+    if (ids && ids.length > 0) {
+      setNotifReadIds(prev => {
+        const merged = new Set([...(prev[currentUser] || []), ...ids]);
+        return { ...prev, [currentUser]: Array.from(merged) };
+      });
+    } else {
+      // No ids passed → reset the per-item set (cutoff handles everything).
+      setNotifReadIds(prev => ({ ...prev, [currentUser]: [] }));
+    }
   }, [currentUser, markLocalWrite]);
 
   // Mark a single notification read without dismissing it. Triggered by clicking

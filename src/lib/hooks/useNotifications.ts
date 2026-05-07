@@ -37,8 +37,10 @@ export function useNotifications() {
       actionRequired: [] as NotificationItem[],
       updates: [] as NotificationItem[],
       unreadUpdatesCount: 0,
+      unreadActionCount: 0,
       totalAttentionCount: 0,
       isUpdateRead: (_n: NotificationItem) => true,
+      isItemRead: (_n: NotificationItem) => true,
     };
     if (!me) return empty;
 
@@ -311,21 +313,30 @@ export function useNotifications() {
       return d !== 0 ? d : a.id.localeCompare(b.id);
     });
 
-    // An update is unread if it's not in the per-item read set AND its time is
-    // newer than the "mark all read" cutoff. Both gates are needed: the cutoff
-    // handles bulk reads, the id set handles per-item clicks. Clearing the id
-    // set on bulk-read prevents unbounded growth.
+    // Read state applies to BOTH buckets so "all read" can dim action-required
+    // items too. An item is read if its id is in the per-item read set OR (for
+    // items with a real timestamp) its time is older than the cutoff. Action-
+    // required items typically have time=0, so the cutoff doesn't cover them —
+    // the id set is the only way they become read. New action-required items
+    // (different id, e.g. a fresh approval need on a different stage) won't be
+    // in the set, so they appear unread until acknowledged.
     const lastReadAt = notifReads?.[me] || 0;
     const readIdSet = new Set(notifReadIds?.[me] || []);
-    const isUpdateRead = (n: NotificationItem) => readIdSet.has(n.id) || n.time <= lastReadAt;
-    const unreadUpdatesCount = filteredUp.filter(n => !isUpdateRead(n)).length;
+    const isItemRead = (n: NotificationItem) => readIdSet.has(n.id) || (n.time > 0 && n.time <= lastReadAt);
+    const unreadUpdatesCount = filteredUp.filter(n => !isItemRead(n)).length;
+    const unreadActionCount = filteredAr.filter(n => !isItemRead(n)).length;
 
     return {
       actionRequired: filteredAr,
       updates: filteredUp,
       unreadUpdatesCount,
-      totalAttentionCount: filteredAr.length + unreadUpdatesCount,
-      isUpdateRead,
+      unreadActionCount,
+      // Sidebar/header badge value — count of items the user hasn't acknowledged.
+      // Once they hit "all read" or auto-read fires, this drops to 0 and stays
+      // there until something genuinely new appears.
+      totalAttentionCount: unreadUpdatesCount + unreadActionCount,
+      isUpdateRead: isItemRead, // legacy alias kept for callers
+      isItemRead,
     };
   }, [
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
