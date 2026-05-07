@@ -13,7 +13,7 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { deleteComment as deleteCommentRemote, patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState } from "@/lib/apiSync";
+import { deleteComment as deleteCommentRemote, patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 
@@ -355,6 +355,37 @@ export function ModelProvider({
   // Window must comfortably exceed the scheduleWrite debounce (1.5s) + server round-trip (~500ms) so writes survive merge.
   const localWritesRef = useRef<Record<string, number>>({});
   const LOCAL_WRITE_PROTECT_MS = 4000;
+
+  // Per-key delete tracking for map slices.
+  // The server merges map slices per-key (so omitting a key from a PATCH preserves
+  // it on the server). To delete a key we must send `_deletes`. We compute the
+  // delete set by diffing the current local map against `serverMapKeysRef` —
+  // the last set of keys we know exist on the server (updated on hydrate, on
+  // poll merges, and on successful PATCH writes).
+  const MAP_SLICES = useMemo(() => [
+    "owners", "stageStatusOverrides", "stageDescOverrides", "stageDueDates",
+    "stageNameOverrides", "stagePriorities", "stagePointsOverride",
+    "subtaskStages", "subtaskDescOverrides", "subtaskDueDates",
+    "pipeDescOverrides", "pipeMetaOverrides", "customStages", "subtasks",
+  ] as const, []);
+  const serverMapKeysRef = useRef<Record<string, Set<string>>>({});
+  const recordServerKeys = useCallback((s: Partial<SharedState>) => {
+    for (const slice of MAP_SLICES) {
+      const v = (s as Record<string, unknown>)[slice];
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        serverMapKeysRef.current[slice] = new Set(Object.keys(v as Record<string, unknown>));
+      }
+    }
+    // owners merges legacy claims/assignments — record their keys too.
+    const ownerKeys = new Set<string>(serverMapKeysRef.current.owners ?? []);
+    for (const legacy of ["claims", "assignments"] as const) {
+      const v = (s as Record<string, unknown>)[legacy];
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        for (const k of Object.keys(v as Record<string, unknown>)) ownerKeys.add(k);
+      }
+    }
+    if (ownerKeys.size > 0) serverMapKeysRef.current.owners = ownerKeys;
+  }, [MAP_SLICES]);
   const markLocalWrite = useCallback((slice: string) => {
     localWritesRef.current[slice] = Date.now();
   }, []);
@@ -476,6 +507,9 @@ export function ModelProvider({
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
     isPollUpdateRef.current = true;
+    // Snapshot what keys exist on the server right now — used to detect
+    // local deletions on the next scheduleWrite.
+    recordServerKeys(s);
     // Server may send `owners` (new) and/or `claims`/`assignments` (legacy).
     // Merge any present fields into a single owners map and apply once.
     if (s.owners || s.claims || s.assignments) {
@@ -623,25 +657,65 @@ export function ModelProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
-  const getCurrentState = useCallback((): Partial<SharedState> => ({
-    owners,
-    approvedStages, approvedSubtasks, approvedPipelines,
-    reminders,
-    notes,
-    bugs,
-    execProposals,
-    subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
-    subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
-    users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-    stagePointsOverride,
-    stagePriorities,
-  } as Partial<SharedState> & { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }), [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
+  const getCurrentState = useCallback((): PatchEnvelope => {
+    const state: Record<string, unknown> = {
+      owners,
+      approvedStages, approvedSubtasks, approvedPipelines,
+      reminders,
+      notes,
+      bugs,
+      execProposals,
+      subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
+      subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+      users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+      stagePointsOverride,
+      stagePriorities,
+    };
+    // Compute _deletes by diffing current map keys against the last server-known
+    // key set. Anything the server thinks exists but is no longer in local state
+    // was deleted locally and needs an explicit $unset on the server.
+    const deletes: Record<string, string[]> = {};
+    for (const slice of MAP_SLICES) {
+      const localVal = state[slice];
+      if (!localVal || typeof localVal !== "object" || Array.isArray(localVal)) continue;
+      const localKeys = new Set(Object.keys(localVal as Record<string, unknown>));
+      const serverKeys = serverMapKeysRef.current[slice];
+      if (!serverKeys || serverKeys.size === 0) continue;
+      const removed: string[] = [];
+      for (const k of serverKeys) if (!localKeys.has(k)) removed.push(k);
+      if (removed.length > 0) deletes[slice] = removed;
+    }
+    const envelope: PatchEnvelope = state as PatchEnvelope;
+    if (Object.keys(deletes).length > 0) envelope._deletes = deletes;
+    return envelope;
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities]);
+       stagePointsOverride, stagePriorities, MAP_SLICES]);
 
-  const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState });
+  // After a successful PATCH, the server's truth now matches what we sent —
+  // record those keys as the new server-known set so we don't re-send the same
+  // _deletes on the next scheduleWrite (and so newly-added keys count as
+  // server-known for future diff checks).
+  const onWriteSuccess = useCallback((sent: PatchEnvelope) => {
+    for (const slice of MAP_SLICES) {
+      const v = (sent as Record<string, unknown>)[slice];
+      if (v && typeof v === "object" && !Array.isArray(v)) {
+        serverMapKeysRef.current[slice] = new Set(Object.keys(v as Record<string, unknown>));
+      }
+    }
+    // Apply explicit deletes too — they're gone from the server now.
+    if (sent._deletes) {
+      for (const [slice, keys] of Object.entries(sent._deletes)) {
+        const set = serverMapKeysRef.current[slice];
+        if (!set) continue;
+        for (const k of keys) set.delete(k);
+      }
+    }
+  }, [MAP_SLICES]);
+
+  const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, onWriteSuccess });
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
   const setSyncStatus: (status: string) => void = useCallback(() => setOffline(), [setOffline]);
   setSyncStatusRef.current = setSyncStatus;

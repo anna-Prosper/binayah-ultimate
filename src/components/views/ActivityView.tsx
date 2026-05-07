@@ -4,13 +4,18 @@ import { Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
+import { lsGet, lsSet } from "@/lib/storage";
 import dynamic from "next/dynamic";
 import { ADMIN_IDS, type ActivityItem, type UserType } from "@/lib/data";
 import { SubtaskKey } from "@/lib/subtaskKey";
 
 const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: false });
 
-type CenterTab = "inbox" | "reminders" | "mentions" | "requests" | "due" | "approvals" | "assignments" | "bugs" | "activity";
+type CenterTab = "important" | "reminders" | "mentions" | "requests" | "due" | "approvals" | "assignments" | "bugs" | "activity";
+
+// Local-only timestamp (ms) marking the last time the user opened the
+// "important" tab. Items with `time > lastSeenImportantAt` are considered new.
+const LAST_SEEN_IMPORTANT_KEY = "lastSeenImportantAt";
 type InAppPrefs = {
   inAppNotifications: boolean;
   inAppMention: boolean;
@@ -95,7 +100,8 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
     allPipelinesGlobal, customStages, subtasks, owners, stageDueDates, subtaskDueDates, workspaces,
     approvedStages, approvedSubtasks, bugs, getStatus,
   } = useModel();
-  const [activeTab, setActiveTab] = useState<CenterTab>("inbox");
+  const [activeTab, setActiveTab] = useState<CenterTab>("important");
+  const [lastSeenImportant, setLastSeenImportant] = useState<number>(() => lsGet<number>(LAST_SEEN_IMPORTANT_KEY, 0));
   const [prefs, setPrefs] = useState<InAppPrefs>(DEFAULT_IN_APP_PREFS);
   const [now] = useState(() => Date.now());
   const mono = "var(--font-dm-mono), monospace";
@@ -270,14 +276,28 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
         time: item.updatedAt,
       })) : [];
 
-    const inbox = [...reminderItems.filter(i => i.time <= now), ...mentionItems, ...requestItems.filter(i => i.meta.startsWith("pending")), ...dueItems, ...approvalItems, ...assignmentItems.filter(i => i.meta.startsWith("unassigned")), ...bugItems.filter(i => i.meta.includes("critical") || i.meta.includes("high"))]
+    // "important" = the same union of high-urgency items as the old inbox, BUT
+    // filtered to only things newer than the last time the user opened the tab.
+    // Activity log entries (status changes, claims, etc.) are also surfaced here
+    // so the user sees recent state changes from other people.
+    const importantBase = [
+      ...reminderItems.filter(i => i.time <= now),
+      ...mentionItems,
+      ...requestItems.filter(i => i.meta.startsWith("pending")),
+      ...dueItems,
+      ...approvalItems,
+      ...assignmentItems.filter(i => i.meta.startsWith("unassigned")),
+      ...bugItems.filter(i => i.meta.includes("critical") || i.meta.includes("high")),
+    ];
+    const important = importantBase
+      .filter(i => i.time > lastSeenImportant)
       .sort((a, b) => b.time - a.time);
 
-    return { inbox, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
-  }, [allPipelinesGlobal, allow, approvedStages, approvedSubtasks, bugs, chatMessages, comments, currentWorkspaceId, customStages, execProposals, getStatus, isAdmin, me, now, owners, reminders, stageDueDates, subtaskDueDates, subtasks, users, workspaces]);
+    return { important, reminders: reminderItems, mentions: mentionItems, requests: requestItems, due: dueItems, approvals: approvalItems, assignments: assignmentItems, bugs: bugItems };
+  }, [allPipelinesGlobal, allow, approvedStages, approvedSubtasks, bugs, chatMessages, comments, currentWorkspaceId, customStages, execProposals, getStatus, isAdmin, lastSeenImportant, me, now, owners, reminders, stageDueDates, subtaskDueDates, subtasks, users, workspaces]);
 
   const tabs: Array<{ id: CenterTab; label: string; count: number }> = [
-    { id: "inbox", label: "inbox", count: center.inbox.length },
+    { id: "important", label: "important", count: center.important.length },
     { id: "reminders", label: "reminders", count: center.reminders.length },
     { id: "mentions", label: "mentions", count: center.mentions.length },
     { id: "requests", label: "requests", count: center.requests.length },
@@ -289,6 +309,19 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
   ];
 
   const tabItems = activeTab === "activity" ? [] : center[activeTab];
+
+  // When the user opens the "important" tab, mark "now" as the new lastSeen
+  // baseline so the count clears for next time. Updated after a small delay
+  // so they actually see the count before it goes to 0.
+  useEffect(() => {
+    if (activeTab !== "important") return;
+    const timer = setTimeout(() => {
+      const stamp = Date.now();
+      lsSet(LAST_SEEN_IMPORTANT_KEY, stamp);
+      setLastSeenImportant(stamp);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>

@@ -1,16 +1,17 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchState, patchState, type SharedState } from "@/lib/apiSync";
+import { fetchState, patchState, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 
 export type SyncStatus = "hydrating" | "live" | "offline" | "error";
 
 interface UseSyncOptions {
   onPatch: (patch: SharedState) => void;  // ModelContext calls this to merge incoming state
-  getPatch: () => Partial<SharedState>;    // ModelContext provides current state for debounced write
+  getPatch: () => PatchEnvelope;           // ModelContext provides current state for debounced write
+  onWriteSuccess?: (sent: PatchEnvelope) => void; // fires after a successful PATCH so caller can prune pending-deletes
   intervalMs?: number;                      // default 5000
 }
 
-export function useSync({ onPatch, getPatch, intervalMs = 5000 }: UseSyncOptions) {
+export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = 5000 }: UseSyncOptions) {
   const [status, setStatus] = useState<SyncStatus>("hydrating");
   const isInitializedRef = useRef(false);
 
@@ -62,9 +63,15 @@ export function useSync({ onPatch, getPatch, intervalMs = 5000 }: UseSyncOptions
   const scheduleWrite = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
-      patchState(getPatch()).catch(() => setStatus("offline"));
+      const sent = getPatch();
+      patchState(sent)
+        .then(res => {
+          if (res.ok && onWriteSuccess) onWriteSuccess(sent);
+          else if (!res.ok) setStatus("offline");
+        })
+        .catch(() => setStatus("offline"));
     }, 1500);
-  }, [getPatch]);
+  }, [getPatch, onWriteSuccess]);
 
   const setOffline = useCallback(() => setStatus("offline"), []);
 

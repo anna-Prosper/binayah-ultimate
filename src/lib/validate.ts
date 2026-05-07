@@ -102,6 +102,33 @@ export const PATCH_KEY_WHITELIST = new Set([
   "stagePriorities",
   "execProposals",
   "updatedAt",
+  // Envelope for explicit per-key deletions on map slices. Shape:
+  //   { _deletes: { stageStatusOverrides: ["StageA"], owners: ["StageB::1"] } }
+  // Required because map slices are now merged per-key on the server, so
+  // omitting a key from the patch no longer deletes it.
+  "_deletes",
+]);
+
+/** Map slices on the server — per-key merged via $set/$unset on dot paths,
+ *  not wholesale-replaced. Keep in sync with the same name in route.ts. */
+export const MAP_SLICE_KEYS = new Set([
+  "owners",
+  "claims",
+  "assignments",
+  "stageStatusOverrides",
+  "stageDescOverrides",
+  "stageDueDates",
+  "stageNameOverrides",
+  "stagePriorities",
+  "stagePointsOverride",
+  "subtaskStages",
+  "subtaskDescOverrides",
+  "subtaskDueDates",
+  "pipeDescOverrides",
+  "pipeMetaOverrides",
+  "customStages",
+  "subtasks",
+  "reactions",
 ]);
 
 const FORBIDDEN_KEY_PATTERN = /[.$]|__proto__|constructor|prototype/;

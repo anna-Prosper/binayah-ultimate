@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
+import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys, MAP_SLICE_KEYS } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 import { pipelineData, stageDefaults } from "@/lib/data";
 import { sendNotifications } from "@/lib/sendNotifications";
@@ -302,13 +302,47 @@ export async function PATCH(req: NextRequest) {
     prePatchApprovedPipelines = (preDoc?.state?.approvedPipelines as string[] | undefined) ?? [];
   }
 
+  // Per-key merge for map slices.
+  // Map slices (stageStatusOverrides, owners, etc.) are merged per-key via dot-path
+  // $set rather than wholesale-replaced. This stops a stale client from clobbering
+  // another client's writes when both push their full local copies of the slice —
+  // a stale tab that doesn't have the new keys leaves them alone instead of erasing
+  // them. Explicit deletes flow through the `_deletes` envelope below.
   const $set: Record<string, unknown> = { updatedAt: new Date() };
-  for (const [k, v] of Object.entries(cleanPatch)) {
-    $set[`state.${k}`] = v;
+  const $unset: Record<string, ""> = {};
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { _deletes, ...statePatch } = cleanPatch as Record<string, unknown> & {
+    _deletes?: Record<string, string[]>;
+  };
+  for (const [k, v] of Object.entries(statePatch)) {
+    if (MAP_SLICE_KEYS.has(k) && v !== null && typeof v === "object" && !Array.isArray(v)) {
+      // Per-key set so missing keys preserve existing values.
+      for (const [innerKey, innerVal] of Object.entries(v as Record<string, unknown>)) {
+        $set[`state.${k}.${innerKey}`] = innerVal;
+      }
+    } else {
+      $set[`state.${k}`] = v;
+    }
   }
+  // Explicit deletes envelope: { _deletes: { stageStatusOverrides: ["A"], owners: ["B"] } }
+  if (_deletes && typeof _deletes === "object" && !Array.isArray(_deletes)) {
+    for (const [field, keys] of Object.entries(_deletes)) {
+      if (!MAP_SLICE_KEYS.has(field)) continue;
+      if (!Array.isArray(keys)) continue;
+      for (const key of keys) {
+        if (typeof key !== "string") continue;
+        // Defense-in-depth: validateNestedKeys doesn't recurse into arrays, so
+        // we must check each delete-key string for Mongo operators / dot paths.
+        if (/[.$]|__proto__|constructor|prototype/.test(key)) continue;
+        $unset[`state.${field}.${key}`] = "";
+      }
+    }
+  }
+  const update: Record<string, unknown> = { $set };
+  if (Object.keys($unset).length > 0) update.$unset = $unset;
   const doc = await PipelineState.findOneAndUpdate(
     WORKSPACE,
-    { $set },
+    update,
     { new: true }
   ).lean();
   logApi(ROUTE, "PATCH_success");

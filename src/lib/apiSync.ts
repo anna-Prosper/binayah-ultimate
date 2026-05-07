@@ -115,9 +115,19 @@ export async function fetchState(since?: number): Promise<SharedState | null> {
   }
 }
 
+/**
+ * Patch envelope sent to PATCH /api/pipeline-state.
+ * `_deletes` carries explicit per-key removals for map slices. The server merges
+ * map slices per-key (so omitting a key from the patch leaves it intact); the
+ * only way to delete a key is via `_deletes`.
+ */
+export type PatchEnvelope = Partial<SharedState> & {
+  _deletes?: Record<string, string[]>;
+};
+
 // Bulk write for non-array state (claims, reactions, overrides, etc.)
 // chatMessages, comments, and activityLog are excluded — they use atomic appends
-export async function patchState(patch: Partial<SharedState>): Promise<SyncResult> {
+export async function patchState(patch: PatchEnvelope): Promise<SyncResult> {
   try {
     const res = await fetch(API_BASE, {
       method: "PATCH",
