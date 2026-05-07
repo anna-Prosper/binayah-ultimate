@@ -1,14 +1,18 @@
 "use client";
 
 import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
+import { ACTIVITY_LOG_VISIBLE_DAYS, MS_PER_DAY } from "@/lib/constants";
 import type { NotificationItem, NotificationKind } from "@/lib/notificationKinds";
 
-type Filter = "all" | "unread" | "mentions" | "approvals" | "bugs";
+const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: false });
+
+type Filter = "all" | "unread" | "mentions" | "approvals" | "bugs" | "activity";
 
 function timeLabel(timestamp: number) {
   if (!timestamp) return "";
@@ -153,8 +157,8 @@ function SectionHeader({ label, count, t }: { label: string; count: number; t: R
   );
 }
 
-export default function ActivityView({ showToast }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
-  const { t, markAllNotifsRead, markNotifRead, dismissNotif } = useModel();
+export default function ActivityView({ showToast, currentWorkspaceId }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
+  const { t, markAllNotifsRead, markNotifRead, dismissNotif, activityLog, users, currentUser } = useModel();
   const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
   const mono = "var(--font-dm-mono), monospace";
@@ -179,11 +183,9 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
   const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, isItemRead));
   const visibleUp = updates.filter(n => matchesFilter(n, filter, isItemRead));
 
-  // Auto-mark-read after 3 seconds on the page. Mirrors Slack/Linear behavior:
-  // user opens the panel, sees what's new, badge clears once they've had time
-  // to absorb. Items don't disappear — they just dim. Only fires once per
-  // unique unread set; if new items arrive while the user is still on the page
-  // they re-arm a fresh 3s timer.
+  // Auto-mark-read on open (instant). Whenever the panel mounts OR new unread
+  // items arrive while the user is on the page, mark them read. The dedupe ref
+  // stops the same set from firing repeatedly if React re-renders.
   const allUnreadIds = useMemo(
     () => [...actionRequired, ...updates].filter(n => !isItemRead(n)).map(n => n.id),
     [actionRequired, updates, isItemRead]
@@ -193,12 +195,18 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
   useEffect(() => {
     if (allUnreadIds.length === 0) return;
     if (autoReadFiredRef.current === allUnreadKey) return;
-    const timer = setTimeout(() => {
-      autoReadFiredRef.current = allUnreadKey;
-      markAllNotifsRead(allUnreadIds);
-    }, 3000);
-    return () => clearTimeout(timer);
+    autoReadFiredRef.current = allUnreadKey;
+    markAllNotifsRead(allUnreadIds);
   }, [allUnreadKey, allUnreadIds, markAllNotifsRead]);
+
+  // Raw activity log content for the "activity" filter chip — replaces the
+  // separate /activity/log route with an in-place tab.
+  const activityLogFiltered = useMemo(() => {
+    const cutoff = Date.now() - ACTIVITY_LOG_VISIBLE_DAYS * MS_PER_DAY;
+    return currentWorkspaceId
+      ? activityLog.filter(e => (!e.workspaceId || e.workspaceId === currentWorkspaceId) && e.time >= cutoff)
+      : activityLog.filter(e => e.time >= cutoff);
+  }, [activityLog, currentWorkspaceId]);
 
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },
@@ -206,6 +214,7 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
     { id: "mentions", label: "mentions", count: counts.mentions },
     { id: "approvals", label: "approvals", count: counts.approvals },
     { id: "bugs", label: "bugs", count: counts.bugs },
+    { id: "activity", label: "activity log", count: activityLogFiltered.length },
   ];
 
   return (
@@ -260,19 +269,21 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
                 </button>
               );
             })}
-            <Link
-              href="/activity/log"
-              style={{
-                background: t.bgCard, border: `1px solid ${t.border}`,
-                color: t.textMuted, borderRadius: 8, padding: "5px 9px",
-                fontSize: 10, fontFamily: mono, fontWeight: 800,
-                textDecoration: "none",
-              }}
-            >
-              activity log →
-            </Link>
           </div>
 
+          {/* Activity log tab — full audit feed, replaces redirected page */}
+          {filter === "activity" ? (
+            <div style={{ marginTop: 12 }}>
+              {activityLogFiltered.length === 0 ? (
+                <div style={{ border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 12, fontFamily: mono, textAlign: "center" }}>
+                  // no activity in the past {ACTIVITY_LOG_VISIBLE_DAYS} days.
+                </div>
+              ) : (
+                <ActivityFeed activityLog={activityLogFiltered} users={users} t={t} currentUserId={currentUser} />
+              )}
+            </div>
+          ) : (
+          <>
           {/* Empty state */}
           {visibleAr.length === 0 && visibleUp.length === 0 && (
             <div style={{ marginTop: 24, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 12, fontFamily: mono, textAlign: "center" }}>
@@ -311,6 +322,8 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
                 ))}
               </div>
             </>
+          )}
+          </>
           )}
         </div>
       </Suspense>
