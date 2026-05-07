@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys, MAP_SLICE_KEYS } from "@/lib/validate";
+import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
+import { mergeStateWithPatch, type DeletesEnvelope } from "@/lib/pipelineStateMerge";
 import { logApi } from "@/lib/log";
 import { pipelineData, stageDefaults } from "@/lib/data";
 import { sendNotifications } from "@/lib/sendNotifications";
@@ -302,50 +303,63 @@ export async function PATCH(req: NextRequest) {
     prePatchApprovedPipelines = (preDoc?.state?.approvedPipelines as string[] | undefined) ?? [];
   }
 
-  // Per-key merge for map slices.
-  // Map slices (stageStatusOverrides, owners, etc.) are merged per-key via dot-path
-  // $set rather than wholesale-replaced. This stops a stale client from clobbering
-  // another client's writes when both push their full local copies of the slice —
-  // a stale tab that doesn't have the new keys leaves them alone instead of erasing
-  // them. Explicit deletes flow through the `_deletes` envelope below.
-  const $set: Record<string, unknown> = { updatedAt: new Date() };
-  const $unset: Record<string, ""> = {};
+  // Read-modify-write with optimistic locking:
+  // 1. Read current `state` + `updatedAt`.
+  // 2. Merge patch into state in JS (per-key for maps, by-id for arrays-of-objects,
+  //    set-union for set-like arrays — see pipelineStateMerge.ts).
+  // 3. Write with filter that includes the original updatedAt. If another writer
+  //    landed in between, matchedCount=0 and we retry (max 5 attempts). With low
+  //    write volume this is effectively never contended; on a hot key the worst
+  //    case is a few retries, no data loss.
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _deletes, ...statePatch } = cleanPatch as Record<string, unknown> & {
-    _deletes?: Record<string, string[]>;
+    _deletes?: DeletesEnvelope;
   };
-  for (const [k, v] of Object.entries(statePatch)) {
-    if (MAP_SLICE_KEYS.has(k) && v !== null && typeof v === "object" && !Array.isArray(v)) {
-      // Per-key set so missing keys preserve existing values.
-      for (const [innerKey, innerVal] of Object.entries(v as Record<string, unknown>)) {
-        $set[`state.${k}.${innerKey}`] = innerVal;
-      }
-    } else {
-      $set[`state.${k}`] = v;
-    }
-  }
-  // Explicit deletes envelope: { _deletes: { stageStatusOverrides: ["A"], owners: ["B"] } }
+  // Defense-in-depth: validateNestedKeys doesn't recurse into arrays, so we
+  // sanitize each _deletes member here.
+  let safeDeletes: DeletesEnvelope | undefined;
   if (_deletes && typeof _deletes === "object" && !Array.isArray(_deletes)) {
+    safeDeletes = {};
     for (const [field, keys] of Object.entries(_deletes)) {
-      if (!MAP_SLICE_KEYS.has(field)) continue;
       if (!Array.isArray(keys)) continue;
-      for (const key of keys) {
-        if (typeof key !== "string") continue;
-        // Defense-in-depth: validateNestedKeys doesn't recurse into arrays, so
-        // we must check each delete-key string for Mongo operators / dot paths.
-        if (/[.$]|__proto__|constructor|prototype/.test(key)) continue;
-        $unset[`state.${field}.${key}`] = "";
-      }
+      const cleanKeys = keys.filter(
+        k => typeof k === "string" && !/[.$]|__proto__|constructor|prototype/.test(k)
+      );
+      if (cleanKeys.length > 0) safeDeletes[field] = cleanKeys;
     }
   }
-  const update: Record<string, unknown> = { $set };
-  if (Object.keys($unset).length > 0) update.$unset = $unset;
-  const doc = await PipelineState.findOneAndUpdate(
-    WORKSPACE,
-    update,
-    { new: true }
-  ).lean();
-  logApi(ROUTE, "PATCH_success");
+
+  let doc: { state?: Record<string, unknown>; updatedAt?: Date } | null = null;
+  let mergeOk = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const current = await PipelineState.findOne(WORKSPACE).lean() as
+      | { state?: Record<string, unknown>; updatedAt?: Date }
+      | null;
+    const currentState = current?.state ?? {};
+    const lockUpdatedAt = current?.updatedAt;
+    const nextState = mergeStateWithPatch(currentState, statePatch, safeDeletes);
+    const newUpdatedAt = new Date();
+    const writeFilter = lockUpdatedAt
+      ? { ...WORKSPACE, updatedAt: lockUpdatedAt }
+      : { ...WORKSPACE, updatedAt: { $exists: false } };
+    const result = await PipelineState.findOneAndUpdate(
+      writeFilter,
+      { $set: { state: nextState, updatedAt: newUpdatedAt } },
+      { new: true }
+    ).lean() as { state?: Record<string, unknown>; updatedAt?: Date } | null;
+    if (result) {
+      doc = result;
+      mergeOk = true;
+      logApi(ROUTE, "PATCH_success", { attempt: attempt + 1 });
+      break;
+    }
+    // CAS lost — another writer landed first. Brief jittered backoff and retry.
+    await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
+  }
+  if (!mergeOk) {
+    logApi(ROUTE, "PATCH_contention_exhausted");
+    return NextResponse.json({ error: "WRITE_CONTENTION", reason: "merge contention exceeded retries" }, { status: 409 });
+  }
 
   // Emit status_change activity entries for any stageStatusOverrides changes
   if ("stageStatusOverrides" in cleanPatch) {

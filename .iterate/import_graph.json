@@ -318,6 +318,7 @@
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
+      "src/lib/storage.ts",
       "src/lib/data.ts",
       "src/lib/subtaskKey.ts"
     ],
@@ -710,7 +711,8 @@
     "src/lib/storage.ts": [
       "src/components/Dashboard.tsx",
       "src/components/Stage.tsx",
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/views/ActivityView.tsx"
     ],
     "src/lib/contexts/EphemeralContext.tsx": [
       "src/components/Dashboard.tsx",
@@ -1092,6 +1094,6 @@
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
   },
-  "builtAt": "2026-05-06T16:50:42.330943+00:00",
+  "builtAt": "2026-05-07T05:40:21.058815+00:00",
   "fileCount": 139
 }

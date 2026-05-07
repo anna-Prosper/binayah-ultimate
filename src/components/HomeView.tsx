@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import { Bell, Mail, X, Flame, Key, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
 import { type UserType, type Workspace, type ExecProposal, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
@@ -396,7 +397,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = t.accent + "26"}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = t.accent + "16"}
           >
-            <span style={{ fontSize: 13 }}>🔔</span> + reminder
+            <Bell size={13} /> + reminder
           </button>
         )}
       </div>
@@ -405,14 +406,14 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       {onAddReminder && reminderOpen && (
         <div style={{ display: "flex", gap: 6, marginBottom: 14, padding: 10, background: t.accent + "08", border: `1px solid ${t.accent}33`, borderRadius: 10 }}>
           <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); } if (e.key === "Enter" && reminderTitle.trim() && reminderDate) submitReminder(); }}
-            placeholder="🔔 what should I remind you about?"
+            placeholder="what should I remind you about?"
             style={{ flex: 2, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 12, outline: "none" }} />
           <input type="datetime-local" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
             style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 9px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
           <button type="button" onClick={submitReminder} disabled={!reminderTitle.trim() || !reminderDate}
             style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed", whiteSpace: "nowrap" as const }}>save</button>
           <button type="button" onClick={() => { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); }}
-            style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "6px 10px", fontSize: 11, fontFamily: mono, cursor: "pointer" }}>✕</button>
+            style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "6px 10px", fontFamily: mono, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><X size={13} /></button>
         </div>
       )}
 
@@ -420,7 +421,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       {pendingExec.length > 0 && canOperate && (
         <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${t.green}10, ${t.accent}10)`, border: `1px solid ${t.green}44`, borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span style={{ fontSize: 14 }}>📨</span>
+            <span style={{ display: "inline-flex", alignItems: "center", color: t.green }}><Mail size={14} /></span>
             <span style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" as const }}>exec requests</span>
             <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>
           </div>
@@ -533,7 +534,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                   return (
                     <div style={{ marginTop: 4 }}>
                       <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: 12 }}>🔔</span> reminders · {mine.length}
+                        <span style={{ display: "inline-flex", alignItems: "center" }}><Bell size={12} /></span> reminders · {mine.length}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         {mine.map(r => {
@@ -1808,7 +1809,7 @@ export default function HomeView({
                         >
                           <AvatarC user={u} size={20} />
                           <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</span>
-                          {role && <span style={{ fontSize: 9 }} title={role}>{role === "root" ? "🔑" : "⚡"}</span>}
+                          {role && <span style={{ display: "inline-flex", alignItems: "center", color: t.accent }} title={role}>{role === "root" ? <Key size={9} /> : <Zap size={9} />}</span>}
                           {uPts > 0 && <span style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{uPts}</span>}
                         </button>
                         {viewingUser === u.id && setViewingUser && (

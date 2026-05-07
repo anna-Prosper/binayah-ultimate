@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { Users, Mail, Bot, MessageSquare } from "lucide-react";
 import { T } from "@/lib/themes";
 import { AvatarC } from "@/components/ui/Avatar";
 import { type UserType } from "@/lib/data";
@@ -284,8 +285,8 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
 	          {(["team", "dm", "ai"] as const).map(v => (
-            <button key={v} onClick={() => setTab(v)} style={{ background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
-	              {v === "team" ? "👥 team" : v === "dm" ? "✉ dm" : "🤖 ai"}
+            <button key={v} onClick={() => setTab(v)} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: tab === v ? t.accent + "22" : "transparent", border: `1px solid ${tab === v ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "6px 12px", cursor: "pointer", fontSize: 12, color: tab === v ? t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+              {v === "team" ? <><Users size={13} /> team</> : v === "dm" ? <><Mail size={13} /> dm</> : <><Bot size={13} /> ai</>}
             </button>
           ))}
         </div>
@@ -341,8 +342,8 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               </div>
             )}
             {visibleMessages.length === 0 && (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 24 }}>💬</span>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4, color: t.textDim }}>
+                <MessageSquare size={24} />
               </div>
             )}
             {visibleMessages.map(msg => {
@@ -478,8 +479,8 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
         <>
           <div style={fullScreen ? { flex: 1, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 } : { height: msgAreaHeight, overflowY: "auto", padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
             {aiMessages.length === 0 && (
-              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 4 }}>
-                <span style={{ fontSize: 28 }}>🤖</span>
+              <div style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column", gap: 6, color: t.textDim }}>
+                <Bot size={28} />
                 <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" }}>binayah ai · powered by gpt-4o-mini<br />ask anything about the pipeline</span>
               </div>
             )}
@@ -492,7 +493,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               return (
                 <div key={i} style={{ display: "flex", gap: 8, flexDirection: isUser ? "row-reverse" : "row", alignItems: "flex-end" }}>
                   {!isUser && (
-                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🤖</div>
+                    <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, color: "white" }}><Bot size={13} /></div>
                   )}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isUser && <div style={{ fontSize: 10, color: msg.error ? t.red : t.accent, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>Binayah AI</div>}
@@ -524,7 +525,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
             })}
             {aiLoading && (
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0 }}>🤖</div>
+                <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, color: "white" }}><Bot size={13} /></div>
                 <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: "14px 14px 14px 4px", padding: "8px 12px", display: "flex", gap: 4, alignItems: "center" }}>
                   {[0, 1, 2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: t.accent, animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }} />)}
                 </div>

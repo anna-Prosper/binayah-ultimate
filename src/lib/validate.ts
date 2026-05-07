@@ -109,8 +109,9 @@ export const PATCH_KEY_WHITELIST = new Set([
   "_deletes",
 ]);
 
-/** Map slices on the server — per-key merged via $set/$unset on dot paths,
- *  not wholesale-replaced. Keep in sync with the same name in route.ts. */
+/** Map slices on the server — per-key merged, not wholesale-replaced.
+ *  Inner-array slices (subtasks, reactions) get extra special-case merging
+ *  in route.ts so writes inside them don't clobber concurrent writes either. */
 export const MAP_SLICE_KEYS = new Set([
   "owners",
   "claims",
@@ -129,6 +130,27 @@ export const MAP_SLICE_KEYS = new Set([
   "customStages",
   "subtasks",
   "reactions",
+]);
+
+/** Arrays of objects with stable numeric `id` — merged by id (upsert each item),
+ *  never wholesale-replaced. _deletes for these is { slice: ["id1","id2"] }. */
+export const ARRAY_BY_ID_SLICE_KEYS = new Set([
+  "execProposals",
+  "reminders",
+  "notes",
+  "bugs",
+  "customPipelines",
+]);
+
+/** Set-like arrays (string lists treated as a set). Merged via union;
+ *  _deletes pulls members. */
+export const SET_SLICE_KEYS = new Set([
+  "approvedStages",
+  "approvedSubtasks",
+  "approvedPipelines",
+  "archivedStages",
+  "archivedPipelines",
+  "archivedSubtasks",
 ]);
 
 const FORBIDDEN_KEY_PATTERN = /[.$]|__proto__|constructor|prototype/;
