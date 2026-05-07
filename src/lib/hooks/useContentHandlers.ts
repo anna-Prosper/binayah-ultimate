@@ -356,6 +356,26 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     } : p));
   }, [currentUser, markLocalWrite, setExecProposals]);
 
+  // Mark a reviewed exec proposal as completed. Fires a notification to the
+  // exec who submitted it (via the existing exec-update path in
+  // useNotifications, which keys off completedAt + completedBy).
+  const completeExecProposal = useCallback((id: number) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
+      showToast("// only Anna can complete requests", tAmber);
+      return;
+    }
+    const proposal = execProposals.find(p => p.id === id);
+    if (!proposal || proposal.status !== "reviewed") return;
+    markLocalWrite("execProposals");
+    setExecProposals(prev => prev.map(p => p.id === id ? {
+      ...p,
+      status: "completed",
+      completedAt: Date.now(),
+      completedBy: currentUser,
+    } : p));
+    showToast("// marked complete — exec notified", tGreen);
+  }, [currentUser, execProposals, markLocalWrite, setExecProposals, showToast, tAmber, tGreen]);
+
   const deleteExecProposal = useCallback((id: number) => {
     if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
       showToast("// only Anna can delete requests", tAmber);
@@ -378,6 +398,7 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     updateExecProposalStatus,
     applyExecProposal,
     cancelExecProposal,
+    completeExecProposal,
     deleteExecProposal,
   };
 }

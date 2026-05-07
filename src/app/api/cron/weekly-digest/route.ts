@@ -148,7 +148,7 @@ export async function GET(req: NextRequest) {
     ahsan: "Ahsan", prajeesh: "Prajeesh", abdallah: "Abdallah",
   };
 
-  for (const [userId, email] of Object.entries(USER_PRIMARY_EMAIL)) {
+  for (const userId of Object.keys(USER_PRIMARY_EMAIL)) {
     try {
       const userName = userNames[userId] ?? userId;
 

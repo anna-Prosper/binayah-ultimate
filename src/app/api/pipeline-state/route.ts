@@ -323,7 +323,6 @@ export async function PATCH(req: NextRequest) {
   //    landed in between, matchedCount=0 and we retry (max 5 attempts). With low
   //    write volume this is effectively never contended; on a hot key the worst
   //    case is a few retries, no data loss.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _deletes, ...statePatch } = cleanPatch as Record<string, unknown> & {
     _deletes?: DeletesEnvelope;
   };

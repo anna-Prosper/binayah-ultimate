@@ -212,7 +212,6 @@ export default function PipelinesView({
           const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
           const allPStages = [...p.stages, ...(customStages[p.id] || [])].filter(s => !archivedStages.includes(s));
           const pC = ck[p.colorKey] || t.accent;
-          const prC = pr[pipePriority as keyof typeof pr] || { c: t.textMuted };
           const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
           const pct = allPStages.length > 0 ? Math.round(allPStages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / allPStages.length) : 0;
           const uClaim = [...new Set(allPStages.flatMap(s => claims[s] || []))];

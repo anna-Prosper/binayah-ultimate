@@ -58,16 +58,26 @@ export type SharedState = {
     updatedAt: number;
     workspaceId?: string;
     linkedTask?: string;
+    attachments?: {
+      id: string;
+      url: string;
+      name: string;
+      contentType: string;
+      size: number;
+      uploadedAt: number;
+    }[];
   }[];
   execProposals?: {
     id: number;
     title: string;
     body: string;
     by: string;
-    status: "pending" | "reviewed" | "rejected" | "canceled";
+    status: "pending" | "reviewed" | "rejected" | "canceled" | "completed";
     createdAt: number;
     reviewedAt?: number;
     reviewedBy?: string;
+    completedAt?: number;
+    completedBy?: string;
     kind?: "strategy" | "edit" | "archive" | "assign";
     target?: string;
     requestedAction?: string;

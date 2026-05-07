@@ -92,11 +92,6 @@ describe("set-like slices", () => {
 
 describe("subtasks inner-array merge", () => {
   it("merges subtasks per stage by id without losing concurrent additions", () => {
-    const current = {
-      subtasks: {
-        "Stage A": [{ id: 1, text: "first", done: false, by: "anna" }],
-      },
-    };
     // Client 1 sends their full array (missing subtask 2 added by client 2)
     const patch = {
       subtasks: {

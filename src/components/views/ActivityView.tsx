@@ -164,7 +164,13 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
   const { t, markAllNotifsRead, markNotifRead, dismissNotif, activityLog, users, currentUser } = useModel();
   const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
+  const [now, setNow] = useState(() => Date.now());
   const mono = "var(--font-dm-mono), monospace";
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Per-filter counts derived from the FULL lists, not the currently filtered list,
   // so the chip count is stable regardless of which filter is active.
@@ -206,12 +212,12 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
   // filter as ActivityFeed so the chip count matches the rendered feed count
   // (drops status_change spam + role-irrelevant entries).
   const activityLogFiltered = useMemo(() => {
-    const cutoff = Date.now() - ACTIVITY_LOG_VISIBLE_DAYS * MS_PER_DAY;
+    const cutoff = now - ACTIVITY_LOG_VISIBLE_DAYS * MS_PER_DAY;
     const wsFiltered = currentWorkspaceId
       ? activityLog.filter(e => (!e.workspaceId || e.workspaceId === currentWorkspaceId) && e.time >= cutoff)
       : activityLog.filter(e => e.time >= cutoff);
     return wsFiltered.filter(e => isUsefulActivity(e, currentUser, users));
-  }, [activityLog, currentWorkspaceId, currentUser, users]);
+  }, [activityLog, currentWorkspaceId, currentUser, users, now]);
 
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },

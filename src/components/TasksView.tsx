@@ -895,7 +895,7 @@ function TaskCard({
   const [editOpen, setEditOpen] = useState(false);
   const [descDraft, setDescDraft] = useState(stageDescOverrides[task.stageId] || "");
   const [dueDraft, setDueDraft] = useState(stageDueDates[task.stageId] || "");
-  const [isHovered, setIsHovered] = useState(false);
+  const [, setIsHovered] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   // Re-initialize drafts only when entering edit mode or switching cards.
   // Excluding stageDescOverrides/stageDueDates from deps prevents external
@@ -1231,7 +1231,6 @@ function TaskCard({
         onEmoji={emoji => { if (readOnly) return; handleReact(task.stageId, emoji); setReactOpen(null); }}
         onCopy={() => shareStage(task.stageId, `${task.stageId} — ${task.pipelineIcon} ${task.pipelineName}`)}
         copied={copied === task.stageId}
-        isHovered={isHovered || isAnyOpen}
         onEditToggle={() => {
           const next = !editOpen;
           setEditOpen(next);
@@ -1865,7 +1864,7 @@ function CardShell({ t, borderColor, borderStyle, pipelineColor, compact, dragga
   );
 }
 
-function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onArchive, archiveLabel, onEditToggle, showEditInput, showEditButton, compact, readOnly, isHovered }: {
+function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, commentCount, assignee, assignees, users, onReactToggle, onCommentToggle, onAssignToggle, onAssign, onEmoji, onCopy, copied, onEditToggle, showEditInput, showEditButton, compact, readOnly }: {
   t: T; showReactPicker: boolean; showCommentPopover: boolean; showAssignPicker: boolean;
   commentCount: number;
   /** primary assignee — first in the list, kept for backwards compat label/color */
@@ -1876,9 +1875,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
   onReactToggle: () => void; onCommentToggle: () => void; onAssignToggle: () => void;
   /** toggle a userId in/out of the assignee list (max 2). null clears all. */
   onAssign: (userId: string | null) => void;
-  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onArchive?: () => void; archiveLabel?: string; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean; readOnly?: boolean;
-  /** parent card hover state — controls fade-in of secondary actions (copy/archive) */
-  isHovered?: boolean;
+  onEmoji: (emoji: string) => void; onCopy: () => void; copied: boolean; onEditToggle?: () => void; showEditInput?: boolean; showEditButton?: boolean; compact?: boolean; readOnly?: boolean;
 }) {
   const assigneeList = assignees && assignees.length > 0 ? assignees : (assignee ? [assignee] : []);
   const iconBtn: React.CSSProperties = {
@@ -1897,11 +1894,6 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
     color: active ? color : t.textMuted,
   });
 
-  // Secondary (rarely-used) actions fade in on hover — opacity stays clickable for touch
-  const secondaryStyle: React.CSSProperties = {
-    opacity: isHovered ? 1 : 0.35,
-    transition: "opacity 0.18s",
-  };
   return (
     <div style={{ display: "flex", gap: 4, alignItems: "center", paddingTop: compact ? 8 : 10, marginTop: 0, flexWrap: "wrap" }}>
       {!readOnly && <div style={{ position: "relative" }}>

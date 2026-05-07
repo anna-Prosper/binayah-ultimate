@@ -402,10 +402,15 @@ export interface ExecProposal {
   title: string;
   body: string;
   by: string;
-  status: "pending" | "reviewed" | "rejected" | "canceled";
+  // Lifecycle: pending → reviewed (approved) → completed. Or pending → rejected/canceled (terminal).
+  // Reviewed items stay visible in the exec-requests overview with a "mark complete"
+  // button; completing fires a notification to the original exec.
+  status: "pending" | "reviewed" | "rejected" | "canceled" | "completed";
   createdAt: number;
   reviewedAt?: number;
   reviewedBy?: string;
+  completedAt?: number;
+  completedBy?: string;
   kind?: "strategy" | "edit" | "archive" | "assign";
   target?: string;
   requestedAction?: string;

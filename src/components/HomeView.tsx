@@ -1,17 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Bell, Mail, X, Flame, Key, Zap } from "lucide-react";
+import { Bell, Mail, X, Key, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace, type ExecProposal, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
+import { type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { truncate, timeAgo, timeAgoFrom, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
+import { truncate, timeAgo, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
 import { ExecutiveRequestsPanel } from "@/components/panels/ExecutiveRequestsPanel";
-import { ReminderPanel } from "@/components/panels/ReminderPanel";
 import { ZoomIntegrationPanel } from "@/components/panels/ZoomIntegrationPanel";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
@@ -53,7 +52,7 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
-function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal, reminders, onDismissReminder }: {
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal, onCompleteExecProposal, reminders, onDismissReminder }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
   onChatOpen?: () => void;
@@ -61,6 +60,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
   execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number }[];
   onAddReminder?: (title: string, remindAt: string) => void;
   onUpdateExecProposal?: (id: number, status: "reviewed" | "rejected") => void;
+  onCompleteExecProposal?: (id: number) => void;
   reminders?: { id: number; title: string; body: string; remindAt: string; recipientIds: string[]; dismissedBy?: string[] }[];
   onDismissReminder?: (id: number) => void;
   attention: {
@@ -100,38 +100,6 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
     onAddReminder?.(reminderTitle.trim(), reminderDate);
     setReminderTitle(""); setReminderDate(""); setReminderOpen(false);
   };
-
-  function StatTile({ label, value, tone, items }: { label: string; value: number; tone: AttentionTone; items: { title: string }[] }) {
-    const color = toneColor(t, tone);
-    const [expanded, setExpanded] = useState(false);
-    const urgent = value >= 10;
-    const hasItems = items.length > 0;
-    const borderColor = urgent ? color + "77" : color + "44";
-    const bgColor = urgent ? color + "18" : color + "0f";
-    return (
-      <div
-        onClick={() => hasItems && setExpanded(v => !v)}
-        style={{ border: `1px solid ${borderColor}`, background: bgColor, borderRadius: 10, padding: "10px 12px", minWidth: 0, cursor: hasItems ? "pointer" : "default", transition: "border-color 0.15s, background 0.15s", position: "relative" }}
-      >
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-          <div style={{ fontSize: 26, color, fontWeight: 900, lineHeight: 1 }}>{value}</div>
-          {urgent && <div style={{ width: 7, height: 7, borderRadius: "50%", background: color, boxShadow: `0 0 6px ${color}`, marginTop: 3, animation: "urgentPulse 2s ease-in-out infinite" }} />}
-        </div>
-        <div style={{ marginTop: 3, fontSize: 10, color: t.textMuted, fontFamily: mono, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</div>
-        {hasItems && !expanded && (
-          <div style={{ marginTop: 4, fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75 }}>· {items[0].title}{items.length > 1 ? ` +${items.length - 1} more` : ""}</div>
-        )}
-        {expanded && (
-          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 3 }}>
-            {items.map((item, i) => (
-              <div key={i} style={{ fontSize: 10, color, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.85 }}>· {item.title}</div>
-            ))}
-          </div>
-        )}
-        {hasItems && <div style={{ position: "absolute", bottom: 6, right: 8, fontSize: 9, color, fontFamily: mono, opacity: 0.6 }}>{expanded ? "▲" : "▼"}</div>}
-      </div>
-    );
-  }
 
   function ActionGroup({ label, color, items, actionLabel, onAction, assignPicker }: {
     label: string; color: string;
@@ -196,6 +164,11 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
   }
 
   const pendingExec = (execProposals || []).filter(p => p.status === "pending");
+  // Reviewed-but-not-yet-completed proposals stay visible in the overview as
+  // "in progress" so admins remember to follow up. Mark-complete fires the exec
+  // a notification.
+  const inProgressExec = (execProposals || []).filter(p => p.status === "reviewed");
+  const visibleExec = [...pendingExec, ...inProgressExec];
 
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 18 }}>
@@ -234,30 +207,39 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       )}
 
       {/* Exec requests banner — surfaces above the grid when pending */}
-      {pendingExec.length > 0 && canOperate && (
+      {visibleExec.length > 0 && canOperate && (
         <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${t.green}10, ${t.accent}10)`, border: `1px solid ${t.green}44`, borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ display: "inline-flex", alignItems: "center", color: t.green }}><Mail size={14} /></span>
             <span style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" as const }}>exec requests</span>
-            <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>
+            {pendingExec.length > 0 && <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>}
+            {inProgressExec.length > 0 && <span style={{ background: t.amber + "26", border: `1px solid ${t.amber}55`, color: t.amber, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{inProgressExec.length} in progress</span>}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-            {pendingExec.slice(0, 3).map(p => {
+            {visibleExec.slice(0, 5).map(p => {
               const author = users.find(u => u.id === p.by);
+              const isPending = p.status === "pending";
               return (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 9, padding: "8px 10px" }}>
                   {author && <AvatarC user={author} size={22} />}
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</div>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
+                      {!isPending && <span style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, textTransform: "uppercase" as const, letterSpacing: 0.4 }}>in progress</span>}
+                    </div>
                     <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{author?.name.split(" ")[0] || p.by} · {p.body}</div>
                   </div>
-                  {onUpdateExecProposal && (
+                  {isPending && onUpdateExecProposal && (
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       <button type="button" onClick={() => onUpdateExecProposal(p.id, "reviewed")}
                         style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓ approve</button>
                       <button type="button" onClick={() => onUpdateExecProposal(p.id, "rejected")}
                         style={{ background: "transparent", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
                     </div>
+                  )}
+                  {!isPending && onCompleteExecProposal && (
+                    <button type="button" onClick={() => onCompleteExecProposal(p.id)}
+                      style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓ mark complete</button>
                   )}
                 </div>
               );
@@ -518,7 +500,7 @@ export default function HomeView({
     owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, activityLog, chatMessages,
     reminders, addReminder, dismissReminder,
     getStatus, ck, approveStage, approveSubtask, assignTask,
-    execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, deleteExecProposal,
+    execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
   } = useModel();
 
   // null = show all workspaces; string = filter to specific workspace
@@ -1073,6 +1055,7 @@ export default function HomeView({
             execProposals={execProposals.filter(p => p.kind === "strategy" || EXEC_IDS.includes(p.by))}
             onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt })}
             onUpdateExecProposal={(id, status) => updateExecProposalStatus(id, status)}
+            onCompleteExecProposal={completeExecProposal}
             reminders={reminders}
             onDismissReminder={dismissReminder}
             onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}

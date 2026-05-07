@@ -30,6 +30,15 @@ const SubtaskItemSchema = z.object({
   points: z.number().optional(),
 });
 
+const BugAttachmentSchema = z.object({
+  id: z.string().max(120),
+  url: z.string().url().max(2000),
+  name: z.string().max(180),
+  contentType: z.string().max(120),
+  size: z.number().int().min(0).max(25 * 1024 * 1024),
+  uploadedAt: z.number(),
+});
+
 export const PatchBodySchema = z.object({
   // Canonical ownership map
   owners: z.record(z.string(), z.array(z.string())).optional(),
@@ -122,6 +131,7 @@ export const PatchBodySchema = z.object({
     updatedAt: z.number(),
     workspaceId: z.string().optional(),
     linkedTask: z.string().optional(),
+    attachments: z.array(BugAttachmentSchema).max(8).optional(),
   })).optional(),
 
   execProposals: z.array(z.object({
@@ -129,10 +139,12 @@ export const PatchBodySchema = z.object({
     title: z.string().max(120),
     body: z.string().max(1200),
     by: z.string(),
-    status: z.enum(["pending", "reviewed", "rejected", "canceled"]),
+    status: z.enum(["pending", "reviewed", "rejected", "canceled", "completed"]),
     createdAt: z.number(),
     reviewedAt: z.number().optional(),
     reviewedBy: z.string().optional(),
+    completedAt: z.number().optional(),
+    completedBy: z.string().optional(),
     kind: z.enum(["strategy", "edit", "archive", "assign"]).optional(),
     target: z.string().optional(),
     requestedAction: z.string().optional(),

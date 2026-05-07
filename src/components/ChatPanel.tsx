@@ -61,6 +61,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const [tab, setTab] = useState<"team" | "dm" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
+  const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [dmUserId, setDmUserId] = useState(() => users.find(u => u.id !== currentUser && u.id !== "ai")?.id || "");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -184,24 +185,34 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
 
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
+    setAttachmentError(null);
     const picked = Array.from(files).slice(0, 4 - attachments.length);
+    const skipped: string[] = [];
     const next = await Promise.all(picked.map(file => new Promise<ChatAttachment>((resolve, reject) => {
-      if (file.size > 900_000) reject(new Error("file too large"));
+      if (file.size > 900_000) {
+        reject(new Error(`${file.name} is too large for chat. Max is 900 KB.`));
+        return;
+      }
       const reader = new FileReader();
       reader.onload = () => resolve({ id: `${Date.now()}-${file.name}`, name: file.name, type: file.type || "application/octet-stream", size: file.size, dataUrl: String(reader.result) });
       reader.onerror = () => reject(reader.error);
       reader.readAsDataURL(file);
-    }).catch(() => null)));
+    }).catch(err => {
+      skipped.push(err instanceof Error ? err.message : `${file.name} could not be attached`);
+      return null;
+    })));
+    if (skipped.length > 0) setAttachmentError(skipped[0]);
     setAttachments(prev => [...prev, ...next.filter((x): x is ChatAttachment => !!x)].slice(0, 4));
     if (fileRef.current) fileRef.current.value = "";
   };
 
   const send = () => {
     const text = input.trim();
-    if (!text || text.length > MAX_MSG_LEN) return;
+    if ((!text && attachments.length === 0) || text.length > MAX_MSG_LEN) return;
     onSend(text, { threadId: activeThreadId, attachments });
     setInput("");
     setAttachments([]);
+    setAttachmentError(null);
   };
 
   const sendAi = async () => {
@@ -465,6 +476,11 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
 	                ))}
 	              </div>
 	            )}
+            {attachmentError && (
+              <div style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+                // {attachmentError}
+              </div>
+            )}
             {isInputTooLong && (
               <div style={{ fontSize: 10, color: t.red, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
                 // {inputCharCount}/{MAX_MSG_LEN} — message too long

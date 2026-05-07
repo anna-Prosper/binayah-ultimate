@@ -8,7 +8,6 @@ import { lsGet, lsSet } from "@/lib/storage";
 import {
   LOCAL_WRITE_PROTECT_MS as _LOCAL_WRITE_PROTECT_MS,
   NOTIF_DISMISS_MS, COMMENT_NOTIF_DISMISS_MS, CONFLICT_TOAST_THROTTLE_MS,
-  HEARTBEAT_INTERVAL_MS, MAX_BODY_TEXT_LEN,
 } from "@/lib/constants";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
@@ -18,7 +17,7 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { deleteComment as deleteCommentRemote, patchState, pushMessage, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { deleteComment as deleteCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 import { useChatHandlers } from "@/lib/hooks/useChatHandlers";
@@ -113,6 +112,7 @@ interface ModelContextValue {
   updateExecProposalStatus: (id: number, status: "reviewed" | "rejected" | "canceled") => void;
   applyExecProposal: (id: number) => void;
   cancelExecProposal: (id: number) => void;
+  completeExecProposal: (id: number) => void;
   deleteExecProposal: (id: number) => void;
   archivedStages: string[];
   archivedPipelines: string[];
@@ -1691,6 +1691,7 @@ export function ModelProvider({
     updateExecProposalStatus,
     applyExecProposal,
     cancelExecProposal,
+    completeExecProposal,
     deleteExecProposal,
   } = useContentHandlers({
     currentUser,
@@ -1786,7 +1787,7 @@ export function ModelProvider({
     reminders, addReminder, dismissReminder,
     notes, addNote, updateNote, deleteNote,
     bugs, addBug, updateBug, deleteBug,
-    execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, deleteExecProposal,
+    execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
     syncStatus,

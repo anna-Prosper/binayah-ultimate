@@ -143,7 +143,7 @@ function ShellInner({
   const activeNavItem: NavItem = navItemFromPathname(pathname);
 
   const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, undo, peek, stackLen, t } = useModel();
-  const { setReactOpen, setCopied, setClaimAnim } = useEphemeral();
+  const { setReactOpen, setClaimAnim } = useEphemeral();
 
   // Hover/UI state — no more activeNavItem; that lives in the URL
   const [isHydrating, setIsHydrating] = useState(true);
@@ -557,4 +557,3 @@ function ShellInner({
     </div>
   );
 }
-

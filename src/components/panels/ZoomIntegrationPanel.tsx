@@ -1,7 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
 import { T } from "@/lib/themes";
-import { type UserType, ADMIN_IDS } from "@/lib/data";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 

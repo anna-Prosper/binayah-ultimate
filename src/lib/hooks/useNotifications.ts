@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { ADMIN_IDS } from "@/lib/data";
 import type { NotificationItem } from "@/lib/notificationKinds";
@@ -31,6 +31,12 @@ export function useNotifications() {
     notifReads, notifDismissed, notifReadIds,
   } = m;
 
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
   return useMemo(() => {
     const me = currentUser || "";
     const empty = {
@@ -39,12 +45,11 @@ export function useNotifications() {
       unreadUpdatesCount: 0,
       unreadActionCount: 0,
       totalAttentionCount: 0,
-      isUpdateRead: (_n: NotificationItem) => true,
-      isItemRead: (_n: NotificationItem) => true,
+      isUpdateRead: () => true,
+      isItemRead: () => true,
     };
     if (!me) return empty;
 
-    const now = Date.now();
     const isAdmin = ADMIN_IDS.includes(me);
     const myCaptainWorkspaces = workspaces.filter(w => isAdmin || w.captains.includes(me));
     const myMemberWorkspaces = workspaces.filter(w => w.members.includes(me) || isAdmin);
@@ -209,14 +214,23 @@ export function useNotifications() {
       .filter(u => u.id === me)
       .flatMap(u => [`@${u.id.toLowerCase()}`, `@${u.name.split(" ")[0].toLowerCase()}`]);
 
-    // 10. Exec proposal status updates — mine got reviewed/rejected.
+    // 10. Exec proposal status updates — mine got reviewed/rejected/completed.
+    // Completed gets its own notification (id-suffixed by status) so the exec
+    // sees both "approved" and later "completed" as separate updates.
     for (const p of execProposals) {
       if (p.by !== me) continue;
       if ((p.status === "reviewed" || p.status === "rejected") && p.reviewedAt) {
         up.push({
-          id: `exec-update:${p.id}`, kind: "exec-update", title: p.title,
+          id: `exec-update:${p.id}:reviewed`, kind: "exec-update", title: p.title,
           body: `${p.status === "reviewed" ? "approved" : "rejected"} by ${userName(p.reviewedBy || "")}`,
           time: p.reviewedAt, priority: "medium", actionRequired: false,
+        });
+      }
+      if (p.status === "completed" && p.completedAt) {
+        up.push({
+          id: `exec-update:${p.id}:completed`, kind: "exec-update", title: p.title,
+          body: `completed by ${userName(p.completedBy || "")}`,
+          time: p.completedAt, priority: "medium", actionRequired: false,
         });
       }
     }
@@ -343,5 +357,6 @@ export function useNotifications() {
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
     stageDueDates, activityLog, comments, chatMessages, users,
     notifReads, notifDismissed, notifReadIds,
+    now,
   ]);
 }
