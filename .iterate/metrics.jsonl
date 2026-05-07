@@ -102,3 +102,5 @@
 {"ts":"2026-04-28T08:10:30Z","stage":1,"iter":1,"fromPhase":"qa","toPhase":"push","role":"qa","passed":true}
 {"ts":"2026-04-28T08:12:51Z","stage":1,"iter":1,"fromPhase":"push","toPhase":"qa_live","role":"orchestrator","passed":true}
 {"ts":"2026-04-28T08:16:46Z","stage":1,"iter":1,"fromPhase":"qa_live","toPhase":"done","role":"orchestrator","passed":true}
+{"ts":"2026-05-07T09:24:01Z","stage":1,"iter":1,"fromPhase":"dev","toPhase":"review","role":"reviewer","passed":true}
+{"ts":"2026-05-07T09:26:22Z","stage":1,"iter":1,"fromPhase":"review","toPhase":"qa","role":"qa","passed":true}

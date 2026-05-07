@@ -79,6 +79,7 @@ export const PatchBodySchema = z.object({
   // notifDismissed is userId → array of explicitly dismissed item ids.
   notifReads: z.record(z.string(), z.number()).optional(),
   notifDismissed: z.record(z.string(), z.array(z.string())).optional(),
+  notifReadIds: z.record(z.string(), z.array(z.string())).optional(),
 
   // Arrays of objects with stable ids
   reminders: z.array(z.object({

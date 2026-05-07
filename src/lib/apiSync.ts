@@ -103,6 +103,10 @@ export type SharedState = {
   // notifDismissed: userId → list of notif item ids the user has explicitly dismissed.
   // Dismissals never expire — they keep an item out of the feed permanently.
   notifDismissed?: Record<string, string[]>;
+  // notifReadIds: userId → list of notif item ids marked read individually (e.g. via click).
+  // Combined with notifReads timestamp: item is read if id is in this list OR time <= timestamp.
+  // Cleared when user clicks "mark all read" (cutoff replaces the per-item set).
+  notifReadIds?: Record<string, string[]>;
   updatedAt?: number;
 };
 

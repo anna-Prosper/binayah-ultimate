@@ -7,10 +7,6 @@
       "src/app/globals.css",
       "src/components/SessionProviderWrapper.tsx"
     ],
-    "src/app/page.tsx": [
-      "src/lib/auth.ts",
-      "src/components/DashboardClient.tsx"
-    ],
     "src/components/OverviewPanel.tsx": [
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx",
@@ -24,12 +20,25 @@
       "src/lib/themes.ts",
       "src/components/Onboarding.tsx"
     ],
-    "src/components/Dashboard.tsx": [
+    "src/components/WorkspaceAdmin.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/NotificationBell.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/AppShell.tsx": [
+      "src/lib/constants.ts",
       "src/hooks/useIsMobile.ts",
       "src/components/ui/BottomSheet.tsx",
       "src/lib/storage.ts",
       "src/lib/contexts/EphemeralContext.tsx",
       "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useNotifications.ts",
+      "src/lib/contexts/AppShellContext.tsx",
       "src/lib/themes.ts",
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx",
@@ -42,26 +51,12 @@
       "src/components/SearchPalette.tsx",
       "src/components/ChromeShell.tsx",
       "src/components/CallSummaryModal.tsx",
-      "src/components/views/PipelinesView.tsx",
       "src/components/views/ArchiveView.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
-      "src/components/views/NotesView.tsx",
-      "src/components/views/BugTrackerView.tsx",
-      "src/components/views/HomeViewRoute.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/WhileAwayDigest.tsx",
       "src/components/QuickAddModal.tsx"
-    ],
-    "src/components/WorkspaceAdmin.tsx": [
-      "src/lib/themes.ts",
-      "src/lib/data.ts",
-      "src/components/ui/Avatar.tsx"
-    ],
-    "src/components/NotificationBell.tsx": [
-      "src/lib/themes.ts",
-      "src/lib/data.ts",
-      "src/components/ui/Avatar.tsx"
     ],
     "src/components/QuickAddModal.tsx": [
       "src/lib/themes.ts"
@@ -93,7 +88,11 @@
       "src/components/ui/Avatar.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/lib/contexts/ModelContext.tsx",
-      "src/lib/subtaskKey.ts"
+      "src/lib/subtaskKey.ts",
+      "src/lib/timeHelpers.ts",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
+      "src/components/panels/ReminderPanel.tsx",
+      "src/components/panels/ZoomIntegrationPanel.tsx"
     ],
     "src/components/SearchFilter.tsx": [
       "src/lib/themes.ts"
@@ -163,6 +162,12 @@
       "src/components/ui/Avatar.tsx",
       "src/components/ui/primitives.tsx"
     ],
+    "src/__tests__/pipelineStateMerge.test.ts": [
+      "src/lib/pipelineStateMerge.ts"
+    ],
+    "src/__tests__/validate.test.ts": [
+      "src/lib/validate.ts"
+    ],
     "src/lib/generatePDF.ts": [
       "src/lib/data.ts"
     ],
@@ -199,6 +204,14 @@
     "src/lib/points.ts": [
       "src/lib/data.ts"
     ],
+    "src/lib/timeHelpers.ts": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/constants.ts"
+    ],
+    "src/lib/patchSchema.ts": [
+      "src/lib/constants.ts"
+    ],
     "src/lib/auth.ts": [
       "src/lib/mongo.ts",
       "src/lib/AuthUser.ts",
@@ -207,16 +220,40 @@
     "src/lib/contexts/ModelContext.tsx": [
       "src/lib/hooks/useUndoStack.ts",
       "src/lib/storage.ts",
+      "src/lib/constants.ts",
       "src/lib/points.ts",
       "src/lib/data.ts",
       "src/lib/themes.ts",
       "src/lib/subtaskKey.ts",
       "src/lib/apiSync.ts",
       "src/lib/hooks/useSync.ts",
+      "src/components/ChatPanel.tsx",
+      "src/lib/hooks/useChatHandlers.ts",
+      "src/lib/hooks/useWorkspaceHandlers.ts",
+      "src/lib/hooks/useContentHandlers.ts"
+    ],
+    "src/lib/hooks/useChatHandlers.ts": [
+      "src/lib/constants.ts",
+      "src/lib/apiSync.ts",
+      "src/lib/data.ts",
       "src/components/ChatPanel.tsx"
     ],
+    "src/lib/hooks/useContentHandlers.ts": [
+      "src/lib/constants.ts",
+      "src/lib/data.ts",
+      "src/lib/subtaskKey.ts"
+    ],
     "src/lib/hooks/useSync.ts": [
-      "src/lib/apiSync.ts"
+      "src/lib/apiSync.ts",
+      "src/lib/constants.ts"
+    ],
+    "src/lib/hooks/useWorkspaceHandlers.ts": [
+      "src/lib/data.ts"
+    ],
+    "src/lib/hooks/useNotifications.ts": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/data.ts",
+      "src/lib/notificationKinds.ts"
     ],
     "src/components/ui/BottomSheet.tsx": [
       "src/lib/themes.ts"
@@ -254,6 +291,23 @@
       "src/lib/themes.ts",
       "src/lib/data.ts",
       "src/components/ui/Avatar.tsx"
+    ],
+    "src/components/panels/ExecutiveRequestsPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/timeHelpers.ts"
+    ],
+    "src/components/panels/ReminderPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/components/panels/ZoomIntegrationPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts"
     ],
     "src/components/mockups/MultiMockups.tsx": [
       "src/lib/themes.ts",
@@ -319,11 +373,18 @@
     ],
     "src/components/views/ActivityView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useNotifications.ts",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
+      "src/lib/notificationKinds.ts"
+    ],
+    "src/components/views/PipelinesViewPage.tsx": [
+      "src/hooks/useIsMobile.ts",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
       "src/lib/storage.ts",
-      "src/lib/data.ts",
-      "src/lib/subtaskKey.ts"
+      "src/components/views/PipelinesView.tsx"
     ],
     "src/components/views/ChatView.tsx": [
       "src/lib/contexts/ModelContext.tsx",
@@ -360,6 +421,21 @@
       "src/lib/themes.ts",
       "src/lib/data.ts"
     ],
+    "src/app/(app)/layout.tsx": [
+      "src/lib/auth.ts",
+      "src/components/AppShellClient.tsx"
+    ],
+    "src/app/(app)/page.tsx": [
+      "src/hooks/useIsMobile.ts",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/storage.ts",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/components/LeftSidebar.tsx"
+    ],
     "src/app/login/page.tsx": [
       "src/lib/auth.ts",
       "src/components/LoginClient.tsx"
@@ -375,6 +451,7 @@
       "src/lib/rateLimit.ts",
       "src/lib/validate.ts",
       "src/lib/pipelineStateMerge.ts",
+      "src/lib/patchSchema.ts",
       "src/lib/log.ts",
       "src/lib/data.ts",
       "src/lib/sendNotifications.ts",
@@ -465,6 +542,7 @@
       "src/lib/s3.ts"
     ],
     "src/app/api/zoom/recordings/route.ts": [
+      "src/lib/auth.ts",
       "src/lib/zoom.ts"
     ],
     "src/app/api/zoom/status/route.ts": [
@@ -483,6 +561,7 @@
       "src/lib/auth.ts"
     ],
     "src/app/api/zoom/connect/route.ts": [
+      "src/lib/auth.ts",
       "src/lib/zoom.ts"
     ],
     "src/app/api/zoom/meeting-summary/route.ts": [
@@ -554,6 +633,714 @@
     "src/app/api/auth/[...nextauth]/route.ts": [
       "src/lib/auth.ts"
     ],
+    "src/app/(app)/calls/page.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    "src/app/(app)/chat/page.tsx": [
+      "src/components/views/ChatView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    "src/app/(app)/activity/page.tsx": [
+      "src/components/views/ActivityView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    "src/app/(app)/bugs/page.tsx": [
+      "src/components/views/BugTrackerView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/app/(app)/pipelines/page.tsx": [
+      "src/components/views/PipelinesViewPage.tsx"
+    ],
+    "src/app/(app)/notes/page.tsx": [
+      "src/components/views/NotesView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/app/(app)/documents/page.tsx": [
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/hooks/useIsMobile.ts",
+      "src/components/ui/ErrorBoundary.tsx"
+    ],
+    "src/app/(app)/pipelines/[id]/page.tsx": [
+      "src/components/views/PipelinesViewPage.tsx"
+    ],
+    "src/app/(app)/activity/log/page.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/next-env.d.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/.next/types/routes.d.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/globals.css",
+      "src/components/SessionProviderWrapper.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/OverviewPanel.tsx": [
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationPrefs.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/WelcomeModal.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/Onboarding.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/WorkspaceAdmin.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationBell.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx": [
+      "src/lib/constants.ts",
+      "src/hooks/useIsMobile.ts",
+      "src/components/ui/BottomSheet.tsx",
+      "src/lib/storage.ts",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/Onboarding.tsx",
+      "src/components/WelcomeModal.tsx",
+      "src/components/ui/Toast.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/components/SearchPalette.tsx",
+      "src/components/ChromeShell.tsx",
+      "src/components/CallSummaryModal.tsx",
+      "src/components/views/ArchiveView.tsx",
+      "src/components/views/ActivityView.tsx",
+      "src/components/views/ChatView.tsx",
+      "src/components/views/TeamBar.tsx",
+      "src/components/WhileAwayDigest.tsx",
+      "src/components/QuickAddModal.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/QuickAddModal.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/WhileAwayDigest.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/LoginClient.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/version.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/UserPopup.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts",
+      "src/lib/timeHelpers.ts",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
+      "src/components/panels/ReminderPanel.tsx",
+      "src/components/panels/ZoomIntegrationPanel.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchFilter.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/Onboarding.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/points.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimChip.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/components/ui/ClaimerPills.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts",
+      "src/hooks/useIsMobile.ts",
+      "src/components/TodayView.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ChatPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/data.ts",
+      "src/lib/apiSync.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/Toast.tsx",
+      "src/lib/data.ts",
+      "src/hooks/useIsMobile.ts",
+      "src/components/SearchPalette.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/LeftSidebar.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/CallSummaryModal.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/subtaskKey.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/ClaimerPills.tsx",
+      "src/components/ui/primitives.tsx",
+      "src/components/ui/ClaimChip.tsx",
+      "src/components/mockups/mockupsMap.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/points.ts",
+      "src/components/ui/BottomSheet.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/lib/storage.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ActivityFeed.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/__tests__/pipelineStateMerge.test.ts": [
+      "src/lib/pipelineStateMerge.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/__tests__/validate.test.ts": [
+      "src/lib/validate.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/generatePDF.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/mentions.ts": [
+      "src/lib/data.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/storage.ts": [
+      "src/lib/version.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/notifyRateLimit.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/mongo.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/NotifyLog.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/pipelineStateMerge.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/validate.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/notifyRateLimit.ts",
+      "src/lib/email.ts",
+      "src/lib/emailTemplates.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/data.ts",
+      "src/lib/notifyRecipients.ts",
+      "src/lib/DigestEntry.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/notifyRecipients.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/points.ts": [
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/timeHelpers.ts": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/constants.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/patchSchema.ts": [
+      "src/lib/constants.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/auth.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx": [
+      "src/lib/hooks/useUndoStack.ts",
+      "src/lib/storage.ts",
+      "src/lib/constants.ts",
+      "src/lib/points.ts",
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/lib/subtaskKey.ts",
+      "src/lib/apiSync.ts",
+      "src/lib/hooks/useSync.ts",
+      "src/components/ChatPanel.tsx",
+      "src/lib/hooks/useChatHandlers.ts",
+      "src/lib/hooks/useWorkspaceHandlers.ts",
+      "src/lib/hooks/useContentHandlers.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useChatHandlers.ts": [
+      "src/lib/constants.ts",
+      "src/lib/apiSync.ts",
+      "src/lib/data.ts",
+      "src/components/ChatPanel.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useContentHandlers.ts": [
+      "src/lib/constants.ts",
+      "src/lib/data.ts",
+      "src/lib/subtaskKey.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useSync.ts": [
+      "src/lib/apiSync.ts",
+      "src/lib/constants.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useWorkspaceHandlers.ts": [
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/BottomSheet.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/AvatarPicker.tsx": [
+      "src/lib/data.ts",
+      "src/lib/themes.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/primitives.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimChip.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ConfirmModal.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/UserPopup.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/NotificationPrefs.tsx",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Skeletons.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Avatar.tsx": [
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Toast.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimerPills.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ExecutiveRequestsPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/components/ui/Avatar.tsx",
+      "src/lib/timeHelpers.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ReminderPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ZoomIntegrationPanel.tsx": [
+      "src/lib/themes.ts",
+      "src/lib/data.ts",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MultiMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CoreMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CommsMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/LeadMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ResearchMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/DevMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/OutboundMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ContentMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/WebToolsMockups.tsx": [
+      "src/lib/themes.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      "src/components/ui/primitives.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/mockupsMap.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/CallsView.tsx": [
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ArchiveView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/subtaskKey.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/TeamBar.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/NotificationPrefs.tsx",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/lib/storage.ts",
+      "src/lib/data.ts",
+      "src/lib/subtaskKey.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx": [
+      "src/hooks/useIsMobile.ts",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/storage.ts",
+      "src/components/views/PipelinesView.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ChatView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Avatar.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/lib/themes.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/NotesView.tsx": [
+      "src/lib/data.ts",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/themes.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx": [
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/components/ui/primitives.tsx",
+      "src/components/ui/ClaimerPills.tsx",
+      "src/components/SearchFilter.tsx",
+      "src/components/Stage.tsx",
+      "src/components/ui/ErrorBoundary.tsx",
+      "src/components/ui/Skeletons.tsx",
+      "src/components/ui/ConfirmModal.tsx",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/views/BugTrackerView.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/themes.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/layout.tsx": [
+      "src/lib/auth.ts",
+      "src/components/AppShellClient.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx": [
+      "src/hooks/useIsMobile.ts",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/contexts/EphemeralContext.tsx",
+      "src/lib/storage.ts",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/components/LeftSidebar.tsx",
+      "src/components/LeftSidebar.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/login/page.tsx": [
+      "src/lib/auth.ts",
+      "src/components/LoginClient.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/chat/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/pipelineStateMerge.ts",
+      "src/lib/patchSchema.ts",
+      "src/lib/log.ts",
+      "src/lib/data.ts",
+      "src/lib/sendNotifications.ts",
+      "src/lib/auth.ts",
+      "src/lib/chatBus.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/call-summary/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/unsubscribe/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/generate-pfp/route.ts": [
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/suggest-points/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/DigestEntry.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts",
+      "src/lib/emailTemplates.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/zoom-sync/route.ts": [
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/email.ts",
+      "src/lib/auth.ts",
+      "src/lib/data.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/PipelineStateBackup.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts",
+      "src/lib/email.ts",
+      "src/lib/data.ts",
+      "src/app/api/unsubscribe/route.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/s3.ts",
+      "src/lib/rateLimit.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/BinayahDocument.ts",
+      "src/lib/s3.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/recordings/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/zoom.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/status/route.ts": [
+      "src/lib/zoom.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/summaries/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/ZoomCallCache.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts": [
+      "src/lib/zoom.ts",
+      "src/lib/mongo.ts",
+      "src/lib/ZoomCallCache.ts",
+      "src/lib/log.ts",
+      "src/lib/data.ts",
+      "src/lib/auth.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/connect/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/zoom.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meeting-summary/route.ts": [
+      "src/lib/zoom.ts",
+      "src/lib/log.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/bugs/upload/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/s3.ts",
+      "src/lib/rateLimit.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/auth.ts",
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/ChatMessage.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/mentions.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/auth.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/rateLimit.ts",
+      "src/lib/validate.ts",
+      "src/lib/log.ts",
+      "src/lib/auth.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/chatBus.ts",
+      "src/lib/mongo.ts",
+      "src/lib/PipelineState.ts",
+      "src/lib/ChatMessage.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts": [
+      "src/lib/auth.ts",
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/data.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/signup/route.ts": [
+      "src/lib/mongo.ts",
+      "src/lib/AuthUser.ts",
+      "src/lib/auth.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/[...nextauth]/route.ts": [
+      "src/lib/auth.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/calls/page.tsx": [
+      "src/lib/contexts/ModelContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx": [
+      "src/components/views/ChatView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx": [
+      "src/components/views/ActivityView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/hooks/useIsMobile.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx": [
+      "src/components/views/BugTrackerView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/page.tsx": [
+      "src/components/views/PipelinesViewPage.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx": [
+      "src/components/views/NotesView.tsx",
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": [
+      "src/lib/contexts/AppShellContext.tsx",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/hooks/useIsMobile.ts",
+      "src/components/ui/ErrorBoundary.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": [
+      "src/components/views/PipelinesViewPage.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/tests/behavioral/cards.spec.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/tests/behavioral/_helpers.ts"
+    ],
     "tests/behavioral/cards.spec.ts": [
       "tests/behavioral/_helpers.ts"
     ]
@@ -566,42 +1353,15 @@
       "src/app/layout.tsx"
     ],
     "src/components/SessionProviderWrapper.tsx": [
-      "src/app/layout.tsx"
-    ],
-    "src/lib/auth.ts": [
-      "src/app/page.tsx",
-      "src/lib/mentions.ts",
-      "src/lib/sendNotifications.ts",
-      "src/app/login/page.tsx",
-      "src/app/api/pipeline-state/route.ts",
-      "src/app/api/documents/route.ts",
-      "src/app/api/suggest-points/route.ts",
-      "src/app/api/cron/digest/route.ts",
-      "src/app/api/cron/weekly-digest/route.ts",
-      "src/app/api/cron/reminders/route.ts",
-      "src/app/api/documents/[id]/route.ts",
-      "src/app/api/documents/[id]/attachments/route.ts",
-      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
-      "src/app/api/zoom/meetings/route.ts",
-      "src/app/api/bugs/upload/route.ts",
-      "src/app/api/pipeline-state/comments/route.ts",
-      "src/app/api/pipeline-state/messages/route.ts",
-      "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts",
-      "src/app/api/pipeline-state/messages/stream/route.ts",
-      "src/app/api/auth/prefs/route.ts",
-      "src/app/api/auth/signup/route.ts",
-      "src/app/api/auth/[...nextauth]/route.ts"
-    ],
-    "src/components/DashboardClient.tsx": [
-      "src/app/page.tsx"
+      "src/app/layout.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx"
     ],
     "src/lib/data.ts": [
       "src/components/OverviewPanel.tsx",
       "src/components/WelcomeModal.tsx",
-      "src/components/Dashboard.tsx",
       "src/components/WorkspaceAdmin.tsx",
       "src/components/NotificationBell.tsx",
+      "src/components/AppShell.tsx",
       "src/components/WhileAwayDigest.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/TodayView.tsx",
@@ -617,14 +1377,21 @@
       "src/lib/sendNotifications.ts",
       "src/lib/notifyRecipients.ts",
       "src/lib/points.ts",
+      "src/lib/timeHelpers.ts",
       "src/lib/auth.ts",
       "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useChatHandlers.ts",
+      "src/lib/hooks/useContentHandlers.ts",
+      "src/lib/hooks/useWorkspaceHandlers.ts",
+      "src/lib/hooks/useNotifications.ts",
       "src/components/ui/AvatarPicker.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/components/ui/Avatar.tsx",
       "src/components/ui/ClaimerPills.tsx",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
+      "src/components/panels/ReminderPanel.tsx",
+      "src/components/panels/ZoomIntegrationPanel.tsx",
       "src/components/views/TeamBar.tsx",
-      "src/components/views/ActivityView.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/NotesView.tsx",
       "src/components/views/PipelinesView.tsx",
@@ -635,13 +1402,57 @@
       "src/app/api/zoom/meetings/route.ts",
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts",
-      "src/app/api/auth/prefs/route.ts"
+      "src/app/api/auth/prefs/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/OverviewPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WelcomeModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WorkspaceAdmin.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationBell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WhileAwayDigest.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Onboarding.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ChatPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ActivityFeed.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/mentions.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/points.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/timeHelpers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/auth.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useChatHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useContentHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useWorkspaceHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/AvatarPicker.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/UserPopup.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Avatar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimerPills.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ExecutiveRequestsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ReminderPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ZoomIntegrationPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/TeamBar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/NotesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/BugTrackerView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts"
     ],
     "src/components/ui/Avatar.tsx": [
       "src/components/OverviewPanel.tsx",
-      "src/components/Dashboard.tsx",
       "src/components/WorkspaceAdmin.tsx",
       "src/components/NotificationBell.tsx",
+      "src/components/AppShell.tsx",
       "src/components/WhileAwayDigest.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/TodayView.tsx",
@@ -655,16 +1466,37 @@
       "src/components/ui/AvatarPicker.tsx",
       "src/components/ui/UserPopup.tsx",
       "src/components/ui/ClaimerPills.tsx",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
       "src/components/views/TeamBar.tsx",
-      "src/components/views/HomeViewRoute.tsx"
+      "src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/OverviewPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WorkspaceAdmin.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationBell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WhileAwayDigest.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Onboarding.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ChatPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ActivityFeed.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/AvatarPicker.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/UserPopup.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimerPills.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ExecutiveRequestsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/TeamBar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx"
     ],
     "src/lib/themes.ts": [
       "src/components/OverviewPanel.tsx",
       "src/components/NotificationPrefs.tsx",
       "src/components/WelcomeModal.tsx",
-      "src/components/Dashboard.tsx",
       "src/components/WorkspaceAdmin.tsx",
       "src/components/NotificationBell.tsx",
+      "src/components/AppShell.tsx",
       "src/components/QuickAddModal.tsx",
       "src/components/WhileAwayDigest.tsx",
       "src/components/SearchPalette.tsx",
@@ -680,6 +1512,7 @@
       "src/components/CallSummaryModal.tsx",
       "src/components/Stage.tsx",
       "src/components/ActivityFeed.tsx",
+      "src/lib/timeHelpers.ts",
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/BottomSheet.tsx",
       "src/components/ui/AvatarPicker.tsx",
@@ -689,6 +1522,9 @@
       "src/components/ui/Skeletons.tsx",
       "src/components/ui/Toast.tsx",
       "src/components/ui/ClaimerPills.tsx",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
+      "src/components/panels/ReminderPanel.tsx",
+      "src/components/panels/ZoomIntegrationPanel.tsx",
       "src/components/mockups/MultiMockups.tsx",
       "src/components/mockups/CoreMockups.tsx",
       "src/components/mockups/CommsMockups.tsx",
@@ -703,130 +1539,340 @@
       "src/components/views/CallsView.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/NotesView.tsx",
-      "src/components/views/BugTrackerView.tsx"
+      "src/components/views/BugTrackerView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/OverviewPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationPrefs.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WelcomeModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WorkspaceAdmin.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/NotificationBell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/QuickAddModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WhileAwayDigest.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/LoginClient.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchFilter.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Onboarding.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ChatPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/LeftSidebar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/CallSummaryModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ActivityFeed.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/timeHelpers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/BottomSheet.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/AvatarPicker.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/primitives.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimChip.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ConfirmModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Skeletons.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/Toast.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/ClaimerPills.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ExecutiveRequestsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ReminderPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ZoomIntegrationPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MultiMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CoreMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CommsMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/LeadMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ResearchMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/DevMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/OutboundMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ContentMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/WebToolsMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/mockupsMap.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/CallsView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/NotesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/BugTrackerView.tsx"
     ],
     "src/components/Onboarding.tsx": [
       "src/components/WelcomeModal.tsx",
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/WelcomeModal.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
+    ],
+    "src/lib/constants.ts": [
+      "src/components/AppShell.tsx",
+      "src/lib/timeHelpers.ts",
+      "src/lib/patchSchema.ts",
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useChatHandlers.ts",
+      "src/lib/hooks/useContentHandlers.ts",
+      "src/lib/hooks/useSync.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/timeHelpers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/patchSchema.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useChatHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useContentHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useSync.ts"
     ],
     "src/hooks/useIsMobile.ts": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/TasksView.tsx",
-      "src/components/DocumentsPanel.tsx"
+      "src/components/DocumentsPanel.tsx",
+      "src/components/views/PipelinesViewPage.tsx",
+      "src/app/(app)/page.tsx",
+      "src/app/(app)/calls/page.tsx",
+      "src/app/(app)/chat/page.tsx",
+      "src/app/(app)/activity/page.tsx",
+      "src/app/(app)/documents/page.tsx",
+      "src/app/(app)/activity/log/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/calls/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx"
     ],
     "src/components/ui/BottomSheet.tsx": [
-      "src/components/Dashboard.tsx",
-      "src/components/Stage.tsx"
+      "src/components/AppShell.tsx",
+      "src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx"
     ],
     "src/lib/storage.ts": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/Stage.tsx",
       "src/lib/contexts/ModelContext.tsx",
-      "src/components/views/ActivityView.tsx"
+      "src/components/views/PipelinesViewPage.tsx",
+      "src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx"
     ],
     "src/lib/contexts/EphemeralContext.tsx": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesViewPage.tsx",
+      "src/components/views/PipelinesView.tsx",
+      "src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx"
     ],
     "src/lib/contexts/ModelContext.tsx": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/TodayView.tsx",
       "src/components/HomeView.tsx",
       "src/components/TasksView.tsx",
       "src/components/DocumentsPanel.tsx",
       "src/components/Stage.tsx",
+      "src/lib/hooks/useNotifications.ts",
       "src/components/ui/UserPopup.tsx",
+      "src/components/panels/ReminderPanel.tsx",
+      "src/components/panels/ZoomIntegrationPanel.tsx",
       "src/components/views/ArchiveView.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/ActivityView.tsx",
+      "src/components/views/PipelinesViewPage.tsx",
       "src/components/views/ChatView.tsx",
       "src/components/views/HomeViewRoute.tsx",
       "src/components/views/NotesView.tsx",
       "src/components/views/PipelinesView.tsx",
-      "src/components/views/BugTrackerView.tsx"
+      "src/components/views/BugTrackerView.tsx",
+      "src/app/(app)/page.tsx",
+      "src/app/(app)/calls/page.tsx",
+      "src/app/(app)/bugs/page.tsx",
+      "src/app/(app)/notes/page.tsx",
+      "src/app/(app)/documents/page.tsx",
+      "src/app/(app)/activity/log/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/SearchPalette.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TodayView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/UserPopup.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ReminderPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ZoomIntegrationPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ArchiveView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/TeamBar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ChatView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/NotesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/BugTrackerView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/calls/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx"
+    ],
+    "src/lib/hooks/useNotifications.ts": [
+      "src/components/AppShell.tsx",
+      "src/components/views/ActivityView.tsx"
+    ],
+    "src/lib/contexts/AppShellContext.tsx": [
+      "src/components/AppShell.tsx",
+      "src/components/views/PipelinesViewPage.tsx",
+      "src/app/(app)/page.tsx",
+      "src/app/(app)/chat/page.tsx",
+      "src/app/(app)/activity/page.tsx",
+      "src/app/(app)/bugs/page.tsx",
+      "src/app/(app)/notes/page.tsx",
+      "src/app/(app)/documents/page.tsx",
+      "src/app/(app)/activity/log/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx"
     ],
     "src/components/WelcomeModal.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/ui/Toast.tsx": [
-      "src/components/Dashboard.tsx",
-      "src/components/DocumentsPanel.tsx"
+      "src/components/AppShell.tsx",
+      "src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx"
     ],
     "src/components/ui/ErrorBoundary.tsx": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/Stage.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
       "src/components/views/HomeViewRoute.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      "src/app/(app)/documents/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ChatView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx"
     ],
     "src/components/ui/Skeletons.tsx": [
-      "src/components/Dashboard.tsx",
+      "src/components/AppShell.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/ChatView.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ChatView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
     "src/components/LeftSidebar.tsx": [
-      "src/components/Dashboard.tsx",
-      "src/components/views/HomeViewRoute.tsx"
+      "src/components/AppShell.tsx",
+      "src/components/views/HomeViewRoute.tsx",
+      "src/app/(app)/page.tsx",
+      "src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/HomeViewRoute.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx"
     ],
     "src/components/SearchPalette.tsx": [
-      "src/components/Dashboard.tsx",
-      "src/components/DocumentsPanel.tsx"
+      "src/components/AppShell.tsx",
+      "src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx"
     ],
     "src/components/ChromeShell.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/CallSummaryModal.tsx": [
-      "src/components/Dashboard.tsx"
-    ],
-    "src/components/views/PipelinesView.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/views/ArchiveView.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/views/ActivityView.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      "src/app/(app)/activity/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx"
     ],
     "src/components/views/ChatView.tsx": [
-      "src/components/Dashboard.tsx"
-    ],
-    "src/components/views/NotesView.tsx": [
-      "src/components/Dashboard.tsx"
-    ],
-    "src/components/views/BugTrackerView.tsx": [
-      "src/components/Dashboard.tsx"
-    ],
-    "src/components/views/HomeViewRoute.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      "src/app/(app)/chat/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx"
     ],
     "src/components/views/TeamBar.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/WhileAwayDigest.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/QuickAddModal.tsx": [
-      "src/components/Dashboard.tsx"
+      "src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/lib/version.ts": [
       "src/components/LoginClient.tsx",
-      "src/lib/storage.ts"
+      "src/lib/storage.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/LoginClient.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/storage.ts"
     ],
     "src/components/ui/UserPopup.tsx": [
-      "src/components/HomeView.tsx"
+      "src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx"
     ],
     "src/lib/subtaskKey.ts": [
       "src/components/HomeView.tsx",
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
       "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useContentHandlers.ts",
+      "src/components/panels/ZoomIntegrationPanel.tsx",
       "src/components/views/ArchiveView.tsx",
-      "src/components/views/ActivityView.tsx"
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useContentHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ZoomIntegrationPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ArchiveView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ActivityView.tsx"
+    ],
+    "src/lib/timeHelpers.ts": [
+      "src/components/HomeView.tsx",
+      "src/components/panels/ExecutiveRequestsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/panels/ExecutiveRequestsPanel.tsx"
+    ],
+    "src/components/panels/ExecutiveRequestsPanel.tsx": [
+      "src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx"
+    ],
+    "src/components/panels/ReminderPanel.tsx": [
+      "src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx"
+    ],
+    "src/components/panels/ZoomIntegrationPanel.tsx": [
+      "src/components/HomeView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx"
     ],
     "src/components/ui/primitives.tsx": [
       "src/components/Onboarding.tsx",
@@ -839,45 +1885,163 @@
       "src/components/mockups/OutboundMockups.tsx",
       "src/components/mockups/ContentMockups.tsx",
       "src/components/mockups/WebToolsMockups.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Onboarding.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ActivityFeed.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MultiMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CoreMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CommsMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/LeadMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/OutboundMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ContentMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/WebToolsMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
     "src/lib/points.ts": [
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
     ],
     "src/components/ui/ClaimChip.tsx": [
       "src/components/TasksView.tsx",
-      "src/components/Stage.tsx"
+      "src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx"
     ],
     "src/components/ui/ConfirmModal.tsx": [
       "src/components/TasksView.tsx",
       "src/components/DocumentsPanel.tsx",
       "src/components/Stage.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/DocumentsPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
     "src/components/ui/ClaimerPills.tsx": [
       "src/components/TasksView.tsx",
       "src/components/Stage.tsx",
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
     "src/components/TodayView.tsx": [
-      "src/components/TasksView.tsx"
+      "src/components/TasksView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/TasksView.tsx"
     ],
     "src/lib/apiSync.ts": [
       "src/components/ChatPanel.tsx",
       "src/lib/contexts/ModelContext.tsx",
-      "src/lib/hooks/useSync.ts"
+      "src/lib/hooks/useChatHandlers.ts",
+      "src/lib/hooks/useSync.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ChatPanel.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useChatHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useSync.ts"
     ],
     "src/components/mockups/mockupsMap.tsx": [
-      "src/components/Stage.tsx"
+      "src/components/Stage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/Stage.tsx"
+    ],
+    "src/lib/pipelineStateMerge.ts": [
+      "src/__tests__/pipelineStateMerge.test.ts",
+      "src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/__tests__/pipelineStateMerge.test.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts"
+    ],
+    "src/lib/validate.ts": [
+      "src/__tests__/validate.test.ts",
+      "src/lib/pipelineStateMerge.ts",
+      "src/app/api/chat/route.ts",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/call-summary/route.ts",
+      "src/app/api/generate-pfp/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/__tests__/validate.test.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/chat/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/call-summary/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/generate-pfp/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts"
+    ],
+    "src/lib/auth.ts": [
+      "src/lib/mentions.ts",
+      "src/lib/sendNotifications.ts",
+      "src/app/(app)/layout.tsx",
+      "src/app/login/page.tsx",
+      "src/app/api/pipeline-state/route.ts",
+      "src/app/api/documents/route.ts",
+      "src/app/api/suggest-points/route.ts",
+      "src/app/api/cron/digest/route.ts",
+      "src/app/api/cron/weekly-digest/route.ts",
+      "src/app/api/cron/reminders/route.ts",
+      "src/app/api/documents/[id]/route.ts",
+      "src/app/api/documents/[id]/attachments/route.ts",
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      "src/app/api/zoom/recordings/route.ts",
+      "src/app/api/zoom/meetings/route.ts",
+      "src/app/api/zoom/connect/route.ts",
+      "src/app/api/bugs/upload/route.ts",
+      "src/app/api/pipeline-state/comments/route.ts",
+      "src/app/api/pipeline-state/messages/route.ts",
+      "src/app/api/pipeline-state/activity/route.ts",
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      "src/app/api/auth/prefs/route.ts",
+      "src/app/api/auth/signup/route.ts",
+      "src/app/api/auth/[...nextauth]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/mentions.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/layout.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/login/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/suggest-points/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/recordings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/connect/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/bugs/upload/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/signup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/[...nextauth]/route.ts"
     ],
     "src/lib/email.ts": [
       "src/lib/mentions.ts",
       "src/lib/sendNotifications.ts",
       "src/app/api/cron/digest/route.ts",
       "src/app/api/cron/weekly-digest/route.ts",
-      "src/app/api/cron/reminders/route.ts"
+      "src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/mentions.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts"
     ],
     "src/lib/mongo.ts": [
       "src/lib/notifyRateLimit.ts",
@@ -901,23 +2065,31 @@
       "src/app/api/pipeline-state/comment-reactions/route.ts",
       "src/app/api/pipeline-state/messages/stream/route.ts",
       "src/app/api/auth/prefs/route.ts",
-      "src/app/api/auth/signup/route.ts"
+      "src/app/api/auth/signup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/auth.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/unsubscribe/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/summaries/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/signup/route.ts"
     ],
     "src/lib/NotifyLog.ts": [
       "src/lib/notifyRateLimit.ts"
-    ],
-    "src/lib/validate.ts": [
-      "src/lib/pipelineStateMerge.ts",
-      "src/app/api/chat/route.ts",
-      "src/app/api/pipeline-state/route.ts",
-      "src/app/api/call-summary/route.ts",
-      "src/app/api/generate-pfp/route.ts",
-      "src/app/api/documents/route.ts",
-      "src/app/api/documents/[id]/route.ts",
-      "src/app/api/pipeline-state/comments/route.ts",
-      "src/app/api/pipeline-state/messages/route.ts",
-      "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
     "src/lib/AuthUser.ts": [
       "src/lib/sendNotifications.ts",
@@ -926,39 +2098,78 @@
       "src/app/api/cron/digest/route.ts",
       "src/app/api/cron/reminders/route.ts",
       "src/app/api/auth/prefs/route.ts",
-      "src/app/api/auth/signup/route.ts"
+      "src/app/api/auth/signup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/auth.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/unsubscribe/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/signup/route.ts"
     ],
     "src/lib/notifyRateLimit.ts": [
-      "src/lib/sendNotifications.ts"
+      "src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts"
     ],
     "src/lib/emailTemplates.ts": [
       "src/lib/sendNotifications.ts",
-      "src/app/api/cron/digest/route.ts"
+      "src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts"
     ],
     "src/app/api/unsubscribe/route.ts": [
       "src/lib/sendNotifications.ts",
       "src/app/api/cron/digest/route.ts",
-      "src/app/api/cron/reminders/route.ts"
+      "src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts"
     ],
     "src/lib/notifyRecipients.ts": [
-      "src/lib/sendNotifications.ts"
+      "src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts"
     ],
     "src/lib/DigestEntry.ts": [
       "src/lib/sendNotifications.ts",
-      "src/app/api/cron/digest/route.ts"
+      "src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/sendNotifications.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts"
     ],
     "src/lib/hooks/useUndoStack.ts": [
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
     ],
     "src/lib/hooks/useSync.ts": [
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
     ],
     "src/components/ChatPanel.tsx": [
-      "src/lib/contexts/ModelContext.tsx"
+      "src/lib/contexts/ModelContext.tsx",
+      "src/lib/hooks/useChatHandlers.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/hooks/useChatHandlers.ts"
+    ],
+    "src/lib/hooks/useChatHandlers.ts": [
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/hooks/useWorkspaceHandlers.ts": [
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/hooks/useContentHandlers.ts": [
+      "src/lib/contexts/ModelContext.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/contexts/ModelContext.tsx"
+    ],
+    "src/lib/notificationKinds.ts": [
+      "src/lib/hooks/useNotifications.ts",
+      "src/components/views/ActivityView.tsx"
     ],
     "src/components/NotificationPrefs.tsx": [
       "src/components/ui/UserPopup.tsx",
-      "src/components/views/TeamBar.tsx"
+      "src/components/views/TeamBar.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/ui/UserPopup.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/TeamBar.tsx"
     ],
     "src/components/mockups/MockupShells.tsx": [
       "src/components/mockups/MultiMockups.tsx",
@@ -971,14 +2182,31 @@
       "src/components/mockups/ContentMockups.tsx",
       "src/components/mockups/WebToolsMockups.tsx"
     ],
+    "src/components/views/PipelinesView.tsx": [
+      "src/components/views/PipelinesViewPage.tsx",
+      "src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesViewPage.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx"
+    ],
     "src/components/SearchFilter.tsx": [
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
     "src/components/Stage.tsx": [
-      "src/components/views/PipelinesView.tsx"
+      "src/components/views/PipelinesView.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
+    ],
+    "src/components/AppShellClient.tsx": [
+      "src/app/(app)/layout.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/layout.tsx"
+    ],
+    "src/components/views/HomeViewRoute.tsx": [
+      "src/app/(app)/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx"
     ],
     "src/components/LoginClient.tsx": [
-      "src/app/login/page.tsx"
+      "src/app/login/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/login/page.tsx"
     ],
     "src/lib/rateLimit.ts": [
       "src/app/api/chat/route.ts",
@@ -993,7 +2221,20 @@
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts"
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/chat/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/call-summary/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/generate-pfp/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/suggest-points/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/bugs/upload/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
     "src/lib/log.ts": [
       "src/app/api/chat/route.ts",
@@ -1011,7 +2252,23 @@
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/comment-reactions/route.ts"
+      "src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/chat/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/call-summary/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/generate-pfp/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/suggest-points/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/zoom-sync/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meeting-summary/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts"
     ],
     "src/lib/PipelineState.ts": [
       "src/app/api/pipeline-state/route.ts",
@@ -1021,53 +2278,134 @@
       "src/app/api/pipeline-state/comments/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
       "src/app/api/pipeline-state/comment-reactions/route.ts",
-      "src/app/api/pipeline-state/messages/stream/route.ts"
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts"
     ],
-    "src/lib/pipelineStateMerge.ts": [
-      "src/app/api/pipeline-state/route.ts"
+    "src/lib/patchSchema.ts": [
+      "src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts"
     ],
     "src/lib/sendNotifications.ts": [
       "src/app/api/pipeline-state/route.ts",
-      "src/app/api/pipeline-state/comments/route.ts"
+      "src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts"
     ],
     "src/lib/chatBus.ts": [
       "src/app/api/pipeline-state/route.ts",
       "src/app/api/pipeline-state/messages/route.ts",
       "src/app/api/pipeline-state/activity/route.ts",
-      "src/app/api/pipeline-state/messages/stream/route.ts"
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts"
     ],
     "src/lib/BinayahDocument.ts": [
       "src/app/api/documents/route.ts",
       "src/app/api/documents/[id]/route.ts",
       "src/app/api/documents/[id]/attachments/route.ts",
-      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
+      "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts"
     ],
     "src/lib/PipelineStateBackup.ts": [
-      "src/app/api/cron/backup/route.ts"
+      "src/app/api/cron/backup/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts"
     ],
     "src/lib/s3.ts": [
       "src/app/api/documents/[id]/attachments/route.ts",
       "src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
-      "src/app/api/bugs/upload/route.ts"
+      "src/app/api/bugs/upload/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/bugs/upload/route.ts"
     ],
     "src/lib/zoom.ts": [
       "src/app/api/zoom/recordings/route.ts",
       "src/app/api/zoom/status/route.ts",
       "src/app/api/zoom/meetings/route.ts",
       "src/app/api/zoom/connect/route.ts",
-      "src/app/api/zoom/meeting-summary/route.ts"
+      "src/app/api/zoom/meeting-summary/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/recordings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/status/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/connect/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meeting-summary/route.ts"
     ],
     "src/lib/ZoomCallCache.ts": [
       "src/app/api/zoom/summaries/route.ts",
-      "src/app/api/zoom/meetings/route.ts"
+      "src/app/api/zoom/meetings/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/summaries/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts"
     ],
     "src/lib/mentions.ts": [
       "src/app/api/pipeline-state/comments/route.ts",
-      "src/app/api/pipeline-state/messages/route.ts"
+      "src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts"
     ],
     "src/lib/ChatMessage.ts": [
       "src/app/api/pipeline-state/messages/route.ts",
-      "src/app/api/pipeline-state/messages/stream/route.ts"
+      "src/app/api/pipeline-state/messages/stream/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts"
+    ],
+    "src/components/views/BugTrackerView.tsx": [
+      "src/app/(app)/bugs/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx"
+    ],
+    "src/components/views/PipelinesViewPage.tsx": [
+      "src/app/(app)/pipelines/page.tsx",
+      "src/app/(app)/pipelines/[id]/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx"
+    ],
+    "src/components/views/NotesView.tsx": [
+      "src/app/(app)/notes/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/.next/types/routes.d.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/next-env.d.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/globals.css": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/data.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/generatePDF.ts",
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/notifyRecipients.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/mongo.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/notifyRateLimit.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/NotifyLog.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/notifyRateLimit.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/lib/validate.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/lib/pipelineStateMerge.ts"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MockupShells.tsx": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/MultiMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CoreMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/CommsMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/LeadMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ResearchMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/DevMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/OutboundMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/ContentMockups.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/mockups/WebToolsMockups.tsx"
+    ],
+    ".claude/worktrees/agent-a30374958356a4c11/tests/behavioral/_helpers.ts": [
+      ".claude/worktrees/agent-a30374958356a4c11/tests/behavioral/cards.spec.ts"
     ],
     "tests/behavioral/_helpers.ts": [
       "tests/behavioral/cards.spec.ts"
@@ -1078,9 +2416,10 @@
     "src/app/layout.tsx": "/layout.tsx",
     "src/app/error.tsx": "/error.tsx",
     "src/app/loading.tsx": "/loading.tsx",
-    "src/app/page.tsx": "/page.tsx",
     "src/app/global-error.tsx": "/global-error.tsx",
     "src/app/not-found.tsx": "/not-found.tsx",
+    "src/app/(app)/layout.tsx": "/(app)",
+    "src/app/(app)/page.tsx": "/(app)",
     "src/app/dashboard/page.tsx": "/dashboard",
     "src/app/login/page.tsx": "/login",
     "src/app/api/chat/route.ts": "/api/chat",
@@ -1113,8 +2452,66 @@
     "src/app/api/pipeline-state/messages/stream/route.ts": "/api/pipeline-state/messages/stream",
     "src/app/api/auth/prefs/route.ts": "/api/auth/prefs",
     "src/app/api/auth/signup/route.ts": "/api/auth/signup",
-    "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]"
+    "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]",
+    "src/app/(app)/calls/page.tsx": "/(app)/calls",
+    "src/app/(app)/chat/page.tsx": "/(app)/chat",
+    "src/app/(app)/activity/page.tsx": "/(app)/activity",
+    "src/app/(app)/bugs/page.tsx": "/(app)/bugs",
+    "src/app/(app)/pipelines/page.tsx": "/(app)/pipelines",
+    "src/app/(app)/notes/page.tsx": "/(app)/notes",
+    "src/app/(app)/documents/page.tsx": "/(app)/documents",
+    "src/app/(app)/pipelines/[id]/page.tsx": "/(app)/pipelines/[id]",
+    "src/app/(app)/activity/log/page.tsx": "/(app)/activity/log",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/robots.ts": "/.claude/worktrees/agent-a30374958356a4c11/robots.ts",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx": "/.claude/worktrees/agent-a30374958356a4c11",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/error.tsx": "/.claude/worktrees/agent-a30374958356a4c11/error.tsx",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/loading.tsx": "/.claude/worktrees/agent-a30374958356a4c11/loading.tsx",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/global-error.tsx": "/.claude/worktrees/agent-a30374958356a4c11/global-error.tsx",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/not-found.tsx": "/.claude/worktrees/agent-a30374958356a4c11/not-found.tsx",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/layout.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/dashboard/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/dashboard",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/login/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/login",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/chat/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/chat",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/call-summary/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/call-summary",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/unsubscribe/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/unsubscribe",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/generate-pfp/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/generate-pfp",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/documents",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/suggest-points/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/suggest-points",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/digest/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/cron/digest",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/zoom-sync/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/cron/zoom-sync",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/weekly-digest/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/cron/weekly-digest",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/backup/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/cron/backup",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/cron/reminders/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/cron/reminders",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/documents/[id]",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/documents/[id]/attachments",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/documents/[id]/attachments/[attachmentId]/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/documents/[id]/attachments/[attachmentId]",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/recordings/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/recordings",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/status/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/status",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/summaries/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/summaries",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meetings/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/meetings",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/callback/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/callback",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/connect/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/connect",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/zoom/meeting-summary/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/zoom/meeting-summary",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/bugs/upload/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/bugs/upload",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comments/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state/comments",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state/messages",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/activity/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state/activity",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/comment-reactions/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state/comment-reactions",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/pipeline-state/messages/stream",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/prefs/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/auth/prefs",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/signup/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/auth/signup",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/api/auth/[...nextauth]/route.ts": "/.claude/worktrees/agent-a30374958356a4c11/api/auth/[...nextauth]",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/calls/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/calls",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/chat",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/activity",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/bugs",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/notes",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
+    ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-07T06:25:33.540182+00:00",
-  "fileCount": 142
+  "builtAt": "2026-05-07T13:03:20.869323+00:00",
+  "fileCount": 341
 }

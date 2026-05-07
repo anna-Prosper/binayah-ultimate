@@ -29,11 +29,11 @@ const MENTION_KINDS: NotificationKind[] = ["mention"];
 const APPROVAL_KINDS: NotificationKind[] = ["approval", "exec-pending", "approval-given", "exec-update"];
 const BUG_KINDS: NotificationKind[] = ["bug"];
 
-function matchesFilter(item: NotificationItem, filter: Filter, lastReadAt: number): boolean {
+function matchesFilter(item: NotificationItem, filter: Filter, isReadCheck: (n: NotificationItem) => boolean): boolean {
   if (filter === "all") return true;
   if (filter === "unread") {
     // Action-required items always count as "needs attention"; updates only if unread.
-    return item.actionRequired || item.time > lastReadAt;
+    return item.actionRequired || !isReadCheck(item);
   }
   if (filter === "mentions") return MENTION_KINDS.includes(item.kind);
   if (filter === "approvals") return APPROVAL_KINDS.includes(item.kind);
@@ -42,17 +42,24 @@ function matchesFilter(item: NotificationItem, filter: Filter, lastReadAt: numbe
 }
 
 function ItemRow({
-  item, t, isRead, onDismiss,
+  item, t, isRead, onDismiss, onMarkRead,
 }: {
   item: NotificationItem;
   t: ReturnType<typeof useModel>["t"];
   isRead: boolean;
   onDismiss?: (id: string) => void;
+  onMarkRead?: (id: string) => void;
 }) {
   const color = priorityColor(t, item.priority);
   const dim = isRead && !item.actionRequired;
+  // Click anywhere on the row → mark this update read. Navigation (if href) still
+  // happens via the wrapping <Link>; we just call the read callback in addition.
+  const handleRowClick = () => {
+    if (!item.actionRequired && !isRead && onMarkRead) onMarkRead(item.id);
+  };
   const inner = (
     <div
+      onClick={handleRowClick}
       style={{
         position: "relative",
         display: "grid",
@@ -66,21 +73,32 @@ function ItemRow({
         opacity: dim ? 0.55 : 1,
         textDecoration: "none",
         color: "inherit",
-        cursor: item.href ? "pointer" : "default",
+        cursor: item.href || (!item.actionRequired && !isRead) ? "pointer" : "default",
         transition: "background 0.15s",
       }}
       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = color + "14"; }}
       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = color + "0a"; }}
     >
-      {/* Unread dot for updates only — action-required items don't have read state. */}
-      <div
-        aria-hidden
-        style={{
-          width: 6, height: 6, borderRadius: "50%",
-          marginTop: 7,
-          background: !item.actionRequired && !isRead ? color : "transparent",
-        }}
-      />
+      {/* Unread dot for updates only — action-required items don't have read state.
+          Clickable: lets users mark a single item read without navigating. */}
+      {!item.actionRequired ? (
+        <button
+          type="button"
+          onClick={e => { e.preventDefault(); e.stopPropagation(); if (!isRead && onMarkRead) onMarkRead(item.id); }}
+          aria-label={isRead ? "read" : "mark as read"}
+          title={isRead ? "read" : "mark as read"}
+          style={{
+            width: 14, height: 14, marginTop: 3, padding: 0,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "transparent", border: "none",
+            cursor: isRead ? "default" : "pointer",
+          }}
+        >
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: !isRead ? color : "transparent", display: "block" }} />
+        </button>
+      ) : (
+        <div aria-hidden style={{ width: 14, height: 14 }} />
+      )}
       <div style={{ minWidth: 0 }}>
         <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
           {item.title}
@@ -136,12 +154,10 @@ function SectionHeader({ label, count, t }: { label: string; count: number; t: R
 }
 
 export default function ActivityView({ showToast }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
-  const { t, currentUser, notifReads, markAllNotifsRead, dismissNotif } = useModel();
-  const { actionRequired, updates, unreadUpdatesCount } = useNotifications();
+  const { t, markAllNotifsRead, markNotifRead, dismissNotif } = useModel();
+  const { actionRequired, updates, unreadUpdatesCount, isUpdateRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
   const mono = "var(--font-dm-mono), monospace";
-  const me = currentUser || "";
-  const lastReadAt = notifReads?.[me] || 0;
 
   // Per-filter counts derived from the FULL lists, not the currently filtered list,
   // so the chip count is stable regardless of which filter is active.
@@ -160,8 +176,8 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
     };
   }, [actionRequired, updates, unreadUpdatesCount]);
 
-  const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, lastReadAt));
-  const visibleUp = updates.filter(n => matchesFilter(n, filter, lastReadAt));
+  const visibleAr = actionRequired.filter(n => matchesFilter(n, filter, isUpdateRead));
+  const visibleUp = updates.filter(n => matchesFilter(n, filter, isUpdateRead));
 
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },
@@ -267,8 +283,9 @@ export default function ActivityView({ showToast }: { showToast: (msg: string, c
                     key={item.id}
                     item={item}
                     t={t}
-                    isRead={item.time <= lastReadAt}
+                    isRead={isUpdateRead(item)}
                     onDismiss={dismissNotif}
+                    onMarkRead={markNotifRead}
                   />
                 ))}
               </div>

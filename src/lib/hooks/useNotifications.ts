@@ -28,12 +28,18 @@ export function useNotifications() {
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
     stageDueDates, activityLog, comments, chatMessages, users,
-    notifReads, notifDismissed,
+    notifReads, notifDismissed, notifReadIds,
   } = m;
 
   return useMemo(() => {
     const me = currentUser || "";
-    const empty = { actionRequired: [] as NotificationItem[], updates: [] as NotificationItem[], unreadUpdatesCount: 0, totalAttentionCount: 0 };
+    const empty = {
+      actionRequired: [] as NotificationItem[],
+      updates: [] as NotificationItem[],
+      unreadUpdatesCount: 0,
+      totalAttentionCount: 0,
+      isUpdateRead: (_n: NotificationItem) => true,
+    };
     if (!me) return empty;
 
     const now = Date.now();
@@ -305,19 +311,26 @@ export function useNotifications() {
       return d !== 0 ? d : a.id.localeCompare(b.id);
     });
 
+    // An update is unread if it's not in the per-item read set AND its time is
+    // newer than the "mark all read" cutoff. Both gates are needed: the cutoff
+    // handles bulk reads, the id set handles per-item clicks. Clearing the id
+    // set on bulk-read prevents unbounded growth.
     const lastReadAt = notifReads?.[me] || 0;
-    const unreadUpdatesCount = filteredUp.filter(n => n.time > lastReadAt).length;
+    const readIdSet = new Set(notifReadIds?.[me] || []);
+    const isUpdateRead = (n: NotificationItem) => readIdSet.has(n.id) || n.time <= lastReadAt;
+    const unreadUpdatesCount = filteredUp.filter(n => !isUpdateRead(n)).length;
 
     return {
       actionRequired: filteredAr,
       updates: filteredUp,
       unreadUpdatesCount,
       totalAttentionCount: filteredAr.length + unreadUpdatesCount,
+      isUpdateRead,
     };
   }, [
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
     stageDueDates, activityLog, comments, chatMessages, users,
-    notifReads, notifDismissed,
+    notifReads, notifDismissed, notifReadIds,
   ]);
 }

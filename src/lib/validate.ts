@@ -105,6 +105,8 @@ export const PATCH_KEY_WHITELIST = new Set([
   "notifReads",
   // Per-user notification dismissals — userId → string[] of dismissed item ids.
   "notifDismissed",
+  // Per-user per-item read state — userId → string[] of read item ids.
+  "notifReadIds",
   "updatedAt",
   // Envelope for explicit per-key deletions on map slices. Shape:
   //   { _deletes: { stageStatusOverrides: ["StageA"], owners: ["StageB::1"] } }
@@ -138,6 +140,7 @@ export const MAP_SLICE_KEYS = new Set([
   // one user's "mark read" doesn't clobber another user's dismiss list.
   "notifReads",
   "notifDismissed",
+  "notifReadIds",
 ]);
 
 /** Arrays of objects with stable numeric `id` — merged by id (upsert each item),
