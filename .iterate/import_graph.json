@@ -656,9 +656,6 @@
       "src/lib/contexts/ModelContext.tsx",
       "src/hooks/useIsMobile.ts"
     ],
-    "src/app/(app)/settings/page.tsx": [
-      "src/components/views/SettingsView.tsx"
-    ],
     "src/app/(app)/archive/page.tsx": [
       "src/components/views/ArchiveView.tsx"
     ],
@@ -2388,9 +2385,6 @@
       ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts"
     ],
-    "src/components/views/SettingsView.tsx": [
-      "src/app/(app)/settings/page.tsx"
-    ],
     "src/components/views/BugTrackerView.tsx": [
       "src/app/(app)/bugs/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx"
@@ -2491,7 +2485,6 @@
     "src/app/api/auth/[...nextauth]/route.ts": "/api/auth/[...nextauth]",
     "src/app/api/chat/upload/route.ts": "/api/chat/upload",
     "src/app/(app)/calls/page.tsx": "/(app)/calls",
-    "src/app/(app)/settings/page.tsx": "/(app)/settings",
     "src/app/(app)/archive/page.tsx": "/(app)/archive",
     "src/app/(app)/chat/page.tsx": "/(app)/chat",
     "src/app/(app)/activity/page.tsx": "/(app)/activity",
@@ -2550,6 +2543,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-08T09:45:48.397307+00:00",
-  "fileCount": 346
+  "builtAt": "2026-05-08T10:11:59.885649+00:00",
+  "fileCount": 345
 }

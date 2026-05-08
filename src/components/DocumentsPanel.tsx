@@ -421,7 +421,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         </span>
         <button
           onClick={createDoc}
-          title="Create a new document"
           data-tooltip="Create a new document"
           style={{
             background: t.accent + "18",
@@ -467,7 +466,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             <button
               key={p.id}
               onClick={() => setFilterPipeline(isActive ? null : p.id)}
-              title={p.name}
               aria-label={p.name}
               data-tooltip={p.name}
               style={{
@@ -619,7 +617,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               </span>
               <button
                 onClick={shareDocument}
-                title="Share this document link"
                 aria-label="Share this document link"
                 data-tooltip="Share this document link"
                 style={{ background: t.accent + "12", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
@@ -629,7 +626,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => setPingOpen(v => !v)}
-                  title="Notify a teammate"
                   aria-label="Notify a teammate"
                   data-tooltip="Notify a teammate"
                   style={{
@@ -681,7 +677,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = t.red; (e.currentTarget as HTMLElement).style.borderColor = t.red + "55"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = t.textMuted; (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
-                title="Delete this document"
                 aria-label="Delete this document"
                 data-tooltip="Delete document"
               >
