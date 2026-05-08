@@ -444,7 +444,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         <button
           onClick={() => setFilterPipeline(null)}
           data-tooltip="Show all documents"
-          data-tooltip-pos="below"
           style={{
             background: filterPipeline === null ? t.accent + "22" : "transparent",
             border: `1px solid ${filterPipeline === null ? t.accent + "55" : t.border}`,
@@ -469,7 +468,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               onClick={() => setFilterPipeline(isActive ? null : p.id)}
               aria-label={p.name}
               data-tooltip={p.name}
-              data-tooltip-pos="below"
               style={{
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,
@@ -621,7 +619,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 onClick={shareDocument}
                 aria-label="Share this document link"
                 data-tooltip="Share this document link"
-                data-tooltip-pos="below"
                 style={{ background: t.accent + "12", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
               >
                 share
@@ -631,7 +628,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   onClick={() => setPingOpen(v => !v)}
                   aria-label="Notify a teammate"
                   data-tooltip="Notify a teammate"
-                  data-tooltip-pos="below"
                   style={{
                     background: pingOpen ? t.amber + "22" : "transparent",
                     border: `1px solid ${pingOpen ? t.amber + "66" : t.border}`,

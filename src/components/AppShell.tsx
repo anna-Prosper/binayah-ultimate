@@ -19,6 +19,7 @@ import WelcomeModal from "@/components/WelcomeModal";
 import { ToastContainer, RecoveryToast, useToasts, type ToastItem } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
+import { TooltipPortal } from "@/components/ui/TooltipPortal";
 import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
@@ -591,6 +592,8 @@ function ShellInner({
 
       {/* Toast stack */}
       <ToastContainer t={t} toasts={toasts} onDismiss={dismissToast} />
+      {/* Portal tooltip — renders into document.body, immune to overflow:hidden clipping */}
+      <TooltipPortal />
     </div>
   );
 }
