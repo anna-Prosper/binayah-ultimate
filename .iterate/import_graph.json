@@ -1,8 +1,5 @@
 {
   "forwardEdges": {
-    "next-env.d.ts": [
-      ".next/types/routes.d.ts"
-    ],
     "src/app/layout.tsx": [
       "src/app/globals.css",
       "src/components/SessionProviderWrapper.tsx"
@@ -363,10 +360,6 @@
       "src/lib/contexts/ModelContext.tsx",
       "src/lib/subtaskKey.ts"
     ],
-    "src/components/views/AuditView.tsx": [
-      "src/lib/data.ts",
-      "src/lib/contexts/ModelContext.tsx"
-    ],
     "src/components/views/TeamBar.tsx": [
       "src/lib/contexts/ModelContext.tsx",
       "src/components/ui/Avatar.tsx",
@@ -691,9 +684,6 @@
       "src/components/views/NotesView.tsx",
       "src/lib/contexts/AppShellContext.tsx",
       "src/lib/contexts/ModelContext.tsx"
-    ],
-    "src/app/(app)/audit/page.tsx": [
-      "src/components/views/AuditView.tsx"
     ],
     "src/app/(app)/documents/page.tsx": [
       "src/lib/contexts/AppShellContext.tsx",
@@ -1376,9 +1366,6 @@
     ]
   },
   "reverseEdges": {
-    ".next/types/routes.d.ts": [
-      "next-env.d.ts"
-    ],
     "src/app/globals.css": [
       "src/app/layout.tsx"
     ],
@@ -1420,7 +1407,6 @@
       "src/components/ui/ClaimerPills.tsx",
       "src/components/panels/ExecutiveRequestsPanel.tsx",
       "src/components/panels/ReminderPanel.tsx",
-      "src/components/views/AuditView.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/SettingsView.tsx",
@@ -1711,7 +1697,6 @@
       "src/components/panels/ReminderPanel.tsx",
       "src/components/panels/ZoomIntegrationPanel.tsx",
       "src/components/views/ArchiveView.tsx",
-      "src/components/views/AuditView.tsx",
       "src/components/views/TeamBar.tsx",
       "src/components/views/ActivityView.tsx",
       "src/components/views/SettingsView.tsx",
@@ -2420,9 +2405,6 @@
       "src/app/(app)/notes/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/notes/page.tsx"
     ],
-    "src/components/views/AuditView.tsx": [
-      "src/app/(app)/audit/page.tsx"
-    ],
     ".claude/worktrees/agent-a30374958356a4c11/.next/types/routes.d.ts": [
       ".claude/worktrees/agent-a30374958356a4c11/next-env.d.ts"
     ],
@@ -2516,7 +2498,6 @@
     "src/app/(app)/bugs/page.tsx": "/(app)/bugs",
     "src/app/(app)/pipelines/page.tsx": "/(app)/pipelines",
     "src/app/(app)/notes/page.tsx": "/(app)/notes",
-    "src/app/(app)/audit/page.tsx": "/(app)/audit",
     "src/app/(app)/documents/page.tsx": "/(app)/documents",
     "src/app/(app)/pipelines/[id]/page.tsx": "/(app)/pipelines/[id]",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/robots.ts": "/.claude/worktrees/agent-a30374958356a4c11/robots.ts",
@@ -2569,6 +2550,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-08T09:35:56.397890+00:00",
-  "fileCount": 348
+  "builtAt": "2026-05-08T09:45:48.397307+00:00",
+  "fileCount": 346
 }

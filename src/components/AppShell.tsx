@@ -23,7 +23,8 @@ import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
 import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Handshake, Eye, X } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon } from "lucide-react";
+const SettingsView = dynamic(() => import("@/components/views/SettingsView"), { ssr: false, loading: () => null });
 import CallSummaryModal from "@/components/CallSummaryModal";
 import ArchiveView from "@/components/views/ArchiveView";
 import ActivityView from "@/components/views/ActivityView";
@@ -148,6 +149,7 @@ function ShellInner({
   // Hover/UI state — no more activeNavItem; that lives in the URL
   const [isHydrating, setIsHydrating] = useState(true);
   const [showThemePicker, setShowThemePicker] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [selUser, setSelUser] = useState<string | null>(null);
   const [selAvatar, setSelAvatar] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
@@ -212,7 +214,7 @@ function ShellInner({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowPalette(prev => !prev); }
-      if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); setShowChat(false); setShowActivity(false); }
+      if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); setShowChat(false); setShowActivity(false); setShowSettings(false); }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
         if (tag !== "input" && tag !== "textarea") {
@@ -437,6 +439,7 @@ function ShellInner({
           {canSeeCalls && <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} title="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>}
           <button onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && !showChat && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} title="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
+          <button onClick={e => { e.stopPropagation(); setShowSettings(v => !v); }} style={{ ...hBtn, fontSize: 15 }} title="Notification settings"><SettingsIcon size={16} strokeWidth={1.8} /></button>
           {isMobile && <button onClick={e => { e.stopPropagation(); setShowDocumentsMobile(true); }} style={{ ...hBtn, fontSize: 15 }} title="Documents">{"📄"}</button>}
           <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
             <button onClick={() => setShowThemePicker(!showThemePicker)} style={{ ...hBtn, fontSize: 16, gap: 4 }} title="Change theme">{t.icon} <span style={{ fontSize: 10 }}>▾</span></button>
@@ -451,7 +454,7 @@ function ShellInner({
   );
 
   return (
-    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setShowArchive(false); setShowChat(false); setShowActivity(false); }}>
+    <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setShowArchive(false); setShowChat(false); setShowActivity(false); setShowSettings(false); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px ${t.accent}55,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 4px 32px ${t.accent}88,0 2px 12px rgba(0,0,0,0.4)}}@keyframes urgentPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}`}</style>
 
       <ChromeShell
@@ -517,6 +520,29 @@ function ShellInner({
               <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />
             </Suspense>
           </ErrorBoundary>
+        </div>
+      )}
+
+      {/* Settings popover (gear in header). Admin sees their own + an opt-in
+          team-overrides section; non-admin only sees their own prefs (the
+          SettingsView component already enforces the role split). Closes on
+          outside-click via the body onClick handler at the top. */}
+      {showSettings && (
+        <div
+          onClick={e => e.stopPropagation()}
+          style={
+            isMobile
+              ? { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, background: t.bg, zIndex: 600, overflowY: "auto", padding: "16px 12px 24px" }
+              : { position: "fixed", top: 70, right: 16, width: "min(640px, calc(100vw - 32px))", maxHeight: "82vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 600, padding: "8px 16px 16px" }
+          }
+        >
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4, paddingTop: 4 }}>
+            <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>settings</div>
+            <button type="button" onClick={() => setShowSettings(false)} aria-label="close settings" style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", padding: 4, display: "inline-flex", alignItems: "center" }}><X size={16} /></button>
+          </div>
+          <Suspense fallback={null}>
+            <SettingsView />
+          </Suspense>
         </div>
       )}
 
