@@ -1,6 +1,21 @@
 import type { Metadata, Viewport } from "next";
+import { DM_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
 import SessionProviderWrapper from "@/components/SessionProviderWrapper";
+
+const dmSans = DM_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800", "900"],
+  variable: "--font-dm-sans",
+  display: "swap",
+});
+
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  variable: "--font-dm-mono",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Binayah Ultimate · Command Center",
@@ -43,7 +58,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${dmSans.variable} ${dmMono.variable}`}>
       <body style={{ margin: 0, padding: 0 }}>
         {/* Sync theme synchronously before React paints to prevent background flash */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var d=JSON.parse(localStorage.getItem('isDark'));if(d===null||d===undefined)d=true;var id=JSON.parse(localStorage.getItem('themeId'))||'warroom';if(id==='engine'||id==='phosphor')id='matrix';var m={warroom:d?'#0a0118':'#fef3ff',lab:d?'#050a0a':'#f4f8f6',matrix:d?'#000000':'#f0fdf4',nerve:d?'#06060c':'#f4f6fa'};document.body.style.background=m[id]||'#0a0118';}catch(e){}})()`}} />

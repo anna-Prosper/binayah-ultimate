@@ -48,12 +48,6 @@
       "src/components/LeftSidebar.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/ChromeShell.tsx",
-      "src/components/CallSummaryModal.tsx",
-      "src/components/views/ArchiveView.tsx",
-      "src/components/views/ActivityView.tsx",
-      "src/components/views/ChatView.tsx",
-      "src/components/views/TeamBar.tsx",
-      "src/components/WhileAwayDigest.tsx",
       "src/components/QuickAddModal.tsx"
     ],
     "src/components/QuickAddModal.tsx": [
@@ -1815,35 +1809,6 @@
       "src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
-    "src/components/CallSummaryModal.tsx": [
-      "src/components/AppShell.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
-    ],
-    "src/components/views/ArchiveView.tsx": [
-      "src/components/AppShell.tsx",
-      "src/app/(app)/archive/page.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
-    ],
-    "src/components/views/ActivityView.tsx": [
-      "src/components/AppShell.tsx",
-      "src/app/(app)/activity/page.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx"
-    ],
-    "src/components/views/ChatView.tsx": [
-      "src/components/AppShell.tsx",
-      "src/app/(app)/chat/page.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx"
-    ],
-    "src/components/views/TeamBar.tsx": [
-      "src/components/AppShell.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
-    ],
-    "src/components/WhileAwayDigest.tsx": [
-      "src/components/AppShell.tsx",
-      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
-    ],
     "src/components/QuickAddModal.tsx": [
       "src/components/AppShell.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
@@ -2389,6 +2354,20 @@
       ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/route.ts",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/api/pipeline-state/messages/stream/route.ts"
     ],
+    "src/components/views/ArchiveView.tsx": [
+      "src/app/(app)/archive/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
+    ],
+    "src/components/views/ChatView.tsx": [
+      "src/app/(app)/chat/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/chat/page.tsx"
+    ],
+    "src/components/views/ActivityView.tsx": [
+      "src/app/(app)/activity/page.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx",
+      ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/activity/page.tsx"
+    ],
     "src/components/views/BugTrackerView.tsx": [
       "src/app/(app)/bugs/page.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/bugs/page.tsx"
@@ -2408,6 +2387,15 @@
     ],
     ".claude/worktrees/agent-a30374958356a4c11/src/app/globals.css": [
       ".claude/worktrees/agent-a30374958356a4c11/src/app/layout.tsx"
+    ],
+    "src/components/CallSummaryModal.tsx": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
+    ],
+    "src/components/views/TeamBar.tsx": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
+    ],
+    "src/components/WhileAwayDigest.tsx": [
+      ".claude/worktrees/agent-a30374958356a4c11/src/components/AppShell.tsx"
     ],
     "src/components/panels/ReminderPanel.tsx": [
       ".claude/worktrees/agent-a30374958356a4c11/src/components/HomeView.tsx"
@@ -2547,6 +2535,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-08T14:54:41.869393+00:00",
+  "builtAt": "2026-05-08T15:06:05.294146+00:00",
   "fileCount": 346
 }
