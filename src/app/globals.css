@@ -67,10 +67,13 @@ textarea {
   transition: opacity 0.12s ease, transform 0.12s ease;
 }
 
+/* Hover-driven reveal. Intentionally NOT keyed on :focus-visible — Safari
+ * and Firefox sometimes apply focus-visible after a mouse click, which made
+ * the tooltip appear on click and persist until the user clicked elsewhere.
+ * Pure :hover means the tooltip appears only when the cursor is over the
+ * element and disappears as soon as it leaves, on macOS web as expected. */
 [data-tooltip]:hover::after,
-[data-tooltip]:focus-visible::after,
-[data-tooltip]:hover::before,
-[data-tooltip]:focus-visible::before {
+[data-tooltip]:hover::before {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
