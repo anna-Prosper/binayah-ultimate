@@ -557,7 +557,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                 <div style={{ width: 22, height: 22, borderRadius: "50%", background: `linear-gradient(135deg,${t.accent},${t.purple || t.accent})`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, flexShrink: 0, color: "white" }}><Bot size={13} /></div>
                 <div style={{ background: t.surface, border: `1px solid ${t.border}`, borderRadius: "14px 14px 14px 4px", padding: "8px 12px", display: "flex", gap: 4, alignItems: "center" }}>
-                  {[0, 1, 2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: "50%", background: t.accent, animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }} />)}
+                  {(["d0", "d1", "d2"] as const).map((k, i) => <div key={k} style={{ width: 5, height: 5, borderRadius: "50%", background: t.accent, animation: `bounce 1s ease-in-out ${i * 0.15}s infinite` }} />)}
                 </div>
               </div>
             )}

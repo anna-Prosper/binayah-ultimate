@@ -520,7 +520,7 @@ export default function LoginClient() {
                 placeholder="your password"
                 autoComplete={isSignup ? "new-password" : "current-password"}
                 readOnly={authState === "loading_credentials" || authState === "loading_signup"}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleCredentialsSubmit(e as unknown as React.FormEvent); } }}
+                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); handleCredentialsSubmit(e as React.FormEvent); } }}
                 style={{
                   width: "100%",
                   height: 44,

@@ -27,17 +27,21 @@ export default function BottomSheet({ open, onClose, title, children, t }: Botto
   useEffect(() => {
     if (open) {
       setVisible(true);
-      // Save previous focus
       prevFocusRef.current = document.activeElement as HTMLElement;
-      // Prevent body scroll
       document.body.style.overflow = "hidden";
+      return () => { document.body.style.overflow = ""; };
     } else {
-      document.body.style.overflow = "";
-      // Wait for slide-out transition (300ms) before unmounting the overlay
-      const timer = setTimeout(() => setVisible(false), 300);
-      return () => clearTimeout(timer);
+      // Restore scroll only after the slide-out animation finishes so the user
+      // can't scroll the page behind the visually-visible closing sheet.
+      const timer = setTimeout(() => {
+        document.body.style.overflow = "";
+        setVisible(false);
+      }, 300);
+      return () => {
+        clearTimeout(timer);
+        document.body.style.overflow = "";
+      };
     }
-    return () => { document.body.style.overflow = ""; };
   }, [open]);
 
   // Keyboard dismiss

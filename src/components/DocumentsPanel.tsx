@@ -130,6 +130,13 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   const savedIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saveInFlight = useRef(false);
 
+  // Clear all pending timers on unmount
+  useEffect(() => () => {
+    if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
+    if (contentSaveTimer.current) clearTimeout(contentSaveTimer.current);
+    if (savedIndicatorTimer.current) clearTimeout(savedIndicatorTimer.current);
+  }, []);
+
   // Fetch document list
   const fetchList = useCallback(async (pipelineFilter?: string | null) => {
     try {

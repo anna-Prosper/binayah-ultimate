@@ -44,6 +44,7 @@
       "src/components/ui/Toast.tsx",
       "src/components/ui/ErrorBoundary.tsx",
       "src/components/ui/Skeletons.tsx",
+      "src/components/ui/TooltipPortal.tsx",
       "src/components/LeftSidebar.tsx",
       "src/components/SearchPalette.tsx",
       "src/components/ChromeShell.tsx",
@@ -1791,6 +1792,9 @@
       ".claude/worktrees/agent-a30374958356a4c11/src/components/views/ChatView.tsx",
       ".claude/worktrees/agent-a30374958356a4c11/src/components/views/PipelinesView.tsx"
     ],
+    "src/components/ui/TooltipPortal.tsx": [
+      "src/components/AppShell.tsx"
+    ],
     "src/components/LeftSidebar.tsx": [
       "src/components/AppShell.tsx",
       "src/components/views/HomeViewRoute.tsx",
@@ -2543,6 +2547,6 @@
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/documents/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/documents",
     ".claude/worktrees/agent-a30374958356a4c11/src/app/(app)/pipelines/[id]/page.tsx": "/.claude/worktrees/agent-a30374958356a4c11/(app)/pipelines/[id]"
   },
-  "builtAt": "2026-05-08T14:32:18.266475+00:00",
-  "fileCount": 345
+  "builtAt": "2026-05-08T14:45:09.289432+00:00",
+  "fileCount": 346
 }
