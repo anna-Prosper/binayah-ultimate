@@ -248,29 +248,29 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
       {/* Collapsible header */}
       <button type="button" onClick={toggleSection} style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", width: "100%", background: "transparent", border: "none", padding: 0, cursor: "pointer", marginBottom: sectionCollapsed ? 0 : 16 }}>
         <div>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
             zoom intelligence
-            {pendingCount > 0 && <span style={{ background: t.accent + "22", border: `1px solid ${t.accent}44`, color: t.accent, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{pendingCount} pending</span>}
-            <span style={{ color: stateColor, fontSize: 9, fontFamily: mono }}>{connected ? "● connected" : configured ? "◌ configured" : "○ setup needed"}</span>
+            {pendingCount > 0 && <span style={{ background: t.accent + "22", border: `1px solid ${t.accent}44`, color: t.accent, borderRadius: 8, padding: "0 5px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingCount} pending</span>}
+            <span style={{ color: stateColor, fontSize: 10, fontFamily: mono }}>{connected ? "● connected" : configured ? "◌ configured" : "○ setup needed"}</span>
           </div>
           <div style={{ fontSize: 18, color: t.text, fontWeight: 850, marginTop: 4, lineHeight: 1.25 }}>call summaries and proposed tasks</div>
         </div>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{sectionCollapsed ? "▼" : "▲"}</span>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{sectionCollapsed ? "▼" : "▲"}</span>
       </button>
       {!sectionCollapsed && <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
       <div style={{ minWidth: 0 }}>
-        <div style={{ marginTop: 0, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
+        <div style={{ marginTop: 0, fontSize: 13, color: t.textMuted, lineHeight: 1.45 }}>
           Paste any call summary or meeting notes — AI extracts action items and queues them here for approval. Each approved task becomes a stage in the relevant pipeline.
         </div>
         <div style={{ marginTop: 12, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-          <button type="button" disabled={!configured || checking} onClick={checkZoom} style={{ background: configured ? t.accent : t.bgHover || t.bgSoft, border: `1px solid ${configured ? t.accent : t.border}`, borderRadius: 10, padding: "8px 12px", color: configured ? "#fff" : t.textDim, fontSize: 12, fontWeight: 800, fontFamily: mono, cursor: configured && !checking ? "pointer" : "not-allowed" }}>
+          <button type="button" disabled={!configured || checking} onClick={checkZoom} style={{ background: configured ? t.accent : t.bgHover || t.bgSoft, border: `1px solid ${configured ? t.accent : t.border}`, borderRadius: 10, padding: "8px 12px", color: configured ? "#fff" : t.textDim, fontSize: 13, fontWeight: 800, fontFamily: mono, cursor: configured && !checking ? "pointer" : "not-allowed" }}>
             {checking ? "checking..." : "check zoom"}
           </button>
-          <span style={{ fontSize: 11, color: stateColor, fontFamily: mono, fontWeight: 800 }}>
+          <span style={{ fontSize: 12, color: stateColor, fontFamily: mono, fontWeight: 800 }}>
             {connected ? "server token ok" : configured ? "credentials found" : "setup needed"}
           </span>
         </div>
-        <div style={{ marginTop: 10, fontSize: 11, color: t.textMuted, lineHeight: 1.45 }}>
+        <div style={{ marginTop: 10, fontSize: 12, color: t.textMuted, lineHeight: 1.45 }}>
           Once cloud recordings are enabled, use &ldquo;sync latest calls&rdquo; to auto-import Zoom AI summaries.
         </div>
       </div>
@@ -283,29 +283,29 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
             <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
               {selectedCall && (
                 <button type="button" onClick={() => { setSelectedCall(null); setEditing(null); }}
-                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.textMuted, fontFamily: mono, cursor: "pointer", flexShrink: 0 }}>
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.textMuted, fontFamily: mono, cursor: "pointer", flexShrink: 0 }}>
                   ← calls
                 </button>
               )}
-              <div style={{ fontSize: 12, color: t.text, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              <div style={{ fontSize: 13, color: t.text, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedCall
                   ? <>{zoomMeetings.find(m => m.uuid === selectedCall)?.topic || selectedCall} <span style={{ color: t.accent, marginLeft: 4 }}>{pending.filter(p => p.sourceUUID === selectedCall).length} tasks</span></>
-                  : <>recent calls {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 10, fontWeight: 400, marginLeft: 6 }}>syncing…</span>}</>
+                  : <>recent calls {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 11, fontWeight: 400, marginLeft: 6 }}>syncing…</span>}</>
                 }
               </div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 1, flexShrink: 0 }}>
               <div style={{ display: "flex", gap: 6 }}>
                 <button type="button" onClick={() => { setShowPaste(v => !v); setExtractError(null); setSelectedCall(null); }}
-                  style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "4px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer", width: 110, textAlign: "center" }}>
+                  style={{ border: `1px solid ${t.accent}`, background: showPaste ? t.accent : "transparent", color: showPaste ? "#fff" : t.accent, borderRadius: 8, padding: "4px 0", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: "pointer", width: 110, textAlign: "center" }}>
                   {showPaste ? "cancel" : "+ paste summary"}
                 </button>
                 <button type="button" disabled={syncing} onClick={() => syncCalls(true)}
-                  style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "4px 0", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: !syncing ? "pointer" : "not-allowed", opacity: syncing ? 0.5 : 1, width: 110, textAlign: "center" }}>
+                  style={{ border: `1px solid ${t.accent}44`, background: "transparent", color: t.accent, borderRadius: 8, padding: "4px 0", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: !syncing ? "pointer" : "not-allowed", opacity: syncing ? 0.5 : 1, width: 110, textAlign: "center" }}>
                   {syncing ? "syncing…" : "↺ resync"}
                 </button>
               </div>
-              {cacheAge && <span style={{ fontSize: 9, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
+              {cacheAge && <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{cacheAge}</span>}
             </div>
           </div>
 
@@ -316,12 +316,12 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
                 value={pastedSummary}
                 onChange={e => setPastedSummary(e.target.value)}
                 placeholder="Paste call summary or meeting notes…"
-                style={{ width: "100%", minHeight: 80, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
+                style={{ width: "100%", minHeight: 80, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "vertical", outline: "none", lineHeight: 1.5, boxSizing: "border-box" }}
                 autoFocus
               />
-              {extractError && <div style={{ fontSize: 11, color: t.red }}>{extractError}</div>}
+              {extractError && <div style={{ fontSize: 12, color: t.red }}>{extractError}</div>}
               <button type="button" disabled={!pastedSummary.trim() || extracting} onClick={extractTasks}
-                style={{ alignSelf: "flex-end", background: pastedSummary.trim() ? t.accent : t.bgCard, border: `1px solid ${pastedSummary.trim() ? t.accent : t.border}`, color: pastedSummary.trim() ? "#fff" : t.textDim, borderRadius: 8, padding: "5px 14px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: pastedSummary.trim() && !extracting ? "pointer" : "not-allowed" }}>
+                style={{ alignSelf: "flex-end", background: pastedSummary.trim() ? t.accent : t.bgCard, border: `1px solid ${pastedSummary.trim() ? t.accent : t.border}`, color: pastedSummary.trim() ? "#fff" : t.textDim, borderRadius: 8, padding: "5px 14px", fontSize: 12, fontWeight: 850, fontFamily: mono, cursor: pastedSummary.trim() && !extracting ? "pointer" : "not-allowed" }}>
                 {extracting ? "extracting…" : "extract tasks"}
               </button>
             </div>
@@ -350,10 +350,10 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
               .slice(0, 7);
 
             if (syncing && sortedCalls.length === 0) {
-              return <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
+              return <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
             }
             if (sortedCalls.length === 0) {
-              return <div style={{ fontSize: 11, color: t.textMuted }}>Tasks from your latest Zoom calls will appear here. Hit ↺ resync to pull now.</div>;
+              return <div style={{ fontSize: 12, color: t.textMuted }}>Tasks from your latest Zoom calls will appear here. Hit ↺ resync to pull now.</div>;
             }
 
             return (
@@ -369,15 +369,15 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
                     >
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{call.topic}</div>
-                        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
+                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>
                           {call.startTime ? new Date(call.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : ""}
                         </div>
                       </div>
                       <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
-                        {callPending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 7px", fontSize: 10, fontFamily: mono, fontWeight: 700 }}>{callPending.length}</span>}
-                        {callDone.length > 0 && <span style={{ color: t.textDim, fontSize: 10, fontFamily: mono }}>{callDone.length} done</span>}
-                        {callPending.length === 0 && callDone.length === 0 && <span style={{ color: t.textDim, fontSize: 10, fontFamily: mono }}>no tasks yet</span>}
-                        <span style={{ color: t.textDim, fontSize: 12 }}>›</span>
+                        {callPending.length > 0 && <span style={{ background: t.accent, color: "#fff", borderRadius: 8, padding: "1px 7px", fontSize: 11, fontFamily: mono, fontWeight: 700 }}>{callPending.length}</span>}
+                        {callDone.length > 0 && <span style={{ color: t.textDim, fontSize: 11, fontFamily: mono }}>{callDone.length} done</span>}
+                        {callPending.length === 0 && callDone.length === 0 && <span style={{ color: t.textDim, fontSize: 11, fontFamily: mono }}>no tasks yet</span>}
+                        <span style={{ color: t.textDim, fontSize: 13 }}>›</span>
                       </div>
                     </button>
                   );
@@ -392,7 +392,7 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
             const callDone = done.filter(p => p.sourceUUID === selectedCall);
 
             if (callProposals.length === 0 && callDone.length === 0) {
-              return <div style={{ fontSize: 11, color: t.textMuted }}>No tasks extracted from this call yet.</div>;
+              return <div style={{ fontSize: 12, color: t.textMuted }}>No tasks extracted from this call yet.</div>;
             }
 
             return (
@@ -409,66 +409,66 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
                         <input autoFocus value={editing.title}
                           onChange={e => setEditing(prev => prev ? { ...prev, title: e.target.value } : null)}
                           onKeyDown={e => { if (e.key === "Enter") confirmEdit(); if (e.key === "Escape") setEditing(null); }}
-                          style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+                          style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 13, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
                         />
-                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>pipeline: {editPipe?.name || editing.pipelineId}</div>
+                        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>pipeline: {editPipe?.name || editing.pipelineId}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {allPipelinesGlobal.map(pipe => {
                             const sel = editing.pipelineId === pipe.id;
                             return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
-                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
                               {pipe.icon} {pipe.name}
                             </button>;
                           })}
                         </div>
                         {stagesInPipe.length > 0 && (
                           <>
-                            <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                            <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
                               {editing.parentStage ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}` : "// parent task (optional)"}
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                               {editing.parentStage && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "" } : null); }}
-                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>✕ as task</button>}
+                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: mono }}>✕ as task</button>}
                               {stagesInPipe.map(s => { const sel = editing.parentStage === s; return <button key={s} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s } : null); }}
-                                style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>{stageNameOverrides?.[s] || s}</button>; })}
+                                style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>{stageNameOverrides?.[s] || s}</button>; })}
                             </div>
                           </>
                         )}
                         {/* Assignee */}
-                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
                           {editing.assigneeId ? `assign to: ${users.find(u => u.id === editing.assigneeId)?.name || editing.assigneeId}` : "// assign to (optional)"}
                         </div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {editing.assigneeId && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, assigneeId: "" } : null); }}
-                            style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: mono }}>✕ unassign</button>}
+                            style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: mono }}>✕ unassign</button>}
                           {users.filter(u => u.id !== "ai").map(u => {
                             const sel = editing.assigneeId === u.id;
                             return <button key={u.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, assigneeId: sel ? "" : u.id } : null); }}
-                              style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? u.color : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
+                              style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? u.color : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
                               {u.name}
                             </button>;
                           })}
                         </div>
                         {/* Description */}
-                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// description (optional — points auto-assigned by AI)</div>
+                        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// description (optional — points auto-assigned by AI)</div>
                         <textarea
                           value={editing.description}
                           onChange={e => setEditing(prev => prev ? { ...prev, description: e.target.value } : null)}
                           placeholder="Add context, acceptance criteria, or notes…"
                           rows={2}
-                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "none", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 }}
+                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", resize: "none", outline: "none", width: "100%", boxSizing: "border-box", lineHeight: 1.4 }}
                         />
-                        <div style={{ fontSize: 9, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// due date (optional)</div>
+                        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>// due date (optional)</div>
                         <input
                           type="date"
                           value={editing.dueDate}
                           onChange={e => setEditing(prev => prev ? { ...prev, dueDate: e.target.value } : null)}
-                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.textMuted, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+                          style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.textMuted, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
                         />
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                          <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: mono }}>cancel</button>
+                          <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: mono }}>cancel</button>
                           <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
-                            style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 10, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
+                            style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 11, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
                             {editing.parentStage ? "add as subtask" : "add as task"}
                           </button>
                         </div>
@@ -478,20 +478,20 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
                   return (
                     <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
-                        <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>{p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>{p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}</div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                        <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
-                        <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 10, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
+                        <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
+                        <button type="button" onClick={() => rejectProposal(p.id)} style={{ background: t.red + "16", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✕</button>
                       </div>
                     </div>
                   );
                 })}
                 {callDone.length > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 4 }}>
-                    <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{callDone.filter(x => x.status === "approved").length} approved · {callDone.filter(x => x.status === "rejected").length} rejected</span>
-                    <button type="button" onClick={clearDone} style={{ background: "transparent", border: "none", color: t.textDim, fontSize: 10, fontFamily: mono, cursor: "pointer", textDecoration: "underline" }}>clear</button>
+                    <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>{callDone.filter(x => x.status === "approved").length} approved · {callDone.filter(x => x.status === "rejected").length} rejected</span>
+                    <button type="button" onClick={clearDone} style={{ background: "transparent", border: "none", color: t.textDim, fontSize: 11, fontFamily: mono, cursor: "pointer", textDecoration: "underline" }}>clear</button>
                   </div>
                 )}
               </div>

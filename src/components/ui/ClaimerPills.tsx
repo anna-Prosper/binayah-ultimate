@@ -103,7 +103,7 @@ export default function ClaimerPills({
               title={u.name}
             >
               <AvatarC user={u} size={size} />
-              <span style={{ fontSize: 11, fontWeight: 700, color: u.color, fontFamily: "var(--font-dm-mono), monospace" }}>{u.name.split(" ")[0]}</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: u.color, fontFamily: "var(--font-dm-mono), monospace" }}>{u.name.split(" ")[0]}</span>
             </span>
           );
         }
@@ -129,7 +129,7 @@ export default function ClaimerPills({
         <span
           title={ownerUsers.slice(maxVisible).map(u => u.name).join(", ")}
           style={{
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 700,
             color: t.textMuted,
             background: t.bgHover || t.bgSoft,
@@ -166,14 +166,14 @@ export default function ClaimerPills({
             <AvatarC user={openUser} size={32} />
             <div>
               <div style={{ fontSize: 13, fontWeight: 800, color: openUser.color }}>{openUser.name}</div>
-              <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{openUser.role}</div>
+              <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{openUser.role}</div>
             </div>
           </div>
           {getPoints && (
-            <div style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{getPoints(openId!)}pts total</div>
+            <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{getPoints(openId!)}pts total</div>
           )}
           {totalClaimers > 1 && (
-            <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>
+            <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>
               ÷ split between {totalClaimers} co-owners
             </div>
           )}

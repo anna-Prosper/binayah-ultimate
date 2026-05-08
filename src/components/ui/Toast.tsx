@@ -78,7 +78,7 @@ export function ToastContainer({ t, toasts, onDismiss }: ToastContainerProps) {
                   borderRadius: 6,
                   padding: "2px 8px",
                   cursor: "pointer",
-                  fontSize: 11,
+                  fontSize: 12,
                   color: "inherit",
                   fontFamily: "var(--font-dm-mono), monospace",
                   fontWeight: 700,

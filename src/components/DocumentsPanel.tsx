@@ -423,7 +423,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     }}>
       {/* Header + new doc button */}
       <div style={{ padding: "12px 12px 8px", borderBottom: `1px solid ${t.border}`, display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", flex: 1 }}>
+        <span style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", flex: 1 }}>
           // documents
         </span>
         <button
@@ -435,7 +435,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             borderRadius: 8,
             padding: "4px 8px",
             cursor: "pointer",
-            fontSize: 11,
+            fontSize: 12,
             color: t.accent,
             fontWeight: 700,
             fontFamily: "var(--font-geist-mono, monospace)",
@@ -457,7 +457,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             borderRadius: 16,
             padding: "0 8px",
             cursor: "pointer",
-            fontSize: 10,
+            fontSize: 11,
             color: filterPipeline === null ? t.accent : t.textMuted,
             fontWeight: filterPipeline === null ? 700 : 400,
             fontFamily: "var(--font-geist-mono, monospace)",
@@ -481,7 +481,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 borderRadius: 16,
                 padding: isActive ? "0 10px 0 8px" : "0 8px",
                 cursor: "pointer",
-                fontSize: 12,
+                fontSize: 13,
                 lineHeight: "26px",
                 color: isActive ? pColor : t.textMuted,
                 fontWeight: isActive ? 800 : 500,
@@ -505,7 +505,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           <>{[0, 1, 2, 3].map(i => <SkeletonRow key={i} />)}</>
         ) : filteredDocs.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", gap: 8 }}>
-            <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textAlign: "center", lineHeight: 1.6 }}>
+            <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textAlign: "center", lineHeight: 1.6 }}>
               // no docs yet — forge one
             </span>
             <button
@@ -553,11 +553,11 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 {pipe && (
-                  <span style={{ fontSize: 10, color: pColor, background: pColor + "18", border: `1px solid ${pColor + "33"}`, borderRadius: 8, padding: "0 4px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                  <span style={{ fontSize: 11, color: pColor, background: pColor + "18", border: `1px solid ${pColor + "33"}`, borderRadius: 8, padding: "0 4px", fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)" }}>
                     {pipe.icon} {pipe.name}
                   </span>
                 )}
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                   {relativeTime(doc.updatedAt)}
                 </span>
               </div>
@@ -589,7 +589,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               {isMobile && (
                 <button
                   onClick={() => setMobileView("list")}
-                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)" }}
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)" }}
                 >
                   ← back
                 </button>
@@ -613,7 +613,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               />
               {/* Syncing indicator — pulse hairline when saving, text when saved/error */}
               <span style={{
-                fontSize: 10,
+                fontSize: 11,
                 fontFamily: "var(--font-geist-mono, monospace)",
                 color: saveStatus === "saved" ? t.green : saveStatus === "error" ? t.red : t.textMuted,
                 transition: "color 0.3s",
@@ -626,7 +626,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 onClick={shareDocument}
                 aria-label="Share this document link"
                 data-tooltip="Share this document link"
-                style={{ background: t.accent + "12", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
+                style={{ background: t.accent + "12", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 13, color: t.accent, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
               >
                 share
               </button>
@@ -652,7 +652,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 </button>
                 {pingOpen && (
                   <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, width: 240, maxHeight: 320, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: t.shadowLg, zIndex: 20, padding: 6 }}>
-                    <div style={{ padding: "6px 10px 8px", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, fontWeight: 800 }}>
+                    <div style={{ padding: "6px 10px 8px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, fontWeight: 800 }}>
                       notify a teammate
                     </div>
                     {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => (
@@ -666,8 +666,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                       >
                         <AvatarC user={u} size={22} />
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{u.name}</div>
-                          <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{u.name}</div>
+                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
                         </div>
                       </button>
                     ))}
@@ -713,7 +713,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               }}>
                 {updatedByUser && <AvatarC user={updatedByUser} size={18} />}
                 <span style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: t.textMuted,
                   fontFamily: "var(--font-geist-mono, monospace)",
                 }}>
@@ -724,7 +724,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             ) : (
               <div style={{ paddingBottom: 4, paddingTop: 0 }}>
                 <span style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   color: t.textDim,
                   fontFamily: "var(--font-geist-mono, monospace)",
                 }}>
@@ -735,7 +735,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
 
             {/* Pipeline tag dropdown */}
             <div style={{ display: "flex", alignItems: "center", gap: 4, paddingBottom: 8 }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>pipeline:</span>
+              <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>pipeline:</span>
               <select
                 value={activeDoc.pipelineId ?? ""}
                 onChange={e => handlePipelineChange(e.target.value)}
@@ -744,7 +744,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   border: `1px solid ${t.border}`,
                   borderRadius: 8,
                   padding: "0 4px",
-                  fontSize: 11,
+                  fontSize: 12,
                   color: t.textSec,
                   fontFamily: "var(--font-geist-mono, monospace)",
                   cursor: "pointer",
@@ -811,7 +811,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               {/* Attachments */}
               <div style={{ marginTop: 24, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                  <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", fontWeight: 700 }}>
+                  <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-geist-mono, monospace)", fontWeight: 700 }}>
                     attachments {activeDoc?.attachments && activeDoc.attachments.length > 0 ? `(${activeDoc.attachments.length})` : ""}
                   </div>
                   <input
@@ -843,20 +843,20 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                           <span style={{ fontSize: 18 }}>{isImage ? "🖼" : a.contentType.includes("pdf") ? "📄" : a.contentType.includes("zip") ? "🗜" : "📎"}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <a href={a.url} target="_blank" rel="noreferrer" style={{ fontSize: 13, fontWeight: 600, color: t.text, textDecoration: "none", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", display: "block" }}>{a.name}</a>
-                            <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+                            <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
                               {(a.size / 1024).toFixed(1)} kB
                               {uploader && ` · by ${uploader.name}`}
                               {a.uploadedAt && ` · ${relativeTime(a.uploadedAt)}`}
                             </div>
                           </div>
-                          <a href={a.url} target="_blank" rel="noreferrer" title="Open this attachment" data-tooltip="Open this attachment" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
+                          <a href={a.url} target="_blank" rel="noreferrer" title="Open this attachment" data-tooltip="Open this attachment" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
                           <button onClick={() => deleteAttachment(a.id)} title="Remove this attachment" aria-label="Remove this attachment" data-tooltip="Remove this attachment" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
                         </div>
                       );
                     })}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", fontStyle: "italic" }}>
+                  <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", fontStyle: "italic" }}>
                     // no files attached — drop one above
                   </div>
                 )}

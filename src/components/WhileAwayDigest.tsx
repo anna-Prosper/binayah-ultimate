@@ -77,7 +77,7 @@ export default function WhileAwayDigest({ t, currentUser, users, activityLog, cl
     if (entries.length === 0) return null;
     return (
       <div style={{ paddingTop: 12 }}>
-        <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
+        <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 700 }}>
           {label}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -87,18 +87,18 @@ export default function WhileAwayDigest({ t, currentUser, users, activityLog, cl
               <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
                 {actor && <AvatarC user={actor} size={24} />}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>
+                  <div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>
                     <span style={{ fontWeight: 700, color: actor?.color || t.accent }}>{actor?.name || entry.user}</span>
                     {" — "}
                     <span>{entry.target}</span>
                   </div>
                   {entry.detail && (
-                    <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {entry.detail.slice(0, 80)}
                     </div>
                   )}
                 </div>
-                <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
+                <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
                   {relativeTime(entry.time)}
                 </div>
               </div>
@@ -142,7 +142,7 @@ export default function WhileAwayDigest({ t, currentUser, users, activityLog, cl
           <div style={{ fontSize: 14, fontWeight: 800, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>
             // while you were away...
           </div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2 }}>
             last seen {awayDuration}
           </div>
         </div>

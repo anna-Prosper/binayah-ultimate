@@ -121,12 +121,12 @@ function ItemRow({
           {item.title}
         </div>
         {item.body && (
-          <div style={{ marginTop: 3, fontSize: 12, color: t.textMuted, lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+          <div style={{ marginTop: 3, fontSize: 13, color: t.textMuted, lineHeight: 1.45, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
             {item.body}
           </div>
         )}
       </div>
-      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", paddingTop: 3 }}>
+      <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", paddingTop: 3 }}>
         {item.actionRequired ? "" : timeLabel(item.time)}
       </div>
       {onDismiss ? (
@@ -142,7 +142,7 @@ function ItemRow({
             color: t.textDim,
             cursor: "pointer",
             padding: "2px 6px",
-            fontSize: 11,
+            fontSize: 12,
             lineHeight: 1,
           }}
         >
@@ -160,10 +160,10 @@ function ItemRow({
 function SectionHeader({ label, count, t }: { label: string; count: number; t: ReturnType<typeof useModel>["t"] }) {
   return (
     <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "14px 2px 8px" }}>
-      <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
+      <div style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
         — {label}
       </div>
-      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+      <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
         {count}
       </div>
     </div>
@@ -264,7 +264,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
           {/* Header */}
           <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
             <div>
-              <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 850, letterSpacing: 0.7, textTransform: "uppercase" }}>
                 notifications
               </div>
               <div style={{ marginTop: 3, fontSize: 18, color: t.text, fontWeight: 900 }}>
@@ -279,7 +279,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                 background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8,
                 padding: "6px 10px", cursor: unreadUpdatesCount ? "pointer" : "default",
                 opacity: unreadUpdatesCount ? 1 : 0.45,
-                color: t.textMuted, fontFamily: mono, fontSize: 11, fontWeight: 700,
+                color: t.textMuted, fontFamily: mono, fontSize: 12, fontWeight: 700,
                 whiteSpace: "nowrap",
               }}
               title="mark all updates as read"
@@ -291,7 +291,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
           {/* Approved exec requests — pinned until marked done */}
           {approvedRequests.length > 0 && (
             <div style={{ marginBottom: 14 }}>
-              <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>
+              <div style={{ fontSize: 11, color: t.amber, fontFamily: mono, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>
                 approved requests · pending completion · {approvedRequests.length}
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -313,11 +313,11 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 2 }}>{p.title}</div>
                         {p.body && (
-                          <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.4, marginBottom: 4, wordBreak: "break-word" }}>
+                          <div style={{ fontSize: 13, color: t.textMuted, lineHeight: 1.4, marginBottom: 4, wordBreak: "break-word" }}>
                             {p.body.length > 120 ? p.body.slice(0, 120) + "…" : p.body}
                           </div>
                         )}
-                        <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>
+                        <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>
                           from {submitter?.name ?? p.by} · approved {timeLabel(p.reviewedAt ?? p.createdAt)}
                         </div>
                       </div>
@@ -332,7 +332,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                             borderRadius: 8,
                             padding: "5px 10px",
                             cursor: "pointer",
-                            fontSize: 11,
+                            fontSize: 12,
                             fontWeight: 800,
                             color: t.green,
                             fontFamily: mono,
@@ -362,7 +362,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                     background: active ? t.accent + "18" : t.bgCard,
                     border: `1px solid ${active ? t.accent + "66" : t.border}`,
                     color: active ? t.accent : t.textMuted,
-                    borderRadius: 8, padding: "5px 9px", fontSize: 10,
+                    borderRadius: 8, padding: "5px 9px", fontSize: 11,
                     fontFamily: mono, fontWeight: 800, cursor: "pointer",
                   }}
                 >
@@ -380,8 +380,8 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                 ["files", emailHealth.storage?.s3Configured, emailHealth.storage?.bucket ? `${emailHealth.storage.bucket} · ${emailHealth.storage.region || "region?"}` : "S3 missing"],
               ].map(([label, ok, detail]) => (
                 <div key={String(label)} style={{ border: `1px solid ${ok ? t.green + "44" : t.amber + "55"}`, background: ok ? t.green + "08" : t.amber + "0d", borderRadius: 10, padding: "7px 9px" }}>
-                  <div style={{ color: ok ? t.green : t.amber, fontFamily: mono, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>{String(label)}</div>
-                  <div style={{ marginTop: 2, color: t.textMuted, fontSize: 10, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(detail)}</div>
+                  <div style={{ color: ok ? t.green : t.amber, fontFamily: mono, fontSize: 11, fontWeight: 900, textTransform: "uppercase" }}>{String(label)}</div>
+                  <div style={{ marginTop: 2, color: t.textMuted, fontSize: 11, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(detail)}</div>
                 </div>
               ))}
             </div>
@@ -389,8 +389,8 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
 
           {systemHealth && (
             <div style={{ marginTop: 8, border: `1px solid ${t.border}`, borderRadius: 10, padding: 9, background: t.bgCard }}>
-              <div style={{ color: t.text, fontSize: 11, fontFamily: mono, fontWeight: 900, marginBottom: 5 }}>system</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, color: t.textMuted, fontSize: 10, fontFamily: mono }}>
+              <div style={{ color: t.text, fontSize: 12, fontFamily: mono, fontWeight: 900, marginBottom: 5 }}>system</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, color: t.textMuted, fontSize: 11, fontFamily: mono }}>
                 <span>db: {systemHealth.db?.pipelineStateUpdatedAt ? new Date(systemHealth.db.pipelineStateUpdatedAt).toLocaleString() : "unknown"}</span>
                 <span>users: {systemHealth.db?.authUsers ?? 0}</span>
                 <span>reminders: {systemHealth.db?.reminders ?? 0}</span>
@@ -403,7 +403,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
           {filter === "activity" ? (
             <div style={{ marginTop: 12 }}>
               {activityLogFiltered.length === 0 ? (
-                <div style={{ border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 12, fontFamily: mono, textAlign: "center" }}>
+                <div style={{ border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 13, fontFamily: mono, textAlign: "center" }}>
                   // no activity in the past {ACTIVITY_LOG_VISIBLE_DAYS} days.
                 </div>
               ) : (
@@ -414,7 +414,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
           <>
           {/* Empty state */}
           {visibleAr.length === 0 && visibleUp.length === 0 && (
-            <div style={{ marginTop: 24, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 12, fontFamily: mono, textAlign: "center" }}>
+            <div style={{ marginTop: 24, border: `1px dashed ${t.border}`, borderRadius: 10, padding: "32px 12px", color: t.textDim, fontSize: 13, fontFamily: mono, textAlign: "center" }}>
               {filter === "all"
                 ? "// you're all caught up — no signals."
                 : "// nothing in this filter."}

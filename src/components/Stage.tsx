@@ -161,7 +161,7 @@ function StageSubtaskCard({
 
   const iconBtn: React.CSSProperties = {
     background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
-    padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted,
+    padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4,
   };
 
@@ -189,7 +189,7 @@ function StageSubtaskCard({
           ) : (
             <div style={{ fontSize: 13, fontWeight: 700, color: isApproved ? t.textDim : t.text, textDecoration: isApproved ? "line-through" : "none", lineHeight: 1.3 }}>{task.text}</div>
           )}
-          <div style={{ fontSize: 10, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 11, color: t.textDim, marginTop: 2, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             {creator && <><AvatarC user={creator} size={12} /><span>{creator.name.split(" ")[0]}</span></>}
             <span style={{ color: t.accent, fontWeight: 700 }}>· {points}pts</span>
             {assigneeList[0] && <span style={{ color: assigneeList[0].color, fontWeight: 700 }}>→ {assigneeList[0].name}{assigneeList.length > 1 ? ` +${assigneeList.length - 1}` : ""}</span>}
@@ -200,21 +200,21 @@ function StageSubtaskCard({
           {/* Status pill — always visible so user can cycle back from "live" too. Mirrors stage TaskCard pill. */}
           <span
             onClick={e => { e.stopPropagation(); cycleSubtaskStatus(key); }}
-            style={{ fontSize: 10, fontWeight: 700, color: stPill.c, background: stPill.c + "15", padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+            style={{ fontSize: 11, fontWeight: 700, color: stPill.c, background: stPill.c + "15", padding: "2px 8px", borderRadius: 8, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
             title={`Status: ${stPill.l} · click to cycle (concept → planned → in-progress → live → blocked)`}
           >{stPill.l}</span>
           {isPending && canApprove && (
             <button
               onClick={e => { e.stopPropagation(); approveSubtask(key); }}
-              style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}
+              style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}
               title="Captain approval — awards points to claimers"
             >✓ approve</button>
           )}
           {isPending && !canApprove && (
-            <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
+            <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
           )}
           {isApproved && (
-            <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
+            <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
           )}
           {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin shows approve) or already approved */}
           {currentUser && !(isPending && canApprove) && !isApproved && (
@@ -226,7 +226,7 @@ function StageSubtaskCard({
       {/* Edit-mode: points editor */}
       {editOpen && (
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pts:</span>
+          <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pts:</span>
           <input
             type="number"
             defaultValue={String(points)}
@@ -242,7 +242,7 @@ function StageSubtaskCard({
                 if (!isNaN(n) && n > 0 && n !== points) setSubtaskPoints(stageId, task.id, n);
               }
             }}
-            style={{ width: 50, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+            style={{ width: 50, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
         </div>
       )}
@@ -252,7 +252,7 @@ function StageSubtaskCard({
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
           {visibleReactions.map(([emoji, us]) => {
             const mine = currentUser ? us.includes(currentUser) : false;
-            return <button key={emoji} onClick={() => handleReact(key, emoji)} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "1px 8px", cursor: "pointer", fontSize: 12, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{emoji} <span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span></button>;
+            return <button key={emoji} onClick={() => handleReact(key, emoji)} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 10, padding: "1px 8px", cursor: "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{emoji} <span style={{ fontSize: 11, fontWeight: 700 }}>{us.length}</span></button>;
           })}
         </div>
       )}
@@ -282,7 +282,7 @@ function StageSubtaskCard({
             title={assigneeList.length > 0 ? `Assigned: ${assigneeList.map(u => u.name).join(", ")}` : "Assign"}
           >
             {assigneeList.length === 0 ? (
-              <><User size={11} style={{ opacity: 0.7 }} /><span style={{ fontSize: 10 }}>assign</span></>
+              <><User size={11} style={{ opacity: 0.7 }} /><span style={{ fontSize: 11 }}>assign</span></>
             ) : (
               <>
                 <span style={{ display: "inline-flex" }}>
@@ -292,13 +292,13 @@ function StageSubtaskCard({
                     </span>
                   ))}
                 </span>
-                <span style={{ fontSize: 10 }}>{assigneeList.length === 1 ? assigneeList[0].name.toLowerCase() : `${assigneeList[0].name.toLowerCase()} +${assigneeList.length - 1}`}</span>
+                <span style={{ fontSize: 11 }}>{assigneeList.length === 1 ? assigneeList[0].name.toLowerCase() : `${assigneeList[0].name.toLowerCase()} +${assigneeList.length - 1}`}</span>
               </>
             )}
           </button>
           {assignOpen && (
             <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 100, minWidth: 200 }}>
-              <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+              <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 assign — up to 2 ({assigneeList.length}/2)
               </div>
               {users.map(u => {
@@ -313,12 +313,12 @@ function StageSubtaskCard({
                   >
                     <AvatarC user={u} size={20} />
                     <span style={{ flex: 1 }}>{u.name}</span>
-                    {isCurrent && <span style={{ fontSize: 10 }}>✓</span>}
+                    {isCurrent && <span style={{ fontSize: 11 }}>✓</span>}
                   </button>
                 );
               })}
               {assigneeList.length > 0 && (
-                <button onClick={() => assignTask(key, null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>× clear all</button>
+                <button onClick={() => assignTask(key, null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>× clear all</button>
               )}
             </div>
           )}
@@ -347,7 +347,7 @@ function StageSubtaskCard({
             marginLeft: "auto",
             background: editOpen ? t.accent + "22" : "transparent",
             border: `1px solid ${editOpen ? t.accent + "88" : t.border}`,
-            borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 11,
+            borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 12,
             display: "flex", alignItems: "center", justifyContent: "center",
             color: editOpen ? t.accent : t.textMuted,
             transition: "all 0.15s",
@@ -362,7 +362,7 @@ function StageSubtaskCard({
         <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
           {cmts.length > 0 && (
             <div style={{ maxHeight: 100, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-              {cmts.slice(-4).map(c => { const u = resolveCommentUser(users, c.by); return <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}><AvatarC user={u} size={14} /><div style={{ flex: 1 }}><span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name} </span><span style={{ fontSize: 11, color: t.text }}>{c.text}</span></div></div>; })}
+              {cmts.slice(-4).map(c => { const u = resolveCommentUser(users, c.by); return <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}><AvatarC user={u} size={14} /><div style={{ flex: 1 }}><span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name} </span><span style={{ fontSize: 12, color: t.text }}>{c.text}</span></div></div>; })}
             </div>
           )}
           <div style={{ position: "relative" }}>
@@ -373,11 +373,11 @@ function StageSubtaskCard({
                     key={u.id}
                     data-no-close
                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertSubtaskMention(u); }}
-                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
+                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 13, color: t.text }}
                   >
                     <AvatarC user={u} size={16} />
                     <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
-                    <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+                    <span style={{ fontSize: 11, color: t.textDim }}>{u.role}</span>
                   </div>
                 ))}
               </div>
@@ -391,8 +391,8 @@ function StageSubtaskCard({
                   if (e.key === "Escape") { e.preventDefault(); setMentionDropdown(null); return; }
                 }
                 if (e.key === "Enter") { e.preventDefault(); sendSubtaskComment(); }
-              }} placeholder="comment... (@name to mention)" style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-              <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={sendSubtaskComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700 }}>↵</button>
+              }} placeholder="comment... (@name to mention)" style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+              <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={sendSubtaskComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700 }}>↵</button>
             </div>
           </div>
         </div>
@@ -677,7 +677,7 @@ export default function Stage({
             ) : (
               <span style={{ fontSize: 13, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flex: 1 }}>{name}</span>
             )}
-            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 10, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: "pointer" }} title="Click to cycle status">{st.l}</span>
+            <span onClick={e => { e.stopPropagation(); cycleStatus(name); }} style={{ fontSize: 11, fontWeight: 700, color: st.c, background: st.c + "12", padding: "0 8px", borderRadius: 8, flexShrink: 0, cursor: "pointer" }} title="Click to cycle status">{st.l}</span>
           </div>
 
           {/* Line 2 (mobile) or inline (desktop): reactions + meta */}
@@ -696,27 +696,27 @@ export default function Stage({
                 return REACTIONS.map(r => { const us = sr[r] || []; const mine = us.includes(currentUser!); const has = us.length > 0; return (
                   <button key={r} onClick={() => handleReact(name, r)} style={{ background: mine ? t.accent + "22" : has ? t.surface : "transparent", border: "none", borderRadius: 12, padding: isMobile ? "6px 8px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: has ? 1 : 0.35, transform: mine ? "scale(1.15)" : "scale(1)" }}>
                     <span style={{ fontSize: has ? 13 : 11 }}>{r}</span>
-                    {has && <span style={{ fontSize: 10, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
+                    {has && <span style={{ fontSize: 11, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{us.length}</span>}
                   </button>); });
               }
               return existing.map(([emoji, arr]) => { const mine = arr.includes(currentUser!); return (
                 <button key={emoji} onClick={() => handleReact(name, emoji)} style={{ background: mine ? t.accent + "18" : t.surface, border: "none", borderRadius: 12, padding: isMobile ? "6px 8px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit" }}>
                   <span style={{ fontSize: 13 }}>{emoji}</span>
-                  <span style={{ fontSize: 10, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                  <span style={{ fontSize: 11, color: mine ? t.accent : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                 </button>); });
             })()}
 
             {/* React toggle */}
-            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "8px 12px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "inherit" }}>
+            <button onClick={() => setReactOpen(reactOpen === name ? null : name)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: isMobile ? "8px 12px" : "4px 8px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 12, color: t.textMuted, fontFamily: "inherit" }}>
               {"😀"}
             </button>
 
 
 
             {claimedBy.length > 0 && <ClaimerPills claimerIds={claimedBy} users={users} getPoints={getPoints} t={t} variant="pill" size={isMobile ? 22 : 16} maxVisible={2} />}
-            {tasks.length > 0 && <span style={{ fontSize: 10, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
-            {cmts.length > 0 && <span style={{ fontSize: 10, color: t.textMuted, display: "inline-flex", alignItems: "center", gap: 3 }}><MessageSquare size={10} />{cmts.length}</span>}
-            <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{derivedPoints}</span>
+            {tasks.length > 0 && <span style={{ fontSize: 11, color: tasksDone === tasks.length ? t.green : t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{tasksDone}/{tasks.length}</span>}
+            {cmts.length > 0 && <span style={{ fontSize: 11, color: t.textMuted, display: "inline-flex", alignItems: "center", gap: 3 }}><MessageSquare size={10} />{cmts.length}</span>}
+            <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>+{derivedPoints}</span>
           </div>
         </div>
 
@@ -730,12 +730,12 @@ export default function Stage({
               onBlur={() => setEditingShortDesc(false)}
               onKeyDown={e => { if (e.key === "Enter" || e.key === "Escape") setEditingShortDesc(false); }}
               placeholder="Short description..."
-              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${pC}44`, outline: "none", fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", padding: "0 0 0 0", lineHeight: 1.4 }}
+              style={{ width: "100%", background: "transparent", border: "none", borderBottom: `1px solid ${pC}44`, outline: "none", fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", padding: "0 0 0 0", lineHeight: 1.4 }}
             />
           ) : (
             <p
               onClick={e => { e.stopPropagation(); if (stageEditMode) setEditingShortDesc(true); }}
-              style={{ margin: 0, fontSize: 11, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: stageEditMode ? "text" : "default" }}
+              style={{ margin: 0, fontSize: 12, color: t.textSec, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", opacity: 0.75, cursor: stageEditMode ? "text" : "default" }}
             >
               {currentDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>add description...</span>}
             </p>
@@ -747,13 +747,13 @@ export default function Stage({
           <div style={{ paddingLeft: 32, paddingRight: 48, paddingBottom: 4, paddingTop: 4, display: "flex", flexDirection: "column", gap: 4 }} onClick={e => e.stopPropagation()}>
             {hasLiveSubtasks ? (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pts:</span>
-                <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{derivedPoints}</span>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>· sum of subtasks — edit each subtask to adjust</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pts:</span>
+                <span style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{derivedPoints}</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>· sum of subtasks — edit each subtask to adjust</span>
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>pts:</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>pts:</span>
                 <input
                   type="number"
                   value={editingPoints}
@@ -771,9 +771,9 @@ export default function Stage({
                     }
                   }}
                   placeholder={String(derivedPoints)}
-                  style={{ width: 54, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+                  style={{ width: 54, background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 6, padding: "2px 6px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
                 />
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>· add subtasks to score by ledger</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontStyle: "italic" }}>· add subtasks to score by ledger</span>
               </div>
             )}
           </div>
@@ -794,7 +794,7 @@ export default function Stage({
                 border: `1px solid ${t.amber}55`,
                 borderRadius: 8,
                 cursor: "pointer",
-                fontSize: 10,
+                fontSize: 11,
                 display: "flex",
                 alignItems: "center",
                 gap: 4,
@@ -837,7 +837,7 @@ export default function Stage({
               background: stageEditMode ? pC + "22" : t.bgCard,
               border: `1px solid ${stageEditMode ? pC + "88" : t.border}`,
               cursor: "pointer",
-              fontSize: 12,
+              fontSize: 13,
               display: "flex",
               alignItems: "center",
               justifyContent: "center",
@@ -880,11 +880,11 @@ export default function Stage({
                   if (owners.length) { lines.push(""); lines.push(`Owned by: ${owners.join(", ")}`); }
                   if (reacts.length) { lines.push(`Reactions: ${reacts.join("  ")}`); }
                   shareStage(name, lines.join("\n"));
-                }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
+                }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{copied === name ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}</span>
                 </button>
                 {canArchive && (
-                  <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                  <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.amber; (e.currentTarget as HTMLElement).style.color = t.amber; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
                     title="Archive this task">
@@ -896,10 +896,10 @@ export default function Stage({
 
             {/* Description — editable */}
             <div style={{ padding: "8px 16px", borderBottom: `1px solid ${t.border}` }}>
-              <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
+              <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600, display: "flex", alignItems: "center", gap: 4 }}>
                 about
-                {stageEditMode && !editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 11, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"✎"}</span>}
-                {stageEditMode && editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 10, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
+                {stageEditMode && !editingDesc && <span onClick={() => setEditingDesc(true)} style={{ fontSize: 12, color: t.textDim, cursor: "pointer", opacity: 0.45 }} title="Edit">{"✎"}</span>}
+                {stageEditMode && editingDesc && <span onClick={() => setEditingDesc(false)} style={{ fontSize: 11, color: t.green, cursor: "pointer", fontWeight: 700 }}>done</span>}
               </div>
               {editingDesc ? (
                 <textarea
@@ -919,7 +919,7 @@ export default function Stage({
             {/* Subtasks + Comments */}
             <div style={{ display: "flex", gap: 0, minHeight: 80 }}>
               <div style={{ flex: 1, padding: "12px 16px", borderRight: `1px solid ${t.border}` }}>
-                <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
+                <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 {tasks.map(task => (
                   <StageSubtaskCard
@@ -933,8 +933,8 @@ export default function Stage({
                 ))}
                 </div>
                 <div style={{ display: "flex", gap: 4, marginTop: 8 }}>
-                  <input value={subtaskInputVal} onChange={e => setSubtaskInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addSubtask(name, subtaskInputVal, () => setSubtaskInputVal("")); } }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }} />
-                  <button onClick={() => addSubtask(name, subtaskInputVal, () => setSubtaskInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
+                  <input value={subtaskInputVal} onChange={e => setSubtaskInputVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { addSubtask(name, subtaskInputVal, () => setSubtaskInputVal("")); } }} placeholder="+ add subtask..." style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                  <button onClick={() => addSubtask(name, subtaskInputVal, () => setSubtaskInputVal(""))} style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}>+</button>
                 </div>
               </div>
 
@@ -951,14 +951,14 @@ export default function Stage({
                       <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 8, borderBottom: `1px solid ${t.border}`, paddingBottom: 6 }}>
                         <button
                           onClick={() => setActiveDetailTab("comments")}
-                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, fontWeight: activeDetailTab === "comments" ? 700 : 500, color: activeDetailTab === "comments" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, paddingRight: 10, borderRight: `1px solid ${t.border}`, marginRight: 10 }}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: activeDetailTab === "comments" ? 700 : 500, color: activeDetailTab === "comments" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, paddingRight: 10, borderRight: `1px solid ${t.border}`, marginRight: 10 }}
                         >
                           comments {cmts.length > 0 && `(${cmts.length})`}
                           {liveNotifs[name]?.comment && <span style={{ color: t.green, marginLeft: 4 }}>·</span>}
                         </button>
                         <button
                           onClick={() => setActiveDetailTab("activity")}
-                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 10, fontWeight: activeDetailTab === "activity" ? 700 : 500, color: activeDetailTab === "activity" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const }}
+                          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: activeDetailTab === "activity" ? 700 : 500, color: activeDetailTab === "activity" ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const }}
                         >
                           activity {stageActivity.length > 0 && `(${stageActivity.length})`}
                         </button>
@@ -967,7 +967,7 @@ export default function Stage({
                       {activeDetailTab === "comments" ? (
                         <>
                           {liveNotifs[name]?.comment && (
-                            <div style={{ fontSize: 10, color: t.green, marginBottom: 4, fontWeight: 700 }}>{liveNotifs[name].comment} just commented</div>
+                            <div style={{ fontSize: 11, color: t.green, marginBottom: 4, fontWeight: 700 }}>{liveNotifs[name].comment} just commented</div>
                           )}
                           <div ref={commentListRef} style={{ maxHeight: 140, overflowY: "auto" }}>
                             {cmts.map((c, idx) => {
@@ -981,7 +981,7 @@ export default function Stage({
                                   {isFirstUnseen && (
                                     <div style={{ display: "flex", alignItems: "center", gap: 6, margin: "6px 0" }}>
                                       <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
-                                      <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" as const, flexShrink: 0 }}>// since you were here</span>
+                                      <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap" as const, flexShrink: 0 }}>// since you were here</span>
                                       <div style={{ flex: 1, height: 1, background: t.accent + "44" }} />
                                     </div>
                                   )}
@@ -989,11 +989,11 @@ export default function Stage({
                                     <AvatarC user={u} size={16} />
                                     <div style={{ flex: 1 }}>
 	                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-	                                        <span style={{ fontSize: 10, fontWeight: 700, color: u.color }}>{u.name}</span>
-	                                        <span style={{ fontSize: 10, color: t.textDim }}>{c.time}</span>
-	                                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 9, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                                        <span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name}</span>
+	                                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
+	                                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                                      </div>
-                                      <div style={{ fontSize: 11, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
+                                      <div style={{ fontSize: 12, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
                                     </div>
                                   </div>
                                   {/* Comment-level reactions */}
@@ -1004,9 +1004,9 @@ export default function Stage({
                                         <button
                                           key={emoji}
                                           onClick={() => handleCommentReact(name, c.id, emoji)}
-                                          style={{ background: mine ? t.accent + "20" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 10, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 2, lineHeight: 1 }}
+                                          style={{ background: mine ? t.accent + "20" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 11, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 2, lineHeight: 1 }}
                                         >
-                                          {emoji} <span style={{ fontSize: 9, fontWeight: 700 }}>{arr.length}</span>
+                                          {emoji} <span style={{ fontSize: 10, fontWeight: 700 }}>{arr.length}</span>
                                         </button>
                                       );
                                     })}
@@ -1014,7 +1014,7 @@ export default function Stage({
                                     <div style={{ position: "relative" }}>
                                       <button
                                         onClick={() => setCommentReactPickerOpen(commentReactPickerOpen === c.id ? null : c.id)}
-                                        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1 }}
+                                        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "1px 5px", cursor: "pointer", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1 }}
                                       >+</button>
                                       {commentReactPickerOpen === c.id && (
                                         <div style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
@@ -1038,7 +1038,7 @@ export default function Stage({
                           {pendingCount > 0 && (
                             <button
                               onClick={() => { flushPendingComments(name); setTimeout(() => { if (commentListRef.current) commentListRef.current.scrollTop = commentListRef.current.scrollHeight; }, 30); }}
-                              style={{ display: "block", width: "100%", background: t.accent, border: "none", borderRadius: 8, padding: "4px 0", cursor: "pointer", fontSize: 10, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" as const, marginTop: 4, marginBottom: 2, transition: "opacity 0.15s" }}
+                              style={{ display: "block", width: "100%", background: t.accent, border: "none", borderRadius: 8, padding: "4px 0", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center" as const, marginTop: 4, marginBottom: 2, transition: "opacity 0.15s" }}
                             >↓ {pendingCount} new — show</button>
                           )}
 
@@ -1052,11 +1052,11 @@ export default function Stage({
                                     key={u.id}
                                     data-no-close
                                     onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertMention(u); }}
-                                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 12, color: t.text }}
+                                    style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", background: i === mentionDropdown.selectedIdx ? t.accent + "22" : "transparent", fontSize: 13, color: t.text }}
                                   >
                                     <AvatarC user={u} size={16} />
                                     <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
-                                    <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+                                    <span style={{ fontSize: 11, color: t.textDim }}>{u.role}</span>
                                   </div>
                                 ))}
                               </div>
@@ -1098,7 +1098,7 @@ export default function Stage({
                                   }
                                 }}
                                 placeholder="comment... (@name to mention)"
-                                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "inherit", outline: "none" }}
+                                style={{ flex: 1, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none" }}
                               />
                               <button
                                 data-no-close
@@ -1110,7 +1110,7 @@ export default function Stage({
                                   });
                                   setMentionDropdown(null);
                                 }}
-                                style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}
+                                style={{ background: t.accent + "15", border: `1px solid ${t.accent + "33"}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 700, fontFamily: "inherit" }}
                               >{"↵"}</button>
                             </div>
                           </div>
@@ -1118,7 +1118,7 @@ export default function Stage({
                       ) : (
                         <div style={{ maxHeight: 160, overflowY: "auto" }}>
                           {stageActivity.length === 0 ? (
-                            <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", textAlign: "center" as const, padding: "8px 0" }}>// no activity yet</div>
+                            <div style={{ fontSize: 12, color: t.textDim, fontStyle: "italic", textAlign: "center" as const, padding: "8px 0" }}>// no activity yet</div>
                           ) : (
                             stageActivity.map((entry, i) => {
                               const u = users.find(u => u.id === entry.user);
@@ -1127,10 +1127,10 @@ export default function Stage({
                                   {u && <AvatarC user={u} size={16} />}
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
-                                      <span style={{ fontSize: 10, color: t.textMuted, flexShrink: 0 }}>{actIcon(entry.type)}</span>
-                                      <span style={{ fontSize: 11, color: t.text, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{entry.detail}</span>
+                                      <span style={{ fontSize: 11, color: t.textMuted, flexShrink: 0 }}>{actIcon(entry.type)}</span>
+                                      <span style={{ fontSize: 12, color: t.text, lineHeight: 1.4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" as const }}>{entry.detail}</span>
                                     </div>
-                                    <span style={{ fontSize: 10, color: t.textDim }}>{relTime(entry.time)}</span>
+                                    <span style={{ fontSize: 11, color: t.textDim }}>{relTime(entry.time)}</span>
                                   </div>
                                 </div>
                               );
@@ -1155,11 +1155,11 @@ export default function Stage({
                   <div onClick={() => setGalleryOpen(o => !o)} style={{ padding: "8px 16px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}>
-                    <span style={{ fontSize: 10, color: t.textDim, transition: "transform 0.2s", display: "inline-block", transform: galleryOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
-                    <span style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600 }}>
+                    <span style={{ fontSize: 11, color: t.textDim, transition: "transform 0.2s", display: "inline-block", transform: galleryOpen ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+                    <span style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontWeight: 600 }}>
                       gallery {totalCount > 0 && `(${totalCount})`}
                     </span>
-                    <label onClick={e => { e.stopPropagation(); }} style={{ fontSize: 10, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC + "33"}`, borderRadius: 8, padding: "0 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
+                    <label onClick={e => { e.stopPropagation(); }} style={{ fontSize: 11, color: pC, cursor: "pointer", fontWeight: 700, background: pC + "15", border: `1px solid ${pC + "33"}`, borderRadius: 8, padding: "0 8px", display: "inline-flex", alignItems: "center", gap: 4, marginLeft: "auto" }}>
                       {"↑ upload"}
                       <input type="file" accept="image/*" style={{ display: "none" }} onChange={e => {
                         const file = e.target.files?.[0];
@@ -1195,7 +1195,7 @@ export default function Stage({
                           ))}
                         </div>
                       ) : (
-                        <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", textAlign: "center", padding: "8px 0" }}>no images yet — upload screenshots or mockups</div>
+                        <div style={{ fontSize: 12, color: t.textDim, fontStyle: "italic", textAlign: "center", padding: "8px 0" }}>no images yet — upload screenshots or mockups</div>
                       )}
                     </div>
                   )}
@@ -1262,7 +1262,7 @@ export default function Stage({
 
             {/* Description */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}` }}>
-              <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>about</div>
+              <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 4, fontWeight: 600 }}>about</div>
               <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.6 }}>
                 {aboutDesc || <span style={{ color: t.textDim, fontStyle: "italic" }}>No description</span>}
               </div>
@@ -1270,7 +1270,7 @@ export default function Stage({
 
             {/* Subtasks */}
             <div style={{ padding: "12px 16px", borderBottom: `1px solid ${t.border}` }}>
-              <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
+              <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>subtasks {tasks.length > 0 && `(${tasksDone}/${tasks.length})`}</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 4 }}>
               {tasks.map(task => (
                 <StageSubtaskCard
@@ -1291,7 +1291,7 @@ export default function Stage({
 
             {/* Comments */}
             <div style={{ padding: "12px 16px" }}>
-              <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
+              <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
               <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 8 }}>
                 {cmts.map(c => { const u = resolveCommentUser(users, c.by); return (
                   <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
@@ -1299,8 +1299,8 @@ export default function Stage({
                     <div style={{ flex: 1 }}>
 	                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
-	                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
-	                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                        <span style={{ fontSize: 12, color: t.textDim }}>{c.time}</span>
+	                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                      </div>
                       <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>
                     </div>

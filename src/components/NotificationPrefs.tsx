@@ -114,13 +114,13 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
   return (
     <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>
           {targetName ? `${targetName} email` : "email notifications"}
         </span>
         <Toggle on={prefs.emailNotifications} onChange={v => update("emailNotifications", v)} disabled={saving === "emailNotifications"} t={t} />
       </div>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>
           {targetName ? `${targetName} in-app` : "in-app notifications"}
         </span>
         <Toggle on={prefs.inAppNotifications} onChange={v => update("inAppNotifications", v)} disabled={saving === "inAppNotifications"} t={t} />
@@ -130,7 +130,7 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
         <div>
           <button
             onClick={() => setExpanded(v => !v)}
-            style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+            style={{ background: "transparent", border: "none", cursor: "pointer", padding: 0, fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
           >
             {expanded ? "// hide details" : "// per-event settings"}
           </button>
@@ -139,7 +139,7 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
 
       {(!emailOff || !inAppOff) && expanded && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6, paddingTop: 8, borderTop: `1px solid ${t.border}` }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 42px 42px", gap: 8, color: t.textDim, fontSize: 9, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 42px 42px", gap: 8, color: t.textDim, fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase" }}>
             <span />
             <span>email</span>
             <span>app</span>
@@ -147,8 +147,8 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
           {ROWS.map(row => (
             <div key={row.label} style={{ display: "grid", gridTemplateColumns: "1fr 42px 42px", alignItems: "center", gap: 8 }}>
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>{row.label}</div>
-                <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{row.hint}</div>
+                <div style={{ fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}>{row.label}</div>
+                <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{row.hint}</div>
               </div>
               <Toggle on={prefs[row.emailKey] as boolean} onChange={v => update(row.emailKey, v)} disabled={emailOff || saving === row.emailKey} t={t} />
               <Toggle on={prefs[row.appKey] as boolean} onChange={v => update(row.appKey, v)} disabled={inAppOff || saving === row.appKey} t={t} />
@@ -158,7 +158,7 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
       )}
 
       {error && (
-        <div style={{ fontSize: 10, color: t.red ?? "#ff453a", fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
+        <div style={{ fontSize: 11, color: t.red ?? "#ff453a", fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>
           {error}
         </div>
       )}

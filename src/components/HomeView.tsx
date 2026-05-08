@@ -44,10 +44,10 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
       style={{ marginBottom: 4, background: hovered ? accentColor + "18" : accentColor + "0a", border: `1px solid ${accentColor}33`, borderRadius: 8, padding: "6px 8px", cursor: "pointer", transition: "background 0.15s" }}
     >
       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-        <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-        <div style={{ fontSize: 11, fontWeight: 700, color: accentColor, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+        <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+        <div style={{ fontSize: 12, fontWeight: 700, color: accentColor, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
       </div>
-      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
     </div>
   );
 }
@@ -114,33 +114,33 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       <div style={{ marginBottom: 8 }}>
         <button type="button" onClick={() => setCollapsed(v => !v)}
           style={{ display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: "0 0 4px 0", cursor: "pointer", width: "100%" }}>
-          <div style={{ fontSize: 9, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>{label}</div>
-          <span style={{ background: color + "22", border: `1px solid ${color}44`, color, borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800 }}>{items.length}</span>
-          <span style={{ marginLeft: "auto", fontSize: 9, color, fontFamily: mono, opacity: 0.6 }}>{collapsed ? "▼" : "▲"}</span>
+          <div style={{ fontSize: 10, color, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const }}>{label}</div>
+          <span style={{ background: color + "22", border: `1px solid ${color}44`, color, borderRadius: 8, padding: "0 5px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{items.length}</span>
+          <span style={{ marginLeft: "auto", fontSize: 10, color, fontFamily: mono, opacity: 0.6 }}>{collapsed ? "▼" : "▲"}</span>
         </button>
         {!collapsed && (
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {items.map(item => (
             <div key={item.key} style={{ position: "relative", display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 8px" }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>{item.pipelineName}</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 1 }}>{item.pipelineName}</div>
               </div>
               {assignPicker ? (
                 <>
                   <button type="button" onClick={() => setAssigningKey(assigningKey === item.key ? null : item.key)}
-                    style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                    style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
                     + assign
                   </button>
                   {assigningKey === item.key && (
                     <div data-no-close style={{ position: "absolute", right: 8, top: "calc(100% + 4px)", zIndex: 50, minWidth: 210, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: 5, boxShadow: "0 10px 30px rgba(0,0,0,0.22)" }}>
-                      <div style={{ padding: "4px 7px 5px", fontSize: 9, color: t.textDim, fontFamily: mono, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>assign to</div>
+                      <div style={{ padding: "4px 7px 5px", fontSize: 10, color: t.textDim, fontFamily: mono, textTransform: "uppercase" as const, letterSpacing: 0.5 }}>assign to</div>
                       {users.filter(u => u.id !== "ai").map(u => (
                         <button
                           key={u.id}
                           type="button"
                           onClick={() => { onAssign(item.key, u.id); setAssigningKey(null); }}
-                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", borderRadius: 8, padding: "6px 7px", color: t.text, cursor: "pointer", textAlign: "left" as const, fontSize: 12, fontWeight: 700 }}
+                          style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", borderRadius: 8, padding: "6px 7px", color: t.text, cursor: "pointer", textAlign: "left" as const, fontSize: 13, fontWeight: 700 }}
                         >
                           <AvatarC user={u} size={20} />
                           <span>{u.name}</span>
@@ -151,7 +151,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 </>
               ) : actionLabel && onAction && (
                 <button type="button" onClick={() => onAction(item.key)}
-                  style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
+                  style={{ background: color + "22", border: `1px solid ${color}55`, color, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 700, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const }}>
                   {actionLabel}
                 </button>
               )}
@@ -175,14 +175,14 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
       {/* Header — title left, summary middle, quick reminder right */}
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 14 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 10, minWidth: 0 }}>
-          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
+          <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>
             overview · {attention.roleLabel} · {attention.scopeLabel}
           </div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{attention.summary}</div>
         </div>
         {onAddReminder && !reminderOpen && (
           <button type="button" onClick={() => setReminderOpen(true)}
-            style={{ display: "flex", alignItems: "center", gap: 6, background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 9, padding: "6px 12px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const, transition: "background 0.15s" }}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 9, padding: "6px 12px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" as const, transition: "background 0.15s" }}
             onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = t.accent + "26"}
             onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = t.accent + "16"}
           >
@@ -196,11 +196,11 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
         <div style={{ display: "flex", gap: 6, marginBottom: 14, padding: 10, background: t.accent + "08", border: `1px solid ${t.accent}33`, borderRadius: 10 }}>
           <input autoFocus value={reminderTitle} onChange={e => setReminderTitle(e.target.value)} onKeyDown={e => { if (e.key === "Escape") { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); } if (e.key === "Enter" && reminderTitle.trim() && reminderDate) submitReminder(); }}
             placeholder="what should I remind you about?"
-            style={{ flex: 2, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 12, outline: "none" }} />
+            style={{ flex: 2, background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "7px 10px", color: t.text, fontSize: 13, outline: "none" }} />
           <input type="datetime-local" value={reminderDate} onChange={e => setReminderDate(e.target.value)}
-            style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 9px", color: t.textMuted, fontSize: 11, fontFamily: mono, outline: "none" }} />
+            style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 9px", color: t.textMuted, fontSize: 12, fontFamily: mono, outline: "none" }} />
           <button type="button" onClick={submitReminder} disabled={!reminderTitle.trim() || !reminderDate}
-            style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed", whiteSpace: "nowrap" as const }}>save</button>
+            style={{ background: reminderTitle.trim() && reminderDate ? t.green + "22" : t.bgHover || t.bgSoft, border: `1px solid ${reminderTitle.trim() && reminderDate ? t.green + "55" : t.border}`, color: reminderTitle.trim() && reminderDate ? t.green : t.textDim, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: reminderTitle.trim() && reminderDate ? "pointer" : "not-allowed", whiteSpace: "nowrap" as const }}>save</button>
           <button type="button" onClick={() => { setReminderOpen(false); setReminderTitle(""); setReminderDate(""); }}
             style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 8, padding: "6px 10px", fontFamily: mono, cursor: "pointer", display: "inline-flex", alignItems: "center" }}><X size={13} /></button>
         </div>
@@ -211,9 +211,9 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
         <div style={{ marginBottom: 16, padding: 12, background: `linear-gradient(135deg, ${t.green}10, ${t.accent}10)`, border: `1px solid ${t.green}44`, borderRadius: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
             <span style={{ display: "inline-flex", alignItems: "center", color: t.green }}><Mail size={14} /></span>
-            <span style={{ fontSize: 11, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" as const }}>exec requests</span>
-            {pendingExec.length > 0 && <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>}
-            {inProgressExec.length > 0 && <span style={{ background: t.amber + "26", border: `1px solid ${t.amber}55`, color: t.amber, borderRadius: 8, padding: "0 6px", fontSize: 10, fontFamily: mono, fontWeight: 800 }}>{inProgressExec.length} in progress</span>}
+            <span style={{ fontSize: 12, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase" as const }}>exec requests</span>
+            {pendingExec.length > 0 && <span style={{ background: t.green + "26", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 8, padding: "0 6px", fontSize: 11, fontFamily: mono, fontWeight: 800 }}>{pendingExec.length} pending</span>}
+            {inProgressExec.length > 0 && <span style={{ background: t.amber + "26", border: `1px solid ${t.amber}55`, color: t.amber, borderRadius: 8, padding: "0 6px", fontSize: 11, fontFamily: mono, fontWeight: 800 }}>{inProgressExec.length} in progress</span>}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
             {visibleExec.slice(0, 5).map(p => {
@@ -225,21 +225,21 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
                       <span style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.title}</span>
-                      {!isPending && <span style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, textTransform: "uppercase" as const, letterSpacing: 0.4 }}>in progress</span>}
+                      {!isPending && <span style={{ fontSize: 10, color: t.amber, fontFamily: mono, fontWeight: 800, textTransform: "uppercase" as const, letterSpacing: 0.4 }}>in progress</span>}
                     </div>
-                    <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{author?.name.split(" ")[0] || p.by} · {p.body}</div>
+                    <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{author?.name.split(" ")[0] || p.by} · {p.body}</div>
                   </div>
                   {isPending && onUpdateExecProposal && (
                     <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
                       <button type="button" onClick={() => onUpdateExecProposal(p.id, "reviewed")}
-                        style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓ approve</button>
+                        style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>✓ approve</button>
                       <button type="button" onClick={() => onUpdateExecProposal(p.id, "rejected")}
-                        style={{ background: "transparent", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
+                        style={{ background: "transparent", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 7, padding: "4px 10px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>decline</button>
                     </div>
                   )}
                   {!isPending && onCompleteExecProposal && (
                     <button type="button" onClick={() => onCompleteExecProposal(p.id)}
-                      style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓ mark complete</button>
+                      style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 7, padding: "4px 10px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓ mark complete</button>
                   )}
                 </div>
               );
@@ -256,7 +256,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
             return (attention.people.length > 0 || true) && (
               <>
                 {attention.people.length > 0 && (
-                  <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 2 }}>people · {attention.people.length}</div>
+                  <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 2 }}>people · {attention.people.length}</div>
                 )}
                 {(active.length > 0 || idle.length > 0) && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -268,10 +268,10 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                           <AvatarC user={person.user} size={22} />
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-                              <span style={{ fontSize: 12, color: t.text, fontWeight: 700 }}>{person.title}</span>
-                              <span style={{ fontSize: 10, color, fontFamily: mono, whiteSpace: "nowrap" }}>{person.meta}</span>
+                              <span style={{ fontSize: 13, color: t.text, fontWeight: 700 }}>{person.title}</span>
+                              <span style={{ fontSize: 11, color, fontFamily: mono, whiteSpace: "nowrap" }}>{person.meta}</span>
                             </div>
-                            <div style={{ fontSize: 10, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{person.body}</div>
+                            <div style={{ fontSize: 11, color: t.textMuted, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{person.body}</div>
                           </div>
                         </div>
                       );
@@ -286,8 +286,8 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                           ))}
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12, color: t.textMuted, fontWeight: 700 }}>{idle.length} teammate{idle.length === 1 ? "" : "s"} idle</div>
-                          <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{idle.map(p => p.title).join(" · ")}</div>
+                          <div style={{ fontSize: 13, color: t.textMuted, fontWeight: 700 }}>{idle.length} teammate{idle.length === 1 ? "" : "s"} idle</div>
+                          <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 }}>{idle.map(p => p.title).join(" · ")}</div>
                         </div>
                       </div>
                     )}
@@ -296,7 +296,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 {/* Notifications moved to left column to balance layout */}
                 {attention.rawAnnaSignals.length > 0 && (
                   <div style={{ marginTop: 4 }}>
-                    <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6 }}>notifications · {attention.rawAnnaSignals.length}</div>
+                    <div style={{ fontSize: 11, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6 }}>notifications · {attention.rawAnnaSignals.length}</div>
                     {(() => {
                       const groups = new Map<string, { title: string; meta: string; body: string; tone: AttentionTone; count: number }>();
                       for (const s of attention.rawAnnaSignals) {
@@ -309,12 +309,12 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                         <div key={i} style={{ marginBottom: 4, background: toneColor(t, item.tone) + "0a", border: `1px solid ${toneColor(t, item.tone)}33`, borderRadius: 8, padding: "6px 8px" }}>
                           <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                              {item.count > 1 && <span style={{ background: toneColor(t, item.tone) + "26", border: `1px solid ${toneColor(t, item.tone)}55`, color: toneColor(t, item.tone), borderRadius: 8, padding: "0 5px", fontSize: 9, fontFamily: mono, fontWeight: 800, flexShrink: 0 }}>×{item.count}</span>}
+                              <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                              {item.count > 1 && <span style={{ background: toneColor(t, item.tone) + "26", border: `1px solid ${toneColor(t, item.tone)}55`, color: toneColor(t, item.tone), borderRadius: 8, padding: "0 5px", fontSize: 10, fontFamily: mono, fontWeight: 800, flexShrink: 0 }}>×{item.count}</span>}
                             </div>
-                            <div style={{ fontSize: 10, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                            <div style={{ fontSize: 11, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
                           </div>
-                          <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
                         </div>
                       ));
                     })()}
@@ -331,7 +331,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                   if (mine.length === 0) return null;
                   return (
                     <div style={{ marginTop: 4 }}>
-                      <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 6, display: "flex", alignItems: "center", gap: 6 }}>
                         <span style={{ display: "inline-flex", alignItems: "center" }}><Bell size={12} /></span> reminders · {mine.length}
                       </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
@@ -341,14 +341,14 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                           return (
                             <div key={r.id} style={{ display: "flex", alignItems: "center", gap: 8, background: color + "0a", border: `1px solid ${color}33`, borderRadius: 8, padding: "6px 9px" }}>
                               <div style={{ flex: 1, minWidth: 0 }}>
-                                <div style={{ fontSize: 12, color: t.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
-                                <div style={{ fontSize: 10, color, fontFamily: mono, marginTop: 1 }}>
+                                <div style={{ fontSize: 13, color: t.text, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.title}</div>
+                                <div style={{ fontSize: 11, color, fontFamily: mono, marginTop: 1 }}>
                                   {due ? "due now" : new Date(r.remindAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}
                                   {r.body ? ` · ${r.body}` : ""}
                                 </div>
                               </div>
                               {onDismissReminder && (
-                                <button type="button" onClick={() => onDismissReminder(r.id)} title="Mark done" style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓</button>
+                                <button type="button" onClick={() => onDismissReminder(r.id)} title="Mark done" style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textDim, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>✓</button>
                               )}
                             </div>
                           );
@@ -368,35 +368,35 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
               <ActionGroup label="next up" color={t.accent} items={attention.rawMyItems.filter(i => i.status !== "in-progress").slice(0, 4)} />
               {attention.actions.filter(a => a.tone === "amber").length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>mentions</div>
+                  <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>mentions</div>
                   {attention.actions.filter(a => a.tone === "amber").slice(0, 3).map((item, i) => (
                     <div key={i} style={{ marginBottom: 4, background: t.amber + "0a", border: `1px solid ${t.amber}33`, borderRadius: 8, padding: "6px 8px" }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{item.title}</div>
-                      <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: t.text }}>{item.title}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
                     </div>
                   ))}
                 </div>
               )}
               {attention.actions.length === 0 && attention.rawMineBlocked.length === 0 && attention.rawMyItems.length === 0 && (
-                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent items</div>
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 13, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent items</div>
               )}
             </>
           ) : canOperate ? (
             <>
               {attention.rawApprovalRequests.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team requests for Anna</div>
+                  <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team requests for Anna</div>
                   {attention.rawApprovalRequests.slice(0, 4).map(item => (
                     <div key={item.id} style={{ marginBottom: 4, background: t.amber + "0a", border: `1px solid ${t.amber}33`, borderRadius: 8, padding: "6px 8px", display: "flex", alignItems: "center", gap: 8 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", gap: 6, alignItems: "baseline", minWidth: 0 }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                          <div style={{ fontSize: 9, color: t.amber, fontFamily: mono, flexShrink: 0 }}>{item.kind}</div>
+                          <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                          <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, flexShrink: 0 }}>{item.kind}</div>
                         </div>
-                        <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.requestedAction} · {item.body}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.requestedAction} · {item.body}</div>
                       </div>
-                      <button type="button" onClick={() => onRequestUpdate(item.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>approve</button>
-                      <button type="button" onClick={() => onRequestUpdate(item.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>decline</button>
+                      <button type="button" onClick={() => onRequestUpdate(item.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>approve</button>
+                      <button type="button" onClick={() => onRequestUpdate(item.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>decline</button>
                     </div>
                   ))}
                 </div>
@@ -407,7 +407,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
               <ActionGroup label="assign owner" color={t.amber} items={attention.rawUnownedItems} assignPicker />
               {attention.rawRecentInteractions.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
+                  <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
                     <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
                   ))}
@@ -415,27 +415,27 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
               )}
               {attention.rawRecentActivity.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent activity</div>
+                  <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent activity</div>
                   {attention.rawRecentActivity.slice(0, 3).map((item, i) => (
                     <div key={i} style={{ marginBottom: 4, background: (t.cyan || t.accent) + "0a", border: `1px solid ${(t.cyan || t.accent)}33`, borderRadius: 8, padding: "6px 8px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 11, color: t.cyan || t.accent, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
                     </div>
                   ))}
                 </div>
               )}
               {attention.rawApprovalRequests.length === 0 && attention.rawAnnaSignals.length === 0 && attention.rawReviewItems.length === 0 && attention.rawDueItems.length === 0 && attention.rawUnownedItems.length === 0 && attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
-                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 13, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>clear lane — no urgent signals</div>
               )}
             </>
           ) : isExec ? (
             <>
               {attention.rawRecentInteractions.length > 0 && (
                 <div style={{ marginBottom: 8 }}>
-                  <div style={{ fontSize: 9, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
+                  <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
                     <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
                   ))}
@@ -443,20 +443,20 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
               )}
               {attention.rawRecentActivity.length > 0 && (
                 <div>
-                  <div style={{ fontSize: 9, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team movement</div>
+                  <div style={{ fontSize: 10, color: t.green, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>team movement</div>
                   {attention.rawRecentActivity.slice(0, 4).map((item, i) => (
                     <div key={i} style={{ marginBottom: 4, background: t.green + "0a", border: `1px solid ${t.green}33`, borderRadius: 8, padding: "6px 8px" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
-                        <div style={{ fontSize: 10, color: t.green, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
+                        <div style={{ fontSize: 11, color: t.green, fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
+                      <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1 }}>{item.body}</div>
                     </div>
                   ))}
                 </div>
               )}
               {attention.rawRecentInteractions.length === 0 && attention.rawRecentActivity.length === 0 && (
-                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 12, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>no recent executive signals</div>
+                <div style={{ height: 120, display: "flex", alignItems: "center", justifyContent: "center", color: t.textDim, fontSize: 13, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 10 }}>no recent executive signals</div>
               )}
             </>
           ) : null}
@@ -931,7 +931,7 @@ export default function HomeView({
                     borderRadius: 10,
                     cursor: "pointer",
                     color: isAllActive ? t.accent : t.textMuted,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: isAllActive ? 700 : 600,
                     fontFamily: "var(--font-dm-mono), monospace",
                     transition: "all 0.15s",
@@ -970,7 +970,7 @@ export default function HomeView({
                     borderRadius: 10,
                     cursor: "pointer",
                     color: isActive ? t.accent : t.textMuted,
-                    fontSize: 12,
+                    fontSize: 13,
                     fontWeight: isActive ? 700 : 600,
                     fontFamily: "var(--font-dm-mono), monospace",
                     transition: "all 0.15s",
@@ -1007,7 +1007,7 @@ export default function HomeView({
             if (teamMembers.length === 0 && relevantPipelines.length === 0) return null;
             return (
               <div style={{ marginBottom: 20, padding: "10px 14px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
-                <div style={{ display: "flex", gap: 12, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
+                <div style={{ display: "flex", gap: 12, fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0 }}>
                   <span style={{ color: t.green }}>● {relevantPipelines.length} pipelines</span>
                   <span style={{ color: t.cyan || t.accent }}>• {totalStages} stages</span>
                 </div>
@@ -1032,9 +1032,9 @@ export default function HomeView({
                           title={`${u.name} · ${uPts}pts${role ? ` · ${role}` : ""}`}
                         >
                           <AvatarC user={u} size={20} />
-                          <span style={{ fontSize: 11, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</span>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: t.text }}>{u.name.split(" ")[0]}</span>
                           {role && <span style={{ display: "inline-flex", alignItems: "center", color: role === "root" ? (t.amber || "#f59e0b") : t.accent }} title={role}>{role === "root" ? <Key size={9} /> : <Zap size={9} />}</span>}
-                          {uPts > 0 && <span style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{uPts}</span>}
+                          {uPts > 0 && <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}>{uPts}</span>}
                         </button>
                         {viewingUser === u.id && setViewingUser && (
                           <UserPopup user={u} onClose={() => setViewingUser(null)} onChangeAvatar={onChangeAvatar} />

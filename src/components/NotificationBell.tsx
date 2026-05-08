@@ -292,7 +292,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                fontSize: 10,
+                fontSize: 11,
                 color: "#fff",
                 fontWeight: 800,
                 animation: pulse ? "notifPulse 0.15s ease" : "none",
@@ -336,7 +336,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
             >
               <span
                 style={{
-                  fontSize: 11,
+                  fontSize: 12,
                   fontFamily: "var(--font-dm-mono), monospace",
                   color: t.textMuted,
                   letterSpacing: 0.5,
@@ -353,7 +353,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                     background: "transparent",
                     border: "none",
                     cursor: "pointer",
-                    fontSize: 11,
+                    fontSize: 12,
                     color: t.accent,
                     fontFamily: "var(--font-dm-mono), monospace",
                     fontWeight: 700,
@@ -453,7 +453,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                         </div>
                         <div
                           style={{
-                            fontSize: 11,
+                            fontSize: 12,
                             color: t.textMuted,
                             fontFamily: "var(--font-dm-mono), monospace",
                             marginTop: 0,
@@ -483,7 +483,7 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
                   <div
                     style={{
                       padding: "8px 12px",
-                      fontSize: 11,
+                      fontSize: 12,
                       color: t.textMuted,
                       fontFamily: "var(--font-dm-mono), monospace",
                       textAlign: "center",

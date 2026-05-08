@@ -229,7 +229,7 @@ export function AvatarPicker({
                 onClick={() => { setAiPrompt(h); setTimeout(() => inputRef.current?.focus(), 0); }}
                 style={{
                   background: "transparent", border: `1px solid ${t.border}`, borderRadius: 16,
-                  padding: "4px 8px", fontSize: 11, color: t.textMuted, cursor: "pointer",
+                  padding: "4px 8px", fontSize: 12, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s", whiteSpace: "nowrap",
                 }}
                 onMouseEnter={e => {
@@ -287,7 +287,7 @@ export function AvatarPicker({
                 style={{
                   display: "block", margin: "8px auto 0", background: "transparent",
                   border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 12px",
-                  fontSize: 11, color: t.textMuted, cursor: "pointer",
+                  fontSize: 12, color: t.textMuted, cursor: "pointer",
                   fontFamily: "var(--font-dm-mono), monospace",
                 }}
               >↺ regenerate</button>

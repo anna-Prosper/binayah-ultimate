@@ -224,7 +224,7 @@ function TodayRow({
           <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
             {displayName}
           </div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2, display: "flex", alignItems: "center", gap: 6 }}>
             <span style={{ display: "inline-block", width: 6, height: 6, borderRadius: "50%", background: stColor, flexShrink: 0 }} />
             <span style={{ color: stColor, fontWeight: 700 }}>{status}</span>
             <span>·</span>
@@ -236,7 +236,7 @@ function TodayRow({
         {commentCount > 0 && (
           <button
             onClick={e => { e.stopPropagation(); onOpenComment(); }}
-            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 7px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}
+            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 7px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 3 }}
           >
             💬 {commentCount}
           </button>
@@ -257,8 +257,8 @@ function TodayRow({
                   <div key={c.id} style={{ display: "flex", gap: 6, alignItems: "flex-start" }}>
                     {u && <AvatarC user={u} size={18} />}
                     <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: 10, color: u?.color || t.text, fontWeight: 700 }}>{u?.name || c.by}</div>
-                      <div style={{ fontSize: 12, color: t.text }}>{c.text}</div>
+                      <div style={{ fontSize: 11, color: u?.color || t.text, fontWeight: 700 }}>{u?.name || c.by}</div>
+                      <div style={{ fontSize: 13, color: t.text }}>{c.text}</div>
                     </div>
                   </div>
                 );
@@ -272,9 +272,9 @@ function TodayRow({
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); onSendComment(); } if (e.key === "Escape") onCloseComment(); }}
               placeholder="// comment..."
               autoFocus
-              style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+              style={{ flex: 1, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
             />
-            <button onClick={onSendComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
+            <button onClick={onSendComment} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>send</button>
           </div>
         </div>
       )}
@@ -289,7 +289,7 @@ function actionBtnStyle(color: string): React.CSSProperties {
     borderRadius: 8,
     padding: "5px 10px",
     cursor: "pointer",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 700,
     color,
     fontFamily: "var(--font-dm-mono), monospace",

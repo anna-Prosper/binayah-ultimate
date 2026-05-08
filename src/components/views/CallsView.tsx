@@ -49,16 +49,16 @@ export default function CallsView({ t }: Props) {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) return <div style={{ padding: "32px 20px", color: t.textMuted, fontFamily: mono, fontSize: 12 }}>loading calls…</div>;
+  if (loading) return <div style={{ padding: "32px 20px", color: t.textMuted, fontFamily: mono, fontSize: 13 }}>loading calls…</div>;
 
   if (selected) return (
     <div style={{ padding: "0 20px 40px", maxWidth: 760 }}>
       <button type="button" onClick={() => setSelected(null)}
-        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 12px", fontSize: 11, color: t.textMuted, fontFamily: mono, cursor: "pointer", marginBottom: 20 }}>
+        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: t.textMuted, fontFamily: mono, cursor: "pointer", marginBottom: 20 }}>
         ← all calls
       </button>
       <div style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 4 }}>{selected.topic}</div>
-      <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginBottom: 24 }}>
+      <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono, marginBottom: 24 }}>
         {new Date(selected.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
       </div>
       <div style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: "20px 24px" }}>
@@ -70,11 +70,11 @@ export default function CallsView({ t }: Props) {
   return (
     <div style={{ padding: "0 20px 40px" }}>
       <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 20 }}>
-        <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>binayah calls — AI summaries</div>
-        {updatedAt && <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>· synced {new Date(updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+        <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>binayah calls — AI summaries</div>
+        {updatedAt && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>· synced {new Date(updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
       </div>
       {summaries.length === 0 ? (
-        <div style={{ color: t.textMuted, fontSize: 12, fontFamily: mono }}>No summaries yet. Hit ↺ resync on the home view to load your Zoom calls.</div>
+        <div style={{ color: t.textMuted, fontSize: 13, fontFamily: mono }}>No summaries yet. Hit ↺ resync on the home view to load your Zoom calls.</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {summaries.map(s => (
@@ -84,12 +84,12 @@ export default function CallsView({ t }: Props) {
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}>
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 14, fontWeight: 700, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.topic}</div>
-                <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 4 }}>
+                <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono, marginTop: 4 }}>
                   {new Date(s.startTime).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" })}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>{s.summary.split("\n").filter(l => l.startsWith("- ")).length} items</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>{s.summary.split("\n").filter(l => l.startsWith("- ")).length} items</span>
                 <span style={{ color: t.textDim, fontSize: 18 }}>›</span>
               </div>
             </button>

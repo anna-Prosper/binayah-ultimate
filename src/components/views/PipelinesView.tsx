@@ -173,7 +173,7 @@ export default function PipelinesView({
         <div style={{ flex: 1 }}><SearchFilter searchQ={searchQ} setSearchQ={setSearchQ} statusFilter={statusFilter} setStatusFilter={setStatusFilter} t={t} /></div>
         <div className="bu-view-toggle" style={{ display: "flex", gap: 4, alignItems: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 4px" }}>
           {([["list", "☰ list", "☰"], ["kanban", "⊞ kanban", "⊞"], ["overview", "□ overview", "□"]] as const).map(([v, label, icon]) => (
-            <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 11, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{isMobile ? icon : label}</button>
+            <button key={v} onClick={() => setView(v)} style={{ background: view === v ? t.accent + "22" : "transparent", border: `1px solid ${view === v ? t.accent + "55" : "transparent"}`, borderRadius: 8, padding: isMobile ? "10px 14px" : "5px 12px", minHeight: isMobile ? 44 : undefined, cursor: "pointer", fontSize: 12, color: view === v ? t.accent : t.textMuted, fontWeight: view === v ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>{isMobile ? icon : label}</button>
           ))}
         </div>
       </div>
@@ -259,7 +259,7 @@ export default function PipelinesView({
                         ) : (
                           <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
                         )}
-                        <span style={{ fontSize: 10, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                        <span style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
                         {/* #4: priority badge — icon + tight pill, urgent state filled */}
                         <span
                           onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }}
@@ -270,12 +270,12 @@ export default function PipelinesView({
                             color: priCfg.urgent ? "#fff" : priCfg.color,
                             border: `1px solid ${priCfg.urgent ? priCfg.color : priCfg.color + "88"}`,
                             borderRadius: 6, padding: "1px 7px",
-                            fontSize: 9, fontWeight: 900, letterSpacing: 0.5,
+                            fontSize: 10, fontWeight: 900, letterSpacing: 0.5,
                             cursor: "pointer",
                             boxShadow: priCfg.urgent ? `0 0 8px ${priCfg.color}55` : "none",
                           }}
                         >
-                          <span style={{ fontSize: 9 }}>{priCfg.icon}</span>
+                          <span style={{ fontSize: 10 }}>{priCfg.icon}</span>
                           <span>{priCfg.label}</span>
                         </span>
                       </div>
@@ -283,9 +283,9 @@ export default function PipelinesView({
                       {editingPipeDesc === p.id ? (
                         <textarea value={pipeDesc} onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))} onBlur={() => setEditingPipeDesc(null)} autoFocus onClick={e => e.stopPropagation()} rows={2} style={{ width: "100%", background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5, marginBottom: 0 }} />
                       ) : (
-                        <p style={{ fontSize: 12, color: t.textSec, margin: "0", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isO ? "normal" : "nowrap" }}>
+                        <p style={{ fontSize: 13, color: t.textSec, margin: "0", lineHeight: 1.4, display: "flex", alignItems: "baseline", gap: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isO ? "normal" : "nowrap" }}>
                           <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{pipeDesc || <span style={{ fontStyle: "italic", opacity: 0.5 }}>Add description...</span>}</span>
-                          {pipelineEditMode === p.id && <span onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 10, color: t.textDim, opacity: 0.4, flexShrink: 0, cursor: "pointer" }}>{"✎"}</span>}
+                          {pipelineEditMode === p.id && <span onClick={e => { e.stopPropagation(); setEditingPipeDesc(p.id); }} style={{ fontSize: 11, color: t.textDim, opacity: 0.4, flexShrink: 0, cursor: "pointer" }}>{"✎"}</span>}
                         </p>
                       )}
                       {/* Existing reactions — always visible (engagement signal). The picker
@@ -297,7 +297,7 @@ export default function PipelinesView({
                             return (
                               <button key={emoji} onClick={() => handleReact(pipeReactKey, emoji)} style={{ background: mine ? pC + "18" : t.surface, border: "none", borderRadius: 8, padding: "0 6px", cursor: "pointer", display: "inline-flex", alignItems: "center", gap: 2, fontFamily: "inherit" }}>
                                 <span style={{ fontSize: 13 }}>{emoji}</span>
-                                <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
+                                <span style={{ fontSize: 11, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{arr.length}</span>
                               </button>
                             );
                           })}
@@ -315,18 +315,18 @@ export default function PipelinesView({
                         }}
                         onClick={e => e.stopPropagation()}
                       >
-                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓" : "📋"}</button>
+                        <button onClick={() => sharePipeline(p.id, pipeName, pipeDesc, pipePriority, allPStages)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: copied === `pipe-${p.id}` ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace" }}>{copied === `pipe-${p.id}` ? "✓" : "📋"}</button>
                         <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
                           {reactOpen === pipeReactKey
-                            ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 10, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
-                            : <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
+                            ? <>{REACTIONS.map(r => { const us = pipeReactions[r] || []; const mine = us.includes(currentUser!); return (<button key={r} onClick={() => handleReact(pipeReactKey, r)} style={{ background: mine ? pC + "22" : us.length > 0 ? t.surface : "transparent", border: "none", borderRadius: 8, padding: "0 4px", cursor: "pointer", display: "flex", alignItems: "center", gap: 0, fontFamily: "inherit", opacity: us.length > 0 ? 1 : 0.4 }}><span style={{ fontSize: us.length > 0 ? 12 : 10 }}>{r}</span>{us.length > 0 && <span style={{ fontSize: 11, color: mine ? pC : t.textMuted, fontWeight: 700 }}>{us.length}</span>}</button>); })}<button onClick={() => setReactOpen(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>done</button></>
+                            : <button onClick={() => setReactOpen(pipeReactKey)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 8px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>+ react</button>
                           }
                         </div>
-                        <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{isO ? "▾ collapse" : "▸ details"}</button>
+                        <button onClick={() => toggleExpand(p.id)} style={{ background: isO ? pC + "15" : "transparent", border: `1px solid ${isO ? pC + "44" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: isO ? pC : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{isO ? "▾ collapse" : "▸ details"}</button>
                         {!allPipelineClaimed ? (
-                          <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{"💀"} claim all</button>
+                          <button onClick={() => { allPStages.forEach(s => { if (!(claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>{"💀"} claim all</button>
                         ) : (
-                          <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
+                          <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
                         )}
                       </div>
                     </div>
@@ -353,13 +353,13 @@ export default function PipelinesView({
                           <ClaimerPills claimerIds={uClaim} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} maxVisible={3} />
                         </div>
                       )}
-                      <div style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
+                      <div style={{ fontSize: 13, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>{p.points}pts</div>
                     </div>
                     {canEditPipeline(p.id) && (
                       <button
                         onClick={e => { e.stopPropagation(); setPipelineEditMode(pipelineEditMode === p.id ? null : p.id); setEditingPipeName(p.id); setEditingPipeDesc(p.id); }}
                         title={pipelineEditMode === p.id ? "Exit edit mode (Esc)" : "Edit pipeline"}
-                        style={{ background: pipelineEditMode === p.id ? pC + "22" : "transparent", border: `1px solid ${pipelineEditMode === p.id ? pC + "88" : t.border}`, borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", color: pipelineEditMode === p.id ? pC : t.textMuted, transition: "all 0.15s", opacity: isRowHovered ? 1 : 0.4 }}
+                        style={{ background: pipelineEditMode === p.id ? pC + "22" : "transparent", border: `1px solid ${pipelineEditMode === p.id ? pC + "88" : t.border}`, borderRadius: 8, width: 24, height: 24, cursor: "pointer", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", color: pipelineEditMode === p.id ? pC : t.textMuted, transition: "all 0.15s", opacity: isRowHovered ? 1 : 0.4 }}
                       >&#9998;</button>
                     )}
                   </div>
@@ -369,7 +369,7 @@ export default function PipelinesView({
               {/* Pipeline edit mode panel */}
               {pipelineEditMode === p.id && (
                 <div style={{ padding: "12px 16px", borderTop: `1px solid ${pC}33`, background: pC + "05", animation: "fadeIn 0.15s ease" }} onClick={e => e.stopPropagation()}>
-                  <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>editing pipeline</div>
+                  <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase" as const, marginBottom: 8, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>editing pipeline</div>
                   <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
                     <input
                       value={pipeMetaOverrides[p.id]?.name ?? p.name}
@@ -382,15 +382,15 @@ export default function PipelinesView({
                       onChange={e => setPipeDescOverrides(prev => ({ ...prev, [p.id]: e.target.value }))}
                       placeholder="Pipeline description..."
                       rows={2}
-                      style={{ background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none" as const, lineHeight: 1.5, width: "100%" }}
+                      style={{ background: t.bgHover, border: `1px solid ${pC}44`, borderRadius: 8, padding: "6px 10px", fontSize: 13, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none" as const, lineHeight: 1.5, width: "100%" }}
                     />
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                      <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
                       {(["NOW", "HIGH", "MEDIUM", "LOW"] as const).map(pri => (
                         <button
                           key={pri}
                           onClick={() => cyclePriority(p.id, pipeMetaOverrides[p.id]?.priority ?? p.priority)}
-                          style={{ background: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "22" : "transparent", border: `1px solid ${(pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "88" : t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? pr[pri]?.c || t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+                          style={{ background: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "22" : "transparent", border: `1px solid ${(pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? (pr[pri]?.c || t.accent) + "88" : t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: (pipeMetaOverrides[p.id]?.priority ?? p.priority) === pri ? pr[pri]?.c || t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
                         >{pri}</button>
                       ))}
                     </div>
@@ -405,7 +405,7 @@ export default function PipelinesView({
                           body: `this pipeline has ${allPStagesForConfirm.length} stage${allPStagesForConfirm.length !== 1 ? "s" : ""}${unclaimed > 0 ? `, ${unclaimed} unclaimed` : ""}. archive anyway?`,
                         });
                       }}
-                      style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 10, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
+                      style={{ background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", alignSelf: "flex-start" as const }}
                     >📦 archive pipeline</button>
                   </div>
                 </div>
@@ -417,8 +417,8 @@ export default function PipelinesView({
                     {allPStages.map((s, i) => <div key={`${p.id}-${s}`} id={`stage-${s}`}><Stage name={s} idx={i} tot={allPStages.length} pC={pC} pId={p.id} t={t} expS={expS} setExpS={setExpS} isMobile={isMobile} isTopClaim={s === topClaimStageName} /></div>)}
                   </div>
                   <div style={{ display: "flex", gap: 4, marginTop: 8, paddingLeft: 24 }} onClick={e => e.stopPropagation()}>
-                    <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStageLocal(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
-                    <button onClick={() => addCustomStageLocal(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
+                    <input value={newStageInput[p.id] || ""} onChange={e => setNewStageInput(prev => ({ ...prev, [p.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addCustomStageLocal(p.id); }} placeholder="+ add stage..." style={{ flex: 1, background: "transparent", border: `1px dashed ${pC}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }} />
+                    <button onClick={() => addCustomStageLocal(p.id)} style={{ background: pC + "15", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: pC, fontWeight: 700, fontFamily: "inherit" }}>add</button>
                   </div>
                 </div>
               )}
@@ -431,7 +431,7 @@ export default function PipelinesView({
           <button onClick={() => setAddingPipeline(true)} style={{ background: "transparent", border: `2px dashed ${t.border}`, borderRadius: 16, padding: "16px", cursor: "pointer", fontSize: 13, color: t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", textAlign: "center", width: "100%" }}>+ new pipeline</button>
         ) : (
           <div style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 16, padding: "20px" }}>
-            <div style={{ fontSize: 11, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
+            <div style={{ fontSize: 12, color: t.textMuted, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 12, fontFamily: "var(--font-dm-mono), monospace" }}>new pipeline</div>
             <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 8 }}>
               {ICON_OPTIONS.map(ico => (<button key={ico} onClick={() => setNewPipeForm(p => ({ ...p, icon: ico }))} style={{ background: newPipeForm.icon === ico ? t.accent + "22" : "transparent", border: `1px solid ${newPipeForm.icon === ico ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "4px 4px", cursor: "pointer", fontSize: 16 }}>{ico}</button>))}
             </div>
@@ -440,9 +440,9 @@ export default function PipelinesView({
               <input value={newPipeForm.desc} onChange={e => setNewPipeForm(p => ({ ...p, desc: e.target.value }))} placeholder="Short description" style={{ flex: "2 1 280px", background: t.bgHover, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none" }} />
             </div>
             <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: "wrap", alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
-              {PRIORITY_CYCLE.map(p => <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "55" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 10, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>)}
-              <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
+              <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>PRIORITY:</span>
+              {PRIORITY_CYCLE.map(p => <button key={p} onClick={() => setNewPipeForm(prev => ({ ...prev, priority: p }))} style={{ background: newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "22" : "transparent", border: `1px solid ${newPipeForm.priority === p ? (pr[p]?.c || t.accent) + "55" : t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: newPipeForm.priority === p ? pr[p]?.c || t.accent : t.textMuted, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{p}</button>)}
+              <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginLeft: 8 }}>COLOR:</span>
               {COLOR_OPTIONS.map(c => <div key={c} onClick={() => setNewPipeForm(p => ({ ...p, colorKey: c }))} style={{ width: 14, height: 14, borderRadius: "50%", background: ck[c], cursor: "pointer", border: newPipeForm.colorKey === c ? `2px solid ${t.text}` : "2px solid transparent", flexShrink: 0 }} />)}
             </div>
             <div style={{ display: "flex", gap: 8 }}>

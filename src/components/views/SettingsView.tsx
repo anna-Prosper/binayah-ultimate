@@ -16,13 +16,13 @@ export default function SettingsView() {
   return (
     <div style={{ padding: "18px 0 28px", maxWidth: 980 }}>
       <div style={{ marginBottom: 16 }}>
-        <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>notification preferences</div>
+        <div style={{ fontSize: 12, color: t.accent, fontFamily: mono, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>notification preferences</div>
         <div style={{ marginTop: 3, fontSize: 24, color: t.text, fontWeight: 950 }}>notifications</div>
-        <div style={{ marginTop: 4, color: t.textDim, fontSize: 12, fontFamily: mono, lineHeight: 1.5 }}>
+        <div style={{ marginTop: 4, color: t.textDim, fontSize: 13, fontFamily: mono, lineHeight: 1.5 }}>
           This page is mostly for your own alerts. Admin team overrides are hidden unless Anna opens them.
         </div>
         {isAdmin && (
-          <button type="button" onClick={() => setShowTeam(v => !v)} style={{ marginTop: 10, background: showTeam ? t.amber + "16" : "transparent", border: `1px solid ${showTeam ? t.amber + "55" : t.border}`, color: showTeam ? t.amber : t.textMuted, borderRadius: 9, padding: "6px 10px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>
+          <button type="button" onClick={() => setShowTeam(v => !v)} style={{ marginTop: 10, background: showTeam ? t.amber + "16" : "transparent", border: `1px solid ${showTeam ? t.amber + "55" : t.border}`, color: showTeam ? t.amber : t.textMuted, borderRadius: 9, padding: "6px 10px", fontSize: 13, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>
             {showTeam ? "hide team overrides" : "show team overrides"}
           </button>
         )}
@@ -37,9 +37,9 @@ export default function SettingsView() {
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 8 }}>
                   <div>
                     <div style={{ color: isMe ? u.color : t.text, fontSize: 15, fontWeight: 900 }}>{isMe ? "My alerts" : u.name}</div>
-                    <div style={{ color: t.textDim, fontSize: 11, fontFamily: mono }}>{u.role}</div>
+                    <div style={{ color: t.textDim, fontSize: 12, fontFamily: mono }}>{u.role}</div>
                   </div>
-                  {isAdmin && !isMe && <span style={{ color: t.amber, fontSize: 10, fontFamily: mono, fontWeight: 900 }}>admin</span>}
+                  {isAdmin && !isMe && <span style={{ color: t.amber, fontSize: 11, fontFamily: mono, fontWeight: 900 }}>admin</span>}
                 </div>
                 <NotificationPrefs t={t} targetUserId={u.id} targetName={isMe ? undefined : u.name.split(" ")[0]} defaultExpanded />
               </section>

@@ -197,7 +197,7 @@ export default function LeftSidebar({
         >
           <span style={{ fontSize: 15 }}>{current?.icon || "🏴‍☠️"}</span>
           <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current?.name || "No workspace"}</span>
-          <span style={{ fontSize: 10, color: t.textDim }}>▾</span>
+          <span style={{ fontSize: 11, color: t.textDim }}>▾</span>
         </button>
         {wsOpen && (
           <div style={{ position: "absolute", left: 10, right: 10, top: "calc(100% - 2px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 50, overflow: "hidden" }}>
@@ -211,7 +211,7 @@ export default function LeftSidebar({
                 >
                   <span style={{ fontSize: 15 }}>{w.icon}</span>
                   <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{w.name}</span>
-                  <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono, monospace)" }}>{w.memberCount}</span>
+                  <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono, monospace)" }}>{w.memberCount}</span>
                 </button>
               );
             })}
@@ -241,7 +241,7 @@ export default function LeftSidebar({
           {WORKSPACE_NAV_ITEMS.filter(item => !hiddenNavItems.includes(item.id)).map(item => renderNavItem(item))}
         </nav>
       ) : (
-        <div style={{ padding: "16px 12px", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6 }}>
+        <div style={{ padding: "16px 12px", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6 }}>
           // no workspace yet.<br />ask an admin to add you.
         </div>
       )}

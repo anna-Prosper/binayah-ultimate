@@ -211,7 +211,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
     borderRadius: 10,
     padding: "8px 16px",
     cursor: "pointer",
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: mono,
     fontWeight: 700,
     transition: "opacity 0.15s",
@@ -232,7 +232,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
             <div style={{ fontSize: 14, fontWeight: 800, color: t.text, fontFamily: mono, letterSpacing: -0.3 }}>
               call summary → tasks
             </div>
-            <div style={{ fontSize: 11, color: t.textMuted, fontFamily: sans, marginTop: 1 }}>
+            <div style={{ fontSize: 12, color: t.textMuted, fontFamily: sans, marginTop: 1 }}>
               paste a summary or pull from Zoom — AI extracts action items
             </div>
           </div>
@@ -257,7 +257,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                     {fetchingMeetingId ? <Loader size={12} style={{ animation: "spin 1s linear infinite" }} /> : <ChevronDown size={12} />}
                     {fetchingMeetingId ? "fetching summary…" : "pull from Zoom"}
                   </button>
-                  {zoomLoading && <span style={{ fontSize: 11, color: t.textMuted, fontFamily: sans }}>loading recordings…</span>}
+                  {zoomLoading && <span style={{ fontSize: 12, color: t.textMuted, fontFamily: sans }}>loading recordings…</span>}
                 </div>
 
                 {/* Zoom dropdown */}
@@ -277,10 +277,10 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                     overflowY: "auto",
                   }}>
                     {zoomLoading && (
-                      <div style={{ padding: "12px 16px", fontSize: 12, color: t.textMuted, fontFamily: sans }}>loading…</div>
+                      <div style={{ padding: "12px 16px", fontSize: 13, color: t.textMuted, fontFamily: sans }}>loading…</div>
                     )}
                     {!zoomLoading && zoomMeetings.length === 0 && (
-                      <div style={{ padding: "12px 16px", fontSize: 12, color: t.textMuted, fontFamily: sans }}>
+                      <div style={{ padding: "12px 16px", fontSize: 13, color: t.textMuted, fontFamily: sans }}>
                         {zoomError || "No cloud recordings found"}
                       </div>
                     )}
@@ -302,8 +302,8 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.bgHover; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                       >
-                        <div style={{ fontSize: 12, fontWeight: 600, color: t.text, fontFamily: sans }}>{m.topic}</div>
-                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: sans, marginTop: 2 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: t.text, fontFamily: sans }}>{m.topic}</div>
+                        <div style={{ fontSize: 12, color: t.textMuted, fontFamily: sans, marginTop: 2 }}>
                           {new Date(m.startTime).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
                           {" · "}{m.duration}min
                         </div>
@@ -313,14 +313,14 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                 )}
 
                 {zoomError && !zoomDropOpen && (
-                  <div style={{ marginTop: 6, fontSize: 11, color: t.red, fontFamily: sans }}>{zoomError}</div>
+                  <div style={{ marginTop: 6, fontSize: 12, color: t.red, fontFamily: sans }}>{zoomError}</div>
                 )}
               </div>
 
               {/* Divider */}
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
                 <div style={{ flex: 1, height: 1, background: t.border }} />
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>or paste</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>or paste</span>
                 <div style={{ flex: 1, height: 1, background: t.border }} />
               </div>
 
@@ -349,7 +349,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                 onBlur={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
               />
 
-              {error && <div style={{ marginTop: 8, fontSize: 12, color: t.red, fontFamily: sans }}>{error}</div>}
+              {error && <div style={{ marginTop: 8, fontSize: 13, color: t.red, fontFamily: sans }}>{error}</div>}
             </>
           )}
 
@@ -362,7 +362,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
 
           {phase === "results" && (
             <div>
-              <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginBottom: 12, letterSpacing: 0.5 }}>
+              <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono, marginBottom: 12, letterSpacing: 0.5 }}>
                 {tasks.length} task{tasks.length !== 1 ? "s" : ""} found — select to add
               </div>
 
@@ -407,7 +407,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 600, color: t.text, fontFamily: sans, lineHeight: 1.4 }}>{task.title}</div>
-                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: sans, marginTop: 3 }}>
+                        <div style={{ fontSize: 12, color: t.textMuted, fontFamily: sans, marginTop: 3 }}>
                           {task.pipelineName}
                           {task.stageName ? ` → ${task.stageName}` : " → new stage"}
                         </div>
@@ -418,7 +418,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
               </div>
 
               {addedCount > 0 && (
-                <div style={{ marginTop: 12, fontSize: 12, color: t.green, fontFamily: sans }}>
+                <div style={{ marginTop: 12, fontSize: 13, color: t.green, fontFamily: sans }}>
                   ✓ {addedCount} task{addedCount !== 1 ? "s" : ""} added
                 </div>
               )}

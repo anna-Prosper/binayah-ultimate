@@ -105,7 +105,7 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
         <span style={{ fontSize: 24 }}>{workspace.icon}</span>
         <div>
           <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>{workspace.name}</div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>// {workspace.members.length} members · {workspace.pipelineIds.length} pipelines</div>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>// {workspace.members.length} members · {workspace.pipelineIds.length} pipelines</div>
         </div>
       </div>
 
@@ -124,25 +124,25 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
               <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 8px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12 }}>
                 <AvatarC user={u} size={24} />
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name} {isMe && <span style={{ fontSize: 10, color: t.textDim }}>(you)</span>}</div>
-                  <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>{u.role}</div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name} {isMe && <span style={{ fontSize: 11, color: t.textDim }}>(you)</span>}</div>
+                  <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>{u.role}</div>
                 </div>
                 {amOperator && !lockRank ? (
                   <select
                     value={rank}
                     onChange={e => onSetRank(uid, e.target.value as "operator" | "agent")}
-                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 4px", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer" }}
+                    style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 4px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer" }}
                   >
                     <option value="operator">⚡ operator</option>
                     <option value="agent">👤 agent</option>
                   </select>
                 ) : (
-                  <span style={{ fontSize: 10, color: rankColor(rank), fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: rankColor(rank) + "18", padding: "0 4px", borderRadius: 8 }}>
+                  <span style={{ fontSize: 11, color: rankColor(rank), fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, background: rankColor(rank) + "18", padding: "0 4px", borderRadius: 8 }}>
                     {rankIcon(rank)} {rankLabel(rank)}
                   </span>
                 )}
                 {canManage && !lockRank && (
-                  <button onClick={() => onRemoveMember(uid)} title="Remove from workspace" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>×</button>
+                  <button onClick={() => onRemoveMember(uid)} title="Remove from workspace" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 12, color: t.red, fontFamily: "var(--font-dm-mono), monospace" }}>×</button>
                 )}
               </div>
             );
@@ -167,13 +167,13 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
                     <AvatarC user={u} size={20} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, color: u.color, fontWeight: 700 }}>{u.name}</div>
-                      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+                      <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
                     </div>
-                    <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>+ add</span>
+                    <span style={{ fontSize: 12, color: t.accent, fontFamily: "var(--font-dm-mono), monospace" }}>+ add</span>
                   </button>
                 ))}
               </div>
-              <button onClick={() => setShowAdd(false)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>cancel</button>
+              <button onClick={() => setShowAdd(false)} style={{ background: "transparent", border: "none", cursor: "pointer", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4 }}>cancel</button>
             </div>
           )}
         </div>
@@ -220,7 +220,7 @@ function ModalShell({ t, onClose, children }: { t: T; onClose: () => void; child
 }
 
 function FieldLabel({ t, children }: { t: T; children: React.ReactNode }) {
-  return <div style={{ fontSize: 10, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 4, fontWeight: 700 }}>{children}</div>;
+  return <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace", marginBottom: 4, fontWeight: 700 }}>{children}</div>;
 }
 
 function primaryBtn(t: T): React.CSSProperties {

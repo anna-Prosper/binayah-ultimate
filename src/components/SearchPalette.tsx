@@ -104,7 +104,7 @@ function SectionHeader({ label, t }: { label: string; t: T }) {
   return (
     <div style={{
       padding: "4px 12px 4px",
-      fontSize: 11,
+      fontSize: 12,
       fontWeight: 700,
       color: t.textMuted,
       letterSpacing: 0.5,
@@ -161,11 +161,11 @@ function ResultRow({
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
             {highlight(result.stageName, query, t.accent)}
           </div>
-          <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+          <div style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
             {result.pipelineName}
           </div>
         </div>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>stage</span>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>stage</span>
       </div>
     );
   }
@@ -182,12 +182,12 @@ function ResultRow({
             {highlight(result.title || "untitled", query, t.accent)}
           </div>
           {result.snippet && (
-            <div style={{ fontSize: 11, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 12, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>
               {highlight(result.snippet, query, t.accent)}
             </div>
           )}
         </div>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>doc</span>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>doc</span>
       </div>
     );
   }
@@ -202,9 +202,9 @@ function ResultRow({
         <span style={{ fontSize: 15, flexShrink: 0 }}>{result.kind === "note" ? "🗒️" : result.kind === "bug" ? "⚠️" : result.kind === "comment" ? "💬" : "✉️"}</span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{highlight(result.title, query, t.accent)}</div>
-          <div style={{ fontSize: 11, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{highlight(result.snippet, query, t.accent)}</div>
+          <div style={{ fontSize: 12, color: t.textSec, marginTop: 0, whiteSpace: "nowrap" as const, overflow: "hidden", textOverflow: "ellipsis" }}>{highlight(result.snippet, query, t.accent)}</div>
         </div>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>{result.meta}</span>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>{result.meta}</span>
       </div>
     );
   }
@@ -220,11 +220,11 @@ function ResultRow({
           <div style={{ fontSize: 13, fontWeight: 600, color: t.text }}>
             {highlight(result.user.name, query, t.accent)}
           </div>
-          <div style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
+          <div style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", marginTop: 0 }}>
             {highlight(result.user.role, query, t.accent)}
           </div>
         </div>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)", flexShrink: 0 }}>person</span>
       </div>
     );
   }
@@ -506,7 +506,7 @@ export default function SearchPalette({
               } as React.CSSProperties}
             />
             <span style={{
-              fontSize: 10,
+              fontSize: 11,
               color: t.textDim,
               fontFamily: "var(--font-geist-mono, monospace)",
               letterSpacing: 0.5,
@@ -593,12 +593,12 @@ export default function SearchPalette({
               alignItems: "center",
             }}>
               {[["↑↓", "navigate"], ["↵", "open"], ["esc", "close"]].map(([k, label]) => (
-                <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
-                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", fontSize: 11 }}>{k}</span>
+                <span key={k} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+                  <span style={{ border: `1px solid ${t.border}`, borderRadius: 8, padding: "0 4px", fontSize: 12 }}>{k}</span>
                   {label}
                 </span>
               ))}
-              <span style={{ marginLeft: "auto", fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+              <span style={{ marginLeft: "auto", fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
                 {flatResults.length} result{flatResults.length !== 1 ? "s" : ""}
               </span>
             </div>

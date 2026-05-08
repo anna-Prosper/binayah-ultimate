@@ -70,7 +70,7 @@ function StatusSwatch({ status, t }: { status: string; t: T }) {
   return (
     <span style={{
       display: "inline-flex", alignItems: "center", gap: 4,
-      fontSize: 11, fontWeight: 700, color,
+      fontSize: 12, fontWeight: 700, color,
       fontFamily: "var(--font-geist-mono), monospace",
       letterSpacing: 0.5,
     }}>
@@ -197,7 +197,7 @@ export default function OverviewPanel({
                     <span style={{ fontSize: 15, fontWeight: 800, color: t.text }}>
                       {pipeMetaOverrides[activePipeline.id]?.name ?? activePipeline.name}
                     </span>
-                    <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginLeft: 4 }}>
+                    <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono), monospace", marginLeft: 4 }}>
                       // status history
                     </span>
                   </div>
@@ -264,7 +264,7 @@ export default function OverviewPanel({
                             {/* Transition swatches */}
                             <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
                               <StatusSwatch status={fromStatus} t={t} />
-                              <span style={{ fontSize: 11, color: t.textDim }}>→</span>
+                              <span style={{ fontSize: 12, color: t.textDim }}>→</span>
                               <StatusSwatch status={toStatus} t={t} />
                             </div>
 
@@ -276,12 +276,12 @@ export default function OverviewPanel({
                               {actor && (
                                 <>
                                   <AvatarC user={actor} size={18} />
-                                  <span style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-geist-mono), monospace" }}>
+                                  <span style={{ fontSize: 12, color: t.textSec, fontFamily: "var(--font-geist-mono), monospace" }}>
                                     {actor.name.split(" ")[0]}
                                   </span>
                                 </>
                               )}
-                              <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }} title={new Date(entry.time).toLocaleString()}>
+                              <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-geist-mono), monospace" }} title={new Date(entry.time).toLocaleString()}>
                                 {relativeTime(entry.time)}
                               </span>
                             </div>
@@ -356,12 +356,12 @@ export default function OverviewPanel({
                               const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(pipePriority as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
                               setPipeMetaOverrides(prev => ({ ...prev, [p.id]: { ...(prev[p.id] || {}), priority: next } }));
                             }}
-                            style={{ fontSize: 10, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: readOnly ? "default" : "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
+                            style={{ fontSize: 11, fontWeight: 800, color: pC, background: pC + "14", border: `1px solid ${pC}30`, padding: "0 8px", borderRadius: 8, cursor: readOnly ? "default" : "pointer", fontFamily: "var(--font-dm-mono), monospace" }}
                             title={readOnly ? "Priority" : "Click to cycle priority"}
                           >{pipePriority}</span>
-                          <span style={{ fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages</span>
-                          {liveCt > 0 && <span style={{ fontSize: 10, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
-                          {buildCt > 0 && <span style={{ fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{buildCt} building</span>}
+                          <span style={{ fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{stages.length} stages</span>
+                          {liveCt > 0 && <span style={{ fontSize: 11, color: t.green, fontFamily: "var(--font-dm-mono), monospace" }}>{liveCt} live</span>}
+                          {buildCt > 0 && <span style={{ fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>{buildCt} building</span>}
                         </div>
                       </div>
                     </div>
@@ -430,7 +430,7 @@ export default function OverviewPanel({
                         <div style={{ flexShrink: 0, width: 8, height: 8, borderRadius: "50%", background: col, boxShadow: status === "active" ? `0 0 6px ${col}88` : "none" }} />
 
                         {/* Status label */}
-                        <span style={{ fontSize: 10, fontWeight: 800, color: col, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0, width: 46 }}>{label}</span>
+                        <span style={{ fontSize: 11, fontWeight: 800, color: col, fontFamily: "var(--font-dm-mono), monospace", textTransform: "uppercase", letterSpacing: 0.5, flexShrink: 0, width: 46 }}>{label}</span>
 
                         {/* Stage name */}
                         <span className="bu-ov-name" style={{ fontSize: 13, fontWeight: 700, color: t.text, flexShrink: 0, minWidth: 120, maxWidth: 200 }}>{name}</span>
@@ -460,7 +460,7 @@ export default function OverviewPanel({
                         {/* Owners */}
                         <div style={{ display: "flex", alignItems: "center", gap: -3, flexShrink: 0 }}>
                           {owners.length === 0
-                            ? <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>—</span>
+                            ? <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>—</span>
                             : owners.map((u, j) => (
                               <div key={u.id} style={{ marginLeft: j === 0 ? 0 : -6, zIndex: owners.length - j }}>
                                 <AvatarC user={u} size={18} />
@@ -470,7 +470,7 @@ export default function OverviewPanel({
                         </div>
 
                         {/* Points */}
-                        <span style={{ fontSize: 11, fontWeight: 700, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0, minWidth: 36, textAlign: "right" }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", flexShrink: 0, minWidth: 36, textAlign: "right" }}>
                           {s.points}pt
                         </span>
                       </div>

@@ -391,7 +391,7 @@ export default function TasksView(props: Props) {
     borderRadius: 8,
     padding: "4px 10px",
     cursor: "pointer",
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: active ? 700 : 500,
     color: active ? t.accent : t.textMuted,
     fontFamily: "var(--font-dm-mono), monospace",
@@ -480,7 +480,7 @@ export default function TasksView(props: Props) {
 
     return (
       <div style={{ padding: "12px 0" }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 12 }}>
           // your tasks today
         </div>
         <TodayView
@@ -504,11 +504,11 @@ export default function TasksView(props: Props) {
     <div style={{ padding: "20px 0" }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, gap: 12, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>
+          <span style={{ fontSize: 12, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>
             {stageTasks.length} tasks
           </span>
           {pendingCount > 0 && isAdmin && (
-            <span style={{ fontSize: 10, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
+            <span style={{ fontSize: 11, color: t.amber, background: t.amber + "22", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "2px 8px", fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>
               {pendingCount} awaiting approval
             </span>
           )}
@@ -529,17 +529,17 @@ export default function TasksView(props: Props) {
       </div>
       {filterOpen && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, padding: 8, border: `1px solid ${t.border}`, borderRadius: 12, background: t.bgCard }}>
-          <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}>
+          <select value={assigneeFilter} onChange={e => setAssigneeFilter(e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
             <option value="all">all assignees</option>
             {users.filter(u => u.id !== "ai").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
-          <select value={dueFilter} onChange={e => setDueFilter(e.target.value as typeof dueFilter)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11 }}>
+          <select value={dueFilter} onChange={e => setDueFilter(e.target.value as typeof dueFilter)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
             <option value="all">all due dates</option>
             <option value="overdue">overdue</option>
             <option value="soon">due soon</option>
             <option value="none">no due date</option>
           </select>
-          <button onClick={() => { setAssigneeFilter("all"); setDueFilter("all"); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, cursor: "pointer" }}>clear</button>
+          <button onClick={() => { setAssigneeFilter("all"); setDueFilter("all"); }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, cursor: "pointer" }}>clear</button>
         </div>
       )}
 
@@ -558,8 +558,8 @@ export default function TasksView(props: Props) {
               <section key={col.status}>
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: stColor, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
-                  <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({colTasks.length})</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: stColor, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
+                  <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({colTasks.length})</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} {...cardShared} />)}
@@ -594,15 +594,15 @@ export default function TasksView(props: Props) {
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 8, padding: "4px 4px", borderBottom: `1px solid ${stColor}33` }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: stColor }} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: stColor, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
-                  <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({totalCount})</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: stColor, letterSpacing: 0.5, textTransform: "uppercase", fontFamily: "var(--font-dm-mono), monospace" }}>{col.label}</span>
+                  <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>({totalCount})</span>
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8, flex: 1 }}>
                   {totalCount === 0
                     ? <div
                         onDragOver={e => { if (readOnly) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
                         onDrop={e => handleDrop(col.status, e)}
-                        style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                        style={{ border: `1.5px dashed ${isOver ? t.accent + "88" : t.border}`, borderRadius: 12, padding: "24px 12px", textAlign: "center", fontSize: 11, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
                       >{readOnly ? "// no items" : "// drop to move"}</div>
                     : <>
                         {colTasks.map(task => <TaskWithSubtasks key={task.stageId} task={task} isMine={isMine(task.stageId)} onClaim={() => handleClaim(task.stageId)} draggable={!readOnly} hideSubs subtaskStages={subtaskStages} {...cardShared} />)}
@@ -613,7 +613,7 @@ export default function TasksView(props: Props) {
 	                  {!readOnly && <div
 	                    onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setDragOver(col.status); }}
 	                    onDrop={e => handleDrop(col.status, e)}
-	                    style={{ flex: 1, minHeight: 120, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : t.border + "22"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}
+	                    style={{ flex: 1, minHeight: 120, borderRadius: 10, border: `1.5px dashed ${isOver ? t.accent + "88" : t.border + "22"}`, background: isOver ? t.accent + "08" : "transparent", transition: "all 0.15s", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: isOver ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}
 	                  >drop here</div>}
                   {!readOnly && newTaskCol === col.status ? (
                     /* Dynamic creation form — workspace (if cross-ws) → optional pipeline → optional parent task */
@@ -629,19 +629,19 @@ export default function TasksView(props: Props) {
                         }}
                         onBlur={() => { if (!newSubTitle.trim() && !newSubPipeId && !newSubParentStage && !newSubWsId) resetNewSub(); }}
                         data-no-close
-	                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+	                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
 	                      />
 	                      <input
 	                        type="date"
 	                        value={newSubDueDate}
 	                        onChange={e => setNewSubDueDate(e.target.value)}
 	                        data-no-close
-	                        style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
+	                        style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
 	                      />
                       {/* Workspace picker — visible when 2+ workspaces; otherwise show implicit ws label */}
                       {needsWorkspacePick ? (
                         <>
-                          <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                          <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                             {newSubWsId
                               ? `workspace: ${availableWorkspaces?.find(w => w.id === newSubWsId)?.name || newSubWsId}`
                               : "// pick workspace (required)"}
@@ -651,7 +651,7 @@ export default function TasksView(props: Props) {
                               const sel = newSubWsId === w.id;
                               return (
                                 <button key={w.id} onMouseDown={e => { e.preventDefault(); setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubParentStage(""); }} data-no-close
-                                  style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                  style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                                   {w.icon} {w.name}
                                 </button>
                               );
@@ -659,7 +659,7 @@ export default function TasksView(props: Props) {
                           </div>
                         </>
                       ) : formWsLabel && (
-                        <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                        <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                           → workspace: {formWsLabel}
                         </div>
                       )}
@@ -673,7 +673,7 @@ export default function TasksView(props: Props) {
                         );
                         return (
                           <>
-                            <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                            <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                               {newSubPipeId
                                 ? `pipeline: ${allPipelines.find(p => p.id === newSubPipeId)?.name || newSubPipeId}`
                                 : "// pipeline (optional)"}
@@ -681,7 +681,7 @@ export default function TasksView(props: Props) {
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                               {newSubPipeId && (
                                 <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubParentStage(""); }} data-no-close
-                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
                                   ✕ clear pipeline
                                 </button>
                               )}
@@ -689,12 +689,12 @@ export default function TasksView(props: Props) {
                                 const sel = newSubPipeId === p.id;
                                 return (
                                   <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(sel ? "" : p.id); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }} data-no-close
-                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                                     {p.icon} {(p as { displayName?: string }).displayName || p.name}
                                   </button>
                                 );
                               })}
-                              {pipesToShow.length === 0 && <span style={{ fontSize: 9, color: t.textDim, fontStyle: "italic" }}>no pipelines in this workspace</span>}
+                              {pipesToShow.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no pipelines in this workspace</span>}
                             </div>
                           </>
                         );
@@ -705,13 +705,13 @@ export default function TasksView(props: Props) {
                         const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s));
                         return (
                           <>
-                            <div style={{ fontSize: 9, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
+                            <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                               {newSubParentStage ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}` : "// parent task (optional — skip to create as task)"}
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                               {newSubParentStage && (
                                 <button onMouseDown={e => { e.preventDefault(); setNewSubParentStage(""); }} data-no-close
-                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
+                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
                                   ✕ clear parent
                                 </button>
                               )}
@@ -719,26 +719,26 @@ export default function TasksView(props: Props) {
                                 const sel = newSubParentStage === s;
                                 return (
                                   <button key={s} onMouseDown={e => { e.preventDefault(); setNewSubParentStage(sel ? "" : s); }} data-no-close
-                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                                    style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                                     {stageNameOverrides?.[s] || s}
                                   </button>
                                 );
                               })}
-                              {stagesInPipe.length === 0 && <span style={{ fontSize: 9, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
+                              {stagesInPipe.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no tasks in this pipeline</span>}
                             </div>
                           </>
                         );
                       })()}
                       {/* Status line + action */}
                       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 4, marginTop: 2 }}>
-                        <span style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                        <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
                           {needsWorkspacePick && !newSubWsId
                             ? <span style={{ color: t.amber }}>// pick a workspace first</span>
                             : <>{newSubPipeId && newSubParentStage ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}{" · "}↵ or click create</>}
                         </span>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button onMouseDown={resetNewSub} data-no-close
-                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
+                            style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
                             cancel
                           </button>
                           <button
@@ -750,7 +750,7 @@ export default function TasksView(props: Props) {
                               border: `1px solid ${(!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? t.border : t.accent + "88"}`,
                               borderRadius: 6, padding: "2px 8px",
                               cursor: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? "not-allowed" : "pointer",
-                              fontSize: 10,
+                              fontSize: 11,
                               color: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? t.textDim : t.accent,
                               fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700,
                               opacity: (!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)) ? 0.5 : 1,
@@ -763,7 +763,7 @@ export default function TasksView(props: Props) {
                   ) : !readOnly ? (
                     <button
                       onClick={() => { setNewTaskCol(col.status); setNewSubTitle(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage(""); }}
-                      style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
+                      style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
                     >+ new</button>
@@ -1012,7 +1012,7 @@ function TaskCard({
               style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
             >{task.displayName}</div>
           )}
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
             <span
               onClick={onPipelineClick ? e => { e.stopPropagation(); onPipelineClick(task.pipelineId); } : undefined}
               style={{ cursor: onPipelineClick ? "pointer" : "default", color: onPipelineClick ? t.accent : t.textDim, display: "flex", alignItems: "center", gap: 3 }}
@@ -1037,7 +1037,7 @@ function TaskCard({
                 border: `1px solid ${isUrgent ? cfg.color : cfg.color + "88"}`,
                 borderRadius: 6,
                 padding: "1px 7px",
-                fontSize: 9,
+                fontSize: 10,
                 fontWeight: 900,
                 letterSpacing: 0.6,
                 marginLeft: 4,
@@ -1047,7 +1047,7 @@ function TaskCard({
                 boxShadow: isUrgent ? `0 0 8px ${cfg.color}66` : "none",
                 animation: isUrgent ? "claimPulse 2s ease-in-out infinite" : "none",
               }}>
-                <span style={{ fontSize: 9 }}>{cfg.icon}</span>
+                <span style={{ fontSize: 10 }}>{cfg.icon}</span>
                 <span>{cfg.label}</span>
               </span>;
             })()}
@@ -1081,7 +1081,7 @@ function TaskCard({
 
       {/* Read-mode description — visible whenever a description exists, even outside edit mode */}
       {!editOpen && stageDescOverrides[task.stageId] && (
-        <div style={{ fontSize: 12, color: t.textSec || t.textMuted, lineHeight: 1.5, padding: "2px 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" }}>
+        <div style={{ fontSize: 13, color: t.textSec || t.textMuted, lineHeight: 1.5, padding: "2px 0", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden", textOverflow: "ellipsis" }}>
           {stageDescOverrides[task.stageId]}
         </div>
       )}
@@ -1098,7 +1098,7 @@ function TaskCard({
             }}
             placeholder="Stage description..."
             rows={2}
-            style={{ width: "100%", background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}
+            style={{ width: "100%", background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-sans), sans-serif", outline: "none", resize: "none", lineHeight: 1.5 }}
           />
           <input
             type="date"
@@ -1108,7 +1108,7 @@ function TaskCard({
               const current = stageDueDates[task.stageId] || "";
               if (dueDraft !== current) setStageDueDate(task.stageId, dueDraft || null);
             }}
-            style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+            style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
           {(() => {
             // Per-stage priority cycler
@@ -1117,7 +1117,7 @@ function TaskCard({
             const cur: Pri | undefined = stagePriority;
             return (
               <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>priority:</span>
                 {PRIORITY_VALS.map(p => {
                   const sel = cur === p;
                   const color = p === "NOW" ? t.red : p === "HIGH" ? t.amber : p === "MEDIUM" ? (t.cyan || t.accent) : t.textDim;
@@ -1125,7 +1125,7 @@ function TaskCard({
                     <button
                       key={p}
                       onClick={(e) => { e.stopPropagation(); setStagePriority(task.stageId, sel ? null : p); }}
-                      style={{ background: sel ? color + "22" : "transparent", border: `1px solid ${sel ? color + "88" : t.border}`, borderRadius: 6, padding: "2px 7px", cursor: "pointer", fontSize: 10, color: sel ? color : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 800 : 600 }}
+                      style={{ background: sel ? color + "22" : "transparent", border: `1px solid ${sel ? color + "88" : t.border}`, borderRadius: 6, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? color : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 800 : 600 }}
                     >
                       {p}
                     </button>
@@ -1141,10 +1141,10 @@ function TaskCard({
             const PRIORITY_CYCLE_VALS = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
             return (
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pipeline priority:</span>
+                <span style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>pipeline priority:</span>
                 <button
                   onClick={() => cyclePriority(task.pipelineId, pipePriority)}
-                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+                  style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
                   title={`Cycle priority (${PRIORITY_CYCLE_VALS.join(" → ")})`}
                 >
                   {pipePriority} ↻
@@ -1155,7 +1155,7 @@ function TaskCard({
           {/* Pipeline switcher for tasks — select which pipeline this task belongs to */}
           {availablePipelines && availablePipelines.length > 0 && (
             <div data-no-close style={{ display: "flex", flexDirection: "column", gap: 6, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }}>
-              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// pipeline</span>
+              <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// pipeline</span>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {availablePipelines.map(p => {
                   const isCurrent = p.id === task.pipelineId;
@@ -1176,7 +1176,7 @@ function TaskCard({
                         borderRadius: 8,
                         padding: "3px 8px",
                         cursor: isCurrent ? "default" : "pointer",
-                        fontSize: 11,
+                        fontSize: 12,
                         color: isCurrent ? t.accent : t.text,
                         fontFamily: "var(--font-dm-mono), monospace",
                         fontWeight: isCurrent ? 700 : 500,
@@ -1192,7 +1192,7 @@ function TaskCard({
             <button
               onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
               title="Archive this task"
-              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >
@@ -1209,7 +1209,7 @@ function TaskCard({
             return (
               <button key={emoji} onClick={e => { e.stopPropagation(); handleReact(task.stageId, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>{us.length}</span>
               </button>
             );
           })}
@@ -1359,7 +1359,7 @@ function SubtaskCard({
               : <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{taskSub.text}</span>
             }
           </div>
-          <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {pipelineIcon} {parentStageName}
             {dueDate && (() => {
               const due = new Date(`${dueDate}T23:59:59`);
@@ -1372,7 +1372,7 @@ function SubtaskCard({
             {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
           </div>
           {subtaskDescOverrides[key] && (
-            <div style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[key]}</div>
+            <div style={{ fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[key]}</div>
           )}
         </div>
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
@@ -1392,7 +1392,7 @@ function SubtaskCard({
             return (
               <button key={emoji} onClick={e => { e.stopPropagation(); if (!readOnly) handleReact(key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: readOnly ? "default" : "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
                 <span>{emoji}</span>
-                <span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
+                <span style={{ fontSize: 11, fontWeight: 700 }}>{us.length}</span>
               </button>
             );
           })}
@@ -1432,7 +1432,7 @@ function SubtaskCard({
         <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
           {/* Description */}
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
+            <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
             <textarea
               value={descVal}
               onChange={e => setDescVal(e.target.value)}
@@ -1440,23 +1440,23 @@ function SubtaskCard({
               placeholder="Add a description..."
               rows={2}
               data-no-close
-              style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+              style={{ fontSize: 12, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
             />
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
+            <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
             <input
               type="date"
               value={dueVal}
               onChange={e => setDueVal(e.target.value)}
               onBlur={() => { if (dueVal !== (dueDate || "")) setSubtaskDueDate(key, dueVal || null); }}
               data-no-close
-              style={{ fontSize: 11, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
+              style={{ fontSize: 12, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
             />
           </div>
           {/* Move to a different parent stage */}
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStageSSC === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
+            <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStageSSC === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
             {moveToStageSSC === "" ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
@@ -1464,7 +1464,7 @@ function SubtaskCard({
                     key={p.id}
                     onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStageSSC(p.id); }}
                     data-no-close
-                    style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                    style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
                   >{p.icon} {p.name}</button>
                 ))}
               </div>
@@ -1476,9 +1476,9 @@ function SubtaskCard({
                   <button
                     onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStageSSC(""); }}
                     data-no-close
-                    style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+                    style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
                   >← back</button>
-                  {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
+                  {pipeStages.length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
                   {pipeStages.map((s: string) => (
                     <button
                       key={s}
@@ -1490,7 +1490,7 @@ function SubtaskCard({
                         setEditOpen(false);
                       }}
                       data-no-close
-                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
                     >{stageNameOverrides?.[s] || s}</button>
                   ))}
                 </div>
@@ -1503,7 +1503,7 @@ function SubtaskCard({
             data-no-close
             onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }}
             title="Archive this subtask"
-            style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+            style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
             onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
           >📦 archive subtask</button>
@@ -1629,7 +1629,7 @@ function SubtaskKanbanCard({
                 : <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.text}</span>
               }
             </div>
-            <div style={{ fontSize: 11, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 12, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               {isUnknownParent
                 ? <span style={{ color: t.amber }}>⚠ unknown parent</span>
                 : <>{sub.pipelineIcon} {sub.parentStageName}</>}
@@ -1645,7 +1645,7 @@ function SubtaskKanbanCard({
               {assignee && <span style={{ color: assignee.color, fontWeight: 700, marginLeft: 4 }}>→ {assignee.name}{assignees.length > 1 ? ` +${assignees.length - 1}` : ""}</span>}
             </div>
             {subtaskDescOverrides[sub.key] && (
-              <div style={{ fontSize: 11, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[sub.key]}</div>
+              <div style={{ fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[sub.key]}</div>
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
@@ -1663,10 +1663,10 @@ function SubtaskKanbanCard({
                     </button>
                   )}
                   {isPending && !isAdmin && (
-                    <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
+                    <span style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.amber, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>⏳ pending</span>
                   )}
                   {isApproved && (
-                    <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 10, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
+                    <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
                   )}
                   {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin) or already approved */}
                   {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (
@@ -1685,7 +1685,7 @@ function SubtaskKanbanCard({
               const mine = currentUser ? us.includes(currentUser) : false;
               return (
               <button key={emoji} onClick={e => { e.stopPropagation(); if (!readOnly) handleReact(sub.key, emoji); }} style={{ background: mine ? t.accent + "18" : t.bgHover || t.bgSoft, border: `1px solid ${mine ? t.accent + "55" : t.border}`, borderRadius: 12, padding: "0 8px", cursor: readOnly ? "default" : "pointer", fontSize: 13, color: mine ? t.accent : t.textMuted, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}>
-                  <span>{emoji}</span><span style={{ fontSize: 10, fontWeight: 700 }}>{us.length}</span>
+                  <span>{emoji}</span><span style={{ fontSize: 11, fontWeight: 700 }}>{us.length}</span>
                 </button>
               );
             })}
@@ -1726,7 +1726,7 @@ function SubtaskKanbanCard({
           <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "8px 10px", background: t.accent + "08", border: `1px dashed ${t.accent}55`, borderRadius: 10, marginTop: 4 }} data-no-close>
             {/* Description */}
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
+              <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// description</span>
               <textarea
                 value={descVal}
                 onChange={e => setDescVal(e.target.value)}
@@ -1734,32 +1734,32 @@ function SubtaskKanbanCard({
                 placeholder="Add a description..."
                 rows={2}
                 data-no-close
-                style={{ fontSize: 11, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
+                style={{ fontSize: 12, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", resize: "none" as const, outline: "none", fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.5 }}
               />
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
+              <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// due date</span>
               <input
                 type="date"
                 value={dueVal}
                 onChange={e => setDueVal(e.target.value)}
                 onBlur={() => { if (dueVal !== (dueDate || "")) setSubtaskDueDate(sub.key, dueVal || null); }}
                 data-no-close
-                style={{ fontSize: 11, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
+                style={{ fontSize: 12, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
               />
             </div>
             {/* Move to a different parent stage — button-based to avoid native-select click-outside issues */}
             <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              <span style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStage === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
+              <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStage === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
               {moveToStage === "" ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {(allPipelinesGlobal || []).length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no pipelines available</span>}
+                  {(allPipelinesGlobal || []).length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no pipelines available</span>}
                   {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
                     <button
                       key={p.id}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(p.id); }}
                       data-no-close
-                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                      style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
                     >{p.icon} {p.name}</button>
                   ))}
                 </div>
@@ -1771,9 +1771,9 @@ function SubtaskKanbanCard({
                     <button
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(""); }}
                       data-no-close
-                      style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 10, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
+                      style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 6px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}
                     >← back</button>
-                    {pipeStages.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
+                    {pipeStages.length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no stages in this pipeline</span>}
                     {pipeStages.map((s: string) => (
                       <button
                         key={s}
@@ -1785,7 +1785,7 @@ function SubtaskKanbanCard({
                           setEditOpen(false);
                         }}
                         data-no-close
-                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
+                        style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
                       >{stageNameOverrides?.[s] || s}</button>
                     ))}
                   </div>
@@ -1798,7 +1798,7 @@ function SubtaskKanbanCard({
               data-no-close
               onClick={e => { e.stopPropagation(); setArchiveConfirm(true); }}
               title="Archive this subtask"
-              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
+              style={{ alignSelf: "flex-start", marginTop: 4, background: "transparent", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 12, color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700 }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.amber + "18"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
             >📦 archive subtask</button>
@@ -1898,7 +1898,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
     <div style={{ display: "flex", gap: 4, alignItems: "center", paddingTop: compact ? 8 : 10, marginTop: 0, flexWrap: "wrap" }}>
       {!readOnly && <div style={{ position: "relative" }}>
         <button onClick={e => { e.stopPropagation(); onReactToggle(); }} style={activeBtn(showReactPicker)} title="Add reaction">
-          😀 <span style={{ fontSize: 10 }}>+</span>
+          😀 <span style={{ fontSize: 11 }}>+</span>
         </button>
         {showReactPicker && (
           <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200 }}>
@@ -1909,7 +1909,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         )}
       </div>}
       <button onClick={e => { e.stopPropagation(); onCommentToggle(); }} style={{ ...activeBtn(showCommentPopover), display: "inline-flex", alignItems: "center", gap: 5 }} title="Comments">
-        <MessageSquare size={12} /> <span style={{ fontSize: 10 }}>{commentCount}</span>
+        <MessageSquare size={12} /> <span style={{ fontSize: 11 }}>{commentCount}</span>
       </button>
       {!readOnly && <div style={{ position: "relative" }}>
         <button
@@ -1926,7 +1926,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
           {assigneeList.length === 0 ? (
             <>
               <User size={11} style={{ opacity: 0.7 }} />
-              <span style={{ fontSize: 10 }}>assign</span>
+              <span style={{ fontSize: 11 }}>assign</span>
             </>
           ) : (
             <>
@@ -1938,7 +1938,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
                   </span>
                 ))}
               </span>
-              <span style={{ fontSize: 10 }}>
+              <span style={{ fontSize: 11 }}>
                 {assigneeList.length === 1
                   ? assigneeList[0].name.toLowerCase()
                   : `${assigneeList[0].name.toLowerCase()} +${assigneeList.length - 1}`}
@@ -1948,7 +1948,7 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
         </button>
         {showAssignPicker && (
           <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 200 }}>
-            <div style={{ fontSize: 9, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+            <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
               assign — up to 2 ({assigneeList.length}/2)
             </div>
             {users.map(u => {
@@ -1979,12 +1979,12 @@ function ActionRow({ t, showReactPicker, showCommentPopover, showAssignPicker, c
                 >
                   <AvatarC user={u} size={24} />
                   <span style={{ flex: 1 }}>{u.name}</span>
-                  {isCurrent && <span style={{ fontSize: 10 }}>✓</span>}
+                  {isCurrent && <span style={{ fontSize: 11 }}>✓</span>}
                 </button>
               );
             })}
             {assigneeList.length > 0 && (
-              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>× clear all</button>
+              <button onClick={() => onAssign(null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 0 }}>× clear all</button>
             )}
           </div>
         )}
@@ -2047,7 +2047,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
   };
   return (
     <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
-      <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6, textTransform: "uppercase" as const }}>
+      <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6, textTransform: "uppercase" as const }}>
         comments ({comments.length})
       </div>
       {comments.length > 0 ? (
@@ -2059,9 +2059,9 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
                 <AvatarC user={u} size={18} />
 	                <div style={{ flex: 1, minWidth: 0 }}>
 	                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-	                    <div style={{ fontSize: 10, color: u.color, fontWeight: 700, flex: 1 }}>{u.name}</div>
+	                    <div style={{ fontSize: 11, color: u.color, fontWeight: 700, flex: 1 }}>{u.name}</div>
 	                    {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && (
-	                      <button type="button" onClick={() => onDelete(c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
+	                      <button type="button" onClick={() => onDelete(c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
 	                    )}
 	                  </div>
 	                  <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word" }}>{c.text}</div>
@@ -2071,7 +2071,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
           })}
         </div>
       ) : (
-        <div style={{ fontSize: 11, color: t.textDim, fontStyle: "italic", marginBottom: 8 }}>no comments yet</div>
+        <div style={{ fontSize: 12, color: t.textDim, fontStyle: "italic", marginBottom: 8 }}>no comments yet</div>
       )}
       {!readOnly && <div style={{ position: "relative" as const }}>
         {mentionQuery !== null && mentionMatches.length > 0 && (
@@ -2081,13 +2081,13 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
                 key={u.id}
                 data-no-close
                 onMouseDown={e => { e.preventDefault(); e.stopPropagation(); insertMention(u); }}
-                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", fontSize: 12, color: t.text }}
+                style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 8px", cursor: "pointer", fontSize: 13, color: t.text }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.accent + "22"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
               >
                 <AvatarC user={u} size={16} />
                 <span style={{ fontWeight: 600 }}>{u.name.split(" ")[0]}</span>
-                <span style={{ fontSize: 10, color: t.textDim }}>{u.role}</span>
+                <span style={{ fontSize: 11, color: t.textDim }}>{u.role}</span>
               </div>
             ))}
           </div>
@@ -2119,14 +2119,14 @@ function btn(color: string, bg: string, borderColor: string, small = false): Rea
   return {
     background: bg, border: `1px solid ${borderColor}`, borderRadius: 8,
     padding: small ? "4px 10px" : "6px 12px", cursor: "pointer",
-    fontSize: 10, color, fontWeight: 700,
+    fontSize: 11, color, fontWeight: 700,
     fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0,
   };
 }
 
 function badge(color: string): React.CSSProperties {
   return {
-    fontSize: 10, color, background: color + "18", border: `1px solid ${color}44`,
+    fontSize: 11, color, background: color + "18", border: `1px solid ${color}44`,
     borderRadius: 8, padding: "4px 8px", fontWeight: 700,
     fontFamily: "var(--font-dm-mono), monospace", whiteSpace: "nowrap", flexShrink: 0,
   };

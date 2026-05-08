@@ -74,7 +74,7 @@ export function TooltipPortal() {
     color: "#fff",
     padding: "6px 8px",
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: 700,
     lineHeight: 1.25,
     whiteSpace: "nowrap",

@@ -14,11 +14,11 @@ export const NB = ({ color, children, style: s = {} }: { color: string; children
 
 export const Bar = ({ t, label, value, color }: { t: T; label: string; value: number; color?: string }) => (
   <div style={{ display: "flex", alignItems: "center", gap: 4, marginBottom: 0 }}>
-    <span style={{ fontSize: 10, color: t.textMuted, width: 48, textAlign: "right" }}>{label}</span>
+    <span style={{ fontSize: 11, color: t.textMuted, width: 48, textAlign: "right" }}>{label}</span>
     <div style={{ flex: 1, height: 4, background: t.surface, borderRadius: 2 }}>
       <div style={{ width: `${value}%`, height: "100%", background: color || t.accent, borderRadius: 2 }} />
     </div>
-    <span style={{ fontSize: 10, color: t.textMuted, width: 18 }}>{value}%</span>
+    <span style={{ fontSize: 11, color: t.textMuted, width: 18 }}>{value}%</span>
   </div>
 );
 

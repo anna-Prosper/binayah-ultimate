@@ -57,7 +57,7 @@ export default function HomeViewRoute({
     : workspaces.filter(w => currentUser ? w.members.includes(currentUser) : true);
   const isCaptainOfAny = !!currentUser && (ADMIN_IDS.includes(currentUser!) || workspaces.some(w => w.captains.includes(currentUser!)));
 
-  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
+  const hBtn: React.CSSProperties = { display: "flex", alignItems: "center", justifyContent: "center", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 12px", cursor: "pointer", color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, fontWeight: 600, whiteSpace: "nowrap" as const, gap: 4, minHeight: 44 };
 
   if (!me) return null;
   return (
@@ -86,17 +86,17 @@ export default function HomeViewRoute({
               <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 10px", cursor: "pointer" }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border}>
                 <AvatarC user={me} size={24} />
                 <div>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{me.name}</div>
-                  <div style={{ fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{me.name}</div>
+                  <div style={{ fontSize: 11, color: t.accent, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>{getPoints(currentUser!)}pts</div>
                 </div>
               </div>
               <button onClick={e => { e.stopPropagation(); setActiveNavItem("chat"); }} style={{ ...hBtn, fontSize: 14 }}><MessageSquare size={14} strokeWidth={1.8} /></button>
               <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 14, position: "relative" }}>
                 <Bell size={14} strokeWidth={1.8} />
-                {unseen > 0 && <div style={{ position: "absolute", top: 4, right: 4, minWidth: 12, height: 12, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
+                {unseen > 0 && <div style={{ position: "absolute", top: 4, right: 4, minWidth: 12, height: 12, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}
               </button>
               <div style={{ position: "relative", display: "flex", alignItems: "stretch" }} onClick={e => e.stopPropagation()}>
-                <button onClick={e => { e.stopPropagation(); setShowThemePicker(!showThemePicker); }} style={{ ...hBtn, fontSize: 14, gap: 3 }} title="Change theme">{t.icon} <span style={{ fontSize: 11 }}>▾</span></button>
+                <button onClick={e => { e.stopPropagation(); setShowThemePicker(!showThemePicker); }} style={{ ...hBtn, fontSize: 14, gap: 3 }} title="Change theme">{t.icon} <span style={{ fontSize: 12 }}>▾</span></button>
                 {showThemePicker && (
                   <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 8, zIndex: 200, width: "min(220px, calc(100vw - 32px))", boxShadow: `0 12px 40px rgba(0,0,0,0.5)`, animation: "fadeIn 0.15s ease" }}>
                     {THEME_OPTIONS.map(opt => (
@@ -104,18 +104,18 @@ export default function HomeViewRoute({
                         <span style={{ fontSize: 20 }}>{opt.icon}</span>
                         <div>
                           <div style={{ fontSize: 13, fontWeight: 700, color: themeId === opt.id ? opt.color : t.text }}>{opt.name}</div>
-                          <div style={{ fontSize: 10, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div>
+                          <div style={{ fontSize: 11, color: t.textMuted, lineHeight: 1.3 }}>{opt.desc}</div>
                         </div>
                         {themeId === opt.id && <span style={{ marginLeft: "auto", fontSize: 13, color: opt.color }}>✓</span>}
                       </div>
                     ))}
                     <div style={{ borderTop: `1px solid ${t.border}`, marginTop: 4, paddingTop: 8, display: "flex", justifyContent: "center" }}>
-                      <button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{isDark ? "☀️ light mode" : "🌚 dark mode"}</button>
+                      <button onClick={() => setIsDark(!isDark)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 16px", cursor: "pointer", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 600 }}>{isDark ? "☀️ light mode" : "🌚 dark mode"}</button>
                     </div>
                   </div>
                 )}
               </div>
-              <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn, fontSize: 11 }}>sign out</button>
+              <button onClick={() => signOut({ callbackUrl: "/login" })} style={{ ...hBtn, fontSize: 12 }}>sign out</button>
             </div>
           )}
         />

@@ -104,22 +104,22 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
     <div style={{ padding: "18px 0 28px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>notes</div>
+          <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>notes</div>
           <div style={{ fontSize: 24, fontWeight: 950, color: t.text }}>Team memory</div>
         </div>
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="search notes..." style={{ width: 260, maxWidth: "45vw", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "9px 11px", color: t.text, outline: "none", fontFamily: mono, fontSize: 12 }} />
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="search notes..." style={{ width: 260, maxWidth: "45vw", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "9px 11px", color: t.text, outline: "none", fontFamily: mono, fontSize: 13 }} />
       </div>
       <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
         {(["all", "pinned", "mine"] as const).map(v => (
-          <button key={v} type="button" onClick={() => setMode(v)} style={{ background: mode === v ? t.accent + "18" : t.bgCard, border: `1px solid ${mode === v ? t.accent + "66" : t.border}`, color: mode === v ? t.accent : t.textMuted, borderRadius: 9, padding: "6px 10px", cursor: "pointer", fontFamily: mono, fontSize: 11, fontWeight: 800 }}>{v}</button>
+          <button key={v} type="button" onClick={() => setMode(v)} style={{ background: mode === v ? t.accent + "18" : t.bgCard, border: `1px solid ${mode === v ? t.accent + "66" : t.border}`, color: mode === v ? t.accent : t.textMuted, borderRadius: 9, padding: "6px 10px", cursor: "pointer", fontFamily: mono, fontSize: 12, fontWeight: 800 }}>{v}</button>
         ))}
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14 }}>
         <section style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
-          {editingId && <div style={{ color: t.amber, fontFamily: mono, fontSize: 10, fontWeight: 900 }}>editing note</div>}
+          {editingId && <div style={{ color: t.amber, fontFamily: mono, fontSize: 11, fontWeight: 900 }}>editing note</div>}
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="note title" style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: "9px 10px", color: t.text, outline: "none", fontSize: 14, fontWeight: 800 }} />
-          <input value={pinnedTo} onChange={e => setPinnedTo(e.target.value)} placeholder="pin/tag optional, e.g. launch, qa, policy" style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 10px", color: t.textMuted, outline: "none", fontSize: 12, fontFamily: mono }} />
+          <input value={pinnedTo} onChange={e => setPinnedTo(e.target.value)} placeholder="pin/tag optional, e.g. launch, qa, policy" style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: "8px 10px", color: t.textMuted, outline: "none", fontSize: 13, fontFamily: mono }} />
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
             {palette.map(p => (
               <button key={p.id} type="button" onClick={() => setColor(p.id)} title={p.label} style={{ width: 22, height: 22, borderRadius: 999, background: p.c, border: `2px solid ${color === p.id ? t.text : "transparent"}`, cursor: "pointer" }} />
@@ -146,20 +146,20 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
               <article id={`note-${note.id}`} key={note.id} style={{ background: t.bgCard, border: `1px solid ${String(note.id) === highlightId ? noteColor : noteColor + "44"}`, borderLeft: `4px solid ${noteColor}`, borderRadius: 12, padding: 12, minHeight: 150, boxShadow: String(note.id) === highlightId ? `0 0 0 3px ${noteColor}22` : "none" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 15, color: t.text, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{note.title}</div>
-                  {note.pinnedTo && <span style={{ color: noteColor, border: `1px solid ${noteColor}55`, borderRadius: 999, padding: "1px 7px", fontFamily: mono, fontSize: 9, fontWeight: 900, whiteSpace: "nowrap" }}>{note.pinnedTo}</span>}
+                  {note.pinnedTo && <span style={{ color: noteColor, border: `1px solid ${noteColor}55`, borderRadius: 999, padding: "1px 7px", fontFamily: mono, fontSize: 10, fontWeight: 900, whiteSpace: "nowrap" }}>{note.pinnedTo}</span>}
                 </div>
                 <div style={{ color: t.textSec, fontSize: 13, lineHeight: 1.5, maxHeight: 220, overflow: "auto" }}>{renderNoteBody(note, canEdit)}</div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10, color: t.textDim, fontSize: 10, fontFamily: mono }}>
+                <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10, color: t.textDim, fontSize: 11, fontFamily: mono }}>
                   <span>{author?.name || note.by}</span>
                   <span>·</span>
                   <span>{new Date(note.updatedAt).toLocaleDateString()}</span>
-                  {canEdit && <button onClick={() => { setEditingId(note.id); setTitle(note.title); setBody(note.body); setPinnedTo(note.pinnedTo || ""); setColor(note.color || "accent"); }} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, color: t.textMuted, fontSize: 10, fontFamily: mono, cursor: "pointer" }}>edit</button>}
-                  {canEdit && <button onClick={() => deleteNote(note.id)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, color: t.textMuted, fontSize: 10, fontFamily: mono, cursor: "pointer" }}>delete</button>}
+                  {canEdit && <button onClick={() => { setEditingId(note.id); setTitle(note.title); setBody(note.body); setPinnedTo(note.pinnedTo || ""); setColor(note.color || "accent"); }} style={{ marginLeft: "auto", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, color: t.textMuted, fontSize: 11, fontFamily: mono, cursor: "pointer" }}>edit</button>}
+                  {canEdit && <button onClick={() => deleteNote(note.id)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, color: t.textMuted, fontSize: 11, fontFamily: mono, cursor: "pointer" }}>delete</button>}
                 </div>
               </article>
             );
           })}
-          {visible.length === 0 && <div style={{ color: t.textDim, fontFamily: mono, fontSize: 12, padding: 24, border: `1px dashed ${t.border}`, borderRadius: 12 }}>// no notes yet</div>}
+          {visible.length === 0 && <div style={{ color: t.textDim, fontFamily: mono, fontSize: 13, padding: 24, border: `1px dashed ${t.border}`, borderRadius: 12 }}>// no notes yet</div>}
         </section>
       </div>
     </div>
@@ -174,7 +174,7 @@ function miniBtn(t: T, mono: string): CSSProperties {
     color: t.textMuted,
     cursor: "pointer",
     fontFamily: mono,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: 800,
     padding: "4px 7px",
   };
