@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { AtSign, Trash2 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { T } from "@/lib/themes";
@@ -466,23 +467,28 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             <button
               key={p.id}
               onClick={() => setFilterPipeline(isActive ? null : p.id)}
-              title={`Filter by ${p.name}`}
-              aria-label={`Filter by ${p.name}`}
-              data-tooltip={`Filter by ${p.name}`}
+              title={p.name}
+              aria-label={p.name}
+              data-tooltip={p.name}
               style={{
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,
                 borderRadius: 16,
-                padding: "0 8px",
+                padding: isActive ? "0 10px 0 8px" : "0 8px",
                 cursor: "pointer",
-                fontSize: 10,
+                fontSize: 12,
+                lineHeight: "26px",
                 color: isActive ? pColor : t.textMuted,
-                fontWeight: isActive ? 700 : 400,
+                fontWeight: isActive ? 800 : 500,
                 fontFamily: "var(--font-geist-mono, monospace)",
                 transition: "all 0.15s",
+                display: "inline-flex",
+                alignItems: "center",
+                gap: 5,
               }}
             >
-              {p.icon}
+              <span aria-hidden style={{ fontSize: 13 }}>{p.icon}</span>
+              {isActive && <span>{p.name.split(" ")[0].toLowerCase()}</span>}
             </button>
           );
         })}
@@ -623,28 +629,43 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               <div style={{ position: "relative" }}>
                 <button
                   onClick={() => setPingOpen(v => !v)}
-                  title="Ping a teammate about this document"
-                  aria-label="Ping a teammate about this document"
-                  data-tooltip="Ping a teammate about this document"
-                  style={{ background: t.amber + "12", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.amber, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
+                  title="Notify a teammate"
+                  aria-label="Notify a teammate"
+                  data-tooltip="Notify a teammate"
+                  style={{
+                    background: pingOpen ? t.amber + "22" : "transparent",
+                    border: `1px solid ${pingOpen ? t.amber + "66" : t.border}`,
+                    borderRadius: 8,
+                    width: 30, height: 30,
+                    display: "inline-flex", alignItems: "center", justifyContent: "center",
+                    cursor: "pointer",
+                    color: pingOpen ? t.amber : t.textMuted,
+                    transition: "all 0.15s",
+                  }}
+                  onMouseEnter={e => { if (!pingOpen) (e.currentTarget as HTMLElement).style.color = t.amber; }}
+                  onMouseLeave={e => { if (!pingOpen) (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
                 >
-                  ping
+                  <AtSign size={15} strokeWidth={2} />
                 </button>
                 {pingOpen && (
-                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, width: 220, maxHeight: 260, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: t.shadowLg, zIndex: 20, padding: 6 }}>
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, width: 240, maxHeight: 320, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: t.shadowLg, zIndex: 20, padding: 6 }}>
+                    <div style={{ padding: "6px 10px 8px", fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5, textTransform: "uppercase" as const, fontWeight: 800 }}>
+                      notify a teammate
+                    </div>
                     {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => (
                       <button
                         key={u.id}
                         type="button"
                         onClick={() => pingDocument(u.id)}
-                        title={`Ping ${u.name}`}
-                        data-tooltip={`Ping ${u.name}`}
-                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", color: t.text, textAlign: "left" }}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 9, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", color: t.text, textAlign: "left" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "16"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
                       >
-                        <AvatarC user={u} size={20} />
-                        <span style={{ fontSize: 12, fontWeight: 800 }}>{u.name}</span>
+                        <AvatarC user={u} size={22} />
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{u.name}</div>
+                          <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+                        </div>
                       </button>
                     ))}
                   </div>
@@ -652,12 +673,19 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               </div>
               <button
                 onClick={() => deleteDoc(activeDoc._id)}
-                style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: t.textMuted }}
+                style={{
+                  background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8,
+                  width: 30, height: 30,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer", color: t.textMuted, transition: "all 0.15s",
+                }}
+                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = t.red; (e.currentTarget as HTMLElement).style.borderColor = t.red + "55"; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = t.textMuted; (e.currentTarget as HTMLElement).style.borderColor = t.border; }}
                 title="Delete this document"
                 aria-label="Delete this document"
-                data-tooltip="Delete this document"
+                data-tooltip="Delete document"
               >
-                🗑
+                <Trash2 size={15} strokeWidth={2} />
               </button>
             </div>
 

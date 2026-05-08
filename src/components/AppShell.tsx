@@ -406,7 +406,6 @@ function ShellInner({
         onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
         hiddenNavItems={[
           ...(canSeeCalls ? [] : ["calls" as NavItem]),
-          ...(isRootAdmin ? [] : ["audit" as NavItem]),
         ]}
       />
     </div>
