@@ -39,6 +39,13 @@ const BugAttachmentSchema = z.object({
   uploadedAt: z.number(),
 });
 
+const BugCommentSchema = z.object({
+  id: z.number().int(),
+  text: z.string().max(1200),
+  by: z.string().max(80),
+  time: z.number(),
+});
+
 export const PatchBodySchema = z.object({
   // Canonical ownership map
   owners: z.record(z.string(), z.array(z.string())).optional(),
@@ -132,6 +139,7 @@ export const PatchBodySchema = z.object({
     workspaceId: z.string().optional(),
     linkedTask: z.string().optional(),
     attachments: z.array(BugAttachmentSchema).max(8).optional(),
+    comments: z.array(BugCommentSchema).max(80).optional(),
   })).optional(),
 
   execProposals: z.array(z.object({

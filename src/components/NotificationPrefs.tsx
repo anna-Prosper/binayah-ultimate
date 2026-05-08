@@ -7,6 +7,7 @@ interface NotificationPrefsProps {
   t: T;
   targetUserId?: string;
   targetName?: string;
+  defaultExpanded?: boolean;
 }
 
 type PrefsState = {
@@ -68,11 +69,11 @@ const PREF_DEFAULTS: PrefsState = {
   inAppReminder: true, inAppRequest: true, inAppDue: true, inAppChat: true, inAppDm: true, inAppBug: true, inAppOther: true,
 };
 
-export default function NotificationPrefs({ t, targetUserId, targetName }: NotificationPrefsProps) {
+export default function NotificationPrefs({ t, targetUserId, targetName, defaultExpanded = false }: NotificationPrefsProps) {
   const [prefs, setPrefs] = useState<PrefsState | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   useEffect(() => {
     const qs = targetUserId ? `?userId=${encodeURIComponent(targetUserId)}` : "";

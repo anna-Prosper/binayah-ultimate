@@ -11,8 +11,12 @@ export default function ChatPage() {
   // doesn't need to render a full panel here. Match the legacy behavior
   // where mobile + activeNavItem === "chat" was effectively a no-op page.
   if (isMobile) return null;
+  // Fills the AppShell's content area exactly. The shell switches to a fixed
+  // 100vh / overflow:hidden layout when activeNavItem === "chat" so the chat
+  // panel can flex-grow into available space and the message list scrolls
+  // independently of the page (no body-level scroll).
   return (
-    <div style={{ height: "calc(100vh - 88px)", display: "flex", flexDirection: "column" }}>
+    <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
       <ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} fullScreen defaultTab="team" />
     </div>
   );

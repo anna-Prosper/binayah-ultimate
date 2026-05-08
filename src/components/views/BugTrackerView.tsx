@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useSearchParams } from "next/navigation";
 import { useModel } from "@/lib/contexts/ModelContext";
 import type { T } from "@/lib/themes";
 import { ADMIN_IDS, type BugAttachment, type BugSeverity, type BugStatus, type BugType } from "@/lib/data";
@@ -17,10 +18,13 @@ function colorFor(t: T, severity: BugSeverity) {
 }
 
 export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; currentWorkspaceId: string }) {
-  const { bugs, addBug, updateBug, deleteBug, users, currentUser } = useModel();
+  const { bugs, addBug, updateBug, deleteBug, users, currentUser, workspaces, allPipelinesGlobal, addCustomStage, setStageDescOverride } = useModel();
   const mono = "var(--font-dm-mono), monospace";
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | BugStatus>("all");
+  const [ownerFilter, setOwnerFilter] = useState("all");
+  const [severityFilter, setSeverityFilter] = useState<"all" | BugSeverity>("all");
+  const highlightId = useSearchParams().get("highlight");
   const [draft, setDraft] = useState({
     title: "",
     body: "",
@@ -34,14 +38,18 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
   });
   const [attachments, setAttachments] = useState<BugAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadTargetId, setUploadTargetId] = useState<number | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const existingFileInputRef = useRef<HTMLInputElement | null>(null);
   const [lightbox, setLightbox] = useState<BugAttachment | null>(null);
 
   const MAX_BYTES = 25 * 1024 * 1024;
-  const handleFiles = async (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null, targetBugId?: number) => {
     if (!files || files.length === 0) return;
     setUploading(true);
+    setUploadTargetId(targetBugId ?? null);
     setUploadError(null);
     const newAtts: BugAttachment[] = [];
     for (const f of Array.from(files)) {
@@ -71,9 +79,18 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
         setUploadError(`${f.name}: ${msg}`);
       }
     }
-    if (newAtts.length > 0) setAttachments(prev => [...prev, ...newAtts].slice(0, 8));
+    if (newAtts.length > 0) {
+      if (targetBugId) {
+        const target = bugs.find(b => b.id === targetBugId);
+        updateBug(targetBugId, { attachments: [...(target?.attachments || []), ...newAtts].slice(0, 8) });
+      } else {
+        setAttachments(prev => [...prev, ...newAtts].slice(0, 8));
+      }
+    }
     setUploading(false);
+    setUploadTargetId(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+    if (existingFileInputRef.current) existingFileInputRef.current.value = "";
   };
 
   const visible = useMemo(() => {
@@ -81,19 +98,49 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
     return bugs
       .filter(item => !currentWorkspaceId || !item.workspaceId || item.workspaceId === currentWorkspaceId)
       .filter(item => status === "all" || item.status === status)
-      .filter(item => !q || `${item.title} ${item.body} ${item.steps || ""} ${item.linkedTask || ""}`.toLowerCase().includes(q))
+      .filter(item => ownerFilter === "all" || (ownerFilter === "unassigned" ? !item.ownerId : item.ownerId === ownerFilter))
+      .filter(item => severityFilter === "all" || item.severity === severityFilter)
+      .filter(item => !q || `${item.title} ${item.body} ${item.steps || ""} ${item.expected || ""} ${item.actual || ""} ${item.linkedTask || ""} ${(item.comments || []).map(c => c.text).join(" ")}`.toLowerCase().includes(q))
       .sort((a, b) => {
         const statusRank = (s: BugStatus) => s === "open" ? 0 : s === "triage" ? 1 : s === "testing" ? 2 : s === "fixed" ? 3 : 4;
         const sevRank = (s: BugSeverity) => SEVERITIES.indexOf(s);
         return statusRank(a.status) - statusRank(b.status) || sevRank(a.severity) - sevRank(b.severity) || b.updatedAt - a.updatedAt;
       });
-  }, [bugs, currentWorkspaceId, query, status]);
+  }, [bugs, currentWorkspaceId, ownerFilter, query, severityFilter, status]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    requestAnimationFrame(() => document.getElementById(`bug-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [highlightId, visible.length]);
 
   const submit = () => {
     addBug({ ...draft, attachments });
     setDraft({ title: "", body: "", steps: "", expected: "", actual: "", type: "bug", severity: "medium", ownerId: "", linkedTask: "" });
     setAttachments([]);
     setUploadError(null);
+  };
+
+  const addComment = (bugId: number) => {
+    const text = (commentDrafts[bugId] || "").trim();
+    if (!text || !currentUser) return;
+    const item = bugs.find(b => b.id === bugId);
+    updateBug(bugId, { comments: [...(item?.comments || []), { id: Date.now(), text, by: currentUser, time: Date.now() }] });
+    setCommentDrafts(prev => ({ ...prev, [bugId]: "" }));
+  };
+
+  const pipelineChoices = useMemo(() => {
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    const ids = ws?.pipelineIds;
+    return ids ? allPipelinesGlobal.filter(p => ids.includes(p.id)) : allPipelinesGlobal;
+  }, [allPipelinesGlobal, currentWorkspaceId, workspaces]);
+
+  const convertToTask = (bugId: number) => {
+    const item = bugs.find(b => b.id === bugId);
+    const pipeline = pipelineChoices[0];
+    if (!item || !pipeline) return;
+    addCustomStage(pipeline.id, item.title);
+    setStageDescOverride(item.title, [item.body, item.steps ? `Steps:\n${item.steps}` : "", item.expected ? `Expected:\n${item.expected}` : "", item.actual ? `Actual:\n${item.actual}` : ""].filter(Boolean).join("\n\n"));
+    updateBug(item.id, { linkedTask: item.title, status: item.status === "closed" ? item.status : "triage" });
   };
 
   return (
@@ -106,11 +153,15 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="search tracker..." style={{ width: 280, maxWidth: "100%", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "9px 11px", color: t.text, outline: "none", fontFamily: mono, fontSize: 12 }} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 380px) 1fr", gap: 14, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14, alignItems: "start" }}>
         <div style={{ border: `1px solid ${t.border}`, borderRadius: 12, background: t.bgCard, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
           <input value={draft.title} onChange={e => setDraft(p => ({ ...p, title: e.target.value }))} placeholder="bug or test title" style={field(t, mono)} />
           <textarea value={draft.body} onChange={e => setDraft(p => ({ ...p, body: e.target.value }))} placeholder="what happened?" rows={3} style={field(t, mono)} />
           <textarea value={draft.steps} onChange={e => setDraft(p => ({ ...p, steps: e.target.value }))} placeholder="steps to reproduce / test steps" rows={3} style={field(t, mono)} />
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            <textarea value={draft.expected} onChange={e => setDraft(p => ({ ...p, expected: e.target.value }))} placeholder="expected" rows={2} style={field(t, mono)} />
+            <textarea value={draft.actual} onChange={e => setDraft(p => ({ ...p, actual: e.target.value }))} placeholder="actual" rows={2} style={field(t, mono)} />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             <select value={draft.type} onChange={e => setDraft(p => ({ ...p, type: e.target.value as BugType }))} style={field(t, mono)}>{TYPES.map(x => <option key={x}>{x}</option>)}</select>
             <select value={draft.severity} onChange={e => setDraft(p => ({ ...p, severity: e.target.value as BugSeverity }))} style={field(t, mono)}>{SEVERITIES.map(x => <option key={x}>{x}</option>)}</select>
@@ -168,6 +219,15 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
             {(["all", ...STATUSES] as const).map(s => (
               <button key={s} type="button" onClick={() => setStatus(s)} style={{ background: status === s ? t.accent + "18" : t.bgCard, border: `1px solid ${status === s ? t.accent + "66" : t.border}`, color: status === s ? t.accent : t.textMuted, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>{s}</button>
             ))}
+            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={{ ...field(t, mono), width: 150, padding: "5px 8px", fontSize: 10 }}>
+              <option value="all">all owners</option>
+              <option value="unassigned">unassigned</option>
+              {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+            </select>
+            <select value={severityFilter} onChange={e => setSeverityFilter(e.target.value as "all" | BugSeverity)} style={{ ...field(t, mono), width: 126, padding: "5px 8px", fontSize: 10 }}>
+              <option value="all">all severity</option>
+              {SEVERITIES.map(x => <option key={x}>{x}</option>)}
+            </select>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 8 }}>
             {visible.map(item => {
@@ -175,7 +235,7 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
               const owner = users.find(u => u.id === item.ownerId);
               const canDelete = currentUser && (currentUser === item.createdBy || currentUser === item.ownerId || ADMIN_IDS.includes(currentUser));
               return (
-                <div key={item.id} style={{ border: `1px solid ${c}44`, background: c + "08", borderRadius: 12, padding: 11, minWidth: 0 }}>
+                <div id={`bug-${item.id}`} key={item.id} style={{ border: `1px solid ${String(item.id) === highlightId ? c : c + "44"}`, background: c + "08", borderRadius: 12, padding: 11, minWidth: 0, boxShadow: String(item.id) === highlightId ? `0 0 0 3px ${c}22` : "none" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ color: t.text, fontSize: 14, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
@@ -187,6 +247,12 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
                   </div>
                   {item.body && <div style={{ marginTop: 8, color: t.textMuted, fontSize: 12, lineHeight: 1.45 }}>{item.body}</div>}
                   {item.steps && <div style={{ marginTop: 8, color: t.textDim, fontSize: 11, fontFamily: mono, whiteSpace: "pre-wrap" }}>{item.steps}</div>}
+                  {(item.expected || item.actual) && (
+                    <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6 }}>
+                      {item.expected && <div style={{ background: t.bg, border: `1px solid ${t.green}33`, borderRadius: 8, padding: 7, color: t.textMuted, fontSize: 11 }}><b style={{ color: t.green, fontFamily: mono }}>expected</b><br />{item.expected}</div>}
+                      {item.actual && <div style={{ background: t.bg, border: `1px solid ${t.amber}33`, borderRadius: 8, padding: 7, color: t.textMuted, fontSize: 11 }}><b style={{ color: t.amber, fontFamily: mono }}>actual</b><br />{item.actual}</div>}
+                    </div>
+                  )}
                   {item.attachments && item.attachments.length > 0 && (
                     <div style={{ marginTop: 9, display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {item.attachments.map(a => {
@@ -214,6 +280,14 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
                     </div>
                   )}
                   <div style={{ marginTop: 10, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <input
+                      ref={existingFileInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*,application/pdf,text/plain,text/markdown,text/csv,application/json,application/zip,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                      onChange={e => { if (uploadTargetId) void handleFiles(e.target.files, uploadTargetId); }}
+                      style={{ display: "none" }}
+                    />
                     <select value={item.ownerId || ""} onChange={e => updateBug(item.id, { ownerId: e.target.value })} style={{ ...field(t, mono), width: 140, padding: "5px 7px", fontSize: 10 }}>
                       <option value="">unassigned</option>
                       {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -221,7 +295,23 @@ export default function BugTrackerView({ t, currentWorkspaceId }: { t: T; curren
                     <select value={item.severity} onChange={e => updateBug(item.id, { severity: e.target.value as BugSeverity })} style={{ ...field(t, mono), width: 94, padding: "5px 7px", fontSize: 10 }}>
                       {SEVERITIES.map(x => <option key={x}>{x}</option>)}
                     </select>
+                    <button type="button" onClick={() => { setUploadTargetId(item.id); requestAnimationFrame(() => existingFileInputRef.current?.click()); }} disabled={uploading || (item.attachments || []).length >= 8} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: uploading || (item.attachments || []).length >= 8 ? "not-allowed" : "pointer" }}>{uploading && uploadTargetId === item.id ? "uploading…" : "attach"}</button>
+                    <button type="button" onClick={() => convertToTask(item.id)} disabled={!pipelineChoices.length || !!item.linkedTask} style={{ background: item.linkedTask ? t.green + "12" : t.accent + "12", border: `1px solid ${item.linkedTask ? t.green + "44" : t.accent + "44"}`, color: item.linkedTask ? t.green : t.accent, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: !pipelineChoices.length || item.linkedTask ? "default" : "pointer" }}>{item.linkedTask ? `task: ${item.linkedTask}` : "make task"}</button>
                     {canDelete && <button type="button" onClick={() => deleteBug(item.id)} style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, borderRadius: 8, padding: "5px 8px", fontSize: 10, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>delete</button>}
+                  </div>
+                  <div style={{ marginTop: 10, borderTop: `1px solid ${t.border}`, paddingTop: 8 }}>
+                    {(item.comments || []).length > 0 && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5, marginBottom: 7 }}>
+                        {(item.comments || []).slice(-3).map(cmt => {
+                          const by = users.find(u => u.id === cmt.by);
+                          return <div key={cmt.id} style={{ background: t.bg, borderRadius: 8, padding: "6px 8px", fontSize: 11, color: t.textMuted }}><b style={{ color: by?.color || t.accent }}>{by?.name || cmt.by}</b> {cmt.text}</div>;
+                        })}
+                      </div>
+                    )}
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <input value={commentDrafts[item.id] || ""} onChange={e => setCommentDrafts(prev => ({ ...prev, [item.id]: e.target.value }))} onKeyDown={e => { if (e.key === "Enter") addComment(item.id); }} placeholder="add test note..." style={{ ...field(t, mono), padding: "6px 8px", fontSize: 11 }} />
+                      <button type="button" onClick={() => addComment(item.id)} style={{ background: t.accent, border: "none", color: "#fff", borderRadius: 8, padding: "5px 9px", fontSize: 10, fontFamily: mono, fontWeight: 900, cursor: "pointer" }}>send</button>
+                    </div>
                   </div>
                 </div>
               );

@@ -6,6 +6,62 @@ import { ADMIN_IDS } from "@/lib/data";
 import type { NotificationItem } from "@/lib/notificationKinds";
 
 const DAY = 86_400_000;
+type InAppPrefs = {
+  inAppNotifications: boolean;
+  inAppMention: boolean;
+  inAppApproved: boolean;
+  inAppAssigned: boolean;
+  inAppClaim: boolean;
+  inAppStatus: boolean;
+  inAppComment: boolean;
+  inAppSubtask: boolean;
+  inAppReminder: boolean;
+  inAppRequest: boolean;
+  inAppDue: boolean;
+  inAppChat: boolean;
+  inAppDm: boolean;
+  inAppBug: boolean;
+  inAppOther: boolean;
+};
+const IN_APP_DEFAULTS: InAppPrefs = {
+  inAppNotifications: true,
+  inAppMention: true,
+  inAppApproved: true,
+  inAppAssigned: true,
+  inAppClaim: true,
+  inAppStatus: true,
+  inAppComment: true,
+  inAppSubtask: true,
+  inAppReminder: true,
+  inAppRequest: true,
+  inAppDue: true,
+  inAppChat: true,
+  inAppDm: true,
+  inAppBug: true,
+  inAppOther: true,
+};
+
+function inAppKeyForKind(kind: NotificationItem["kind"]): keyof InAppPrefs {
+  switch (kind) {
+    case "mention": return "inAppMention";
+    case "approval":
+    case "approval-given":
+    case "exec-update": return "inAppApproved";
+    case "exec-pending": return "inAppRequest";
+    case "claim":
+    case "opportunity": return "inAppClaim";
+    case "status-change":
+    case "blocked":
+    case "stalled": return "inAppStatus";
+    case "comment":
+    case "reaction": return "inAppComment";
+    case "reminder": return "inAppReminder";
+    case "due-soon": return "inAppDue";
+    case "bug": return "inAppBug";
+    case "unassigned-now": return "inAppAssigned";
+    default: return "inAppOther";
+  }
+}
 
 /**
  * Computes the role-aware notification feed for the current user.
@@ -32,10 +88,20 @@ export function useNotifications() {
   } = m;
 
   const [now, setNow] = useState(() => Date.now());
+  const [prefs, setPrefs] = useState<InAppPrefs>(IN_APP_DEFAULTS);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  useEffect(() => {
+    if (!currentUser) return;
+    fetch("/api/auth/prefs", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: Partial<InAppPrefs> | null) => {
+        if (data) setPrefs({ ...IN_APP_DEFAULTS, ...data });
+      })
+      .catch(() => setPrefs(IN_APP_DEFAULTS));
+  }, [currentUser]);
 
   return useMemo(() => {
     const me = currentUser || "";
@@ -310,8 +376,9 @@ export function useNotifications() {
 
     // ── Filter dismissed, sort ──────────────────────────────────────────────
     const dismissedIds = new Set(notifDismissed?.[me] || []);
-    const filteredAr = ar.filter(n => !dismissedIds.has(n.id));
-    const filteredUp = up.filter(n => !dismissedIds.has(n.id));
+    const allowInApp = (n: NotificationItem) => prefs.inAppNotifications && prefs[inAppKeyForKind(n.kind)] !== false;
+    const filteredAr = ar.filter(n => !dismissedIds.has(n.id) && allowInApp(n));
+    const filteredUp = up.filter(n => !dismissedIds.has(n.id) && allowInApp(n));
 
     const priOrder = (p?: "high" | "medium" | "low") => p === "high" ? 0 : p === "medium" ? 1 : 2;
     // Stable sort: (priority, id) for action required; (time desc, id asc) for updates.
@@ -357,6 +424,6 @@ export function useNotifications() {
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
     stageDueDates, activityLog, comments, chatMessages, users,
     notifReads, notifDismissed, notifReadIds,
-    now,
+    now, prefs,
   ]);
 }

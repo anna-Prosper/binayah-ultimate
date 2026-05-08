@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, ShieldCheck } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls";
+export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "audit" | "settings";
 
 export interface SidebarPipeline {
   id: string;
@@ -53,6 +53,9 @@ export const NAV_HREFS: Record<NavItem, string> = {
   activity: "/activity",
   chat: "/chat",
   calls: "/calls",
+  archive: "/archive",
+  audit: "/audit",
+  settings: "/settings",
 };
 
 export function navItemFromPathname(pathname: string): NavItem {
@@ -62,6 +65,9 @@ export function navItemFromPathname(pathname: string): NavItem {
   if (pathname.startsWith("/notes")) return "notes";
   if (pathname.startsWith("/bugs")) return "bugs";
   if (pathname.startsWith("/activity")) return "activity";
+  if (pathname.startsWith("/archive")) return "archive";
+  if (pathname.startsWith("/audit")) return "audit";
+  if (pathname.startsWith("/settings")) return "settings";
   if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/calls")) return "calls";
   return "home";
@@ -74,6 +80,8 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "notes",     label: "notes"     },
   { id: "bugs",      label: "testing"   },
   { id: "activity",  label: "activity"  },
+  { id: "archive",   label: "archive"   },
+  { id: "audit",     label: "audit"     },
   { id: "chat",      label: "chat"      },
   { id: "calls",     label: "calls"     },
 ];
@@ -85,6 +93,9 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   notes: <StickyNote size={15} strokeWidth={1.8} />,
   bugs: <Bug size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
+  archive: <Archive size={15} strokeWidth={1.8} />,
+  audit: <ShieldCheck size={15} strokeWidth={1.8} />,
+  settings: <Settings size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,
   calls: <Phone size={15} strokeWidth={1.8} />,
 };

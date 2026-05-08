@@ -31,6 +31,7 @@ interface Props {
   onLoadThread?: (threadId: string) => Promise<void>;
   /** Whether more messages are available to load */
   hasMore?: boolean;
+  highlightMessageId?: number;
 }
 
 // Render chat text with @mentions styled in user color
@@ -57,11 +58,12 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
 
 const dmThreadId = (a: string, b: string) => `dm:${[a, b].sort().join(":")}`;
 
-export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, workspaceId = "main", t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, onLoadThread, hasMore = true }: Props) {
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, workspaceId = "main", t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, onLoadThread, hasMore = true, highlightMessageId }: Props) {
   const [tab, setTab] = useState<"team" | "dm" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
   const [dmUserId, setDmUserId] = useState(() => users.find(u => u.id !== currentUser && u.id !== "ai")?.id || "");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
@@ -114,6 +116,10 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const visibleMessages = messages.filter(m => (m.threadId || "team") === activeThreadId);
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [visibleMessages.length]);
+  useEffect(() => {
+    if (!highlightMessageId) return;
+    requestAnimationFrame(() => document.getElementById(`chat-msg-${highlightMessageId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [highlightMessageId, visibleMessages.length]);
   useEffect(() => { aiBottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [aiMessages.length]);
   useEffect(() => { if (tab !== "ai") void onLoadThread?.(activeThreadId); }, [activeThreadId, tab, onLoadThread]);
 
@@ -186,24 +192,30 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
   const addFiles = async (files: FileList | null) => {
     if (!files) return;
     setAttachmentError(null);
+    setUploadingAttachment(true);
     const picked = Array.from(files).slice(0, 4 - attachments.length);
     const skipped: string[] = [];
-    const next = await Promise.all(picked.map(file => new Promise<ChatAttachment>((resolve, reject) => {
-      if (file.size > 900_000) {
-        reject(new Error(`${file.name} is too large for chat. Max is 900 KB.`));
-        return;
+    const next = await Promise.all(picked.map(async file => {
+      try {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res = await fetch("/api/chat/upload", { method: "POST", body: fd, credentials: "include" });
+        const text = await res.text();
+        let data: { attachment?: ChatAttachment; error?: string } | null = null;
+        try { data = text ? JSON.parse(text) : null; } catch { /* surfaced below */ }
+        if (!res.ok || !data?.attachment) {
+          throw new Error(data?.error || (text ? text.slice(0, 160) : `upload failed (${res.status})`));
+        }
+        return data.attachment;
+      } catch (err) {
+        skipped.push(`${file.name}: ${err instanceof Error ? err.message : String(err)}`);
+        return null;
       }
-      const reader = new FileReader();
-      reader.onload = () => resolve({ id: `${Date.now()}-${file.name}`, name: file.name, type: file.type || "application/octet-stream", size: file.size, dataUrl: String(reader.result) });
-      reader.onerror = () => reject(reader.error);
-      reader.readAsDataURL(file);
-    }).catch(err => {
-      skipped.push(err instanceof Error ? err.message : `${file.name} could not be attached`);
-      return null;
-    })));
+    }));
     if (skipped.length > 0) setAttachmentError(skipped[0]);
     setAttachments(prev => [...prev, ...next.filter((x): x is ChatAttachment => !!x)].slice(0, 4));
     if (fileRef.current) fileRef.current.value = "";
+    setUploadingAttachment(false);
   };
 
   const send = () => {
@@ -361,23 +373,25 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
               const u = users.find(u => u.id === msg.userId);
               const isMe = msg.userId === currentUser;
               return (
-                <div key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", animation: "msgFadeIn 0.15s ease" }}>
+                <div id={`chat-msg-${msg.id}`} key={msg.id} style={{ display: "flex", gap: 8, flexDirection: isMe ? "row-reverse" : "row", alignItems: "flex-end", animation: "msgFadeIn 0.15s ease" }}>
                   {u && <div style={{ flexShrink: 0 }}><AvatarC user={u} size={22} /></div>}
                   <div style={{ maxWidth: "85%", minWidth: 0 }}>
                     {!isMe && <div style={{ fontSize: 10, color: u?.color || t.textMuted, fontWeight: 700, marginBottom: 4, paddingLeft: 4, fontFamily: "var(--font-dm-mono), monospace" }}>{u?.name}</div>}
-	                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${isMe ? (u?.color || t.accent) + "44" : t.border}`, borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 13, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
+	                    <div style={{ background: isMe ? (u?.color || t.accent) + "22" : t.surface, border: `1px solid ${msg.id === highlightMessageId ? (u?.color || t.accent) : isMe ? (u?.color || t.accent) + "44" : t.border}`, boxShadow: msg.id === highlightMessageId ? `0 0 0 3px ${(u?.color || t.accent)}22` : "none", borderRadius: isMe ? "14px 14px 4px 14px" : "14px 14px 14px 4px", padding: "8px 12px", fontSize: 13, color: t.text, lineHeight: 1.5, wordBreak: "break-word" }}>
 	                      {renderMentions(msg.text, users, t.text)}
 	                      {(msg.attachments || []).length > 0 && (
 	                        <div style={{ display: "grid", gap: 6, marginTop: msg.text ? 8 : 0 }}>
-	                          {(msg.attachments || []).map(file => file.type.startsWith("image/")
+	                          {(msg.attachments || []).map(file => {
+                              const href = file.url || file.dataUrl || "#";
+                              return file.type.startsWith("image/")
 	                            ? (
-	                              <a key={file.id} href={file.dataUrl} target="_blank" rel="noreferrer">
+	                              <a key={file.id} href={href} target="_blank" rel="noreferrer">
 	                                {/* eslint-disable-next-line @next/next/no-img-element */}
-	                                <img src={file.dataUrl} alt={file.name} style={{ maxWidth: 220, maxHeight: 160, borderRadius: 10, border: `1px solid ${t.border}`, display: "block", objectFit: "cover" }} />
+	                                <img src={href} alt={file.name} style={{ maxWidth: 220, maxHeight: 160, borderRadius: 10, border: `1px solid ${t.border}`, display: "block", objectFit: "cover" }} />
 	                              </a>
 	                            )
-	                            : <a key={file.id} href={file.dataUrl} download={file.name} style={{ color: t.accent, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>📎 {file.name}</a>
-	                          )}
+	                            : <a key={file.id} href={href} download={file.url ? undefined : file.name} target={file.url ? "_blank" : undefined} rel={file.url ? "noreferrer" : undefined} style={{ color: t.accent, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>📎 {file.name}</a>;
+                            })}
 	                        </div>
 	                      )}
 	                    </div>
@@ -446,7 +460,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
                 }}
 	              />
 	              <input ref={fileRef} type="file" multiple onChange={e => addFiles(e.target.files)} style={{ display: "none" }} />
-	              <button onClick={() => fileRef.current?.click()} title="Attach file" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 14px", minHeight: 42, cursor: "pointer", color: t.textMuted, fontSize: 16 }}>📎</button>
+	              <button onClick={() => fileRef.current?.click()} disabled={uploadingAttachment || attachments.length >= 4} title="Attach file" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "0 14px", minHeight: 42, cursor: uploadingAttachment || attachments.length >= 4 ? "not-allowed" : "pointer", color: t.textMuted, fontSize: 16 }}>{uploadingAttachment ? "…" : "📎"}</button>
               <button
                 onClick={send}
                 disabled={!canSend}

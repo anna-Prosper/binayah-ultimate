@@ -66,6 +66,12 @@ export type SharedState = {
       size: number;
       uploadedAt: number;
     }[];
+    comments?: {
+      id: number;
+      text: string;
+      by: string;
+      time: number;
+    }[];
   }[];
   execProposals?: {
     id: number;
@@ -168,7 +174,7 @@ export async function patchState(patch: PatchEnvelope): Promise<SyncResult> {
 }
 
 // Atomically append a single chat message (never clobbers other messages)
-export type ChatAttachment = { id: string; name: string; type: string; size: number; dataUrl: string };
+export type ChatAttachment = { id: string; name: string; type: string; size: number; dataUrl?: string; url?: string };
 
 export async function pushMessage(msg: { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: ChatAttachment[] }): Promise<SyncResult> {
   try {

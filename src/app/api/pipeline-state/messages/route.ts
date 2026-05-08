@@ -76,7 +76,9 @@ export async function POST(req: NextRequest) {
     const f = file as Record<string, unknown>;
     if (typeof f.name !== "string" || f.name.length > 160) return NextResponse.json({ error: "invalid attachment name" }, { status: 400 });
     if (typeof f.type !== "string" || f.type.length > 120) return NextResponse.json({ error: "invalid attachment type" }, { status: 400 });
-    if (typeof f.dataUrl !== "string" || !f.dataUrl.startsWith("data:") || f.dataUrl.length > 1_500_000) return NextResponse.json({ error: "invalid attachment data" }, { status: 400 });
+    const hasDataUrl = typeof f.dataUrl === "string" && f.dataUrl.startsWith("data:") && f.dataUrl.length <= 1_500_000;
+    const hasUrl = typeof f.url === "string" && /^https?:\/\//.test(f.url) && f.url.length <= 2000;
+    if (!hasDataUrl && !hasUrl) return NextResponse.json({ error: "invalid attachment data" }, { status: 400 });
   }
 
   // Use workspaceId from body when provided; fall back to "main" for legacy clients

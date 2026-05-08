@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useSearchParams } from "next/navigation";
 import { ADMIN_IDS } from "@/lib/data";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { type T } from "@/lib/themes";
@@ -14,6 +15,7 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
   const [query, setQuery] = useState("");
   const [mode, setMode] = useState<"all" | "pinned" | "mine">("all");
   const [editingId, setEditingId] = useState<number | null>(null);
+  const highlightId = useSearchParams().get("highlight");
   const mono = "var(--font-dm-mono), monospace";
   const palette = [
     { id: "accent", label: "accent", c: t.accent },
@@ -32,6 +34,11 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
       .filter(n => !q || n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q) || (n.pinnedTo || "").toLowerCase().includes(q))
       .sort((a, b) => Number(!!b.pinnedTo) - Number(!!a.pinnedTo) || b.updatedAt - a.updatedAt);
   }, [currentWorkspaceId, currentUser, mode, notes, query]);
+
+  useEffect(() => {
+    if (!highlightId) return;
+    requestAnimationFrame(() => document.getElementById(`note-${highlightId}`)?.scrollIntoView({ behavior: "smooth", block: "center" }));
+  }, [highlightId, visible.length]);
 
   const submit = () => {
     if (editingId) {
@@ -61,9 +68,41 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
     setBody(prev => prev ? `${prev}\n\n${tpl}` : tpl);
   };
 
+  const renderNoteBody = (note: typeof notes[number], canEdit: boolean) => {
+    const lines = note.body.split("\n");
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        {lines.map((line, idx) => {
+          const match = line.match(/^(\s*)- \[( |x|X)\]\s?(.*)$/);
+          if (!match) {
+            return <div key={idx} style={{ whiteSpace: "pre-wrap" }}>{line || " "}</div>;
+          }
+          const checked = match[2].toLowerCase() === "x";
+          const label = match[3];
+          return (
+            <label key={idx} style={{ display: "flex", gap: 7, alignItems: "flex-start", cursor: canEdit ? "pointer" : "default", color: checked ? t.textDim : t.textSec }}>
+              <input
+                type="checkbox"
+                checked={checked}
+                disabled={!canEdit}
+                onChange={() => {
+                  const next = [...lines];
+                  next[idx] = `${match[1]}- [${checked ? " " : "x"}] ${label}`;
+                  updateNote(note.id, { body: next.join("\n") });
+                }}
+                style={{ marginTop: 2, accentColor: colorValue(note.color) }}
+              />
+              <span style={{ textDecoration: checked ? "line-through" : "none", whiteSpace: "pre-wrap" }}>{label || " "}</span>
+            </label>
+          );
+        })}
+      </div>
+    );
+  };
+
   return (
     <div style={{ padding: "18px 0 28px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 14 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", marginBottom: 14, flexWrap: "wrap" }}>
         <div>
           <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 900, textTransform: "uppercase", letterSpacing: 0.7 }}>notes</div>
           <div style={{ fontSize: 24, fontWeight: 950, color: t.text }}>Team memory</div>
@@ -76,7 +115,7 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(280px, 0.8fr) minmax(360px, 1.2fr)", gap: 14 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 320px), 1fr))", gap: 14 }}>
         <section style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
           {editingId && <div style={{ color: t.amber, fontFamily: mono, fontSize: 10, fontWeight: 900 }}>editing note</div>}
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="note title" style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: "9px 10px", color: t.text, outline: "none", fontSize: 14, fontWeight: 800 }} />
@@ -104,12 +143,12 @@ export default function NotesView({ t, currentWorkspaceId }: { t: T; currentWork
             const canEdit = note.by === currentUser || ADMIN_IDS.includes(currentUser!);
             const noteColor = colorValue(note.color);
             return (
-              <article key={note.id} style={{ background: t.bgCard, border: `1px solid ${noteColor}44`, borderLeft: `4px solid ${noteColor}`, borderRadius: 12, padding: 12, minHeight: 150 }}>
+              <article id={`note-${note.id}`} key={note.id} style={{ background: t.bgCard, border: `1px solid ${String(note.id) === highlightId ? noteColor : noteColor + "44"}`, borderLeft: `4px solid ${noteColor}`, borderRadius: 12, padding: 12, minHeight: 150, boxShadow: String(note.id) === highlightId ? `0 0 0 3px ${noteColor}22` : "none" }}>
                 <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 6 }}>
                   <div style={{ flex: 1, minWidth: 0, fontSize: 15, color: t.text, fontWeight: 900, overflow: "hidden", textOverflow: "ellipsis" }}>{note.title}</div>
                   {note.pinnedTo && <span style={{ color: noteColor, border: `1px solid ${noteColor}55`, borderRadius: 999, padding: "1px 7px", fontFamily: mono, fontSize: 9, fontWeight: 900, whiteSpace: "nowrap" }}>{note.pinnedTo}</span>}
                 </div>
-                <div style={{ whiteSpace: "pre-wrap", color: t.textSec, fontSize: 13, lineHeight: 1.5, maxHeight: 220, overflow: "auto" }}>{note.body}</div>
+                <div style={{ color: t.textSec, fontSize: 13, lineHeight: 1.5, maxHeight: 220, overflow: "auto" }}>{renderNoteBody(note, canEdit)}</div>
                 <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 10, color: t.textDim, fontSize: 10, fontFamily: mono }}>
                   <span>{author?.name || note.by}</span>
                   <span>·</span>

@@ -1,6 +1,7 @@
 "use client";
 
 import { Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ChatSkeleton } from "@/components/ui/Skeletons";
@@ -17,6 +18,7 @@ interface ChatViewProps {
 
 export default function ChatView({ showToast, fullScreen, defaultTab, currentWorkspaceId }: ChatViewProps) {
   const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
+  const highlightId = useSearchParams().get("highlight");
 
   const allPipelines = currentWorkspaceId
     ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })()
@@ -57,7 +59,7 @@ export default function ChatView({ showToast, fullScreen, defaultTab, currentWor
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
       <Suspense fallback={<ChatSkeleton t={t} />}>
-        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} workspaceId={currentWorkspaceId || "main"} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} onLoadThread={loadThread} hasMore={hasMoreMessages} buildAiContext={buildAiContext} />
+        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} workspaceId={currentWorkspaceId || "main"} t={t} defaultTab={defaultTab || "team"} onLoadMore={loadMoreMessages} onLoadThread={loadThread} hasMore={hasMoreMessages} buildAiContext={buildAiContext} highlightMessageId={highlightId ? Number(highlightId) : undefined} />
       </Suspense>
     </ErrorBoundary>
   );

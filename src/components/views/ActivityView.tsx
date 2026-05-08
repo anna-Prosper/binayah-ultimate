@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { useNotifications } from "@/lib/hooks/useNotifications";
+import { ADMIN_IDS } from "@/lib/data";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
 import { ACTIVITY_LOG_VISIBLE_DAYS, MS_PER_DAY } from "@/lib/constants";
@@ -14,6 +15,15 @@ const ActivityFeed = dynamic(() => import("@/components/ActivityFeed"), { ssr: f
 import { isUsefulActivity } from "@/components/ActivityFeed";
 
 type Filter = "all" | "unread" | "mentions" | "approvals" | "bugs" | "activity";
+type EmailHealth = {
+  smtp?: { configured: boolean; host: string; port: string; from: string | null };
+  cron?: { configured: boolean; nextauthUrl: string | null };
+  storage?: { s3Configured: boolean; bucket: string | null; region: string | null };
+};
+type SystemHealth = {
+  db?: { pipelineStateUpdatedAt: string | null; authUsers: number; reminders: number };
+  notifications?: { digestPending: number; recentRateLimitedKeys: Array<{ key: string; sentAt: string }> };
+};
 
 function timeLabel(timestamp: number) {
   if (!timestamp) return "";
@@ -165,12 +175,26 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
   const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
   const [now, setNow] = useState(() => Date.now());
+  const [emailHealth, setEmailHealth] = useState<EmailHealth | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const mono = "var(--font-dm-mono), monospace";
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) return;
+    fetch("/api/admin/email-health", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: EmailHealth | null) => setEmailHealth(data))
+      .catch(() => setEmailHealth(null));
+    fetch("/api/admin/system-health", { credentials: "include" })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: SystemHealth | null) => setSystemHealth(data))
+      .catch(() => setSystemHealth(null));
+  }, [currentUser]);
 
   // Per-filter counts derived from the FULL lists, not the currently filtered list,
   // so the chip count is stable regardless of which filter is active.
@@ -281,6 +305,33 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
               );
             })}
           </div>
+
+          {emailHealth && (
+            <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 6 }}>
+              {[
+                ["email", emailHealth.smtp?.configured, emailHealth.smtp?.from ? `${emailHealth.smtp.host}:${emailHealth.smtp.port} · ${emailHealth.smtp.from}` : "SMTP missing"],
+                ["cron", emailHealth.cron?.configured, emailHealth.cron?.nextauthUrl || "CRON_SECRET missing"],
+                ["files", emailHealth.storage?.s3Configured, emailHealth.storage?.bucket ? `${emailHealth.storage.bucket} · ${emailHealth.storage.region || "region?"}` : "S3 missing"],
+              ].map(([label, ok, detail]) => (
+                <div key={String(label)} style={{ border: `1px solid ${ok ? t.green + "44" : t.amber + "55"}`, background: ok ? t.green + "08" : t.amber + "0d", borderRadius: 10, padding: "7px 9px" }}>
+                  <div style={{ color: ok ? t.green : t.amber, fontFamily: mono, fontSize: 10, fontWeight: 900, textTransform: "uppercase" }}>{String(label)}</div>
+                  <div style={{ marginTop: 2, color: t.textMuted, fontSize: 10, fontFamily: mono, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{String(detail)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {systemHealth && (
+            <div style={{ marginTop: 8, border: `1px solid ${t.border}`, borderRadius: 10, padding: 9, background: t.bgCard }}>
+              <div style={{ color: t.text, fontSize: 11, fontFamily: mono, fontWeight: 900, marginBottom: 5 }}>system</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 6, color: t.textMuted, fontSize: 10, fontFamily: mono }}>
+                <span>db: {systemHealth.db?.pipelineStateUpdatedAt ? new Date(systemHealth.db.pipelineStateUpdatedAt).toLocaleString() : "unknown"}</span>
+                <span>users: {systemHealth.db?.authUsers ?? 0}</span>
+                <span>reminders: {systemHealth.db?.reminders ?? 0}</span>
+                <span>digest: {systemHealth.notifications?.digestPending ?? 0}</span>
+              </div>
+            </div>
+          )}
 
           {/* Activity log tab — full audit feed, replaces redirected page */}
           {filter === "activity" ? (

@@ -63,6 +63,9 @@ type TextResult = {
   title: string;
   snippet: string;
   meta: string;
+  href?: string;
+  pipelineId?: string;
+  stageName?: string;
 };
 
 type SearchResult = StageResult | DocResult | PersonResult | TextResult;
@@ -352,20 +355,23 @@ export default function SearchPalette({
       ...notes
         .filter(n => `${n.title} ${n.body}`.toLowerCase().includes(q.toLowerCase()))
         .slice(0, 8)
-        .map(n => ({ kind: "note" as const, title: n.title, snippet: snippetAround(n.body, q), meta: "note" })),
+        .map(n => ({ kind: "note" as const, title: n.title, snippet: snippetAround(n.body, q), meta: "note", href: `/notes?highlight=${encodeURIComponent(String(n.id))}` })),
       ...bugs
-        .filter(b => `${b.title} ${b.body} ${b.steps || ""} ${b.linkedTask || ""}`.toLowerCase().includes(q.toLowerCase()))
+        .filter(b => `${b.title} ${b.body} ${b.steps || ""} ${b.expected || ""} ${b.actual || ""} ${b.linkedTask || ""} ${(b.comments || []).map(c => c.text).join(" ")}`.toLowerCase().includes(q.toLowerCase()))
         .slice(0, 8)
-        .map(b => ({ kind: "bug" as const, title: b.title, snippet: snippetAround(`${b.body} ${b.steps || ""}`, q), meta: `${b.type} · ${b.status}` })),
+        .map(b => ({ kind: "bug" as const, title: b.title, snippet: snippetAround(`${b.body} ${b.steps || ""}`, q), meta: `${b.type} · ${b.status}`, href: `/bugs?highlight=${encodeURIComponent(String(b.id))}` })),
       ...Object.entries(comments)
         .flatMap(([stage, list]) => list.map(c => ({ stage, c })))
         .filter(({ stage, c }) => `${stage} ${c.text}`.toLowerCase().includes(q.toLowerCase()))
         .slice(0, 8)
-        .map(({ stage, c }) => ({ kind: "comment" as const, title: stage, snippet: c.text, meta: "comment" })),
+        .map(({ stage, c }) => {
+          const match = allStageResults.find(r => r.stageName === stage);
+          return ({ kind: "comment" as const, title: stage, snippet: c.text, meta: "comment", pipelineId: match?.pipelineId, stageName: stage });
+        }),
       ...chatMessages
         .filter(m => m.text.toLowerCase().includes(q.toLowerCase()))
         .slice(-8)
-        .map(m => ({ kind: "chat" as const, title: m.threadId?.startsWith("dm:") ? "DM" : "team chat", snippet: m.text, meta: "chat" })),
+        .map(m => ({ kind: "chat" as const, title: m.threadId?.startsWith("dm:") ? "DM" : "team chat", snippet: m.text, meta: "chat", href: `/chat?highlight=${encodeURIComponent(String(m.id))}` })),
     ] : [];
 
     return [...stageResults, ...docResults, ...personResults, ...textResults];
@@ -413,6 +419,12 @@ export default function SearchPalette({
       onClose();
     } else if (item.kind === "person") {
       onOpenPerson(item.user.id);
+      onClose();
+    } else if (item.kind === "comment" && item.pipelineId && item.stageName) {
+      onOpenStage(item.pipelineId, item.stageName);
+      onClose();
+    } else if ("href" in item && item.href) {
+      window.location.href = item.href;
       onClose();
     } else {
       onClose();

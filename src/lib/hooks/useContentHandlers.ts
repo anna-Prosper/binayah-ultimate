@@ -291,7 +291,7 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     showToast("// tracker item added", tGreen);
   }, [currentUser, currentWorkspaceId, markLocalWrite, setBugs, logActivity, showToast, tAmber, tGreen]);
 
-  const updateBug = useCallback((id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => {
+  const updateBug = useCallback((id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask" | "attachments" | "comments">>) => {
     if (!currentUser) return;
     markLocalWrite("bugs");
     setBugs(prev => prev.map(item => {
@@ -308,6 +308,8 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
         actual: patch.actual !== undefined ? patch.actual.trim().slice(0, 1000) || undefined : item.actual,
         ownerId: patch.ownerId !== undefined ? patch.ownerId || undefined : item.ownerId,
         linkedTask: patch.linkedTask !== undefined ? patch.linkedTask.trim() || undefined : item.linkedTask,
+        attachments: patch.attachments !== undefined ? patch.attachments.slice(0, 8) : item.attachments,
+        comments: patch.comments !== undefined ? patch.comments.slice(-80) : item.comments,
         updatedAt: Date.now(),
       };
     }));

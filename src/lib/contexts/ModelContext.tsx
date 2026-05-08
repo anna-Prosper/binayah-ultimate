@@ -104,7 +104,7 @@ interface ModelContextValue {
 	  deleteNote: (id: number) => void;
   bugs: BugItem[];
   addBug: (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => void;
-  updateBug: (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask">>) => void;
+  updateBug: (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask" | "attachments" | "comments">>) => void;
   deleteBug: (id: number) => void;
   execProposals: ExecProposal[];
   addExecProposal: (title: string, body: string) => void;

@@ -66,18 +66,22 @@ interface Props {
 
 // Toolbar button component
 function ToolbarBtn({
-  onClick, active, disabled, children, t,
+  onClick, active, disabled, children, t, title,
 }: {
   onClick: () => void;
   active?: boolean;
   disabled?: boolean;
   children: React.ReactNode;
   t: T;
+  title: string;
 }) {
   return (
     <button
       onMouseDown={(e) => { e.preventDefault(); onClick(); }}
       disabled={disabled}
+      title={title}
+      aria-label={title}
+      data-tooltip={title}
       style={{
         background: active ? t.accent + "22" : "transparent",
         border: `1px solid ${active ? t.accent + "55" : "transparent"}`,
@@ -100,7 +104,7 @@ function ToolbarBtn({
 
 export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }: Props) {
   const isMobile = useIsMobile(768);
-  const { users } = useModel();
+  const { users, currentUser, sendChat } = useModel();
 
   const [docs, setDocs] = useState<DocListItem[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -113,6 +117,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   // Attachment upload
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [pingOpen, setPingOpen] = useState(false);
   const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<string | null>(null); // doc id to delete
   const [confirmDeleteAttach, setConfirmDeleteAttach] = useState<string | null>(null); // attachmentId to delete
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -342,6 +347,41 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     patchDoc(activeId, { pipelineId: pid });
   };
 
+  const getDocUrl = useCallback((docId = activeDoc?._id) => {
+    if (!docId || typeof window === "undefined") return "";
+    return `${window.location.origin}/documents?doc=${encodeURIComponent(docId)}`;
+  }, [activeDoc?._id]);
+
+  const shareDocument = useCallback(async () => {
+    if (!activeDoc) return;
+    const url = getDocUrl(activeDoc._id);
+    const title = activeDoc.title || "untitled document";
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: title, url });
+        showToast("// share sheet opened", t.green);
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast("// document link copied", t.green);
+      }
+    } catch {
+      try {
+        await navigator.clipboard.writeText(url);
+        showToast("// document link copied", t.green);
+      } catch {
+        showToast("// could not copy link", t.red);
+      }
+    }
+  }, [activeDoc, getDocUrl, showToast, t.green, t.red]);
+
+  const pingDocument = useCallback((userId: string) => {
+    if (!activeDoc || !currentUser) return;
+    const url = getDocUrl(activeDoc._id);
+    sendChat(`@${userId} please review "${activeDoc.title || "untitled document"}": ${url}`, { threadId: "team" });
+    setPingOpen(false);
+    showToast(`// pinged ${users.find(u => u.id === userId)?.name || userId}`, t.green);
+  }, [activeDoc, currentUser, getDocUrl, sendChat, showToast, t.green, users]);
+
   const allPipelines = workspacePipelineIds && workspacePipelineIds.length > 0
     ? pipelineData.filter(p => workspacePipelineIds.includes(p.id))
     : pipelineData;
@@ -380,6 +420,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         </span>
         <button
           onClick={createDoc}
+          title="Create a new document"
+          data-tooltip="Create a new document"
           style={{
             background: t.accent + "18",
             border: `1px solid ${t.accent + "44"}`,
@@ -401,6 +443,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       <div style={{ padding: "8px 12px 4px", display: "flex", gap: 4, flexWrap: "wrap", borderBottom: `1px solid ${t.border}` }}>
         <button
           onClick={() => setFilterPipeline(null)}
+          data-tooltip="Show all documents"
           style={{
             background: filterPipeline === null ? t.accent + "22" : "transparent",
             border: `1px solid ${filterPipeline === null ? t.accent + "55" : t.border}`,
@@ -423,6 +466,9 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
             <button
               key={p.id}
               onClick={() => setFilterPipeline(isActive ? null : p.id)}
+              title={`Filter by ${p.name}`}
+              aria-label={`Filter by ${p.name}`}
+              data-tooltip={`Filter by ${p.name}`}
               style={{
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,
@@ -548,7 +594,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   background: "transparent",
                   border: "none",
                   outline: "none",
-                  fontSize: 18,
+                  fontSize: 22,
                   fontWeight: 800,
                   color: t.text,
                   fontFamily: "var(--font-geist-sans, sans-serif)",
@@ -565,11 +611,51 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               }}>
                 {saveStatus === "saving" ? "" : saveStatus === "saved" ? "// saved" : saveStatus === "error" ? "// save failed" : ""}
               </span>
-              {/* Delete button */}
+              <button
+                onClick={shareDocument}
+                title="Share this document link"
+                aria-label="Share this document link"
+                data-tooltip="Share this document link"
+                style={{ background: t.accent + "12", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.accent, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
+              >
+                share
+              </button>
+              <div style={{ position: "relative" }}>
+                <button
+                  onClick={() => setPingOpen(v => !v)}
+                  title="Ping a teammate about this document"
+                  aria-label="Ping a teammate about this document"
+                  data-tooltip="Ping a teammate about this document"
+                  style={{ background: t.amber + "12", border: `1px solid ${t.amber}44`, borderRadius: 8, padding: "5px 10px", cursor: "pointer", fontSize: 12, color: t.amber, fontWeight: 800, fontFamily: "var(--font-geist-mono, monospace)" }}
+                >
+                  ping
+                </button>
+                {pingOpen && (
+                  <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, width: 220, maxHeight: 260, overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: t.shadowLg, zIndex: 20, padding: 6 }}>
+                    {users.filter(u => u.id !== currentUser && u.id !== "ai").map(u => (
+                      <button
+                        key={u.id}
+                        type="button"
+                        onClick={() => pingDocument(u.id)}
+                        title={`Ping ${u.name}`}
+                        data-tooltip={`Ping ${u.name}`}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, background: "transparent", border: "none", borderRadius: 8, padding: "7px 8px", cursor: "pointer", color: t.text, textAlign: "left" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = u.color + "16"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                      >
+                        <AvatarC user={u} size={20} />
+                        <span style={{ fontSize: 12, fontWeight: 800 }}>{u.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => deleteDoc(activeDoc._id)}
                 style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: t.textMuted }}
-                title="delete document"
+                title="Delete this document"
+                aria-label="Delete this document"
+                data-tooltip="Delete this document"
               >
                 🗑
               </button>
@@ -646,13 +732,13 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           {/* Toolbar */}
           {editor && (
             <div style={{ padding: "4px 20px", borderBottom: `1px solid ${t.border}`, display: "flex", gap: 4, flexWrap: "wrap" }}>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })}>H1</ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })}>H2</ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")}><strong>B</strong></ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")}><em>I</em></ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")}>• —</ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")}>1.</ToolbarBtn>
-              <ToolbarBtn t={t} onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")}>" "</ToolbarBtn>
+              <ToolbarBtn title="Heading 1" t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} active={editor.isActive("heading", { level: 1 })}>H1</ToolbarBtn>
+              <ToolbarBtn title="Heading 2" t={t} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} active={editor.isActive("heading", { level: 2 })}>H2</ToolbarBtn>
+              <ToolbarBtn title="Bold" t={t} onClick={() => editor.chain().focus().toggleBold().run()} active={editor.isActive("bold")}><strong>B</strong></ToolbarBtn>
+              <ToolbarBtn title="Italic" t={t} onClick={() => editor.chain().focus().toggleItalic().run()} active={editor.isActive("italic")}><em>I</em></ToolbarBtn>
+              <ToolbarBtn title="Bullet list" t={t} onClick={() => editor.chain().focus().toggleBulletList().run()} active={editor.isActive("bulletList")}>• —</ToolbarBtn>
+              <ToolbarBtn title="Numbered list" t={t} onClick={() => editor.chain().focus().toggleOrderedList().run()} active={editor.isActive("orderedList")}>1.</ToolbarBtn>
+              <ToolbarBtn title="Quote" t={t} onClick={() => editor.chain().focus().toggleBlockquote().run()} active={editor.isActive("blockquote")}>" "</ToolbarBtn>
             </div>
           )}
 
@@ -660,16 +746,16 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px", background: t.bgCard }}>
             <style>{`
               /* TipTap prose overrides — all values derived from t.* tokens via CSS vars */
-              .binayah-editor .tiptap { outline: none; min-height: 200px; }
-              .binayah-editor .tiptap p { color: var(--doc-text); margin: 0 0 0.75em; font-size: 13px; line-height: 1.7; }
-              .binayah-editor .tiptap h1 { color: var(--doc-text); font-size: 22px; font-weight: 800; margin: 0 0 0.5em; line-height: 1.2; }
-              .binayah-editor .tiptap h2 { color: var(--doc-text); font-size: 17px; font-weight: 700; margin: 0 0 0.5em; line-height: 1.3; }
-              .binayah-editor .tiptap h3 { color: var(--doc-textsec); font-size: 14px; font-weight: 700; margin: 0 0 0.4em; }
+              .binayah-editor .tiptap { outline: none; min-height: 200px; font-family: var(--font-dm-sans, var(--font-geist-sans, sans-serif)); }
+              .binayah-editor .tiptap p { color: var(--doc-text); margin: 0 0 0.8em; font-size: 15px; line-height: 1.75; }
+              .binayah-editor .tiptap h1 { color: var(--doc-text); font-size: 26px; font-weight: 850; margin: 0 0 0.55em; line-height: 1.2; }
+              .binayah-editor .tiptap h2 { color: var(--doc-text); font-size: 20px; font-weight: 800; margin: 0 0 0.55em; line-height: 1.3; }
+              .binayah-editor .tiptap h3 { color: var(--doc-textsec); font-size: 16px; font-weight: 750; margin: 0 0 0.45em; }
               .binayah-editor .tiptap strong { color: var(--doc-text); font-weight: 700; }
               .binayah-editor .tiptap em { color: var(--doc-textsec); font-style: italic; }
               .binayah-editor .tiptap a { color: var(--doc-accent); text-decoration: underline; }
               .binayah-editor .tiptap ul, .binayah-editor .tiptap ol { color: var(--doc-text); padding-left: 1.5em; margin: 0 0 0.75em; }
-              .binayah-editor .tiptap li { margin-bottom: 0.25em; font-size: 13px; line-height: 1.6; }
+              .binayah-editor .tiptap li { margin-bottom: 0.3em; font-size: 15px; line-height: 1.65; }
               .binayah-editor .tiptap blockquote { border-left: 3px solid var(--doc-border); padding-left: 1em; margin: 0 0 0.75em; color: var(--doc-textsec); font-style: italic; }
               .binayah-editor .tiptap hr { border: none; border-top: 1px solid var(--doc-border); margin: 1.5em 0; }
               .binayah-editor .tiptap code { background: var(--doc-surface); color: var(--doc-accent); border-radius: 4px; padding: 1px 6px; font-family: var(--font-geist-mono, monospace); font-size: 11px; }
@@ -710,6 +796,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingFile}
+                    title="Attach a file to this document"
+                    data-tooltip="Attach a file to this document"
                     style={{ background: uploadingFile ? t.surface : t.accent + "18", border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "4px 12px", cursor: uploadingFile ? "wait" : "pointer", fontSize: 13, color: t.accent, fontWeight: 700, fontFamily: "var(--font-geist-mono, monospace)", display: "flex", alignItems: "center", gap: 4 }}
                   >
                     {uploadingFile ? "↑ uploading..." : "📎 attach file"}
@@ -731,8 +819,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                               {a.uploadedAt && ` · ${relativeTime(a.uploadedAt)}`}
                             </div>
                           </div>
-                          <a href={a.url} target="_blank" rel="noreferrer" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
-                          <button onClick={() => deleteAttachment(a.id)} title="Remove" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
+                          <a href={a.url} target="_blank" rel="noreferrer" title="Open this attachment" data-tooltip="Open this attachment" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", fontSize: 11, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textDecoration: "none" }}>↓ open</a>
+                          <button onClick={() => deleteAttachment(a.id)} title="Remove this attachment" aria-label="Remove this attachment" data-tooltip="Remove this attachment" style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 13, color: t.red, fontFamily: "var(--font-geist-mono, monospace)" }}>×</button>
                         </div>
                       );
                     })}

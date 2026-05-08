@@ -379,6 +379,12 @@ export interface BugAttachment {
   size: number;
   uploadedAt: number;
 }
+export interface BugComment {
+  id: number;
+  text: string;
+  by: string;
+  time: number;
+}
 export interface BugItem {
   id: number;
   title: string;
@@ -396,6 +402,7 @@ export interface BugItem {
   workspaceId?: string;
   linkedTask?: string;
   attachments?: BugAttachment[];
+  comments?: BugComment[];
 }
 export interface ExecProposal {
   id: number;

@@ -61,7 +61,7 @@ export const THEME_OPTIONS = [
 // === DESIGN TOKENS — see .claude/DESIGN_AUDIT.md ===
 export const space = { 1: 4, 2: 8, 3: 12, 4: 16, 5: 20, 6: 24, 8: 32 } as const;
 export const radii = { sm: 8, md: 12, lg: 16 } as const;
-export const type = { micro: 10, label: 11, body: 13, heading: 15, display: 28 } as const;
+export const type = { micro: 11, label: 12, body: 14, heading: 16, display: 26 } as const;
 // Text tier rules:
 //   t.text     — primary content (stage names, message body)
 //   t.textSec  — secondary content (descriptions, claimer names)

@@ -318,6 +318,7 @@ function ShellInner({
 
   // Computed
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
+  const isRootAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
   const binayahAiWorkspace = workspaces.find(w => w.id === DEFAULT_WORKSPACE_ID);
   const canSeeCalls = !!currentUser && (isExec || !!binayahAiWorkspace?.members.includes(currentUser));
   const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
@@ -403,7 +404,10 @@ function ShellInner({
         onCreateWorkspace={() => setWorkspaceModal("create")}
         canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)}
         onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
-        hiddenNavItems={canSeeCalls ? [] : ["calls"]}
+        hiddenNavItems={[
+          ...(canSeeCalls ? [] : ["calls" as NavItem]),
+          ...(isRootAdmin ? [] : ["audit" as NavItem]),
+        ]}
       />
     </div>
   ) : null;
@@ -454,8 +458,16 @@ function ShellInner({
       <ChromeShell
         sidebar={sidebarNode}
         header={headerNode}
-        outerStyle={{ minHeight: "100vh" }}
-        contentStyle={{ padding: isMobile ? "0 12px 16px" : "0 20px 24px" }}
+        outerStyle={
+          activeNavItem === "chat" && !isMobile
+            ? { height: "100vh", overflow: "hidden" }
+            : { minHeight: "100vh" }
+        }
+        contentStyle={
+          activeNavItem === "chat" && !isMobile
+            ? { padding: 0, display: "flex", flexDirection: "column", minHeight: 0 }
+            : { padding: isMobile ? "0 12px 16px" : "0 20px 24px" }
+        }
       >
         <AppShellProvider value={shellContextValue}>
           {children}

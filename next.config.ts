@@ -12,7 +12,8 @@ export default withSentryConfig(nextConfig, {
   silent: !process.env.SENTRY_AUTH_TOKEN,
   // Disable source map upload if no auth token (dev or no-token prod builds).
   widenClientFileUpload: false,
-  disableLogger: true,
-  // Automatically instrument Next.js data-fetching methods and API routes.
-  autoInstrumentServerFunctions: true,
+  webpack: {
+    treeshake: { removeDebugLogging: true },
+    autoInstrumentServerFunctions: true,
+  },
 });
