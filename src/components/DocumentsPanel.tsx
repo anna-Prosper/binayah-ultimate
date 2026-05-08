@@ -444,6 +444,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         <button
           onClick={() => setFilterPipeline(null)}
           data-tooltip="Show all documents"
+          data-tooltip-pos="below"
           style={{
             background: filterPipeline === null ? t.accent + "22" : "transparent",
             border: `1px solid ${filterPipeline === null ? t.accent + "55" : t.border}`,
@@ -468,6 +469,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
               onClick={() => setFilterPipeline(isActive ? null : p.id)}
               aria-label={p.name}
               data-tooltip={p.name}
+              data-tooltip-pos="below"
               style={{
                 background: isActive ? pColor + "22" : "transparent",
                 border: `1px solid ${isActive ? pColor + "55" : t.border}`,

@@ -74,3 +74,16 @@ textarea {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* Below variant — for tooltips on elements near the top of an overflow:hidden
+ * container, where the default above-position would be clipped. */
+[data-tooltip-pos="below"]::after {
+  bottom: auto;
+  top: calc(100% + 8px);
+}
+[data-tooltip-pos="below"]::before {
+  bottom: auto;
+  top: calc(100% + 3px);
+  border-top-color: transparent;
+  border-bottom-color: rgba(20, 20, 28, 0.96);
+}

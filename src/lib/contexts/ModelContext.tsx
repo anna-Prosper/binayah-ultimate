@@ -370,7 +370,13 @@ export function ModelProvider({
   const [liveNotifs, setLiveNotifs] = useState<Record<string, { comment?: string; reaction?: string }>>({});
 
   // ── Sync refs (kept for poll-merge logic) ─────────────────────────────────
-  const isPollUpdateRef = useRef(false);
+  // Counter bumped on every user-driven slice change. The scheduleWrite useEffect
+  // compares against `lastWrittenActionRef` and only fires when the counter has
+  // advanced — so poll-driven setX calls (which don't bump the counter) never
+  // trigger an echo write, while user actions always do, even when their state
+  // change batches with a poll merge in the same React commit.
+  const userActionCounterRef = useRef(0);
+  const lastWrittenActionRef = useRef(0);
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
@@ -448,6 +454,7 @@ export function ModelProvider({
   }, [MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
   const markLocalWrite = useCallback((slice: string) => {
     localWritesRef.current[slice] = Date.now();
+    userActionCounterRef.current += 1;
   }, []);
   const isProtected = (slice: string) => {
     const t = localWritesRef.current[slice];
@@ -583,7 +590,6 @@ export function ModelProvider({
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
-    isPollUpdateRef.current = true;
     // Snapshot what keys exist on the server right now — used to detect
     // local deletions on the next scheduleWrite.
     recordServerKeys(s);
@@ -760,7 +766,6 @@ export function ModelProvider({
     if (s.notifReadIds && !isProtected("notifReadIds")) setNotifReadIds(s.notifReadIds as Record<string, string[]>);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
-    setTimeout(() => { isPollUpdateRef.current = false; }, 50);
     // Mark initial hydrate complete — subsequent calls will fire claim/reaction notifications
     isInitialHydrateRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -889,8 +894,14 @@ export function ModelProvider({
   setSyncStatusRef.current = setSyncStatus;
 
   // ── Debounced write — delegate to useSync's scheduleWrite ────────────────
+  // Fires only when a user action (markLocalWrite) has advanced the counter
+  // since the last scheduled write. Poll-driven state changes don't bump the
+  // counter, so they never trigger an echo write — and user actions that batch
+  // with a poll merge in the same React commit still fire because the counter
+  // bump happens synchronously inside the user's handler before the setX queue.
   useEffect(() => {
-    if (isPollUpdateRef.current) return;
+    if (userActionCounterRef.current === lastWrittenActionRef.current) return;
+    lastWrittenActionRef.current = userActionCounterRef.current;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds]);
@@ -1248,6 +1259,7 @@ export function ModelProvider({
       return next;
     });
 
+    markLocalWrite("owners");
     setOwners(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -1264,9 +1276,6 @@ export function ModelProvider({
     });
 
     logActivity("subtask_migrated", newParentStageId, `subtask moved from ${oldParent}`);
-
-    // Schedule a server write after React has flushed the state batches
-    setTimeout(() => { scheduleWrite(); }, 0);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undoStack, logActivity]);
 
