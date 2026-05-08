@@ -171,7 +171,7 @@ function SectionHeader({ label, count, t }: { label: string; count: number; t: R
 }
 
 export default function ActivityView({ showToast, currentWorkspaceId }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
-  const { t, markAllNotifsRead, markNotifRead, dismissNotif, activityLog, users, currentUser } = useModel();
+  const { t, markAllNotifsRead, markNotifRead, dismissNotif, activityLog, users, currentUser, execProposals, completeExecProposal } = useModel();
   const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
   const [now, setNow] = useState(() => Date.now());
@@ -243,6 +243,11 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
     return wsFiltered.filter(e => isUsefulActivity(e, currentUser, users));
   }, [activityLog, currentWorkspaceId, currentUser, users, now]);
 
+  const approvedRequests = useMemo(
+    () => (execProposals || []).filter(p => p.status === "reviewed").sort((a, b) => (b.reviewedAt ?? b.createdAt) - (a.reviewedAt ?? a.createdAt)),
+    [execProposals]
+  );
+
   const filterChips: Array<{ id: Filter; label: string; count: number }> = [
     { id: "all", label: "all", count: counts.all },
     { id: "unread", label: "unread", count: counts.unread },
@@ -282,6 +287,67 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
               ✓ all read
             </button>
           </div>
+
+          {/* Approved exec requests — pinned until marked done */}
+          {approvedRequests.length > 0 && (
+            <div style={{ marginBottom: 14 }}>
+              <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, fontWeight: 900, letterSpacing: 0.7, textTransform: "uppercase", marginBottom: 6 }}>
+                approved requests · pending completion · {approvedRequests.length}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {approvedRequests.map(p => {
+                  const submitter = users.find(u => u.id === p.by);
+                  return (
+                    <div
+                      key={p.id}
+                      style={{
+                        background: t.amber + "0d",
+                        border: `1px solid ${t.amber}44`,
+                        borderRadius: 12,
+                        padding: "10px 12px",
+                        display: "flex",
+                        alignItems: "flex-start",
+                        gap: 10,
+                      }}
+                    >
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.text, marginBottom: 2 }}>{p.title}</div>
+                        {p.body && (
+                          <div style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.4, marginBottom: 4, wordBreak: "break-word" }}>
+                            {p.body.length > 120 ? p.body.slice(0, 120) + "…" : p.body}
+                          </div>
+                        )}
+                        <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono }}>
+                          from {submitter?.name ?? p.by} · approved {timeLabel(p.reviewedAt ?? p.createdAt)}
+                        </div>
+                      </div>
+                      {ADMIN_IDS.includes(currentUser ?? "") && (
+                        <button
+                          type="button"
+                          onClick={() => completeExecProposal(p.id)}
+                          style={{
+                            flexShrink: 0,
+                            background: t.green + "18",
+                            border: `1px solid ${t.green}55`,
+                            borderRadius: 8,
+                            padding: "5px 10px",
+                            cursor: "pointer",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: t.green,
+                            fontFamily: mono,
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          ✓ mark done
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Filter chips */}
           <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 4 }}>

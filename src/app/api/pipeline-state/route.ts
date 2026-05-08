@@ -290,10 +290,12 @@ export async function PATCH(req: NextRequest) {
   let prePatchApprovedStages: string[] = [];
   let prePatchApprovedSubtasks: string[] = [];
   let prePatchApprovedPipelines: string[] = [];
+  let prePatchExecProposals: Array<{ id: number; status: string; by: string; title: string }> = [];
   const NOTIFY_KEYS = new Set([
     "owners", "claims", "assignments",
     "stageStatusOverrides",
     "approvedStages", "approvedSubtasks", "approvedPipelines",
+    "execProposals",
   ]);
   const needsNotify = Object.keys(cleanPatch).some(k => NOTIFY_KEYS.has(k));
   if (needsNotify) {
@@ -313,6 +315,8 @@ export async function PATCH(req: NextRequest) {
     prePatchApprovedStages = (preDoc?.state?.approvedStages as string[] | undefined) ?? [];
     prePatchApprovedSubtasks = (preDoc?.state?.approvedSubtasks as string[] | undefined) ?? [];
     prePatchApprovedPipelines = (preDoc?.state?.approvedPipelines as string[] | undefined) ?? [];
+    prePatchExecProposals = ((preDoc?.state?.execProposals as Array<{ id: number; status: string; by: string; title: string }> | undefined) ?? [])
+      .map(p => ({ id: p.id, status: p.status, by: p.by, title: p.title }));
   }
 
   // Read-modify-write with optimistic locking:
@@ -605,6 +609,30 @@ export async function PATCH(req: NextRequest) {
           assignees: postOwners[subKey] ?? [],
           detail: `subtask "${subText}" approved`,
         });
+      }
+    }
+
+    // ── exec request completed — notify the exec who submitted ────────────
+    if ("execProposals" in cleanPatch) {
+      const patched = cleanPatch.execProposals as Array<{ id: number; status: string; by: string; title: string }>;
+      const prePatchMap = new Map(prePatchExecProposals.map(p => [p.id, p]));
+      for (const p of patched) {
+        const pre = prePatchMap.get(p.id);
+        if (p.status === "completed" && pre && pre.status !== "completed") {
+          void sendNotifications({
+            eventType: "approved",
+            stageKey: `exec-request-${p.id}`,
+            pipelineName: "Executive Request",
+            workspaceId: "",
+            workspaceName: "",
+            workspaces: postWorkspaces,
+            actorId: actorUserId,
+            claimers: [p.by],
+            assignees: [p.by],
+            points: 0,
+            detail: `Your request "${p.title}" has been completed`,
+          });
+        }
       }
     }
   }
