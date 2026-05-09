@@ -107,6 +107,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
 
   const [editingLabel, setEditingLabel] = useState(false);
   const [labelDraft, setLabelDraft] = useState("");
+  const [newSeriesDraft, setNewSeriesDraft] = useState("");
 
   const [sectionCollapsed, setSectionCollapsed] = useState(() => {
     try { return localStorage.getItem("home_section_zoom") === "1"; } catch { return false; }
@@ -414,15 +415,16 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {/* Series pin chips — always visible when there are calls */}
-                {allTopics.length > 0 && (
+                {(activeWs || allTopics.length > 0) && (
                   <div style={{ marginBottom: 8 }}>
                     <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, marginBottom: 5, letterSpacing: 0.4 }}>
                       pin series to workspace:
                     </div>
-                    {/* When a specific workspace is selected: single-row chips */}
+                    {/* When a specific workspace is selected: single-row chips + manual add */}
                     {activeWs ? (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                        {allTopics.map(topic => {
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", alignItems: "center" }}>
+                        {/* Pinned series first (including manually-added ones not yet in allTopics) */}
+                        {Array.from(new Set([...callSeriesFilters, ...allTopics])).map(topic => {
                           const pinned = callSeriesFilters.includes(topic);
                           return (
                             <button
@@ -444,8 +446,28 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                             </button>
                           );
                         })}
+                        {/* Manual add — for series with no call history yet */}
+                        <form
+                          onSubmit={e => {
+                            e.preventDefault();
+                            const val = newSeriesDraft.trim();
+                            if (val) { pinSeries(val); setNewSeriesDraft(""); }
+                          }}
+                          style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                        >
+                          <input
+                            value={newSeriesDraft}
+                            onChange={e => setNewSeriesDraft(e.target.value)}
+                            placeholder="+ add series name"
+                            style={{
+                              background: "transparent", border: `1px dashed ${t.border}`,
+                              borderRadius: 20, padding: "3px 10px", fontSize: 12,
+                              color: t.textMuted, fontFamily: mono, outline: "none", width: 150,
+                            }}
+                          />
+                        </form>
                         {callSeriesFilters.length > 0 && (
-                          <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center", marginLeft: 2 }}>
+                          <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center" }}>
                             · showing {sortedCalls.length} of {allSortedCalls.length}
                           </span>
                         )}
