@@ -5,7 +5,7 @@ import { type T } from "@/lib/themes";
 
 type ZoomSummary = { uuid: string; topic: string; startTime: string; summary: string };
 
-interface Props { t: T }
+interface Props { t: T; callSeriesFilters?: string[] }
 
 function SummaryBody({ text, t }: { text: string; t: T }) {
   const mono = "var(--font-dm-mono), monospace";
@@ -34,12 +34,16 @@ function SummaryBody({ text, t }: { text: string; t: T }) {
   return <div>{elements}</div>;
 }
 
-export default function CallsView({ t }: Props) {
+export default function CallsView({ t, callSeriesFilters }: Props) {
   const [summaries, setSummaries] = useState<ZoomSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ZoomSummary | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const mono = "var(--font-dm-mono), monospace";
+  const filters = callSeriesFilters ?? [];
+  const visibleSummaries = filters.length > 0
+    ? summaries.filter(s => filters.includes(s.topic))
+    : summaries;
 
   useEffect(() => {
     fetch("/api/zoom/summaries")
@@ -73,11 +77,23 @@ export default function CallsView({ t }: Props) {
         <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>binayah calls — AI summaries</div>
         {updatedAt && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>· synced {new Date(updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
       </div>
-      {summaries.length === 0 ? (
-        <div style={{ color: t.textMuted, fontSize: 13, fontFamily: mono }}>No summaries yet. Hit ↺ resync on the home view to load your Zoom calls.</div>
+      {filters.length > 0 && (
+        <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
+          {filters.map(f => (
+            <span key={f} style={{ background: t.accent + "18", border: `1px solid ${t.accent}44`, borderRadius: 20, padding: "2px 10px", fontSize: 11, fontWeight: 800, color: t.accent, fontFamily: mono }}>
+              {f}
+            </span>
+          ))}
+          <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center" }}>· {visibleSummaries.length} of {summaries.length}</span>
+        </div>
+      )}
+      {visibleSummaries.length === 0 ? (
+        <div style={{ color: t.textMuted, fontSize: 13, fontFamily: mono }}>
+          {filters.length > 0 ? `No calls matching this workspace's series filter yet.` : "No summaries yet. Hit ↺ resync on the home view to load your Zoom calls."}
+        </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {summaries.map(s => (
+          {visibleSummaries.map(s => (
             <button key={s.uuid} type="button" onClick={() => setSelected(s)}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left", transition: "border-color 0.1s", width: "100%" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}

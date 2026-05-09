@@ -213,6 +213,9 @@ interface ModelContextValue {
   setMemberRank: (workspaceId: string, userId: string, rank: "operator" | "agent") => void;
   deleteWorkspace: (workspaceId: string) => void;
   isOfficerOfWorkspace: (workspaceId: string) => boolean;
+  pinCallSeries: (workspaceId: string, topic: string) => void;
+  unpinCallSeries: (workspaceId: string, topic: string) => void;
+  currentWorkspaceId: string | null;
 
   // Undo stack
   undo: () => void;
@@ -1012,6 +1015,20 @@ export function ModelProvider({
     if (!ws) return false;
     return ws.captains.includes(currentUser);
   }, [workspaces, currentUser]);
+  const pinCallSeries = useCallback((wsId: string, topic: string) => {
+    markLocalWrite("workspaces");
+    setWorkspaces(prev => prev.map(w => w.id === wsId
+      ? { ...w, callSeriesFilters: Array.from(new Set([...(w.callSeriesFilters ?? []), topic])) }
+      : w));
+  }, [markLocalWrite, setWorkspaces]);
+
+  const unpinCallSeries = useCallback((wsId: string, topic: string) => {
+    markLocalWrite("workspaces");
+    setWorkspaces(prev => prev.map(w => w.id === wsId
+      ? { ...w, callSeriesFilters: (w.callSeriesFilters ?? []).filter(f => f !== topic) }
+      : w));
+  }, [markLocalWrite, setWorkspaces]);
+
   const canMutateDirectly = useCallback(() => {
     if (!currentUser) return false;
     if (ADMIN_IDS.includes(currentUser)) return true;
@@ -1815,6 +1832,9 @@ export function ModelProvider({
     migrateSubtask,
     createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,
     isOfficerOfWorkspace,
+    pinCallSeries,
+    unpinCallSeries,
+    currentWorkspaceId,
     undo: undoStack.undo,
     peek: undoStack.peek,
     stackLen: undoStack.stack.length,

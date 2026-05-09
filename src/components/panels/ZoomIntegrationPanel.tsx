@@ -24,8 +24,8 @@ type ZoomMeeting = { id: string | number; uuid: string; topic: string; startTime
 type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected"; sourceMeeting?: string; sourceDate?: string; sourceUUID?: string; dueDate?: string };
 type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string; dueDate: string };
 
-export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean }) {
-  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users } = useModel();
+export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmin: boolean; workspaceId?: string | null }) {
+  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users, workspaces, pinCallSeries, unpinCallSeries } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -115,6 +115,20 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
   const connected = status?.connected ?? false;
   const stateColor = connected ? t.green : configured ? t.amber : t.textDim;
   const pendingCount = proposals.filter(p => p.status === "pending").length;
+  const mono = "var(--font-dm-mono), monospace";
+
+  // Call series filtering — workspace-scoped
+  const activeWs = workspaceId ? workspaces.find(w => w.id === workspaceId) : null;
+  const callSeriesFilters: string[] = activeWs?.callSeriesFilters ?? [];
+
+  const pinSeries = (topic: string) => {
+    if (!activeWs || callSeriesFilters.includes(topic)) return;
+    pinCallSeries(activeWs.id, topic);
+  };
+  const unpinSeries = (topic: string) => {
+    if (!activeWs) return;
+    unpinCallSeries(activeWs.id, topic);
+  };
 
   const checkZoom = async () => {
     if (!configured || checking) return;
@@ -241,7 +255,6 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
 
   const pending = proposals.filter(p => p.status === "pending");
   const done = proposals.filter(p => p.status !== "pending");
-  const mono = "var(--font-dm-mono), monospace";
 
   return (
     <section style={{ marginBottom: 18, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, padding: 16 }}>
@@ -344,10 +357,18 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
               if (!meetingTopics.has(uuid)) meetingTopics.set(uuid, meta);
             }
 
-            const sortedCalls = Array.from(meetingTopics.entries())
+            const allSortedCalls = Array.from(meetingTopics.entries())
               .map(([uuid, meta]) => ({ uuid, ...meta }))
-              .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime())
-              .slice(0, 7);
+              .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
+
+            // Apply workspace series filter — if filters are set, only show matching topics
+            const sortedCalls = (callSeriesFilters.length > 0
+              ? allSortedCalls.filter(c => callSeriesFilters.includes(c.topic))
+              : allSortedCalls
+            ).slice(0, 7);
+
+            // All unique topics across every call ever seen (for the pin UI)
+            const allTopics = Array.from(new Set(allSortedCalls.map(c => c.topic)));
 
             if (syncing && sortedCalls.length === 0) {
               return <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
@@ -358,6 +379,42 @@ export function ZoomIntegrationPanel({ t, isAdmin }: { t: T; isAdmin: boolean })
 
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {/* Series filter chips — workspace-scoped, operator only */}
+                {activeWs && allTopics.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
+                    {allTopics.map(topic => {
+                      const pinned = callSeriesFilters.includes(topic);
+                      return (
+                        <button
+                          key={topic}
+                          type="button"
+                          onClick={() => pinned ? unpinSeries(topic) : pinSeries(topic)}
+                          data-tooltip={pinned ? `Remove "${topic}" from this workspace` : `Pin "${topic}" to this workspace`}
+                          style={{
+                            background: pinned ? t.accent + "18" : "transparent",
+                            border: `1px solid ${pinned ? t.accent + "66" : t.border}`,
+                            borderRadius: 20,
+                            padding: "2px 9px",
+                            fontSize: 11,
+                            fontWeight: pinned ? 800 : 500,
+                            color: pinned ? t.accent : t.textMuted,
+                            cursor: "pointer",
+                            fontFamily: mono,
+                            whiteSpace: "nowrap",
+                            transition: "all 0.12s",
+                          }}
+                        >
+                          {pinned ? "✓ " : ""}{topic}
+                        </button>
+                      );
+                    })}
+                    {callSeriesFilters.length > 0 && (
+                      <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center", marginLeft: 2 }}>
+                        · {sortedCalls.length} of {allSortedCalls.length}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {sortedCalls.map(call => {
                   const callPending = proposals.filter(p => p.status === "pending" && p.sourceUUID === call.uuid);
                   const callDone = proposals.filter(p => p.status !== "pending" && p.sourceUUID === call.uuid);

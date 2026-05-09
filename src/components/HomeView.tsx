@@ -1092,7 +1092,7 @@ export default function HomeView({
               onCancel={cancelExecProposal}
             />
           )}
-          <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} />
+          <ZoomIntegrationPanel t={t} isAdmin={attention.roleLabel === "root" || attention.roleLabel === "operator"} workspaceId={homeWsFilter} />
         </div>
       )}
 

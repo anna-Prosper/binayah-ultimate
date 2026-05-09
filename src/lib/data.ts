@@ -60,6 +60,7 @@ export interface Workspace {
   members: string[];    // user IDs who belong here (includes operators)
   captains: string[];   // operators — approve, manage members, change ranks (legacy field name kept for state compat)
   pipelineIds: string[]; // which pipelines live in this workspace
+  callSeriesFilters?: string[]; // Zoom meeting topic names pinned to this workspace; empty/absent = show all
 }
 
 export const DEFAULT_WORKSPACE_ID = "war-room";

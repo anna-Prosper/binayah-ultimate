@@ -8,8 +8,8 @@ const CallsView = dynamic(() => import("@/components/views/CallsView"), { ssr: f
 
 export default function CallsPage() {
   const isMobile = useIsMobile(768);
-  const { t } = useModel();
-  // CallsView is desktop-only in the legacy layout — preserve that.
+  const { t, workspaces, currentWorkspaceId } = useModel() as ReturnType<typeof useModel> & { currentWorkspaceId: string | null };
   if (isMobile) return null;
-  return <CallsView t={t} />;
+  const workspace = workspaces.find(w => w.id === currentWorkspaceId);
+  return <CallsView t={t} callSeriesFilters={workspace?.callSeriesFilters} />;
 }
