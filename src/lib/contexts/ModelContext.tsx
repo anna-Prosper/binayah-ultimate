@@ -1530,6 +1530,7 @@ export function ModelProvider({
     }
     if (approvedStages.includes(name)) return;
     const nextApprovedStages = [...approvedStages, name];
+    markLocalWrite("approvedStages");
     setApprovedStages(nextApprovedStages);
     logActivity("status", name, "→ approved");
 
@@ -1547,6 +1548,7 @@ export function ModelProvider({
     if (allStages.length === 0) return;
     const allApproved = allStages.every(s => nextApprovedStages.includes(s));
     if (!allApproved) return;
+    markLocalWrite("approvedPipelines");
     setApprovedPipelines(prev => [...prev, owningPipe.id]);
     const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
     const bonus = Math.floor(total * 0.25);
@@ -1560,6 +1562,7 @@ export function ModelProvider({
       showToast("// only an operator can approve", t.amber); return;
     }
     if (approvedSubtasks.includes(key)) return;
+    markLocalWrite("approvedSubtasks");
     setApprovedSubtasks(prev => [...prev, key]);
     const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
     const subText = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text : undefined;
