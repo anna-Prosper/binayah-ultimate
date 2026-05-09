@@ -44,8 +44,9 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws) return;
     if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", tAmber); return; }
     if (ws.members.includes(userId)) return;
+    markLocalWrite("workspaces");
     setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: [...w.members, userId] } : w));
-  }, [currentUser, workspaces, setWorkspaces, showToast, tAmber]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber]);
 
   const removeMemberFromWorkspace = useCallback((workspaceId: string, userId: string) => {
     if (!currentUser) return;
@@ -53,8 +54,9 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws) return;
     if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", tAmber); return; }
     if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only operator", tRed); return; }
+    markLocalWrite("workspaces");
     setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: w.members.filter(id => id !== userId), captains: w.captains.filter(id => id !== userId) } : w));
-  }, [currentUser, workspaces, setWorkspaces, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
 
   const setMemberRank = useCallback((workspaceId: string, userId: string, rank: "operator" | "agent") => {
     if (!currentUser) return;
@@ -62,13 +64,14 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws) return;
     if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can change ranks", tAmber); return; }
     if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "operator") { showToast("// can't demote the only operator", tRed); return; }
+    markLocalWrite("workspaces");
     setWorkspaces(prev => prev.map(w => {
       if (w.id !== workspaceId) return w;
       const captains = w.captains.filter(id => id !== userId);
       if (rank === "operator") captains.push(userId);
       return { ...w, captains, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
     }));
-  }, [currentUser, workspaces, setWorkspaces, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
 
   const deleteWorkspace = useCallback((workspaceId: string) => {
     if (!currentUser) return;
@@ -76,9 +79,10 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws) return;
     if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can delete a workspace", tAmber); return; }
     if (workspaces.length === 1) { showToast("// can't delete your last workspace", tRed); return; }
+    markLocalWrite("workspaces");
     setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
     showToast(`// workspace "${ws.name}" deleted`, tAmber);
-  }, [currentUser, workspaces, setWorkspaces, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
 
   return { createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace };
 }
