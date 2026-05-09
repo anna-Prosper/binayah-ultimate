@@ -615,7 +615,16 @@ export default function HomeView({
     });
     const allItems = [...stageItems, ...subtaskItems].filter(item => item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId));
     const myItems = allItems.filter(item => item.owners.includes(currentUser));
-    const freshActivity = activityLog.filter(a => a.time > dayAgo && a.user !== currentUser);
+    // Scope activity to the current workspace — entries carry a workspaceId since the
+    // per-key server merge refactor. Legacy entries without workspaceId are allowed through
+    // so old data isn't silently hidden. When homeWsFilter is null (all-workspaces view),
+    // restrict to workspaces the current user is a member of.
+    const scopedWsIds = new Set(scopedWorkspaces.map(w => w.id));
+    const freshActivity = activityLog.filter(a =>
+      a.time > dayAgo &&
+      a.user !== currentUser &&
+      (!a.workspaceId || scopedWsIds.has(a.workspaceId))
+    );
     const scopedMemberIds = new Set(scopedWorkspaces.flatMap(w => w.members));
     const scopedUsers = users.filter(u => scopedMemberIds.has(u.id));
     const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
@@ -640,8 +649,10 @@ export default function HomeView({
       const parsed = Date.parse(value || "");
       return Number.isFinite(parsed) ? parsed : 0;
     };
-    const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) =>
-      list
+    const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) => {
+      // Only include comments on stages that are visible in this workspace scope
+      if (!visibleStageIds.has(target)) return [];
+      return list
         .filter(c => c.text.includes("@"))
         .map(c => ({
           target,
@@ -651,10 +662,10 @@ export default function HomeView({
           title: stageNameLabel(target),
           directedToMe: mentionNeedles.some(n => c.text.toLowerCase().includes(n)),
           source: "comment" as const,
-        }))
-    );
+        }));
+    });
     const chatInteractions = (chatMessages || [])
-      .filter(msg => msg.text.includes("@"))
+      .filter(msg => msg.text.includes("@") && (!msg.workspaceId || scopedWsIds.has(msg.workspaceId)))
       .map(msg => ({
         target: "chat",
         text: msg.text,
