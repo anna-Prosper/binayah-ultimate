@@ -117,17 +117,26 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
   const pendingCount = proposals.filter(p => p.status === "pending").length;
   const mono = "var(--font-dm-mono), monospace";
 
-  // Call series filtering — workspace-scoped
+  // Call series filtering — workspace-scoped.
+  // Use the explicitly passed workspaceId (from homeWsFilter) when available;
+  // fall back to each individual workspace's pinned series for display.
   const activeWs = workspaceId ? workspaces.find(w => w.id === workspaceId) : null;
+
+  // Which topics are pinned to which workspace (for display when no specific ws selected)
+  const allPinnedByWs = workspaces.map(w => ({ ws: w, pins: w.callSeriesFilters ?? [] }));
+
+  // When a specific workspace is selected, filter down to its series
   const callSeriesFilters: string[] = activeWs?.callSeriesFilters ?? [];
 
-  const pinSeries = (topic: string) => {
-    if (!activeWs || callSeriesFilters.includes(topic)) return;
-    pinCallSeries(activeWs.id, topic);
+  const pinSeries = (topic: string, wsId?: string) => {
+    const targetId = wsId ?? activeWs?.id;
+    if (!targetId || workspaces.find(w => w.id === targetId)?.callSeriesFilters?.includes(topic)) return;
+    pinCallSeries(targetId, topic);
   };
-  const unpinSeries = (topic: string) => {
-    if (!activeWs) return;
-    unpinCallSeries(activeWs.id, topic);
+  const unpinSeries = (topic: string, wsId?: string) => {
+    const targetId = wsId ?? activeWs?.id;
+    if (!targetId) return;
+    unpinCallSeries(targetId, topic);
   };
 
   const checkZoom = async () => {
@@ -379,39 +388,73 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
 
             return (
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {/* Series filter chips — workspace-scoped, operator only */}
-                {activeWs && allTopics.length > 0 && (
-                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 2 }}>
-                    {allTopics.map(topic => {
-                      const pinned = callSeriesFilters.includes(topic);
-                      return (
-                        <button
-                          key={topic}
-                          type="button"
-                          onClick={() => pinned ? unpinSeries(topic) : pinSeries(topic)}
-                          data-tooltip={pinned ? `Remove "${topic}" from this workspace` : `Pin "${topic}" to this workspace`}
-                          style={{
-                            background: pinned ? t.accent + "18" : "transparent",
-                            border: `1px solid ${pinned ? t.accent + "66" : t.border}`,
-                            borderRadius: 20,
-                            padding: "2px 9px",
-                            fontSize: 11,
-                            fontWeight: pinned ? 800 : 500,
-                            color: pinned ? t.accent : t.textMuted,
-                            cursor: "pointer",
-                            fontFamily: mono,
-                            whiteSpace: "nowrap",
-                            transition: "all 0.12s",
-                          }}
-                        >
-                          {pinned ? "✓ " : ""}{topic}
-                        </button>
-                      );
-                    })}
-                    {callSeriesFilters.length > 0 && (
-                      <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center", marginLeft: 2 }}>
-                        · {sortedCalls.length} of {allSortedCalls.length}
-                      </span>
+                {/* Series pin chips — always visible when there are calls */}
+                {allTopics.length > 0 && (
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono, marginBottom: 5, letterSpacing: 0.4 }}>
+                      pin series to workspace:
+                    </div>
+                    {/* When a specific workspace is selected: single-row chips */}
+                    {activeWs ? (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                        {allTopics.map(topic => {
+                          const pinned = callSeriesFilters.includes(topic);
+                          return (
+                            <button
+                              key={topic}
+                              type="button"
+                              onClick={() => pinned ? unpinSeries(topic) : pinSeries(topic)}
+                              data-tooltip={pinned ? `Unpin from ${activeWs.name}` : `Pin to ${activeWs.name}`}
+                              style={{
+                                background: pinned ? t.accent + "18" : t.bgCard,
+                                border: `1px solid ${pinned ? t.accent + "66" : t.border}`,
+                                borderRadius: 20, padding: "3px 10px",
+                                fontSize: 12, fontWeight: pinned ? 800 : 500,
+                                color: pinned ? t.accent : t.textMuted,
+                                cursor: "pointer", fontFamily: mono,
+                                whiteSpace: "nowrap", transition: "all 0.12s",
+                              }}
+                            >
+                              {pinned ? "📌 " : ""}{topic}
+                            </button>
+                          );
+                        })}
+                        {callSeriesFilters.length > 0 && (
+                          <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, alignSelf: "center", marginLeft: 2 }}>
+                            · showing {sortedCalls.length} of {allSortedCalls.length}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      /* No workspace selected: show each topic with per-workspace pin toggles */
+                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                        {allTopics.map(topic => (
+                          <div key={topic} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                            <span style={{ fontSize: 12, color: t.text, fontWeight: 600, minWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
+                            {workspaces.filter(w => !["guest1","guest2"].some(g => w.members.length === 1 && w.members[0] === g)).map(w => {
+                              const pinned = (w.callSeriesFilters ?? []).includes(topic);
+                              return (
+                                <button
+                                  key={w.id}
+                                  type="button"
+                                  onClick={() => pinned ? unpinSeries(topic, w.id) : pinSeries(topic, w.id)}
+                                  style={{
+                                    background: pinned ? w.colorKey === "purple" ? t.accent + "18" : t.green + "18" : t.bgCard,
+                                    border: `1px solid ${pinned ? t.accent + "55" : t.border}`,
+                                    borderRadius: 20, padding: "2px 8px",
+                                    fontSize: 11, fontWeight: pinned ? 800 : 400,
+                                    color: pinned ? t.accent : t.textMuted,
+                                    cursor: "pointer", fontFamily: mono,
+                                    whiteSpace: "nowrap", transition: "all 0.12s",
+                                  }}
+                                >
+                                  {pinned ? "📌 " : "+ "}{w.icon} {w.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
                 )}
