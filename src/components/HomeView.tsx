@@ -529,10 +529,11 @@ export default function HomeView({
     } else {
       for (const w of myWorkspaces) for (const pid of w.pipelineIds) ids.add(pid);
     }
-    // Also include pipelines that contain any stage/subtask the current user owns or is assigned to.
-    // This guarantees the "mine" tab can never miss a user\'s items, even if a pipeline isn\'t
-    // explicitly linked to one of their workspaces.
-    if (currentUser) {
+    // When no specific workspace is selected, also include pipelines where the current
+    // user owns a stage/subtask even if the pipeline isn't explicitly linked to a workspace.
+    // This only applies to the all-workspaces view — when a workspace IS selected, strict
+    // containment applies so owned stages from OTHER workspaces don't bleed in.
+    if (!homeWsFilter && currentUser) {
       const userInList = (key: string) =>
         (claims[key] || []).includes(currentUser) ||
         (assignments[key] || []).includes(currentUser) ||
