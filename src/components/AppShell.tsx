@@ -400,7 +400,7 @@ function ShellInner({
           else if (item === "chat") { setShowChat(false); setChatNotif(null); }
           else { setShowActivity(false); setShowChat(false); }
         }}
-        workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length }))}
+        workspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, memberCount: w.members.length, callsLabel: w.callsLabel }))}
         currentWorkspaceId={currentWorkspaceId}
         onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); }}
         canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)}

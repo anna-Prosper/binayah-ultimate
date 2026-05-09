@@ -215,6 +215,7 @@ interface ModelContextValue {
   isOfficerOfWorkspace: (workspaceId: string) => boolean;
   pinCallSeries: (workspaceId: string, topic: string) => void;
   unpinCallSeries: (workspaceId: string, topic: string) => void;
+  setWorkspaceCallsLabel: (workspaceId: string, label: string) => void;
   currentWorkspaceId: string | null;
 
   // Undo stack
@@ -1029,6 +1030,13 @@ export function ModelProvider({
       : w));
   }, [markLocalWrite, setWorkspaces]);
 
+  const setWorkspaceCallsLabel = useCallback((wsId: string, label: string) => {
+    markLocalWrite("workspaces");
+    setWorkspaces(prev => prev.map(w => w.id === wsId
+      ? { ...w, callsLabel: label.trim() || undefined }
+      : w));
+  }, [markLocalWrite, setWorkspaces]);
+
   const canMutateDirectly = useCallback(() => {
     if (!currentUser) return false;
     if (ADMIN_IDS.includes(currentUser)) return true;
@@ -1834,6 +1842,7 @@ export function ModelProvider({
     isOfficerOfWorkspace,
     pinCallSeries,
     unpinCallSeries,
+    setWorkspaceCallsLabel,
     currentWorkspaceId,
     undo: undoStack.undo,
     peek: undoStack.peek,

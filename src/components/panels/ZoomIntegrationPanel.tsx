@@ -25,7 +25,7 @@ type TaskProposal = { id: number; title: string; pipelineId: string; pipelineNam
 type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string; dueDate: string };
 
 export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmin: boolean; workspaceId?: string | null }) {
-  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users, workspaces, pinCallSeries, unpinCallSeries } = useModel();
+  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users, workspaces, pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -104,6 +104,9 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
 
     return () => { alive = false; };
   }, [isAdmin]);
+
+  const [editingLabel, setEditingLabel] = useState(false);
+  const [labelDraft, setLabelDraft] = useState("");
 
   const [sectionCollapsed, setSectionCollapsed] = useState(() => {
     try { return localStorage.getItem("home_section_zoom") === "1"; } catch { return false; }
@@ -312,7 +315,29 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
               <div style={{ fontSize: 13, color: t.text, fontWeight: 850, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                 {selectedCall
                   ? <>{zoomMeetings.find(m => m.uuid === selectedCall)?.topic || selectedCall} <span style={{ color: t.accent, marginLeft: 4 }}>{pending.filter(p => p.sourceUUID === selectedCall).length} tasks</span></>
-                  : <>recent calls {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 11, fontWeight: 400, marginLeft: 6 }}>syncing…</span>}</>
+                  : (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                      {editingLabel ? (
+                        <input
+                          autoFocus
+                          value={labelDraft}
+                          onChange={e => setLabelDraft(e.target.value)}
+                          onBlur={() => { if (activeWs) setWorkspaceCallsLabel(activeWs.id, labelDraft); setEditingLabel(false); }}
+                          onKeyDown={e => { if (e.key === "Enter") { if (activeWs) setWorkspaceCallsLabel(activeWs.id, labelDraft); setEditingLabel(false); } if (e.key === "Escape") setEditingLabel(false); }}
+                          style={{ background: "transparent", border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "1px 6px", fontSize: 13, color: t.text, fontWeight: 850, fontFamily: mono, width: 160, outline: "none" }}
+                        />
+                      ) : (
+                        <span
+                          onClick={() => { if (activeWs) { setLabelDraft(activeWs.callsLabel || ""); setEditingLabel(true); } }}
+                          data-tooltip={activeWs ? "Click to rename this tab" : undefined}
+                          style={{ cursor: activeWs ? "text" : "default" }}
+                        >
+                          {activeWs?.callsLabel || "recent calls"}
+                        </span>
+                      )}
+                      {syncing && <span style={{ color: t.accent, fontFamily: mono, fontSize: 11, fontWeight: 400 }}>syncing…</span>}
+                    </span>
+                  )
                 }
               </div>
             </div>

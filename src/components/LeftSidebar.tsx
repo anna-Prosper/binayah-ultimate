@@ -19,6 +19,7 @@ export interface SidebarWorkspace {
   name: string;
   icon: string;
   memberCount: number;
+  callsLabel?: string;
 }
 
 interface Props {
@@ -168,7 +169,7 @@ export default function LeftSidebar({
         }}
       >
         <span style={{ display: "flex", alignItems: "center" }}>{NAV_ICONS[item.id]}</span>
-        <span>{item.label}</span>
+        <span>{item.id === "calls" && current?.callsLabel ? current.callsLabel : item.label}</span>
       </Link>
     );
   };
