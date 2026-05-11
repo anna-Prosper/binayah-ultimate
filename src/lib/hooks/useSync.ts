@@ -129,6 +129,10 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
   const retryCountRef = useRef(0);
+  // Track whether there are unflushed local changes. Set true by scheduleWrite
+  // and writeNow; cleared inside doWrite on successful PATCH. Read by the
+  // beforeunload handler to decide whether to fire a final sendBeacon.
+  const dirtyRef = useRef(false);
   // Forward ref so the hydrate effect can call scheduleWrite without depending on it
   const scheduleWriteRef = useRef<(() => void) | null>(null);
 
@@ -144,6 +148,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
         if (res.ok) {
           if (onWriteSuccess) onWriteSuccess(sent);
           retryCountRef.current = 0;
+          dirtyRef.current = false;
           setStatus("live");
           return;
         }
@@ -173,6 +178,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
   }, [getPatch, onWriteSuccess]);
 
   const scheduleWrite = useCallback(() => {
+    dirtyRef.current = true;
     // Pre-hydrate: queue a flush once hydrate resolves.
     if (!isHydratedRef.current) {
       pendingWriteRef.current = true;
@@ -199,6 +205,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
   // (those guards still apply — we can't safely write before hydrate has merged
   // the server's truth, and a parallel write would race).
   const writeNow = useCallback(() => {
+    dirtyRef.current = true;
     if (!isHydratedRef.current || inFlightRef.current) {
       pendingWriteRef.current = true;
       return;
@@ -210,30 +217,32 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
     void doWrite();
   }, [doWrite]);
 
-  // beforeunload: flush any pending debounced write synchronously via sendBeacon.
-  // Without this, a user who creates a task and reloads within 1.5s loses the
-  // change — the timeout never fires and the PATCH never lands. sendBeacon
-  // bypasses page lifecycle and is the standard "fire-and-forget on unload"
-  // mechanism. Only fires when there's an unflushed change pending.
+  // beforeunload: if there are unflushed changes, fire sendBeacon synchronously.
+  // Without this, three scenarios lose data:
+  //   1. debounce armed but not yet fired — timeout dies with the page
+  //   2. writeNow fired but request in-flight — browsers cancel pending XHR/fetch
+  //      on navigation; the request never reaches the server
+  //   3. retry sleeping after transient failure — same as (2)
+  // sendBeacon is fire-and-forget, queued by the browser even after unload, and
+  // is the standard escape hatch for "save-before-leave". The server's PATCH
+  // merge is idempotent so a duplicate (with an in-flight request) is harmless.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onBeforeUnload = () => {
       if (!isHydratedRef.current) return;
-      // If a debounce is armed, the write hasn't been sent yet — flush it now.
+      if (!dirtyRef.current && !debounceRef.current && !inFlightRef.current) return;
       if (debounceRef.current) {
         clearTimeout(debounceRef.current);
         debounceRef.current = null;
-        try {
-          const sent = getPatch();
-          const blob = new Blob(
-            [JSON.stringify({ ...sent, updatedAt: Date.now() })],
-            { type: "application/json" }
-          );
-          // sendBeacon returns false if the body is too large or unsupported —
-          // nothing we can do about it on unload, the best-effort attempt was made.
-          navigator.sendBeacon?.("/api/pipeline-state", blob);
-        } catch { /* swallow — unload context, no UI to surface to */ }
       }
+      try {
+        const sent = getPatch();
+        const blob = new Blob(
+          [JSON.stringify({ ...sent, updatedAt: Date.now() })],
+          { type: "application/json" }
+        );
+        navigator.sendBeacon?.("/api/pipeline-state", blob);
+      } catch { /* swallow — unload context, no UI to surface to */ }
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
