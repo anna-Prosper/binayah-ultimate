@@ -229,6 +229,25 @@ export function validateNestedKeys(obj: unknown, depth = 0): boolean {
 }
 
 /**
+ * Like validateNestedKeys but returns the dotted path of the first bad key found,
+ * or null if everything is clean. Used by the PATCH handler to give the client a
+ * specific reason when pushes fail — previously the error was just "INVALID_KEY"
+ * with no clue which slice or which entry was broken.
+ */
+export function findForbiddenNestedKey(obj: unknown, path = "", depth = 0): string | null {
+  if (depth > 6) return null;
+  if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return null;
+  for (const k of Object.keys(obj as Record<string, unknown>)) {
+    const here = path ? `${path}.${k}` : k;
+    if (FORBIDDEN_KEY_PATTERN.test(k)) return here;
+    const child = (obj as Record<string, unknown>)[k];
+    const inner = findForbiddenNestedKey(child, here, depth + 1);
+    if (inner) return inner;
+  }
+  return null;
+}
+
+/**
  * Validate a stage key before interpolating it into a MongoDB path
  * (e.g., `state.comments.${stage}`). Rejects keys containing Mongo
  * operators or prototype-pollution vectors, and caps length.

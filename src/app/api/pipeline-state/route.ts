@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys } from "@/lib/validate";
+import { checkContentLength, validatePatchKeys, validateSubtasks, validateNestedKeys, findForbiddenNestedKey } from "@/lib/validate";
 import { mergeStateWithPatch, type DeletesEnvelope } from "@/lib/pipelineStateMerge";
 import { PatchBodySchema } from "@/lib/patchSchema";
 import { logApi } from "@/lib/log";
@@ -204,8 +204,12 @@ export async function PATCH(req: NextRequest) {
 
   // Recursive nested-key validation — blocks $ / . in map keys at any depth.
   if (!validateNestedKeys(cleanPatch)) {
-    logApi(ROUTE, "key_injection_blocked", { reason: "nested key contains forbidden characters" });
-    return NextResponse.json({ error: "INVALID_KEY" }, { status: 400 });
+    const badPath = findForbiddenNestedKey(cleanPatch) || "(unknown)";
+    logApi(ROUTE, "key_injection_blocked", { badPath });
+    // Return the specific path so the client console.error shows which slice
+    // and which entry is invalid — without this every PATCH after a single bad
+    // key fails silently and "tasks disappear on reload".
+    return NextResponse.json({ error: "INVALID_KEY", reason: `forbidden character in key: ${badPath}` }, { status: 400 });
   }
 
   // Subtask bounds validation
