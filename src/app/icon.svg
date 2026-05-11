@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a0429"/>
+      <stop offset="100%" stop-color="#0a0118"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#c084fc"/>
+      <stop offset="50%" stop-color="#a855f7"/>
+      <stop offset="100%" stop-color="#7c3aed"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <rect x="0.5" y="0.5" width="63" height="63" rx="13.5" fill="none" stroke="#a855f7" stroke-opacity="0.35" stroke-width="1"/>
+  <path d="M36 8 L18 34 L29 34 L24 56 L46 28 L34 28 L40 8 Z"
+        fill="url(#bolt)"
+        filter="url(#glow)"/>
+  <circle cx="11" cy="11" r="1.5" fill="#06b6d4" opacity="0.7"/>
+  <circle cx="53" cy="53" r="1.5" fill="#ec4899" opacity="0.7"/>
+</svg>

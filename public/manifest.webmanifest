@@ -1,0 +1,15 @@
+{
+  "name": "Binayah Ultimate · Command Center",
+  "short_name": "Binayah",
+  "description": "9 pipelines, 1 brain, 0 dropped balls.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0118",
+  "theme_color": "#a855f7",
+  "orientation": "portrait-primary",
+  "categories": ["productivity", "business"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/apple-icon", "sizes": "180x180", "type": "image/png", "purpose": "maskable" }
+  ]
+}

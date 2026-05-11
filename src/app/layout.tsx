@@ -17,38 +17,68 @@ const dmMono = DM_Mono({
   display: "swap",
 });
 
+// Next.js 16 auto-detects icon.svg / apple-icon.tsx / opengraph-image.tsx in
+// app/ — no need to declare them here. Keep favicon-specific metadata minimal.
 export const metadata: Metadata = {
-  title: "Binayah Ultimate · Command Center",
-  description: "AI-powered pipeline tracker and command center for the Binayah Properties tech team. Track stages, manage ownership, and ship faster.",
-  keywords: ["binayah", "pipeline", "project management", "AI", "real estate tech"],
-  authors: [{ name: "Binayah Properties" }],
-  creator: "Binayah Properties",
-  robots: "noindex, nofollow",
-  icons: {
-    icon: [
-      { url: "/favicon.png", type: "image/png" },
-    ],
-    apple: "/favicon.png",
+  metadataBase: new URL("https://dashboard.binayahhub.com"),
+  title: {
+    default: "Binayah Ultimate · Command Center",
+    template: "%s · Binayah Ultimate",
   },
+  description:
+    "The command center for the Binayah tech team. 9 pipelines, 1 brain, 0 dropped balls. Track stages, claim work, ship faster.",
+  applicationName: "Binayah Ultimate",
+  keywords: [
+    "binayah",
+    "command center",
+    "pipeline tracker",
+    "project management",
+    "ai dashboard",
+    "real estate tech",
+    "gamification",
+  ],
+  authors: [{ name: "Binayah Properties", url: "https://binayahhub.com" }],
+  creator: "Binayah Properties",
+  publisher: "Binayah Properties",
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false, noimageindex: true },
+  },
+  formatDetection: { email: false, address: false, telephone: false },
+  manifest: "/manifest.webmanifest",
   openGraph: {
     title: "Binayah Ultimate · Command Center",
-    description: "AI-powered pipeline tracker for the Binayah tech team",
+    description:
+      "The command center for the Binayah tech team. 9 pipelines, 1 brain, 0 dropped balls.",
     type: "website",
     locale: "en_US",
+    siteName: "Binayah Ultimate",
+    url: "https://dashboard.binayahhub.com",
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: "Binayah Ultimate · Command Center",
-    description: "AI-powered pipeline tracker for the Binayah tech team",
+    description:
+      "9 pipelines, 1 brain, 0 dropped balls. // ship together.",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Binayah",
+    statusBarStyle: "black-translucent",
   },
 };
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
+  // Theme color tints the mobile browser chrome (Safari/Chrome). Use the warroom
+  // dark bg + purple accent so the system UI blends into our cyberpunk vibe
+  // instead of clashing with a generic white bar.
   themeColor: [
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0f" },
-    { media: "(prefers-color-scheme: light)", color: "#f5f5f7" },
+    { media: "(prefers-color-scheme: dark)", color: "#0a0118" },
+    { media: "(prefers-color-scheme: light)", color: "#fef3ff" },
   ],
 };
 
