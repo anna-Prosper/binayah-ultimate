@@ -833,8 +833,8 @@ export default function Stage({
               position: "absolute",
               bottom: 8,
               right: 8,
-              width: 26,
-              height: 26,
+              width: 30,
+              height: 30,
               borderRadius: 8,
               background: stageEditMode ? pC + "22" : t.bgCard,
               border: `1px solid ${stageEditMode ? pC + "88" : t.border}`,
@@ -844,8 +844,9 @@ export default function Stage({
               alignItems: "center",
               justifyContent: "center",
               color: stageEditMode ? pC : t.textMuted,
-              opacity: (isHovered || stageEditMode) ? 1 : 0.25,
+              opacity: stageEditMode ? 1 : isHovered ? 0.85 : 0.55,
               transition: "all 0.15s",
+              zIndex: 10,
             }}
           >&#9998;</button>
         )}
