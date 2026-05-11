@@ -1709,7 +1709,12 @@ export function ModelProvider({
 
   const addCustomStage = (pid: string, val: string) => {
     if (!val) return;
-    const trimmed = val.trim();
+    // Strip `.` and `$` — stage names are used as MongoDB map keys (owners,
+    // stageStatusOverrides, etc.) and Mongo rejects those characters. A single
+    // bad stage name silently bricks every PATCH from every user (see
+    // /api/admin/sanitize-state for the cleanup history). Sanitize at the
+    // creation boundary so the bug can't recur.
+    const trimmed = val.trim().replace(/[.$]/g, "_");
     if (!trimmed) return;
     // Stage names are the IDs in this dashboard. Adding a duplicate would alias
     // the new card onto the existing stage's state (claims, comments, status…),
@@ -1740,7 +1745,8 @@ export function ModelProvider({
   // an LLM-suggested point value, stored as stagePointsOverride. Optimistic — if the LLM
   // call fails the stage still gets created with the default point fallback.
   const addUnparentedStage = useCallback(async (title: string): Promise<string | null> => {
-    const trimmed = title.trim();
+    // See addCustomStage — strip Mongo-forbidden characters from the stage name.
+    const trimmed = title.trim().replace(/[.$]/g, "_");
     if (!trimmed) return null;
     // Use trimmed title as the stage name (which is also the stage ID — names are IDs in this dashboard)
     markLocalWrite("customStages");
