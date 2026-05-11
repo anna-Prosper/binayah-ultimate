@@ -552,6 +552,14 @@ export default function HomeView({
   }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
+
+  // Users scoped to the active workspace filter (or all user's workspaces when no filter is set)
+  const scopedUsers = useMemo(() => {
+    const scopedWorkspaces = homeWsFilter ? myWorkspaces.filter(w => w.id === homeWsFilter) : myWorkspaces;
+    const scopedMemberIds = new Set(scopedWorkspaces.flatMap(w => w.members));
+    return users.filter(u => scopedMemberIds.has(u.id));
+  }, [users, myWorkspaces, homeWsFilter]);
+
   const attention = useMemo(() => {
     const dayAgo = overviewNow - 24 * 60 * 60 * 1000;
     const weekAgo = overviewNow - 7 * 24 * 60 * 60 * 1000;
@@ -1062,7 +1070,7 @@ export default function HomeView({
           <AttentionOverview
             t={t}
             attention={attention}
-            users={users}
+            users={scopedUsers}
             currentUser={currentUser}
             execProposals={execProposals.filter(p => p.kind === "strategy" || EXEC_IDS.includes(p.by))}
             onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt })}

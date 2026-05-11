@@ -49,6 +49,7 @@ const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
 interface ModelContextValue {
   // Users / identity
   users: UserType[];
+  workspaceUsers: UserType[];
   setUsers: React.Dispatch<React.SetStateAction<UserType[]>>;
   currentUser: string | null;
   setCurrentUser: React.Dispatch<React.SetStateAction<string | null>>;
@@ -1914,8 +1915,15 @@ export function ModelProvider({
     });
   }, [currentUser, markLocalWrite]);
 
+  const workspaceUsers = useMemo(() => {
+    if (!currentWorkspaceId) return users;
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    if (!ws) return users;
+    return users.filter(u => ws.members.includes(u.id));
+  }, [users, workspaces, currentWorkspaceId]);
+
   const value = useMemo<ModelContextValue>(() => ({
-    users, setUsers, currentUser, setCurrentUser, me,
+    users, workspaceUsers, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
     owners,
     claims, reactions, comments, subtasks, assignments, ownership,
@@ -1964,7 +1972,7 @@ export function ModelProvider({
     t,
   }), [
     // State values
-    users, currentUser, me, streakByUser,
+    users, workspaceUsers, currentUser, me, streakByUser,
     owners, claims, reactions, comments, subtasks,
     commentReactions,
     notifReads, notifDismissed, notifReadIds,

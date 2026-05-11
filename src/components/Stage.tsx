@@ -72,7 +72,7 @@ function StageSubtaskCard({
   onRemove: () => void;
 }) {
   const {
-    users, currentUser, reactions, comments, claims, assignments,
+    users, workspaceUsers, currentUser, reactions, comments, claims, assignments,
     handleClaim, handleReact, addComment, assignTask, renameSubtask, setSubtaskPoints,
     approvedSubtasks, approveSubtask, workspaces,
     getSubtaskStatus, cycleSubtaskStatus, sc,
@@ -123,12 +123,12 @@ function StageSubtaskCard({
       return;
     }
     const q = mention.query.toLowerCase();
-    const matches = users.filter(u =>
+    const matches = workspaceUsers.filter(u =>
       u.name.split(" ")[0].toLowerCase().startsWith(q) ||
       u.id.toLowerCase().startsWith(q)
     ).slice(0, 6);
     setMentionDropdown({ matches, selectedIdx: 0 });
-  }, [users]);
+  }, [workspaceUsers]);
 
   const insertSubtaskMention = useCallback((user: UserType) => {
     const mention = detectMention(commentInputVal);
@@ -301,7 +301,7 @@ function StageSubtaskCard({
               <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
                 assign — up to 2 ({assigneeList.length}/2)
               </div>
-              {users.map(u => {
+              {workspaceUsers.map(u => {
                 const isCurrent = assigneeList.some(a => a.id === u.id);
                 const atCap = assigneeList.length >= 2 && !isCurrent;
                 return (
@@ -420,7 +420,7 @@ export default function Stage({
   isTopClaim = false,
 }: StageProps) {
   const {
-    claims, reactions: rxns, comments, subtasks, users, currentUser, me,
+    claims, reactions: rxns, comments, subtasks, users, workspaceUsers, currentUser, me,
     stageDescOverrides, stageImages, liveNotifs, activityLog,
     handleClaim, handleReact, cycleStatus,
     addSubtask, archiveSubtask, addComment, deleteComment,
@@ -540,7 +540,7 @@ export default function Stage({
     const mention = detectMention(val);
     if (mention) {
       const q = mention.query.toLowerCase();
-      const matches = users.filter(u =>
+      const matches = workspaceUsers.filter(u =>
         u.name.split(" ")[0].toLowerCase().startsWith(q) ||
         u.id.toLowerCase().startsWith(q)
       ).slice(0, 6);

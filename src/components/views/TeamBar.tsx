@@ -16,7 +16,7 @@ interface TeamBarProps {
 }
 
 export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, currentWorkspaceId, onAvatarClick }: TeamBarProps) {
-  const { users, currentUser, claims, getStatus, getPoints, workspaces, streakByUser, t } = useModel();
+  const { users, workspaceUsers, currentUser, claims, getStatus, getPoints, workspaces, streakByUser, t } = useModel();
   const popupRef = useRef<HTMLDivElement>(null);
   const currentWorkspace = workspaces.find(w => w.id === currentWorkspaceId) || null;
 
@@ -30,7 +30,7 @@ export default function TeamBar({ ptsFlash, viewingUser, setViewingUser, current
 
   return (
     <div className="bu-team" style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 16, padding: "12px 16px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, flexWrap: "wrap" }}>
-      {users.map(u => {
+      {workspaceUsers.map(u => {
         const isMe = u.id === currentUser;
         const uPts = getPoints(u.id);
         const claimedStages = Object.entries(claims).filter(([, cl]) => (cl as string[]).includes(u.id)).map(([s]) => s);

@@ -889,7 +889,7 @@ function TaskCard({
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
   availablePipelines, getPoints, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline } = useModel();
+  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, workspaceUsers } = useModel();
   const stagePriority = stagePriorities[task.stageId];
   const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
@@ -1257,7 +1257,7 @@ function TaskCard({
       {showCommentPopover && (
         <CommentPopover
           t={t}
-          users={users}
+          users={workspaceUsers}
           comments={cmts}
           currentUser={currentUser}
           inputValue={commentInput[task.stageId] || ""}
@@ -1290,7 +1290,7 @@ function SubtaskCard({
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [descVal, setDescVal] = useState("");
@@ -1523,7 +1523,7 @@ function SubtaskCard({
       {showCommentPopover && (
         <CommentPopover
           t={t}
-          users={users}
+          users={workspaceUsers}
           comments={cmts}
           currentUser={currentUser}
           inputValue={commentInput[key] || ""}
@@ -1551,7 +1551,7 @@ function SubtaskKanbanCard({
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
@@ -1818,7 +1818,7 @@ function SubtaskKanbanCard({
         {showCommentPopover && (
           <CommentPopover
             t={t}
-            users={users}
+            users={workspaceUsers}
             comments={cmts}
             currentUser={currentUser}
             inputValue={commentInput[sub.key] || ""}

@@ -18,7 +18,7 @@ interface ChatViewProps {
 }
 
 export default function ChatView({ showToast, fullScreen, defaultTab, defaultDmUserId, currentWorkspaceId }: ChatViewProps) {
-  const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
+  const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, workspaceUsers, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
   const highlightId = useSearchParams().get("highlight");
 
   const allPipelines = currentWorkspaceId
@@ -45,7 +45,7 @@ export default function ChatView({ showToast, fullScreen, defaultTab, defaultDmU
     const me = users.find(u => u.id === currentUser);
     const lines: string[] = [];
     lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
-    lines.push(`Team: ${users.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
+    lines.push(`Team: ${workspaceUsers.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
     lines.push(""); lines.push(`Pipelines (${allPipelines.length}):`);
     allPipelines.forEach((p, pi) => {
       const stages = [...p.stages, ...(customStages[p.id] || [])];
@@ -60,7 +60,7 @@ export default function ChatView({ showToast, fullScreen, defaultTab, defaultDmU
   return (
     <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
       <Suspense fallback={<ChatSkeleton t={t} />}>
-        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={users} currentUser={currentUser!} workspaceId={currentWorkspaceId || "main"} t={t} defaultTab={defaultTab || "team"} defaultDmUserId={defaultDmUserId} onLoadMore={loadMoreMessages} onLoadThread={loadThread} hasMore={hasMoreMessages} buildAiContext={buildAiContext} highlightMessageId={highlightId ? Number(highlightId) : undefined} />
+        <ChatPanel fullScreen={fullScreen} messages={filteredMessages} onSend={sendChat} onRemoteMessage={handleRemoteMessage} users={workspaceUsers} currentUser={currentUser!} workspaceId={currentWorkspaceId || "main"} t={t} defaultTab={defaultTab || "team"} defaultDmUserId={defaultDmUserId} onLoadMore={loadMoreMessages} onLoadThread={loadThread} hasMore={hasMoreMessages} buildAiContext={buildAiContext} highlightMessageId={highlightId ? Number(highlightId) : undefined} />
       </Suspense>
     </ErrorBoundary>
   );
