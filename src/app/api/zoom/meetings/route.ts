@@ -251,13 +251,16 @@ export async function GET(req: NextRequest) {
     proposals: CachedProposal[];
     summaries: CachedSummary[];
     processedUUIDs: string[];
+    dismissedProposalIds?: number[];
     updatedAt: Date;
   } | null;
 
+  const dismissedSet = new Set(cache?.dismissedProposalIds ?? []);
   const isStale = !cache || (Date.now() - new Date(cache.updatedAt).getTime() > CACHE_TTL_MS);
 
   if (!isStale && cache?.meetings?.length) {
-    const { homeMeetings, homeProposals } = limitHomeData(cache.meetings, cache.proposals ?? [], cache.summaries ?? []);
+    const visibleProposals = (cache.proposals ?? []).filter(p => !dismissedSet.has(p.id));
+    const { homeMeetings, homeProposals } = limitHomeData(cache.meetings, visibleProposals, cache.summaries ?? []);
     return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries: cache.summaries ?? [], cached: true, updatedAt: cache.updatedAt });
   }
 
@@ -268,7 +271,8 @@ export async function GET(req: NextRequest) {
     { upsert: true }
   );
 
-  const { homeMeetings, homeProposals } = limitHomeData(meetings, proposals, summaries);
+  const visibleProposals = proposals.filter(p => !dismissedSet.has(p.id));
+  const { homeMeetings, homeProposals } = limitHomeData(meetings, visibleProposals, summaries);
   return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries, cached: false, updatedAt: new Date() });
 }
 

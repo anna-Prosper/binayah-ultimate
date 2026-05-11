@@ -639,3 +639,8 @@ export async function PATCH(req: NextRequest) {
 
   return NextResponse.json((doc as { state?: unknown } | null)?.state || {});
 }
+
+// sendBeacon (used on beforeunload to flush pending writes) only supports POST,
+// not PATCH. Accept POST here as an alias for PATCH so we don't lose user changes
+// when the page unloads between debounce arm and debounce fire.
+export const POST = PATCH;

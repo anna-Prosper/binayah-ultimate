@@ -911,7 +911,11 @@ export function ModelProvider({
     }
   }, [MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
 
-  const { status: syncStatus, scheduleWrite, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, onWriteSuccess });
+  const { status: syncStatus, scheduleWrite, writeNow, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, onWriteSuccess });
+  // Stash in a ref so handlers defined before scheduleWrite/writeNow are stable
+  // can still trigger an immediate flush (e.g. addCustomStage closes over this).
+  const writeNowRef = useRef(writeNow);
+  useEffect(() => { writeNowRef.current = writeNow; }, [writeNow]);
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
   const setSyncStatus: (status: string) => void = useCallback(() => setOffline(), [setOffline]);
   setSyncStatusRef.current = setSyncStatus;
@@ -1719,9 +1723,14 @@ export function ModelProvider({
     }
     markLocalWrite("customStages");
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), trimmed] }));
-    markLocalWrite("stageStatusOverrides");
-    setStageStatusOverrides(prev => ({ ...prev, [trimmed]: "planned" }));
     logActivity("create", trimmed, `added task to ${pid}`, ADMIN_IDS);
+    // Push to the server immediately rather than waiting on the 1.5s debounce.
+    // Task creation is high-value: if the user reloads or navigates before the
+    // debounce fires, the task is lost from the server (localStorage retains it
+    // briefly, but the next sync poll overwrites it with the server's stale
+    // copy). Fire on next tick so the setCustomStages state update has committed
+    // before getPatch() reads the latest state.
+    setTimeout(() => writeNowRef.current?.(), 0);
   };
 
   // Inbox sentinel — used inline (also exported at module top for cross-file imports)
@@ -1739,9 +1748,9 @@ export function ModelProvider({
       ...prev,
       [INBOX_PIPELINE_ID]: [...(prev[INBOX_PIPELINE_ID] || []), trimmed],
     }));
-    markLocalWrite("stageStatusOverrides");
-    setStageStatusOverrides(prev => ({ ...prev, [trimmed]: "planned" }));
     logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
+    // Push immediately — see addCustomStage rationale.
+    setTimeout(() => writeNowRef.current?.(), 0);
     // Fire-and-forget LLM points suggestion
     fetch("/api/suggest-points", {
       method: "POST",

@@ -42,13 +42,23 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
   const [proposals, setProposals] = useState<TaskProposal[]>([]);
   const [nextId, setNextId] = useState(1);
 
-  // Persist approved/rejected proposal IDs so they don't come back on remount
-  const dismissedIdsRef = React.useRef<Set<number>>((() => {
-    try { return new Set(JSON.parse(localStorage.getItem("zoom_dismissed_proposals") || "[]") as number[]); } catch { return new Set(); }
-  })());
+  // Approved/rejected proposal IDs are persisted server-side in ZoomCallCache.
+  // /api/zoom/meetings filters them out on read, so they don't reappear after
+  // remount or reload. (Earlier iteration used localStorage; that broke for
+  // multi-device users and was effectively per-browser.) Local set just avoids
+  // the round-trip flash before the next /api/zoom/meetings fetch.
+  const dismissedIdsRef = React.useRef<Set<number>>(new Set());
   const persistDismissed = (id: number) => {
     dismissedIdsRef.current.add(id);
-    try { localStorage.setItem("zoom_dismissed_proposals", JSON.stringify([...dismissedIdsRef.current])); } catch {}
+    // Fire-and-forget — if the call fails the next /api/zoom/meetings read still
+    // returns the proposal (with the previous behaviour). Worst case: user sees
+    // the dismissed proposal reappear on next remount, which is no worse than
+    // the pre-fix behaviour.
+    fetch("/api/zoom/proposals/dismiss", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: [id] }),
+    }).catch(() => {});
   };
 
   // Inline proposal editor
@@ -248,10 +258,31 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
   };
 
   const startEditing = (p: TaskProposal) => {
-    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId: p.pipelineId, parentStage: "", description: "", assigneeId: "", dueDate: p.dueDate || "" });
+    // If the proposal points at an archived/unknown pipeline (e.g. it was extracted
+    // before the pipeline was deleted), pre-pick the first active pipeline so the
+    // user doesn't silently dump the task into an invisible pipeline.
+    const isArchived = (archivedPipelines || []).includes(p.pipelineId);
+    const stillExists = allPipelinesGlobal.some(x => x.id === p.pipelineId);
+    const pipelineId = (!isArchived && stillExists)
+      ? p.pipelineId
+      : (allPipelinesGlobal.find(x => !(archivedPipelines || []).includes(x.id))?.id ?? "");
+    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId, parentStage: "", description: "", assigneeId: "", dueDate: p.dueDate || "" });
   };
   const confirmEdit = () => {
     if (!editing || !editing.title.trim()) return;
+    // Defence: even though startEditing pre-picks an active pipeline, the user
+    // could have manually selected one that got archived in another tab between
+    // open and submit. Block rather than silently creating an invisible task.
+    if (!editing.parentStage) {
+      const pipe = allPipelinesGlobal.find(p => p.id === editing.pipelineId);
+      const isArchived = (archivedPipelines || []).includes(editing.pipelineId);
+      if (!pipe || isArchived) {
+        // Surfacing via window.alert because this panel doesn't have a toast bus.
+        // Rare path (archived pipeline + no auto-correct) so the rough UX is fine.
+        alert("Pick an active pipeline first — this one is archived or missing.");
+        return;
+      }
+    }
     const title = editing.title.trim();
     if (editing.parentStage) {
       const subtaskId = addSubtask(editing.parentStage, title, () => {});
