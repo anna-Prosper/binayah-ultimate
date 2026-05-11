@@ -216,6 +216,7 @@ interface ModelContextValue {
   pinCallSeries: (workspaceId: string, topic: string) => void;
   unpinCallSeries: (workspaceId: string, topic: string) => void;
   setWorkspaceCallsLabel: (workspaceId: string, label: string) => void;
+  updateWorkspaceHiddenTabs: (workspaceId: string, hiddenTabs: string[]) => void;
   currentWorkspaceId: string | null;
 
   // Database (Notion-style tables)
@@ -1049,6 +1050,11 @@ export function ModelProvider({
     setWorkspaces(prev => prev.map(w => w.id === wsId
       ? { ...w, callsLabel: label.trim() || undefined }
       : w));
+  }, [markLocalWrite, setWorkspaces]);
+
+  const updateWorkspaceHiddenTabs = useCallback((wsId: string, hiddenTabs: string[]) => {
+    markLocalWrite("workspaces");
+    setWorkspaces(prev => prev.map(w => w.id === wsId ? { ...w, hiddenTabs } : w));
   }, [markLocalWrite, setWorkspaces]);
 
   const canMutateDirectly = useCallback(() => {
@@ -1929,6 +1935,7 @@ export function ModelProvider({
     pinCallSeries,
     unpinCallSeries,
     setWorkspaceCallsLabel,
+    updateWorkspaceHiddenTabs,
     currentWorkspaceId,
     databases,
     createDatabase,

@@ -21,6 +21,7 @@ interface Props {
   workspaceId?: string;
   t: T;
   defaultTab?: "team" | "dm" | "ai";
+  defaultDmUserId?: string;
   buildAiContext?: () => string;
   /** When true: renders flat (no outer card border/radius) for embedding in a BottomSheet */
   mobileMode?: boolean;
@@ -75,13 +76,13 @@ function renderMentions(text: string, users: UserType[], textColor: string): Rea
 
 const dmThreadId = (a: string, b: string) => `dm:${[a, b].sort().join(":")}`;
 
-export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, workspaceId = "main", t, defaultTab = "team", buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, onLoadThread, hasMore = true, highlightMessageId }: Props) {
+export default function ChatPanel({ messages, onSend, onRemoteMessage, users, currentUser, workspaceId = "main", t, defaultTab = "team", defaultDmUserId, buildAiContext, mobileMode = false, fullScreen = false, onLoadMore, onLoadThread, hasMore = true, highlightMessageId }: Props) {
   const [tab, setTab] = useState<"team" | "dm" | "ai">(defaultTab);
   const [input, setInput] = useState("");
   const [attachments, setAttachments] = useState<ChatAttachment[]>([]);
   const [attachmentError, setAttachmentError] = useState<string | null>(null);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
-  const [dmUserId, setDmUserId] = useState(() => users.find(u => u.id !== currentUser && u.id !== "ai")?.id || "");
+  const [dmUserId, setDmUserId] = useState(() => defaultDmUserId || users.find(u => u.id !== currentUser && u.id !== "ai")?.id || "");
   const [mentionState, setMentionState] = useState<{ open: boolean; query: string; selectedIdx: number; startPos: number }>({ open: false, query: "", selectedIdx: 0, startPos: 0 });
   const inputRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);

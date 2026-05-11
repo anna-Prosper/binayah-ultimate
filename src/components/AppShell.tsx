@@ -144,7 +144,7 @@ function ShellInner({
   const pathname = usePathname() || "/";
   const activeNavItem: NavItem = navItemFromPathname(pathname);
 
-  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, undo, peek, stackLen, t } = useModel();
+  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, updateWorkspaceHiddenTabs, undo, peek, stackLen, t } = useModel();
   const { setReactOpen, setClaimAnim } = useEphemeral();
 
   // Hover/UI state — no more activeNavItem; that lives in the URL
@@ -159,6 +159,7 @@ function ShellInner({
   const [showActivity, setShowActivity] = useState(false);
   const [showChat, setShowChat] = useState(false);
   const [chatDefaultTab, setChatDefaultTab] = useState<"team" | "dm" | "ai">("ai");
+  const [dmDefaultUser, setDmDefaultUser] = useState<string>("");
   const [chatSize, setChatSize] = useState(() => lsGet("chatSize", { width: 360, height: 420 }));
   const [showDocumentsMobile, setShowDocumentsMobile] = useState(false);
   const [showPalette, setShowPalette] = useState(false);
@@ -287,6 +288,12 @@ function ShellInner({
     }
   }, [handleClaim, claims, currentUser, users, t.accent, setClaimAnim, showToast]);
 
+  const openDm = useCallback((userId: string) => {
+    setDmDefaultUser(userId);
+    setChatDefaultTab("dm");
+    setShowChat(true);
+  }, []);
+
   // Workspace-scoped pipelines
   const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })() : allPipelinesGlobal;
 
@@ -370,6 +377,7 @@ function ShellInner({
     isDark, setIsDark,
     handleClaimWithAnim,
     paletteDocId,
+    openDm,
   }), [
     showToast, currentWorkspaceId, setCurrentWorkspaceId,
     viewingUser, selUser, selAvatar,
@@ -377,6 +385,7 @@ function ShellInner({
     showThemePicker, themeId, isDark,
     handleClaimWithAnim, paletteDocId,
     setIsDark, setThemeId,
+    openDm,
   ]);
 
   if (isHydrating) {
@@ -410,6 +419,7 @@ function ShellInner({
         onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
         hiddenNavItems={[
           ...(canSeeCalls ? [] : ["calls" as NavItem]),
+          ...((currentWorkspace?.hiddenTabs ?? []) as NavItem[]),
         ]}
       />
     </div>
@@ -486,18 +496,18 @@ function ShellInner({
 
       {/* WORKSPACE MODALS */}
       {workspaceModal === "create" && <Suspense fallback={null}><CreateWorkspaceModal t={t} users={users} ck={ck} onClose={() => setWorkspaceModal(null)} onCreate={(name, icon, colorKey) => createWorkspace(name, icon, colorKey)} /></Suspense>}
-      {workspaceModal === "manage" && currentWorkspace && currentUser && <Suspense fallback={null}><ManageWorkspaceModal t={t} users={users} ck={ck} workspace={currentWorkspace} currentUser={currentUser!} onClose={() => setWorkspaceModal(null)} onAddMember={(uid) => addMemberToWorkspace(currentWorkspace.id, uid)} onRemoveMember={(uid) => removeMemberFromWorkspace(currentWorkspace.id, uid)} onSetRank={(uid, rank) => setMemberRank(currentWorkspace.id, uid, rank)} onDelete={() => deleteWorkspace(currentWorkspace.id)} /></Suspense>}
+      {workspaceModal === "manage" && currentWorkspace && currentUser && <Suspense fallback={null}><ManageWorkspaceModal t={t} users={users} ck={ck} workspace={currentWorkspace} currentUser={currentUser!} onClose={() => setWorkspaceModal(null)} onAddMember={(uid) => addMemberToWorkspace(currentWorkspace.id, uid)} onRemoveMember={(uid) => removeMemberFromWorkspace(currentWorkspace.id, uid)} onSetRank={(uid, rank) => setMemberRank(currentWorkspace.id, uid, rank)} onDelete={() => deleteWorkspace(currentWorkspace.id)} onUpdateHiddenTabs={(hiddenTabs) => updateWorkspaceHiddenTabs(currentWorkspaceId, hiddenTabs)} /></Suspense>}
 
       {/* AVATAR PICKER */}
       {showAvatarPicker && selUser && (() => { const pickerUser = users.find(u => u.id === selUser); if (!pickerUser) return null; const AnimBg = () => <FloatingBg colors={[pickerUser.color, pickerUser.color + "88", t.accent + "44", pickerUser.color + "44"]} themeStyle={themeId} />; return <AvatarStep6 t={t} user={pickerUser as UserType} selAvatar={selAvatar} setSelAvatar={setSelAvatar} users={users} setUsers={setUsers} setCurrentUser={() => {}} setOnboardStep={() => {}} selUser={selUser} AnimBg={AnimBg} onClose={() => setShowAvatarPicker(false)} onConfirm={() => setShowAvatarPicker(false)} />; })()}
 
       {/* Mobile overlays */}
       {isMobile && (<BottomSheet open={showDocumentsMobile} onClose={() => setShowDocumentsMobile(false)} title="// documents" t={t}><ErrorBoundary onError={() => showToast("// documents failed to load — refresh to retry", t.red)}><Suspense fallback={null}><DocumentsPanel t={t} initialDocId={paletteDocId} workspacePipelineIds={currentWorkspace?.pipelineIds ?? []} /></Suspense></ErrorBoundary></BottomSheet>)}
-      {isMobile ? (<BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} /></BottomSheet>) : showChat ? (
+      {isMobile ? (<BottomSheet open={showChat} onClose={() => setShowChat(false)} title="// team chat" t={t}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} defaultDmUserId={dmDefaultUser} /></BottomSheet>) : showChat ? (
         <div style={{ position: "fixed", bottom: 160, right: 16, width: `min(${chatSize.width}px, calc(100vw - 32px))`, height: chatSize.height, minWidth: 300, minHeight: 320, maxHeight: "75vh", resize: "both", overflow: "hidden", zIndex: 500, animation: "slideUp 0.2s ease", background: t.bgCard, borderRadius: 16, display: "flex", flexDirection: "column" }} onClick={e => e.stopPropagation()} onMouseUp={e => { const rect = e.currentTarget.getBoundingClientRect(); setChatSize({ width: Math.round(rect.width), height: Math.round(rect.height) }); }}>
           <div style={{ position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}>
             <button onClick={() => setShowChat(false)} style={{ position: "absolute", top: 10, right: 12, zIndex: 10, background: "transparent", border: "none", cursor: "pointer", fontSize: 16, color: t.textMuted, padding: 0 }}>×</button>
-            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} fullScreen /></div>
+            <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column" }}><ChatView showToast={showToast} currentWorkspaceId={currentWorkspaceId} defaultTab={chatDefaultTab} defaultDmUserId={dmDefaultUser} fullScreen /></div>
           </div>
         </div>
       ) : null}

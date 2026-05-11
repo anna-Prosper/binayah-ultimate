@@ -62,6 +62,7 @@ export interface Workspace {
   pipelineIds: string[]; // which pipelines live in this workspace
   callSeriesFilters?: string[]; // Zoom meeting topic names pinned to this workspace; empty/absent = show all
   callsLabel?: string;          // Custom label for the calls nav tab and section header
+  hiddenTabs?: string[];        // NavItem ids to hide in the sidebar for this workspace
 }
 
 export const DEFAULT_WORKSPACE_ID = "war-room";

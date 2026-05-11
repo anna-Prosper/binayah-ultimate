@@ -77,11 +77,24 @@ interface ManageProps extends BaseProps {
   onRemoveMember: (userId: string) => void;
   onSetRank: (userId: string, rank: "operator" | "agent") => void;
   onDelete: () => void;
+  onUpdateHiddenTabs: (hiddenTabs: string[]) => void;
 }
 
 type Rank = "root" | "operator" | "agent";
 
-export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMember, onRemoveMember, onSetRank, onDelete, onClose }: ManageProps) {
+const ALL_TABS = [
+  { id: "pipelines", label: "pipelines" },
+  { id: "documents", label: "documents" },
+  { id: "notes", label: "notes" },
+  { id: "bugs", label: "testing" },
+  { id: "databases", label: "databases" },
+  { id: "activity", label: "activity" },
+  { id: "archive", label: "archive" },
+  { id: "chat", label: "chat" },
+  { id: "calls", label: "calls" },
+];
+
+export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMember, onRemoveMember, onSetRank, onDelete, onUpdateHiddenTabs, onClose }: ManageProps) {
   const amRoot = ADMIN_IDS.includes(currentUser);
   const amOperator = workspace.captains.includes(currentUser) || amRoot;
   const canManage = amOperator;
@@ -98,6 +111,7 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
 
   const [showAdd, setShowAdd] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [hiddenTabs, setHiddenTabs] = useState<string[]>(workspace.hiddenTabs || []);
 
   return (
     <ModalShell t={t} onClose={onClose}>
@@ -178,6 +192,36 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
           )}
         </div>
       )}
+
+      <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${t.border}` }}>
+        <FieldLabel t={t}>tab visibility</FieldLabel>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4 }}>
+          {ALL_TABS.map(tab => {
+            const hidden = hiddenTabs.includes(tab.id);
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  const next = hidden ? hiddenTabs.filter(h => h !== tab.id) : [...hiddenTabs, tab.id];
+                  setHiddenTabs(next);
+                  onUpdateHiddenTabs(next);
+                }}
+                style={{
+                  background: hidden ? "transparent" : t.accent + "14",
+                  border: `1px solid ${hidden ? t.border : t.accent + "44"}`,
+                  borderRadius: 8, padding: "5px 8px", cursor: "pointer",
+                  fontSize: 11, color: hidden ? t.textDim : t.accent,
+                  fontFamily: "var(--font-dm-mono), monospace",
+                  textDecoration: hidden ? "line-through" : "none",
+                  textAlign: "left" as const,
+                }}
+              >
+                {hidden ? "○" : "●"} {tab.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {amRoot && (
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${t.border}` }}>

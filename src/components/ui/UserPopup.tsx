@@ -6,6 +6,7 @@
 
 import { useRef, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { useAppShell } from "@/lib/contexts/AppShellContext";
 import { AvatarC } from "@/components/ui/Avatar";
 import NotificationPrefs from "@/components/NotificationPrefs";
 import { ADMIN_IDS, type UserType } from "@/lib/data";
@@ -19,6 +20,7 @@ interface UserPopupProps {
 
 export default function UserPopup({ user, onClose, onChangeAvatar, ptsFlash }: UserPopupProps) {
   const { users, currentUser, claims, getStatus, getPoints, t } = useModel();
+  const { openDm } = useAppShell();
   const popupRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -95,6 +97,20 @@ export default function UserPopup({ user, onClose, onChangeAvatar, ptsFlash }: U
       )}
       {(isMe || (!!currentUser && ADMIN_IDS.includes(currentUser))) && (
         <NotificationPrefs t={t} targetUserId={u.id} targetName={isMe ? undefined : u.name.split(" ")[0]} />
+      )}
+      {!isMe && (
+        <button
+          onClick={() => { openDm(u.id); onClose(); }}
+          style={{
+            width: "100%", marginTop: 8,
+            background: t.accent + "18", border: `1px solid ${t.accent}44`,
+            borderRadius: 12, padding: "8px", cursor: "pointer",
+            fontSize: 12, color: t.accent, fontWeight: 700,
+            fontFamily: "var(--font-dm-mono), monospace", textAlign: "center",
+          }}
+        >
+          💬 send DM →
+        </button>
       )}
     </div>
   );

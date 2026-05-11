@@ -5,6 +5,8 @@ import { useModel } from "@/lib/contexts/ModelContext";
 import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
 import { Plus, Trash2, ExternalLink, ChevronDown, Table2 } from "lucide-react";
 
+const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗","💾","🧾","📌","📍","🔐","💼","🏢","🌐","🎯","⚡","🔬","🔍","📡","🧪","🏗️","🤖","🎨","✅","⏰","🟢","🔴","🟡","🟣","💎","🚀","🧠","🔥"];
+
 interface Props {
   currentWorkspaceId: string | null;
 }
@@ -383,6 +385,7 @@ function CreateDbModal({
 }) {
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("🗃️");
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   void workspaceId;
 
   return (
@@ -404,17 +407,40 @@ function CreateDbModal({
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
-            <input
-              value={icon}
-              onChange={e => setIcon(e.target.value)}
-              style={{
-                background: t.surface, color: t.text,
-                border: `1px solid ${t.border}`, borderRadius: 4,
-                padding: "6px 8px", fontSize: 18, outline: "none", width: 44,
-                textAlign: "center", boxSizing: "border-box",
-              }}
-              maxLength={2}
-            />
+            <div style={{ position: "relative" }}>
+              <button
+                onClick={() => setShowEmojiPicker(v => !v)}
+                style={{
+                  width: 44, height: 36, fontSize: 18, border: `1px solid ${t.border}`,
+                  borderRadius: 6, cursor: "pointer", background: t.surface,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}
+              >{icon}</button>
+              {showEmojiPicker && (
+                <div
+                  style={{
+                    position: "absolute", top: "calc(100% + 4px)", left: 0,
+                    background: t.bgCard, border: `1px solid ${t.border}`,
+                    borderRadius: 8, padding: 8, zIndex: 10, boxShadow: t.shadowLg,
+                    display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4,
+                    width: 176,
+                  }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {DB_EMOJIS.map(e => (
+                    <button
+                      key={e}
+                      onClick={() => { setIcon(e); setShowEmojiPicker(false); }}
+                      style={{
+                        fontSize: 18, background: "transparent", border: "none",
+                        cursor: "pointer", borderRadius: 4, padding: 2,
+                        lineHeight: 1,
+                      }}
+                    >{e}</button>
+                  ))}
+                </div>
+              )}
+            </div>
             <input
               autoFocus
               value={name}
@@ -479,6 +505,7 @@ function TableView({
   const [showAddCol, setShowAddCol] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [nameVal, setNameVal] = useState(db.name);
+  const [showIconPicker, setShowIconPicker] = useState(false);
 
   const currentView = db.views.find(v => v.id === activeView) || db.views[0];
 
@@ -529,7 +556,39 @@ function TableView({
         padding: "10px 16px", borderBottom: `1px solid ${t.border}`,
         flexShrink: 0,
       }}>
-        <span style={{ fontSize: 18 }}>{db.icon}</span>
+        <div style={{ position: "relative" }}>
+          <button
+            onClick={() => setShowIconPicker(v => !v)}
+            style={{
+              fontSize: 18, background: "transparent", border: `1px solid ${showIconPicker ? t.accent : "transparent"}`,
+              borderRadius: 6, cursor: "pointer", padding: "2px 4px", lineHeight: 1,
+            }}
+            title="Change icon"
+          >{db.icon}</button>
+          {showIconPicker && (
+            <div
+              style={{
+                position: "absolute", top: "calc(100% + 4px)", left: 0,
+                background: t.bgCard, border: `1px solid ${t.border}`,
+                borderRadius: 8, padding: 8, zIndex: 10, boxShadow: t.shadowLg,
+                display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4,
+                width: 176,
+              }}
+              onClick={e => e.stopPropagation()}
+            >
+              {DB_EMOJIS.map(e => (
+                <button
+                  key={e}
+                  onClick={() => { onUpdateDb({ icon: e }); setShowIconPicker(false); }}
+                  style={{
+                    fontSize: 18, background: "transparent", border: "none",
+                    cursor: "pointer", borderRadius: 4, padding: 2, lineHeight: 1,
+                  }}
+                >{e}</button>
+              ))}
+            </div>
+          )}
+        </div>
         {editingName ? (
           <input
             autoFocus
@@ -782,7 +841,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<number | null>(null);
 
-  const wsId = currentWorkspaceId || "war-room";
+  const wsId = currentWorkspaceId ?? "war-room";
   const wsDbs = databases.filter(db => db.workspaceId === wsId);
   const selectedDb = wsDbs.find(db => db.id === selectedDbId) || null;
 

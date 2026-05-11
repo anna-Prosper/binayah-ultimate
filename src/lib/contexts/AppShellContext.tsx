@@ -48,6 +48,9 @@ export interface AppShellContextValue {
 
   // documents palette deep-link
   paletteDocId: string | null;
+
+  // DM
+  openDm: (userId: string) => void;
 }
 
 const AppShellContext = createContext<AppShellContextValue | null>(null);
