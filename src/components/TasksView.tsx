@@ -979,7 +979,7 @@ function TaskCard({
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
       >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingStage === task.stageId ? (
             <input
@@ -1341,10 +1341,10 @@ function SubtaskCard({
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell t={t} borderColor={t.border} pipelineColor={pipelineColor}>
       {/* Top row — identical structure to TaskCard */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4 }}>
-            <span style={{ color: pipelineColor }}>⤷</span>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden" }}>
+            <span style={{ color: pipelineColor, flexShrink: 0 }}>⤷</span>
             {editOpen
               ? <input
                   autoFocus
@@ -1377,7 +1377,7 @@ function SubtaskCard({
         </div>
         {/* Right side: claimer avatars + claim button — same as TaskCard */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
-          <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="pill" size={16} />
+          <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
           {currentUser && handleClaim && !readOnly && (
             <ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" />
           )}
@@ -1611,9 +1611,9 @@ function SubtaskKanbanCard({
         onDragEnd={!readOnly ? onDragSubtaskEnd : undefined}
       >
         {/* Top row — same structure as TaskCard */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               <span style={{ color: sub.pipelineColor, marginRight: 4 }}>&#10551;</span>
               {editOpen
                 ? <input
@@ -1656,7 +1656,7 @@ function SubtaskKanbanCard({
               const isPending = sub.done && !isApproved;
               return (
                 <>
-                  <ClaimerPills claimerIds={subClaimers} users={users} getPoints={getPoints} t={t} variant="pill" size={16} />
+                  <ClaimerPills claimerIds={subClaimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
                   {isPending && isAdmin && (
                     <button onClick={e => { e.stopPropagation(); approveSubtask(sub.key); }} style={btn(t.green, t.green + "22", t.green + "88")} title="Captain approval — awards points to claimers">
                       ✓ approve
