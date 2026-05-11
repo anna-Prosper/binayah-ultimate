@@ -1062,7 +1062,7 @@ function TaskCard({
             })()}
           </div>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           {/* Owner display: bare avatars (no name pill — saves space) */}
           <ClaimerPills claimerIds={task.claimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
           {isPending && isAdmin && (
@@ -1072,10 +1072,6 @@ function TaskCard({
           )}
           {isPending && !isAdmin && <span style={badge(t.amber)}>⏳ pending</span>}
           {isDone && isApproved && <span style={badge(t.green)}>✓ approved</span>}
-          {/* Claim button only when no owner yet — once claimed, the avatar carries that signal */}
-          {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (isMine || task.claimers.length === 0) && (
-            <ClaimChip claimed={isMine} pipelineColor={task.pipelineColor} t={t} onClaim={() => onClaim()} />
-          )}
         </div>
       </div>
 
@@ -1216,6 +1212,9 @@ function TaskCard({
         </div>
       )}
 
+      {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (isMine || task.claimers.length === 0) && (
+        <div><ClaimChip claimed={isMine} pipelineColor={task.pipelineColor} t={t} onClaim={() => onClaim()} /></div>
+      )}
       <ActionRow
         t={t}
         showReactPicker={showReactPicker}
@@ -1375,15 +1374,15 @@ function SubtaskCard({
             <div style={{ fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[key]}</div>
           )}
         </div>
-        {/* Right side: claimer avatars + claim button — same as TaskCard */}
+        {/* Right side: claimer avatars only */}
         <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
           <ClaimerPills claimerIds={claimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
-          {currentUser && handleClaim && !readOnly && (
-            <ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" />
-          )}
-
         </div>
       </div>
+
+      {currentUser && handleClaim && !readOnly && (
+        <div><ClaimChip claimed={isClaimed} pipelineColor={pipelineColor} t={t} onClaim={() => handleClaim(key)} variant="subtask" /></div>
+      )}
 
       {visibleReactions.length > 0 && (
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -1648,10 +1647,10 @@ function SubtaskKanbanCard({
               <div style={{ fontSize: 12, color: t.textSec, fontFamily: "var(--font-dm-sans), sans-serif", lineHeight: 1.45, marginTop: 2 }}>{subtaskDescOverrides[sub.key]}</div>
             )}
           </div>
+          {/* Right: claimer avatars + status badges only */}
           <div style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
             {(() => {
               const subClaimers = claims[sub.key] || [];
-              const isClaimedByMe = currentUser ? subClaimers.includes(currentUser) : false;
               const isApproved = approvedSubtasks.includes(sub.key);
               const isPending = sub.done && !isApproved;
               return (
@@ -1668,15 +1667,22 @@ function SubtaskKanbanCard({
                   {isApproved && (
                     <span style={{ background: t.green + "22", border: `1px solid ${t.green}55`, borderRadius: 8, padding: "3px 8px", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace" }}>✓ approved</span>
                   )}
-                  {/* ClaimChip — same gating as TaskCard: hidden only when (pending && admin) or already approved */}
-                  {currentUser && !readOnly && !(isPending && isAdmin) && !isApproved && (
-                    <ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small />
-                  )}
                 </>
               );
             })()}
           </div>
         </div>
+
+        {/* Claim chip — below title to avoid overlap */}
+        {(() => {
+          const subClaimers = claims[sub.key] || [];
+          const isClaimedByMe = currentUser ? subClaimers.includes(currentUser) : false;
+          const isApproved = approvedSubtasks.includes(sub.key);
+          const isPending = sub.done && !isApproved;
+          return currentUser && !readOnly && !(isPending && isAdmin) && !isApproved
+            ? <div><ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small /></div>
+            : null;
+        })()}
 
         {/* Reactions strip */}
         {visibleReactions.length > 0 && (
