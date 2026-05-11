@@ -773,9 +773,12 @@ export function ModelProvider({
     if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
     if (s.users && !isProtected("users")) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
     if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(s.workspaces as Workspace[]);
-    if (s.archivedStages && !isProtected("archivedStages")) setArchivedStages(Array.from(new Set(s.archivedStages as string[])));
-    if (s.archivedPipelines && !isProtected("archivedPipelines")) setArchivedPipelines(Array.from(new Set(s.archivedPipelines as string[])));
-    if (s.archivedSubtasks && !isProtected("archivedSubtasks")) setArchivedSubtasks(Array.from(new Set(s.archivedSubtasks as string[])));
+    // Archive slices always MERGE (union) with local state — never replace.
+    // Replacing causes items archived locally to vanish when the next poll
+    // arrives before the sync write has flushed to the server.
+    if (s.archivedStages) setArchivedStages(prev => Array.from(new Set([...prev, ...(s.archivedStages as string[])])));
+    if (s.archivedPipelines) setArchivedPipelines(prev => Array.from(new Set([...prev, ...(s.archivedPipelines as string[])])));
+    if (s.archivedSubtasks) setArchivedSubtasks(prev => Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])));
     if (s.stagePointsOverride && !isProtected("stagePointsOverride")) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
     if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
     if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
