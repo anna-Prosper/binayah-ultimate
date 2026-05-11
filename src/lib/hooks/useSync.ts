@@ -154,6 +154,10 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
         }
         // 4xx auth/validation: don't retry, surface offline so UI shows error.
         if (res.status && res.status >= 400 && res.status < 500 && res.status !== 409 && res.status !== 429) {
+          // Diagnostic — without this the failure is invisible to the user, who
+          // then sees "task disappears on reload" with no clue why. Drop the full
+          // error string and status so we can see what's actually wrong.
+          console.error("[useSync] PATCH failed (non-retryable):", res.status, (res as { error?: string }).error);
           setStatus("offline");
           retryCountRef.current = 0;
           return;
@@ -161,6 +165,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
         // Transient: backoff + retry.
         retryCountRef.current += 1;
         const backoff = Math.min(8000, 500 * 2 ** (retryCountRef.current - 1)) + Math.floor(Math.random() * 250);
+        console.warn("[useSync] PATCH failed (retry " + retryCountRef.current + "/4):", res.status, (res as { error?: string }).error);
         setStatus("offline");
         await new Promise(r => setTimeout(r, backoff));
       }
