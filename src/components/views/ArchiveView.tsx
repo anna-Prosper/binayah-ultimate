@@ -39,20 +39,52 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
     };
   });
 
-  // Completed tasks: all done=true subtasks across every stage, grouped by pipeline
+  // Completed tasks: archived stages/pipelines/subtasks + done=true subtasks
   const completedByPipeline = useMemo(() => {
-    const groups: { pipeline: typeof allPipelinesGlobal[number]; stage: string; tasks: { id: number; text: string; by: string }[] }[] = [];
+    type Group = { pipeline: typeof allPipelinesGlobal[number] | undefined; stage: string; tasks: { id: string | number; text: string; by: string; kind: "subtask" | "stage" | "pipeline" }[] };
+    const groups: Group[] = [];
+
+    const push = (pipelineId: string | undefined, stageName: string, entry: Group["tasks"][number]) => {
+      const pipeline = pipelineId ? allPipelinesGlobal.find(p => p.id === pipelineId) : undefined;
+      const existing = groups.find(g => g.pipeline?.id === pipelineId && g.stage === stageName);
+      if (existing) existing.tasks.push(entry);
+      else groups.push({ pipeline, stage: stageName, tasks: [entry] });
+    };
+
+    // 1. Done subtasks (checkbox ticked)
     for (const [stageId, items] of Object.entries(subtasks)) {
       const done = (items as { id: number; text: string; done: boolean; by: string }[]).filter(s => s.done);
       if (done.length === 0) continue;
       const pipeline = allPipelinesGlobal.find(p => p.stages?.includes(stageId));
       const stageName = stageNameOverrides[stageId] || stageId;
-      const existing = groups.find(g => g.pipeline?.id === pipeline?.id && g.stage === stageName);
-      if (existing) { existing.tasks.push(...done.map(d => ({ id: d.id, text: d.text, by: d.by }))); }
-      else groups.push({ pipeline: pipeline as typeof allPipelinesGlobal[number], stage: stageName, tasks: done.map(d => ({ id: d.id, text: d.text, by: d.by })) });
+      done.forEach(d => push(pipeline?.id, stageName, { id: d.id, text: d.text, by: d.by, kind: "subtask" }));
     }
+
+    // 2. Archived stages (archive task button)
+    archivedStages.forEach(sid => {
+      const name = stageNameOverrides[sid] || sid;
+      const pipeline = allPipelinesGlobal.find(p => p.stages?.includes(sid));
+      const meta = archiveMeta.get(sid) || "";
+      push(pipeline?.id, pipeline?.name || "Archived stages", { id: sid, text: name, by: meta, kind: "stage" });
+    });
+
+    // 3. Archived subtasks
+    resolvedSubtasks.forEach(s => {
+      const pipeline = allPipelinesGlobal.find(p => p.stages?.includes(s.parentStageId));
+      const meta = archiveMeta.get(s.key) || "";
+      push(pipeline?.id, s.parentStageName, { id: s.key, text: s.text, by: meta, kind: "subtask" });
+    });
+
+    // 4. Archived pipelines
+    archivedPipelines.forEach(pid => {
+      const p = allPipelinesGlobal.find(p => p.id === pid);
+      const name = pipeMetaOverrides[pid]?.name || p?.name || pid;
+      const meta = archiveMeta.get(pid) || "";
+      push(pid, "pipeline", { id: pid, text: `${p?.icon || "📋"} ${name}`, by: meta, kind: "pipeline" });
+    });
+
     return groups.sort((a, b) => (a.pipeline?.name || "").localeCompare(b.pipeline?.name || ""));
-  }, [subtasks, allPipelinesGlobal, stageNameOverrides]);
+  }, [subtasks, allPipelinesGlobal, stageNameOverrides, archivedStages, archivedPipelines, resolvedSubtasks, archiveMeta, pipeMetaOverrides]);
 
   const totalCompleted = completedByPipeline.reduce((acc, g) => acc + g.tasks.length, 0);
 
@@ -112,7 +144,7 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
       {activeTab === "completed" && (
         totalCompleted === 0 ? (
           <div style={{ fontSize: 13, color: t.textDim, fontFamily: mono, lineHeight: 1.6 }}>
-            // no completed tasks yet. Mark subtasks as done ✓ and they will appear here permanently.
+            // nothing completed yet. Archive a task or tick a subtask ✓ and it will appear here permanently.
           </div>
         ) : filteredCompleted.length === 0 ? (
           <div style={{ fontSize: 12, color: t.textDim, fontFamily: mono, border: `1px dashed ${t.border}`, borderRadius: 12, padding: 24 }}>// no completed tasks match this search</div>
@@ -123,16 +155,31 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
                 <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
                   <span style={{ fontSize: 13 }}>{group.pipeline?.icon || "📋"}</span>
                   <span style={{ fontSize: 12, fontWeight: 700, color: t.accent, fontFamily: mono }}>{group.pipeline?.name || "General"}</span>
-                  <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>› {group.stage}</span>
-                  <span style={{ marginLeft: "auto", fontSize: 11, color: t.textDim, fontFamily: mono }}>{group.tasks.length} done</span>
+                  {group.stage !== "pipeline" && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>› {group.stage}</span>}
+                  <span style={{ marginLeft: "auto", fontSize: 11, color: t.textDim, fontFamily: mono }}>{group.tasks.length}</span>
                 </div>
                 {group.tasks.map(task => {
                   const u = users.find(u => u.id === task.by);
+                  const kindIcon = task.kind === "stage" ? "🗂️" : task.kind === "pipeline" ? "📋" : null;
+                  const canRestore = task.kind === "stage" || task.kind === "pipeline" || task.kind === "subtask";
                   return (
-                    <div key={task.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: t.bgCard, marginBottom: 3, border: `1px solid ${t.border}` }}>
-                      <CheckCircle2 size={13} style={{ color: t.green, flexShrink: 0 }} />
+                    <div key={String(task.id)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", borderRadius: 8, background: t.bgCard, marginBottom: 3, border: `1px solid ${t.border}` }}>
+                      {kindIcon
+                        ? <span style={{ fontSize: 12, flexShrink: 0 }}>{kindIcon}</span>
+                        : <CheckCircle2 size={13} style={{ color: t.green, flexShrink: 0 }} />}
                       <span style={{ flex: 1, fontSize: 12, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{task.text}</span>
                       {u && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{u.name.split(" ")[0]}</span>}
+                      {!u && task.by && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{task.by.split("·")[0].trim()}</span>}
+                      {canRestore && (
+                        <button
+                          onClick={() => {
+                            if (task.kind === "stage") restoreStage(String(task.id));
+                            else if (task.kind === "pipeline") restorePipeline(String(task.id));
+                            else if (task.kind === "subtask") restoreSubtask(task.id as string);
+                          }}
+                          style={{ background: t.accent + "18", border: `1px solid ${t.accent}44`, borderRadius: 6, padding: "1px 7px", cursor: "pointer", fontSize: 10, color: t.accent, fontWeight: 700, fontFamily: mono, flexShrink: 0 }}
+                        >restore</button>
+                      )}
                     </div>
                   );
                 })}
