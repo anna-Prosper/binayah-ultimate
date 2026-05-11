@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { T } from "@/lib/themes";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
@@ -42,6 +42,15 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
   const [proposals, setProposals] = useState<TaskProposal[]>([]);
   const [nextId, setNextId] = useState(1);
 
+  // Persist approved/rejected proposal IDs so they don't come back on remount
+  const dismissedIdsRef = React.useRef<Set<number>>((() => {
+    try { return new Set(JSON.parse(localStorage.getItem("zoom_dismissed_proposals") || "[]") as number[]); } catch { return new Set(); }
+  })());
+  const persistDismissed = (id: number) => {
+    dismissedIdsRef.current.add(id);
+    try { localStorage.setItem("zoom_dismissed_proposals", JSON.stringify([...dismissedIdsRef.current])); } catch {}
+  };
+
   // Inline proposal editor
   const [editing, setEditing] = useState<EditingProposal | null>(null);
   // Drill-down: null = calls list, string = tasks for that meeting
@@ -75,7 +84,9 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
       if (data.proposals?.length) {
         setProposals(prev => {
           const existingIds = new Set(prev.map(p => p.id));
-          const fresh = data.proposals!.filter(p => !existingIds.has(p.id)).map(p => ({ ...p, status: "pending" as const }));
+          const fresh = data.proposals!
+            .filter(p => !existingIds.has(p.id) && !dismissedIdsRef.current.has(p.id))
+            .map(p => ({ ...p, status: "pending" as const }));
           return [...fresh, ...prev];
         });
         setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
@@ -260,10 +271,11 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
         setTimeout(() => assignTask(title, editing.assigneeId), 150);
       }
     }
+    persistDismissed(editing.id);
     setProposals(prev => prev.map(x => x.id === editing.id ? { ...x, status: "approved" } : x));
     setEditing(null);
   };
-  const rejectProposal = (id: number) => { setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "rejected" } : x)); if (editing?.id === id) setEditing(null); };
+  const rejectProposal = (id: number) => { persistDismissed(id); setProposals(prev => prev.map(x => x.id === id ? { ...x, status: "rejected" } : x)); if (editing?.id === id) setEditing(null); };
   const clearDone = () => setProposals(prev => prev.filter(x => x.status === "pending"));
 
   const pending = proposals.filter(p => p.status === "pending");
