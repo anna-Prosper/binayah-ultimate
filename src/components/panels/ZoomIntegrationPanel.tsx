@@ -473,34 +473,9 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                         )}
                       </div>
                     ) : (
-                      /* No workspace selected: show each topic with per-workspace pin toggles */
-                      <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
-                        {allTopics.map(topic => (
-                          <div key={topic} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                            <span style={{ fontSize: 12, color: t.text, fontWeight: 600, minWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{topic}</span>
-                            {workspaces.filter(w => !["guest1","guest2"].some(g => w.members.length === 1 && w.members[0] === g)).map(w => {
-                              const pinned = (w.callSeriesFilters ?? []).includes(topic);
-                              return (
-                                <button
-                                  key={w.id}
-                                  type="button"
-                                  onClick={() => pinned ? unpinSeries(topic, w.id) : pinSeries(topic, w.id)}
-                                  style={{
-                                    background: pinned ? w.colorKey === "purple" ? t.accent + "18" : t.green + "18" : t.bgCard,
-                                    border: `1px solid ${pinned ? t.accent + "55" : t.border}`,
-                                    borderRadius: 20, padding: "2px 8px",
-                                    fontSize: 11, fontWeight: pinned ? 800 : 400,
-                                    color: pinned ? t.accent : t.textMuted,
-                                    cursor: "pointer", fontFamily: mono,
-                                    whiteSpace: "nowrap", transition: "all 0.12s",
-                                  }}
-                                >
-                                  {pinned ? "📌 " : "+ "}{w.icon} {w.name}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ))}
+                      /* No specific workspace selected — prompt to select one */
+                      <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>
+                        Select a workspace tab on home to pin series to it.
                       </div>
                     )}
                   </div>

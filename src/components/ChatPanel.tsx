@@ -37,18 +37,35 @@ interface Props {
 // Render chat text with @mentions styled in user color
 function renderMentions(text: string, users: UserType[], textColor: string): React.ReactNode {
   const parts: React.ReactNode[] = [];
-  const re = /@([a-z0-9_-]+)/gi;
+  // Combined regex: URLs first, then @mentions
+  const re = /(https?:\/\/[^\s<>"]+)|@([a-z0-9_-]+)/gi;
   let last = 0;
   let i = 0;
   for (const match of text.matchAll(re)) {
     const idx = match.index ?? 0;
     if (idx > last) parts.push(<span key={`t-${i++}`}>{text.slice(last, idx)}</span>);
-    const handle = match[1].toLowerCase();
-    const user = users.find(u => u.id === handle || u.name.toLowerCase() === handle);
-    if (user) {
-      parts.push(<span key={`m-${i++}`} style={{ color: user.color, fontWeight: 700, background: user.color + "14", padding: "0 4px", borderRadius: 8 }}>@{user.name}</span>);
-    } else {
-      parts.push(<span key={`u-${i++}`} style={{ color: textColor }}>{match[0]}</span>);
+    if (match[1]) {
+      // URL
+      const url = match[1];
+      let display = url;
+      try {
+        const u = new URL(url);
+        display = u.hostname + (u.pathname.length > 1 ? u.pathname.slice(0, 30) + (u.pathname.length > 30 ? "…" : "") : "");
+      } catch { /* keep full url */ }
+      parts.push(
+        <a key={`u-${i++}`} href={url} target="_blank" rel="noopener noreferrer"
+          style={{ color: textColor, textDecoration: "underline", wordBreak: "break-all" }}
+        >{display}</a>
+      );
+    } else if (match[2]) {
+      // @mention
+      const handle = match[2].toLowerCase();
+      const user = users.find(u => u.id === handle || u.name.toLowerCase() === handle);
+      if (user) {
+        parts.push(<span key={`m-${i++}`} style={{ color: user.color, fontWeight: 700, background: user.color + "14", padding: "0 4px", borderRadius: 8 }}>@{user.name}</span>);
+      } else {
+        parts.push(<span key={`mn-${i++}`} style={{ color: textColor }}>@{handle}</span>);
+      }
     }
     last = idx + match[0].length;
   }
