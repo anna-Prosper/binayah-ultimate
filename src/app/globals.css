@@ -29,11 +29,13 @@ textarea {
  * reads them via mouseover and renders a fixed-position div into document.body —
  * immune to overflow:hidden ancestors, no CSS pseudo-element clipping issues. */
 
-/* Multi-line title clamp — uses CSS class because React drops WebkitBoxOrient from inline styles */
+/* Task/card titles should wrap instead of disappearing behind the action rail. */
 .title-clamp {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
-  width: 100%;
+  display: block;
+  max-width: 100%;
+  min-width: 0;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  word-break: normal;
 }

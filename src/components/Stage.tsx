@@ -66,10 +66,10 @@ function detectMention(val: string): { query: string; start: number } | null {
 // Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
 // pencil-edit-mode pattern, just compact and nested under the parent stage.
 function StageSubtaskCard({
-  task, stageId, pId, pC, t, onRemove, isArchived,
+  task, stageId, pId, pC, t, onRemove,
 }: {
   task: SubtaskItem; stageId: string; pId: string; pC: string; t: T;
-  onRemove: () => void; isArchived?: boolean;
+  onRemove: () => void;
 }) {
   const {
     users, workspaceUsers, currentUser, reactions, comments, claims, assignments,
@@ -602,18 +602,19 @@ export default function Stage({
   const claimedBy = claims[name] || [];
   const claimedByMe = currentUser ? claimedBy.includes(currentUser) : false;
   const MockupComp = mockupsMap[name] ?? null;
-  const allTasks = subtasks[name] || [];
-  // Show all tasks including archived ones — archived tasks render with a "completed" style
-  const tasks = allTasks;
-  const archivedSubtaskKeys = new Set((archivedSubtasks || []).map(k => k));
+  const allTasks = useMemo(() => subtasks[name] || [], [name, subtasks]);
+  const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks), [archivedSubtasks]);
+  const tasks = useMemo(
+    () => allTasks.filter(task => !archivedSubtaskKeySet.has(SubtaskKey.make(name, task.id))),
+    [allTasks, archivedSubtaskKeySet, name]
+  );
   const cmts = comments[name] || [];
-  const tasksDone = tasks.filter(x => x.done || archivedSubtaskKeys.has(SubtaskKey.make(name, x.id))).length;
+  const tasksDone = tasks.filter(x => x.done).length;
 
   // Derived points: sum of live subtasks (ledger) when present; else override/default (leaf)
-  const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks), [archivedSubtasks]);
   const derivedPoints = useMemo(
-    () => deriveStageDisplayPoints(name, tasks, archivedSubtaskKeySet, s.points, stagePointsOverride),
-    [name, tasks, archivedSubtaskKeySet, s.points, stagePointsOverride]
+    () => deriveStageDisplayPoints(name, allTasks, archivedSubtaskKeySet, s.points, stagePointsOverride),
+    [name, allTasks, archivedSubtaskKeySet, s.points, stagePointsOverride]
   );
   const hasLiveSubtasks = tasks.length > 0;
   const isMockOpen = showMockup;

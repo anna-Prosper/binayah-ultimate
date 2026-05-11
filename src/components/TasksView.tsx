@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { User, Clipboard, Check, Cat, Globe, MessageSquare } from "lucide-react";
 import { T } from "@/lib/themes";
-import { REACTIONS, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
+import { REACTIONS, normalizeStageStatus, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
@@ -300,13 +300,12 @@ export default function TasksView(props: Props) {
     return dueMatches(stageDueDates[task.stageId]);
   });
 
-  // For the kanban subtask list we use allPipelinesGlobal so subtasks whose parent
-  // pipeline is outside the current workspace still appear — no disappearing on sync.
+  // Subtasks belong to their parent task's pipeline. Keep this scoped to the
+  // currently visible workspace pipelines so unrelated "unknown parent" subtasks
+  // from other workspaces do not bleed into this board.
   const subtaskKanbanTasks = useMemo(() => {
     const tasks: SubtaskKanbanTask[] = [];
     for (const [parentStageId, subtaskList] of Object.entries(subtasks || {})) {
-      // Show ALL non-archived subtasks in kanban — no workspace/pipeline filter.
-      // This is the core fix: subtasks should be independent of their parent's visibility.
       for (const sub of subtaskList) {
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
@@ -315,8 +314,7 @@ export default function TasksView(props: Props) {
         let pipelineIcon = "";
         let pipelineName = "";
         let pipelineColor = "";
-        // Look up pipeline from ALL pipelines, not just workspace-visible ones
-        for (const p of [...pipelines, ...(allPipelines || []).filter(ap => !pipelines.find(vp => vp.id === ap.id))]) {
+        for (const p of pipelines) {
           const pCustom = customStages[p.id] || [];
           const pStages = [...(p.stages || []), ...pCustom];
           if (pStages.includes(parentStageId)) {
@@ -327,8 +325,9 @@ export default function TasksView(props: Props) {
             break;
           }
         }
+        if (!pipelineId) continue;
         const wsInfo = pipelineWorkspaceMap?.[pipelineId];
-        const status = subtaskStages?.[key] || "planned";
+        const status = normalizeStageStatus(subtaskStages?.[key] || "planned");
         tasks.push({
           key,
           text: sub.text,
@@ -348,7 +347,7 @@ export default function TasksView(props: Props) {
       }
     }
     return tasks;
-  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, allPipelines, customStages, ck, t, archivedSubtaskKeySet, pipelineWorkspaceMap]);
+  }, [subtasks, subtaskStages, stageNameOverrides, pipelines, customStages, ck, t, archivedSubtaskKeySet, pipelineWorkspaceMap]);
 
   // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
   const filteredSubtaskKanbanTasksBase = (showMyAllFilter && myAllFilter === "my" && currentUser)
@@ -441,6 +440,10 @@ export default function TasksView(props: Props) {
     }
   }, [migrateSubtask, setSubtaskStage, readOnly, getStatus, setStageStatus]);
 
+  const moveParentPipelines = pipelines
+    .filter(p => p.id !== INBOX_PIPELINE_ID)
+    .map(p => ({ id: p.id, name: p.displayName, icon: p.icon, stages: p.allStages }));
+
   const cardShared = {
     t, users, currentUser, reactions, comments,
     reactOpen, setReactOpen, commentOpen, setCommentOpen,
@@ -460,6 +463,7 @@ export default function TasksView(props: Props) {
     availablePipelines: pipelines
       .filter(p => p.id !== INBOX_PIPELINE_ID)
       .map(p => ({ id: p.id, name: p.displayName, icon: p.icon })),
+    moveParentPipelines,
     readOnly,
   };
 
@@ -841,6 +845,7 @@ interface SharedCardProps {
   onStageDrop?: (stageId: string, targetStatus: string, e: React.DragEvent) => void;
   // For orphan task pipeline picker — shown only when task is in inbox
   availablePipelines?: { id: string; name: string; icon: string }[];
+  moveParentPipelines?: { id: string; name: string; icon: string; stages: string[] }[];
   getPoints?: (uid: string) => number;
   readOnly?: boolean;
 }
@@ -1281,7 +1286,7 @@ function SubtaskCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
-  handleClaim, claims, getPoints, readOnly,
+  handleClaim, claims, getPoints, readOnly, moveParentPipelines,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
@@ -1290,7 +1295,7 @@ function SubtaskCard({
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages: allCustomStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [descVal, setDescVal] = useState("");
@@ -1300,6 +1305,9 @@ function SubtaskCard({
 
   const key = SubtaskKey.make(stageId, taskSub.id);
   const dueDate = subtaskDueDates[key];
+  const scopedParentPipelines = useMemo(() => (moveParentPipelines || [])
+    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== stageId) }))
+    .filter(p => p.stages.length > 0), [moveParentPipelines, archivedStages, stageId]);
 
   const commitRenameSSC = () => {
     const trimmed = editVal.trim();
@@ -1459,7 +1467,8 @@ function SubtaskCard({
             <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStageSSC === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
             {moveToStageSSC === "" ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
+                {scopedParentPipelines.length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no parent tasks in this workspace</span>}
+                {scopedParentPipelines.map((p: { id: string; name: string; icon: string }) => (
                   <button
                     key={p.id}
                     onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStageSSC(p.id); }}
@@ -1469,8 +1478,8 @@ function SubtaskCard({
                 ))}
               </div>
             ) : (() => {
-              const pipe = allPipelinesGlobal.find((p: { id: string }) => p.id === moveToStageSSC);
-              const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(allCustomStages[moveToStageSSC] || [])].filter((s: string) => !(archivedStages || []).includes(s) && s !== stageId) : [];
+              const pipe = scopedParentPipelines.find((p: { id: string }) => p.id === moveToStageSSC);
+              const pipeStages = pipe?.stages || [];
               return (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                   <button
@@ -1546,17 +1555,19 @@ function SubtaskKanbanCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, deleteComment, commentInput, setCommentInput, copied,
-  isAdmin, getPoints, readOnly,
+  isAdmin, getPoints, readOnly, moveParentPipelines,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [moveToStage, setMoveToStage] = useState<string>(""); // selected pipeline for 2-step move
+  const [parentPickerOpen, setParentPickerOpen] = useState(false);
+  const [parentPickerPipelineId, setParentPickerPipelineId] = useState("");
   const [descVal, setDescVal] = useState("");
   const [renderNow] = useState(() => Date.now());
   const [dueVal, setDueVal] = useState("");
@@ -1594,6 +1605,10 @@ function SubtaskKanbanCard({
   const isUnknownParent = !sub.pipelineName;
   const dueDate = subtaskDueDates[sub.key];
   const taskId = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0])?.subtaskId ?? NaN;
+  const parentPipelineOptions = useMemo(() => (moveParentPipelines || [])
+    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== sub.parentStageId) }))
+    .filter(p => p.stages.length > 0), [moveParentPipelines, archivedStages, sub.parentStageId]);
+  const selectedParentPipeline = parentPipelineOptions.find(p => p.id === parentPickerPipelineId) || parentPipelineOptions[0];
 
   const commitRename = () => {
     const trimmed = editVal.trim();
@@ -1626,7 +1641,7 @@ function SubtaskKanbanCard({
                     data-no-close
                     style={{ fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", width: "100%", fontFamily: "inherit" }}
                   />
-                : <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{sub.text}</span>
+                : <span style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}>{sub.text}</span>
               }
             </div>
             <div style={{ fontSize: 12, color: isUnknownParent ? t.amber : t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1673,6 +1688,64 @@ function SubtaskKanbanCard({
             })()}
           </div>
         </div>
+
+        {isUnknownParent && !readOnly && (
+          <div data-no-close style={{ border: `1px dashed ${t.amber}66`, borderRadius: 10, background: t.amber + "08", padding: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: t.amber, fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" as const }}>choose parent task</span>
+              <button
+                type="button"
+                onClick={e => {
+                  e.stopPropagation();
+                  setParentPickerOpen(v => !v);
+                  if (!parentPickerPipelineId && parentPipelineOptions[0]) setParentPickerPipelineId(parentPipelineOptions[0].id);
+                }}
+                style={{ background: parentPickerOpen ? t.amber + "22" : t.bgCard, border: `1px solid ${t.amber}66`, borderRadius: 8, color: t.amber, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: 800, padding: "3px 8px" }}
+              >
+                {parentPickerOpen ? "hide" : "pick parent"}
+              </button>
+            </div>
+            {parentPickerOpen && (
+              parentPipelineOptions.length === 0 ? (
+                <div style={{ color: t.textDim, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace" }}>no available parent tasks</div>
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {parentPipelineOptions.map(p => {
+                      const active = (selectedParentPipeline?.id || parentPickerPipelineId) === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          type="button"
+                          onClick={e => { e.stopPropagation(); setParentPickerPipelineId(p.id); }}
+                          style={{ background: active ? t.amber + "22" : t.bgCard, border: `1px solid ${active ? t.amber + "88" : t.border}`, borderRadius: 8, color: active ? t.amber : t.textMuted, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontSize: 11, fontWeight: active ? 800 : 600, padding: "3px 8px" }}
+                        >
+                          {p.icon} {p.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                    {(selectedParentPipeline?.stages || []).map(stage => (
+                      <button
+                        key={stage}
+                        type="button"
+                        onClick={e => {
+                          e.stopPropagation();
+                          migrateSubtask(sub.key as Parameters<typeof migrateSubtask>[0], stage);
+                          setParentPickerOpen(false);
+                        }}
+                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, color: t.text, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, padding: "4px 9px", textAlign: "left" }}
+                      >
+                        {stageNameOverrides?.[stage] || stage}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            )}
+          </div>
+        )}
 
         {/* Claim chip — below title to avoid overlap */}
         {(() => {
@@ -1760,8 +1833,8 @@ function SubtaskKanbanCard({
               <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>{moveToStage === "" ? "// move to → pick pipeline" : "// move to → pick parent task"}</span>
               {moveToStage === "" ? (
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                  {(allPipelinesGlobal || []).length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no pipelines available</span>}
-                  {(allPipelinesGlobal || []).map((p: { id: string; name: string; icon: string }) => (
+                  {parentPipelineOptions.length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontStyle: "italic" }}>no parent tasks in this workspace</span>}
+                  {parentPipelineOptions.map((p: { id: string; name: string; icon: string }) => (
                     <button
                       key={p.id}
                       onMouseDown={e => { e.stopPropagation(); e.preventDefault(); setMoveToStage(p.id); }}
@@ -1771,8 +1844,8 @@ function SubtaskKanbanCard({
                   ))}
                 </div>
               ) : (() => {
-                const pipe = allPipelinesGlobal.find((p: { id: string }) => p.id === moveToStage);
-                const pipeStages = pipe ? [...(pipe as { stages: string[] }).stages, ...(customStages[moveToStage] || [])].filter((s: string) => !(archivedStages || []).includes(s) && s !== sub.parentStageId) : [];
+                const pipe = parentPipelineOptions.find((p: { id: string }) => p.id === moveToStage);
+                const pipeStages = pipe?.stages || [];
                 return (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
                     <button

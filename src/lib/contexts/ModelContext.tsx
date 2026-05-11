@@ -940,7 +940,18 @@ export function ModelProvider({
   }, [currentWorkspaceId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
-  const getStatus = useCallback((name: string) => normalizeStageStatus(stageStatusOverrides[name] || stageDefaults[name]?.status), [stageStatusOverrides]);
+  const getStatus = useCallback((name: string) => {
+    const override = stageStatusOverrides[name];
+    if (override) return normalizeStageStatus(override);
+    const def = stageDefaults[name]?.status;
+    if (def) return normalizeStageStatus(def);
+    // Custom stages (no default, no override) default to "planned" — keeps
+    // user-created tasks visible under `hideConcept`. Without this, addCustomStage
+    // tasks would vanish after the 10s write-protect expires and the sync poll
+    // replaces stageStatusOverrides with a server copy that didn't yet round-trip
+    // the new entry.
+    return "planned";
+  }, [stageStatusOverrides]);
 
   const pointsMap = useMemo(() => {
     const map: Record<string, number> = {};
