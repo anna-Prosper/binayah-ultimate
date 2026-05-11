@@ -1532,6 +1532,7 @@ export function ModelProvider({
           ),
         }));
         if (leftActive && approvedSubtasks.includes(key)) {
+          markLocalWrite("approvedSubtasks");
           setApprovedSubtasks(prev => prev.filter(k => k !== key));
         }
       }
