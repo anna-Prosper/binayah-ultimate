@@ -40,8 +40,11 @@ const ARRAY_VALUE_MAP_SLICES = ["customStages"] as const;
 // Slices that are string[] of stage names. Renaming = rewriting the array.
 const STRING_SET_SLICES = ["approvedStages", "archivedStages"] as const;
 
-const FORBIDDEN = /[.$]/g;
-const sanitize = (key: string): string => key.replace(FORBIDDEN, "_");
+// Two regexes — test() with `g` flag has stateful lastIndex which produces
+// flaky results across iterations. Use non-global for tests, global for replace.
+const HAS_FORBIDDEN = /[.$]/;
+const sanitize = (key: string): string => key.replace(/[.$]/g, "_");
+const isBad = (s: string) => HAS_FORBIDDEN.test(s);
 
 type State = Record<string, unknown>;
 
@@ -73,9 +76,8 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
     const v = state[slice];
     if (!v || typeof v !== "object" || Array.isArray(v)) continue;
     for (const k of Object.keys(v as Record<string, unknown>)) {
-      if (FORBIDDEN.test(k)) {
+      if (isBad(k)) {
         renames.push({ slice, oldKey: k, newKey: sanitize(k) });
-        FORBIDDEN.lastIndex = 0; // reset stateful regex
       }
     }
   }
@@ -99,11 +101,10 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
       if (!Array.isArray(arr)) continue;
       for (const name of arr as string[]) {
         if (typeof name !== "string") continue;
-        if (FORBIDDEN.test(name) && !stageRenameMap.has(name)) {
+        if (isBad(name) && !stageRenameMap.has(name)) {
           stageRenameMap.set(name, sanitize(name));
           renames.push({ slice: `${slice}[${pid}]`, oldKey: name, newKey: sanitize(name) });
         }
-        FORBIDDEN.lastIndex = 0;
       }
     }
   }
@@ -113,11 +114,10 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
     if (!Array.isArray(v)) continue;
     for (const name of v as string[]) {
       if (typeof name !== "string") continue;
-      if (FORBIDDEN.test(name) && !stageRenameMap.has(name)) {
+      if (isBad(name) && !stageRenameMap.has(name)) {
         stageRenameMap.set(name, sanitize(name));
         renames.push({ slice, oldKey: name, newKey: sanitize(name) });
       }
-      FORBIDDEN.lastIndex = 0;
     }
   }
 
@@ -138,8 +138,7 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
     if (!v || typeof v !== "object" || Array.isArray(v)) continue;
     const next: Record<string, unknown> = {};
     for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
-      const newK = FORBIDDEN.test(k) ? sanitize(k) : k;
-      FORBIDDEN.lastIndex = 0;
+      const newK = isBad(k) ? sanitize(k) : k;
       // If the sanitized key already exists, merge — prefer the existing value
       // unless that's empty (it usually won't be, but we err on safety).
       if (newK !== k && next[newK] !== undefined) {
