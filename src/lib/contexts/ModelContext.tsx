@@ -11,7 +11,7 @@ import {
 } from "@/lib/constants";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
-  pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
+  pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER, normalizeStageStatus,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
 	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type WorkspaceDb, type DbColumn,
 	} from "@/lib/data";
@@ -940,7 +940,7 @@ export function ModelProvider({
   }, [currentWorkspaceId]);
 
   // ── Computed ──────────────────────────────────────────────────────────────
-  const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
+  const getStatus = useCallback((name: string) => normalizeStageStatus(stageStatusOverrides[name] || stageDefaults[name]?.status), [stageStatusOverrides]);
 
   const pointsMap = useMemo(() => {
     const map: Record<string, number> = {};
@@ -1010,7 +1010,8 @@ export function ModelProvider({
   const getPoints = useCallback((uid: string) => pointsMap[uid] ?? 0, [pointsMap]);
 
   const sc = useMemo<Record<string, { l: string; c: string }>>(() => ({
-    active: { l: "live", c: t.green }, "in-progress": { l: "building", c: t.amber },
+    active: { l: "live", c: t.green }, live: { l: "live", c: t.green }, done: { l: "live", c: t.green },
+    "in-progress": { l: "building", c: t.amber }, building: { l: "building", c: t.amber },
     planned: { l: "planned", c: t.cyan || t.accent }, concept: { l: "concept", c: t.purple }, blocked: { l: "blocked", c: t.red },
   }), [t]);
   const ck = useMemo<Record<string, string>>(() => ({ blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate }), [t]);
@@ -1294,6 +1295,7 @@ export function ModelProvider({
     const newKey = SubtaskKey.make(newParentStageId, subtaskId);
 
     // Atomic local state updates
+    markLocalWrite("subtasks");
     setSubtasks(prev => {
       const oldList = prev[oldParent] || [];
       const moving = oldList.find(s => s.id === subtaskId);
@@ -1303,6 +1305,7 @@ export function ModelProvider({
       return { ...prev, [oldParent]: newOldList, [newParentStageId]: newNewList };
     });
 
+    markLocalWrite("reactions");
     setReactions(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -1312,7 +1315,52 @@ export function ModelProvider({
       return next;
     });
 
+    markLocalWrite("comments");
+    setComments(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    markLocalWrite("commentReactions");
+    setCommentReactions(prev => {
+      const next = { ...prev };
+      let changed = false;
+      for (const [reactionKey, val] of Object.entries(prev)) {
+        if (reactionKey.startsWith(`${oldKey}::`)) {
+          delete next[reactionKey];
+          next[reactionKey.replace(`${oldKey}::`, `${newKey}::`)] = val;
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+
+    markLocalWrite("subtaskStages");
     setSubtaskStages(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    markLocalWrite("subtaskDescOverrides");
+    setSubtaskDescOverrides(prev => {
+      if (!(oldKey in prev)) return prev;
+      const entry = prev[oldKey];
+      const next = { ...prev };
+      delete next[oldKey];
+      next[newKey] = entry;
+      return next;
+    });
+
+    markLocalWrite("subtaskDueDates");
+    setSubtaskDueDates(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
       const next = { ...prev };
@@ -1330,6 +1378,16 @@ export function ModelProvider({
       next[newKey] = entry;
       return next;
     });
+
+    markLocalWrite("approvedSubtasks");
+    setApprovedSubtasks(prev => prev.includes(oldKey)
+      ? Array.from(new Set([...prev.filter(k => k !== oldKey), newKey]))
+      : prev);
+
+    markLocalWrite("archivedSubtasks");
+    setArchivedSubtasks(prev => prev.includes(oldKey)
+      ? Array.from(new Set([...prev.filter(k => k !== oldKey), newKey]))
+      : prev);
 
     // Push to undo stack
     undoStack.push({
@@ -1537,15 +1595,16 @@ export function ModelProvider({
   //   - Setting status to "active" marks sub.done = true (entering pending state).
   //   - Moving away from "active" clears sub.done AND any prior approval.
   const setSubtaskStage = (key: string, status: string) => {
+    const nextStatus = normalizeStageStatus(status);
     const parsed = SubtaskKey.isValid(key)
       ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])
       : null;
-    const prevStatus = subtaskStages[key] || "planned";
+    const prevStatus = normalizeStageStatus(subtaskStages[key] || "planned");
     markLocalWrite("subtaskStages");
-    setSubtaskStages(prev => ({ ...prev, [key]: status }));
-    if (parsed && prevStatus !== status) {
-      const becameActive = status === "active";
-      const leftActive = prevStatus === "active" && status !== "active";
+    setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
+    if (parsed && prevStatus !== nextStatus) {
+      const becameActive = nextStatus === "active";
+      const leftActive = prevStatus === "active" && nextStatus !== "active";
       if (becameActive || leftActive) {
         markLocalWrite("subtasks");
         setSubtasks(prev => ({
@@ -1562,19 +1621,20 @@ export function ModelProvider({
     }
   };
 
-  const getSubtaskStatus = useCallback((key: string) => subtaskStages[key] || "planned", [subtaskStages]);
+  const getSubtaskStatus = useCallback((key: string) => normalizeStageStatus(subtaskStages[key] || "planned"), [subtaskStages]);
 
   const cycleSubtaskStatus = (key: string) => {
-    const cur = subtaskStages[key] || "planned";
+    const cur = normalizeStageStatus(subtaskStages[key] || "planned");
     const idx = STATUS_ORDER.indexOf(cur);
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     setSubtaskStage(key, next);
   };
 
   const setStageStatusDirect = (name: string, status: string) => {
+    const next = normalizeStageStatus(status);
     markLocalWrite("stageStatusOverrides");
-    setStageStatusOverrides(prev => ({ ...prev, [name]: status }));
-    logActivity("status", name, `→ ${status}`, ADMIN_IDS);
+    setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
+    logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
   const cycleStatus = (name: string) => {
@@ -1648,6 +1708,8 @@ export function ModelProvider({
     }
     markLocalWrite("customStages");
     setCustomStages(prev => ({ ...prev, [pid]: [...(prev[pid] || []), trimmed] }));
+    markLocalWrite("stageStatusOverrides");
+    setStageStatusOverrides(prev => ({ ...prev, [trimmed]: "planned" }));
     logActivity("create", trimmed, `added task to ${pid}`, ADMIN_IDS);
   };
 
@@ -1666,6 +1728,8 @@ export function ModelProvider({
       ...prev,
       [INBOX_PIPELINE_ID]: [...(prev[INBOX_PIPELINE_ID] || []), trimmed],
     }));
+    markLocalWrite("stageStatusOverrides");
+    setStageStatusOverrides(prev => ({ ...prev, [trimmed]: "planned" }));
     logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
     // Fire-and-forget LLM points suggestion
     fetch("/api/suggest-points", {
