@@ -681,12 +681,14 @@ function TableView({
                     {db.columns.map(col => (
                       <td
                         key={col.id}
+                        onClick={() => { if (!editingCell) setEditingCell({ rowId: row.id, colId: col.id }); }}
                         style={{
                           padding: "0 12px",
                           borderBottom: `1px solid ${t.border}`,
                           borderRight: `1px solid ${t.border}`,
                           overflow: "hidden",
                           maxWidth: col.width ? col.width : COL_MIN,
+                          cursor: "text",
                         }}
                       >
                         {editingCell?.rowId === row.id && editingCell.colId === col.id ? (
@@ -732,6 +734,26 @@ function TableView({
                   </tr>
                 ))
               )}
+              {/* Add row button as a table row */}
+              <tr>
+                <td
+                  colSpan={db.columns.length + 1}
+                  onClick={onAddRow}
+                  style={{
+                    padding: "7px 12px",
+                    color: t.textDim,
+                    fontSize: 12,
+                    cursor: "pointer",
+                    borderTop: `1px solid ${t.border}`,
+                    userSelect: "none",
+                    fontFamily: "var(--font-dm-mono), monospace",
+                  }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = t.accent; (e.currentTarget as HTMLElement).style.background = t.accent + "08"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = t.textDim; (e.currentTarget as HTMLElement).style.background = "transparent"; }}
+                >
+                  + new row
+                </td>
+              </tr>
             </tbody>
           </table>
         )}
