@@ -1009,7 +1009,8 @@ function TaskCard({
             <div
               title={editOpen ? "Click to rename" : task.stageId}
               onClick={editOpen ? () => { setEditingStage?.(task.stageId); setEditingVal?.(task.displayName || task.stageId); } : undefined}
-              style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", width: "100%", border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
+              className="title-clamp"
+              style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
             >{task.displayName}</div>
           )}
           <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
@@ -1355,7 +1356,7 @@ function SubtaskCard({
                   data-no-close
                   style={{ flex: 1, fontSize: 15, fontWeight: 700, color: t.text, background: t.accent + "08", border: `2px dashed ${t.accent}55`, borderRadius: 6, padding: "2px 6px", outline: "none", fontFamily: "inherit" }}
                 />
-              : <span style={{ flex: 1, minWidth: 0, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{taskSub.text}</span>
+              : <span className="title-clamp" style={{ flex: 1, minWidth: 0 }}>{taskSub.text}</span>
             }
           </div>
           <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
@@ -1612,7 +1613,7 @@ function SubtaskKanbanCard({
         {/* Top row — same structure as TaskCard */}
         <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", width: "100%" }}>
+            <div className="title-clamp" style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>
               <span style={{ color: sub.pipelineColor, marginRight: 4 }}>&#10551;</span>
               {editOpen
                 ? <input
