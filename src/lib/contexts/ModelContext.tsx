@@ -13,7 +13,7 @@ import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType,
+	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type WorkspaceDb, type DbColumn,
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
@@ -218,6 +218,16 @@ interface ModelContextValue {
   setWorkspaceCallsLabel: (workspaceId: string, label: string) => void;
   currentWorkspaceId: string | null;
 
+  // Database (Notion-style tables)
+  databases: WorkspaceDb[];
+  createDatabase: (workspaceId: string, name: string, icon: string) => void;
+  updateDatabase: (id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
+  deleteDatabase: (id: number) => void;
+  addDbRow: (dbId: number, values?: Record<string, string>) => void;
+  updateDbRow: (dbId: number, rowId: number, values: Record<string, string>) => void;
+  deleteDbRow: (dbId: number, rowId: number) => void;
+  addDbColumn: (dbId: number, col: Omit<DbColumn, "id">) => void;
+
   // Undo stack
   undo: () => void;
   peek: UndoOp | null;
@@ -350,6 +360,7 @@ export function ModelProvider({
   const [notes, setNotes] = useState<NoteItem[]>(() => lsGet("notes", []));
   const [bugs, setBugs] = useState<BugItem[]>(() => lsGet("bugs", []));
   const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
+  const [databases, setDatabases] = useState<WorkspaceDb[]>(() => lsGet("databases", []));
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
@@ -406,7 +417,7 @@ export function ModelProvider({
     "notifReads", "notifDismissed", "notifReadIds",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
-    "execProposals", "reminders", "notes", "bugs", "customPipelines",
+    "execProposals", "reminders", "notes", "bugs", "customPipelines", "databases",
   ] as const, []);
   const SET_SLICES = useMemo(() => [
     "approvedStages", "approvedSubtasks", "approvedPipelines",
@@ -481,7 +492,7 @@ export function ModelProvider({
       subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
       workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
-      notifReads, notifDismissed, notifReadIds,
+      notifReads, notifDismissed, notifReadIds, databases,
     };
     if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
     lsFlushTimerRef.current = setTimeout(() => {
@@ -501,7 +512,7 @@ export function ModelProvider({
     subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
-    notifReads, notifDismissed, notifReadIds,
+    notifReads, notifDismissed, notifReadIds, databases,
   ]);
 
   // One-time workspace migration
@@ -681,6 +692,8 @@ export function ModelProvider({
     }
     if (s.activityLog) setActivityLog(s.activityLog);
     if (s.reminders && !isProtected("reminders")) setReminders(s.reminders as ReminderItem[]);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((s as any).databases && !isProtected("databases")) setDatabases((s as any).databases as WorkspaceDb[]);
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
@@ -791,6 +804,7 @@ export function ModelProvider({
       notifReads,
       notifDismissed,
       notifReadIds,
+      databases,
     };
     // Compute _deletes by diffing current state against the last server-known
     // membership. Anything the server thinks exists but no longer exists locally
@@ -848,7 +862,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, notifReads, notifDismissed, notifReadIds, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
+       stagePointsOverride, stagePriorities, notifReads, notifDismissed, notifReadIds, databases, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
 
   // After a successful PATCH, the server's truth now matches what we sent —
   // record those memberships as the new server-known set so we don't re-send
@@ -908,7 +922,7 @@ export function ModelProvider({
     lastWrittenActionRef.current = userActionCounterRef.current;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1759,6 +1773,77 @@ export function ModelProvider({
   });
 
 
+
+  // ── Database (Notion-style tables) handlers ───────────────────────────────
+  const createDatabase = useCallback((workspaceId: string, name: string, icon: string) => {
+    if (!currentUser) return;
+    const now = Date.now();
+    const db: WorkspaceDb = {
+      id: now,
+      workspaceId,
+      name: name.trim() || "Untitled",
+      icon: icon || "🗃️",
+      columns: [],
+      rows: [],
+      views: [
+        { id: "view_all", name: "All rows" },
+        { id: "view_status", name: "By Status", filterCol: "__status__", filterVal: "" },
+        { id: "view_date", name: "by Date", filterCol: "__date__", filterVal: "" },
+      ],
+      createdAt: now,
+      createdBy: currentUser,
+    };
+    markLocalWrite("databases");
+    setDatabases(prev => [db, ...prev]);
+  }, [currentUser, markLocalWrite]);
+
+  const updateDatabase = useCallback((id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => {
+    markLocalWrite("databases");
+    setDatabases(prev => prev.map(db => db.id === id ? { ...db, ...patch } : db));
+  }, [markLocalWrite]);
+
+  const deleteDatabase = useCallback((id: number) => {
+    markLocalWrite("databases");
+    setDatabases(prev => prev.filter(db => db.id !== id));
+  }, [markLocalWrite]);
+
+  const addDbRow = useCallback((dbId: number, values: Record<string, string> = {}) => {
+    if (!currentUser) return;
+    const row: import("@/lib/data").DbRow = {
+      id: Date.now(),
+      values,
+      createdBy: currentUser,
+      createdAt: Date.now(),
+    };
+    markLocalWrite("databases");
+    setDatabases(prev => prev.map(db => db.id === dbId ? { ...db, rows: [...db.rows, row] } : db));
+  }, [currentUser, markLocalWrite]);
+
+  const updateDbRow = useCallback((dbId: number, rowId: number, values: Record<string, string>) => {
+    markLocalWrite("databases");
+    setDatabases(prev => prev.map(db => {
+      if (db.id !== dbId) return db;
+      return { ...db, rows: db.rows.map(r => r.id === rowId ? { ...r, values: { ...r.values, ...values } } : r) };
+    }));
+  }, [markLocalWrite]);
+
+  const deleteDbRow = useCallback((dbId: number, rowId: number) => {
+    markLocalWrite("databases");
+    setDatabases(prev => prev.map(db => {
+      if (db.id !== dbId) return db;
+      return { ...db, rows: db.rows.filter(r => r.id !== rowId) };
+    }));
+  }, [markLocalWrite]);
+
+  const addDbColumn = useCallback((dbId: number, col: Omit<DbColumn, "id">) => {
+    const id = `col_${Date.now()}`;
+    markLocalWrite("databases");
+    setDatabases(prev => prev.map(db => {
+      if (db.id !== dbId) return db;
+      return { ...db, columns: [...db.columns, { ...col, id }] };
+    }));
+  }, [markLocalWrite]);
+
   // ── Notification read/dismiss handlers ───────────────────────────────────
   // markAllNotifsRead stamps "now" against the current user — items in the
   // updates feed with time > stamp count as unread. dismissNotif appends a
@@ -1844,6 +1929,14 @@ export function ModelProvider({
     unpinCallSeries,
     setWorkspaceCallsLabel,
     currentWorkspaceId,
+    databases,
+    createDatabase,
+    updateDatabase,
+    deleteDatabase,
+    addDbRow,
+    updateDbRow,
+    deleteDbRow,
+    addDbColumn,
     undo: undoStack.undo,
     peek: undoStack.peek,
     stackLen: undoStack.stack.length,

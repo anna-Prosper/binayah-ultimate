@@ -428,6 +428,34 @@ export interface ExecProposal {
 }
 export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"];
 
+// === DATABASE (Notion-style tables) ===
+export interface DbColumn {
+  id: string;   // e.g. "col_1234"
+  name: string;
+  type: "text" | "url" | "date" | "status" | "user" | "number";
+  width?: number;
+  options?: string[]; // for status columns
+}
+
+export interface DbRow {
+  id: number;   // timestamp as id
+  values: Record<string, string>; // columnId → value
+  createdBy: string;
+  createdAt: number;
+}
+
+export interface WorkspaceDb {
+  id: number;       // timestamp
+  workspaceId: string;
+  name: string;
+  icon: string;     // emoji
+  columns: DbColumn[];
+  rows: DbRow[];
+  views: Array<{ id: string; name: string; filterCol?: string; filterVal?: string }>;
+  createdAt: number;
+  createdBy: string;
+}
+
 export interface UserType {
   id: string;
   name: string;

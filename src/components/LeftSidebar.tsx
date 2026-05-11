@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2 } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive";
+export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
 
 export interface SidebarPipeline {
   id: string;
@@ -55,6 +55,7 @@ export const NAV_HREFS: Record<NavItem, string> = {
   chat: "/chat",
   calls: "/calls",
   archive: "/archive",
+  databases: "/databases",
 };
 
 export function navItemFromPathname(pathname: string): NavItem {
@@ -67,19 +68,21 @@ export function navItemFromPathname(pathname: string): NavItem {
   if (pathname.startsWith("/archive")) return "archive";
   if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/calls")) return "calls";
+  if (pathname.startsWith("/databases")) return "databases";
   return "home";
 }
 
 // Home is rendered separately at the top
 const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
-  { id: "pipelines", label: "pipelines" },
-  { id: "documents", label: "documents" },
-  { id: "notes",     label: "notes"     },
-  { id: "bugs",      label: "testing"   },
-  { id: "activity",  label: "activity"  },
-  { id: "archive",   label: "archive"   },
-  { id: "chat",      label: "chat"      },
-  { id: "calls",     label: "calls"     },
+  { id: "pipelines",  label: "pipelines"  },
+  { id: "documents",  label: "documents"  },
+  { id: "notes",      label: "notes"      },
+  { id: "bugs",       label: "testing"    },
+  { id: "databases",  label: "databases"  },
+  { id: "activity",   label: "activity"   },
+  { id: "archive",    label: "archive"    },
+  { id: "chat",       label: "chat"       },
+  { id: "calls",      label: "calls"      },
 ];
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
@@ -88,6 +91,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   documents: <FileText size={15} strokeWidth={1.8} />,
   notes: <StickyNote size={15} strokeWidth={1.8} />,
   bugs: <Bug size={15} strokeWidth={1.8} />,
+  databases: <Table2 size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
   archive: <Archive size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,

@@ -160,6 +160,35 @@ export const PatchBodySchema = z.object({
     requestedUserId: z.string().nullable().optional(),
   })).optional(),
 
+  // Databases (Notion-style workspace tables)
+  databases: z.array(z.object({
+    id: z.number().int(),
+    workspaceId: z.string().max(80),
+    name: z.string().max(120),
+    icon: z.string().max(10),
+    columns: z.array(z.object({
+      id: z.string().max(40),
+      name: z.string().max(80),
+      type: z.enum(["text", "url", "date", "status", "user", "number"]),
+      width: z.number().int().min(40).max(800).optional(),
+      options: z.array(z.string().max(60)).max(20).optional(),
+    })).max(30),
+    rows: z.array(z.object({
+      id: z.number().int(),
+      values: z.record(z.string(), z.string().max(2000)),
+      createdBy: z.string().max(80),
+      createdAt: z.number(),
+    })).max(500),
+    views: z.array(z.object({
+      id: z.string().max(40),
+      name: z.string().max(80),
+      filterCol: z.string().max(40).optional(),
+      filterVal: z.string().max(120).optional(),
+    })).max(10),
+    createdAt: z.number(),
+    createdBy: z.string().max(80),
+  })).optional(),
+
   // Identity & workspace
   users: z.array(z.unknown()).optional(),
   workspaces: z.array(z.unknown()).optional(),

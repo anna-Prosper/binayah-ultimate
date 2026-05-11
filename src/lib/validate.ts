@@ -101,6 +101,7 @@ export const PATCH_KEY_WHITELIST = new Set([
   "stagePointsOverride",
   "stagePriorities",
   "execProposals",
+  "databases",
   // Per-user notification read state — userId → last-read timestamp.
   "notifReads",
   // Per-user notification dismissals — userId → string[] of dismissed item ids.
@@ -151,6 +152,7 @@ export const ARRAY_BY_ID_SLICE_KEYS = new Set([
   "notes",
   "bugs",
   "customPipelines",
+  "databases",
 ]);
 
 /** Set-like arrays (string lists treated as a set). Merged via union;
