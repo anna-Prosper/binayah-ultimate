@@ -97,7 +97,7 @@ interface ModelContextValue {
   setWorkspaces: React.Dispatch<React.SetStateAction<Workspace[]>>;
   activityLog: ActivityItem[];
 	  reminders: ReminderItem[];
-	  addReminder: (input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => void;
+	  addReminder: (input: { title: string; body: string; recipientIds: string[]; remindAt: string; workspaceId?: string }) => void;
 	  dismissReminder: (id: number) => void;
 	  notes: NoteItem[];
 	  addNote: (input: { title: string; body: string; pinnedTo?: string; color?: string }) => void;

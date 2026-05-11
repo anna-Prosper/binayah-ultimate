@@ -1073,10 +1073,10 @@ export default function HomeView({
             users={scopedUsers}
             currentUser={currentUser}
             execProposals={execProposals.filter(p => p.kind === "strategy" || EXEC_IDS.includes(p.by))}
-            onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt })}
+            onAddReminder={(title, remindAt) => addReminder({ title, body: "", recipientIds: [currentUser], remindAt, workspaceId: homeWsFilter ?? undefined })}
             onUpdateExecProposal={(id, status) => updateExecProposalStatus(id, status)}
             onCompleteExecProposal={completeExecProposal}
-            reminders={reminders}
+            reminders={reminders.filter(r => !r.workspaceId || r.workspaceId === (homeWsFilter ?? undefined))}
             onDismissReminder={dismissReminder}
             onApprove={(key) => SubtaskKey.isValid(key) ? approveSubtask(key) : approveStage(key)}
             onAssign={(key, userId) => assignTask(key, userId)}

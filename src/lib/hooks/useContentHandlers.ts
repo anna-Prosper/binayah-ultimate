@@ -178,7 +178,7 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     showToast("// proposal sent to Anna", tGreen);
   }, [currentUser, markLocalWrite, setExecProposals, logActivity, showToast, tAmber, tGreen]);
 
-  const addReminder = useCallback((input: { title: string; body: string; recipientIds: string[]; remindAt: string }) => {
+  const addReminder = useCallback((input: { title: string; body: string; recipientIds: string[]; remindAt: string; workspaceId?: string }) => {
     if (!currentUser) return;
     const title = input.title.trim();
     const body = input.body.trim();
@@ -196,6 +196,7 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
       recipientIds: recipients,
       remindAt: new Date(due).toISOString(),
       createdAt: Date.now(),
+      workspaceId: input.workspaceId,
       emailedTo: [],
       dismissedBy: [],
     };

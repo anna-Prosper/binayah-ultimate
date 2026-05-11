@@ -177,6 +177,19 @@ function ShellInner({
   const prevApprovedRef = useRef<string[]>([]);
   const isMobile = useIsMobile(768);
 
+  // Refs for reading current overlay state inside the keyboard handler closure (which has [] deps)
+  const showSettingsRef = useRef(showSettings);
+  const showActivityRef = useRef(showActivity);
+  const showChatRef = useRef(showChat);
+  const showThemePickerRef = useRef(showThemePicker);
+  const viewingUserRef = useRef(viewingUser);
+  // Keep refs in sync with state on every render
+  showSettingsRef.current = showSettings;
+  showActivityRef.current = showActivity;
+  showChatRef.current = showChat;
+  showThemePickerRef.current = showThemePicker;
+  viewingUserRef.current = viewingUser;
+
   useEffect(() => { lsSet("lastSeenActivity", lastSeenActivity); }, [lastSeenActivity]);
   // On first ever visit, mark everything as seen so the badge doesn't show "200+" to a brand-new user.
   useEffect(() => {
@@ -216,7 +229,14 @@ function ShellInner({
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") { e.preventDefault(); setShowPalette(prev => !prev); }
-      if (e.key === "Escape") { setViewingUser(null); setShowThemePicker(false); setReactOpen(null); setShowChat(false); setShowActivity(false); setShowSettings(false); }
+      if (e.key === "Escape") {
+        if (showSettingsRef.current) { setShowSettings(false); return; }
+        if (showActivityRef.current) { setShowActivity(false); return; }
+        if (showChatRef.current) { setShowChat(false); return; }
+        if (showThemePickerRef.current) { setShowThemePicker(false); return; }
+        if (viewingUserRef.current) { setViewingUser(null); return; }
+        setReactOpen(null);
+      }
       if ((e.metaKey || e.ctrlKey) && e.key === "z" && !e.shiftKey) {
         const tag = (document.activeElement as HTMLElement)?.tagName?.toLowerCase();
         if (tag !== "input" && tag !== "textarea") {
@@ -415,7 +435,7 @@ function ShellInner({
         onWorkspaceChange={(id) => { setCurrentWorkspaceId(id); }}
         canCreateWorkspace={!!currentUser && ADMIN_IDS.includes(currentUser!)}
         onCreateWorkspace={() => setWorkspaceModal("create")}
-        canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && !isExec && currentWorkspace.members.includes(currentUser!)}
+        canManageCurrentWorkspace={!!currentWorkspace && !!currentUser && currentWorkspace.members.includes(currentUser!)}
         onManageCurrentWorkspace={() => setWorkspaceModal("manage")}
         hiddenNavItems={[
           ...(canSeeCalls ? [] : ["calls" as NavItem]),

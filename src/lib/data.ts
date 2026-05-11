@@ -368,6 +368,7 @@ export interface ReminderItem {
   recipientIds: string[];
   remindAt: string;
   createdAt: number;
+  workspaceId?: string;
   emailedTo?: string[];
   dismissedBy?: string[];
 }

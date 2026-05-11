@@ -66,9 +66,9 @@ function detectMention(val: string): { query: string; start: number } | null {
 // Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
 // pencil-edit-mode pattern, just compact and nested under the parent stage.
 function StageSubtaskCard({
-  task, stageId, pC, t, onRemove,
+  task, stageId, pId, pC, t, onRemove,
 }: {
-  task: SubtaskItem; stageId: string; pC: string; t: T;
+  task: SubtaskItem; stageId: string; pId: string; pC: string; t: T;
   onRemove: () => void;
 }) {
   const {
@@ -155,7 +155,9 @@ function StageSubtaskCard({
   // Approval + status — mirrors the stage TaskCard flow
   const isApproved = approvedSubtasks.includes(key);
   const isPending = task.done && !isApproved;
-  const canApprove = currentUser ? (ADMIN_IDS.includes(currentUser) || workspaces.some(w => w.captains.includes(currentUser))) : false;
+  const taskWorkspaceId = workspaces.find(w => w.pipelineIds.includes(pId))?.id;
+  const taskWorkspace = workspaces.find(w => w.id === taskWorkspaceId);
+  const canApprove = currentUser ? (ADMIN_IDS.includes(currentUser) || (taskWorkspace?.captains.includes(currentUser) ?? false)) : false;
   const subStatus = getSubtaskStatus(key);
   const stPill = sc[subStatus] ?? { l: subStatus, c: t.textMuted };
 
@@ -926,6 +928,7 @@ export default function Stage({
                     key={task.id}
                     task={task}
                     stageId={name}
+                    pId={pId}
                     pC={pC}
                     t={t}
                     onRemove={() => setConfirmPending(SubtaskKey.make(name, task.id))}
@@ -1277,6 +1280,7 @@ export default function Stage({
                   key={task.id}
                   task={task}
                   stageId={name}
+                  pId={pId}
                   pC={pC}
                   t={t}
                   onRemove={() => setConfirmPending(SubtaskKey.make(name, task.id))}

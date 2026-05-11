@@ -192,8 +192,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       const data = await res.json() as { doc: DocFull };
       setDocs(prev => [data.doc, ...prev]);
       await openDoc(data.doc._id);
-    } catch { /* toast not available here, silently fail */ }
-  }, [filterPipeline, openDoc, workspacePipelineIds]);
+    } catch { showToast("// failed to create document", t.red); }
+  }, [filterPipeline, openDoc, workspacePipelineIds, showToast, t.red]);
 
   // PATCH helper — sets saveStatus, updates list + activeDoc, surfaces toast on error
   const patchDoc = useCallback(async (id: string, fields: Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>) => {
@@ -246,8 +246,8 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         setActiveDoc(null);
         if (isMobile) setMobileView("list");
       }
-    } catch { /* silently fail */ }
-  }, [activeId, isMobile]);
+    } catch { showToast("// failed to delete document", t.red); }
+  }, [activeId, isMobile, showToast, t.red]);
 
   // TipTap editor — debounce-save 3s after last keystroke; blur-save cancels debounce
   const editor = useEditor({
@@ -397,7 +397,9 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   // When workspacePipelineIds is an empty array (workspace has no pipelines), only untagged docs show.
   // When workspacePipelineIds is undefined (no workspace context), show everything.
   const filteredDocs = workspacePipelineIds
-    ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
+    ? workspacePipelineIds.length === 0
+      ? []
+      : docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
     : docs;
 
   // Skeleton row
