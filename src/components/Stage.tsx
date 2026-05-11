@@ -66,10 +66,10 @@ function detectMention(val: string): { query: string; start: number } | null {
 // Structurally parallel to TasksView's TaskCard: same claim-chip / assign-with-avatars /
 // pencil-edit-mode pattern, just compact and nested under the parent stage.
 function StageSubtaskCard({
-  task, stageId, pId, pC, t, onRemove,
+  task, stageId, pId, pC, t, onRemove, isArchived,
 }: {
   task: SubtaskItem; stageId: string; pId: string; pC: string; t: T;
-  onRemove: () => void;
+  onRemove: () => void; isArchived?: boolean;
 }) {
   const {
     users, workspaceUsers, currentUser, reactions, comments, claims, assignments,
@@ -158,6 +158,7 @@ function StageSubtaskCard({
   const taskWorkspaceId = workspaces.find(w => w.pipelineIds.includes(pId))?.id;
   const taskWorkspace = workspaces.find(w => w.id === taskWorkspaceId);
   const canApprove = currentUser ? (ADMIN_IDS.includes(currentUser) || (taskWorkspace?.captains.includes(currentUser) ?? false)) : false;
+  const canAssign = canApprove;
   const subStatus = getSubtaskStatus(key);
   const stPill = sc[subStatus] ?? { l: subStatus, c: t.textMuted };
 
@@ -270,8 +271,8 @@ function StageSubtaskCard({
           )}
         </div>
         <button onClick={() => { setCommentOpen(v => !v); setReactOpen(false); setAssignOpen(false); }} style={{ ...iconBtn, display: "inline-flex", alignItems: "center", gap: 5 }}><MessageSquare size={12} /> {cmts.length}</button>
-        {/* Assign chip — same pattern as TaskCard: avatars stacked, name + " +1" if 2 */}
-        <div style={{ position: "relative" }}>
+        {/* Assign chip — visible only to operator/root of the workspace */}
+        {canAssign && <div style={{ position: "relative" }}>
           <button
             onClick={() => { setAssignOpen(v => !v); setReactOpen(false); setCommentOpen(false); }}
             style={{
@@ -324,7 +325,7 @@ function StageSubtaskCard({
               )}
             </div>
           )}
-        </div>
+        </div>}
         <button onClick={() => shareSubtask(key, `${task.text} (subtask)`)} style={iconBtn}><span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{copied === key ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}</span></button>
         <button
           onClick={e => {
@@ -434,11 +435,16 @@ export default function Stage({
     pendingNewComments, flushPendingComments,
     stagePointsOverride, setStagePointsOverride,
     archivedSubtasks,
+    assignments, assignTask,
   } = useModel();
   const { workspaces } = useModel();
   const stageWorkspaceId = workspaces.find(w => w.pipelineIds.includes(pId))?.id;
   const role = useRole(stageWorkspaceId);
   const canArchive = role === "operator" || role === "root";
+  const canAssignStage = canArchive;
+  const [stageAssignOpen, setStageAssignOpen] = useState(false);
+  const stageAssigneeIds = assignments[name] || [];
+  const stageAssignees = stageAssigneeIds.map(id => users.find(u => u.id === id)).filter(Boolean) as UserType[];
   const { reactOpen, setReactOpen, copied, setCopied, claimAnim, setClaimAnim } = useEphemeral();
 
   const handleClaimWithAnim = (sid: string) => {
@@ -597,9 +603,11 @@ export default function Stage({
   const claimedByMe = currentUser ? claimedBy.includes(currentUser) : false;
   const MockupComp = mockupsMap[name] ?? null;
   const allTasks = subtasks[name] || [];
-  const tasks = allTasks.filter(x => !(archivedSubtasks || []).includes(SubtaskKey.make(name, x.id)));
+  // Show all tasks including archived ones — archived tasks render with a "completed" style
+  const tasks = allTasks;
+  const archivedSubtaskKeys = new Set((archivedSubtasks || []).map(k => k));
   const cmts = comments[name] || [];
-  const tasksDone = tasks.filter(x => x.done).length;
+  const tasksDone = tasks.filter(x => x.done || archivedSubtaskKeys.has(SubtaskKey.make(name, x.id))).length;
 
   // Derived points: sum of live subtasks (ledger) when present; else override/default (leaf)
   const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks), [archivedSubtasks]);
@@ -864,6 +872,70 @@ export default function Stage({
 
               <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                 <ClaimChip claimed={claimedByMe} pipelineColor={pC} t={t} onClaim={() => handleClaimWithAnim(name)} pulse={isTopClaim} />
+
+                {canAssignStage && (
+                  <div style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => setStageAssignOpen(v => !v)}
+                      style={{
+                        background: stageAssignees[0] ? stageAssignees[0].color + "18" : "transparent",
+                        border: `1px solid ${stageAssignees[0] ? stageAssignees[0].color + "55" : t.border}`,
+                        borderRadius: 12,
+                        padding: "4px 10px",
+                        cursor: "pointer",
+                        fontSize: 12,
+                        color: stageAssignees[0]?.color || t.textMuted,
+                        fontWeight: 700,
+                        fontFamily: "var(--font-dm-mono), monospace",
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 5,
+                      }}
+                      title={stageAssignees.length > 0 ? `Assigned: ${stageAssignees.map(u => u.name).join(", ")}` : "Assign this stage"}
+                    >
+                      {stageAssignees.length === 0 ? (
+                        <><User size={11} style={{ opacity: 0.7 }} /><span>assign</span></>
+                      ) : (
+                        <>
+                          <span style={{ display: "inline-flex" }}>
+                            {stageAssignees.slice(0, 2).map((u, i) => (
+                              <span key={u.id} style={{ marginLeft: i === 0 ? 0 : -7, display: "inline-block", borderRadius: "50%", boxShadow: `0 0 0 1.5px ${t.bgCard}` }}>
+                                <AvatarC user={u} size={16} />
+                              </span>
+                            ))}
+                          </span>
+                          <span>{stageAssignees.length === 1 ? stageAssignees[0].name.toLowerCase() : `${stageAssignees[0].name.toLowerCase()} +${stageAssignees.length - 1}`}</span>
+                        </>
+                      )}
+                    </button>
+                    {stageAssignOpen && (
+                      <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 200 }}>
+                        <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                          assign — up to 2 ({stageAssignees.length}/2)
+                        </div>
+                        {workspaceUsers.map(u => {
+                          const isCurrent = stageAssignees.some(a => a.id === u.id);
+                          const atCap = stageAssignees.length >= 2 && !isCurrent;
+                          return (
+                            <button
+                              key={u.id}
+                              onClick={() => assignTask(name, u.id)}
+                              disabled={atCap}
+                              style={{ background: isCurrent ? u.color + "22" : "transparent", border: "none", cursor: atCap ? "not-allowed" : "pointer", padding: "6px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: isCurrent ? u.color : t.text, fontWeight: isCurrent ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left", opacity: atCap ? 0.4 : 1 }}
+                            >
+                              <AvatarC user={u} size={20} />
+                              <span style={{ flex: 1 }}>{u.name}</span>
+                              {isCurrent && <span style={{ fontSize: 11 }}>✓</span>}
+                            </button>
+                          );
+                        })}
+                        {stageAssignees.length > 0 && (
+                          <button onClick={() => assignTask(name, null)} style={{ background: "transparent", border: `1px dashed ${t.border}`, cursor: "pointer", padding: "4px 8px", borderRadius: 8, fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>× clear all</button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {claimedBy.filter(uid => uid !== currentUser).length > 0 && (
                   <div style={{ display: "flex", alignItems: "center", gap: 4 }}>

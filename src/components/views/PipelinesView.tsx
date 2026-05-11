@@ -1,10 +1,12 @@
 "use client";
 
 import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { User } from "lucide-react";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, useRole } from "@/lib/contexts/ModelContext";
 import { Chev } from "@/components/ui/primitives";
 import ClaimerPills from "@/components/ui/ClaimerPills";
+import { AvatarC } from "@/components/ui/Avatar";
 import SearchFilter from "@/components/SearchFilter";
 import Stage from "@/components/Stage";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -66,7 +68,7 @@ export default function PipelinesView({
   }>({ open: false, pipelineId: "", title: "", body: "" });
 
   const {
-    users, currentUser, me,
+    users, workspaceUsers, currentUser, me,
     claims, reactions, getPoints,
     stageDescOverrides,
     pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
@@ -77,8 +79,10 @@ export default function PipelinesView({
     addCustomStage, addCustomPipeline, cyclePriority, archivePipeline,
     archivedStages, archivedPipelines,
     activityLog,
+    assignments, assignTask,
     t,
   } = useModel();
+  const [assignAllOpen, setAssignAllOpen] = useState<string | null>(null);
 
   // Derive workspace ID for a given pipeline (the workspace whose pipelineIds includes it)
   const getPipelineWorkspaceId = useCallback((pipelineId: string): string | undefined => {
@@ -344,6 +348,55 @@ export default function PipelinesView({
                         ) : (
                           <button onClick={() => { allPStages.forEach(s => { if ((claims[s] || []).includes(currentUser!)) handleClaimWithAnim(s); }); }} style={{ background: t.green + "15", border: `1px solid ${t.green}44`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }} title="Click to unclaim all">{"✓"} all claimed</button>
                         )}
+                        {(() => {
+                          const pipelineWsId = getPipelineWorkspaceId(p.id);
+                          const pipelineWs = workspaces.find(w => w.id === pipelineWsId);
+                          const canAssignPipeline = !readOnly && currentUser != null && (ADMIN_IDS.includes(currentUser) || (pipelineWs?.captains.includes(currentUser) ?? false));
+                          if (!canAssignPipeline) return null;
+                          return (
+                            <div style={{ position: "relative" }} onClick={e => e.stopPropagation()}>
+                              <button
+                                onClick={() => setAssignAllOpen(assignAllOpen === p.id ? null : p.id)}
+                                style={{ background: pC + "10", border: `1px solid ${pC}33`, borderRadius: 8, padding: "4px 8px", cursor: "pointer", fontSize: 11, color: pC, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", display: "flex", alignItems: "center", gap: 4 }}
+                                title="Assign all stages in this pipeline to a teammate"
+                              >
+                                <User size={11} /> assign all
+                              </button>
+                              {assignAllOpen === p.id && (
+                                <div onClick={e => e.stopPropagation()} style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 4, display: "flex", flexDirection: "column", gap: 0, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 200, minWidth: 220 }}>
+                                  <div style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", padding: "4px 8px 2px", textTransform: "uppercase", letterSpacing: 0.5 }}>
+                                    assign all stages
+                                  </div>
+                                  {workspaceUsers.map(u => {
+                                    const assignedCount = allPStages.filter(s => (assignments[s] || []).includes(u.id)).length;
+                                    const allAssigned = assignedCount === allPStages.length && allPStages.length > 0;
+                                    return (
+                                      <button
+                                        key={u.id}
+                                        onClick={() => {
+                                          if (allAssigned) {
+                                            allPStages.forEach(s => { if ((assignments[s] || []).includes(u.id)) assignTask(s, u.id); });
+                                          } else {
+                                            allPStages.forEach(s => {
+                                              const cur = assignments[s] || [];
+                                              if (!cur.includes(u.id) && cur.length < 2) assignTask(s, u.id);
+                                            });
+                                          }
+                                        }}
+                                        style={{ background: allAssigned ? u.color + "22" : "transparent", border: "none", cursor: "pointer", padding: "6px 8px", borderRadius: 8, display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: allAssigned ? u.color : t.text, fontWeight: allAssigned ? 700 : 500, fontFamily: "var(--font-dm-mono), monospace", textAlign: "left" }}
+                                        title={allAssigned ? "Click to unassign from all stages" : `Assign to ${allPStages.length - assignedCount} unassigned stage(s)`}
+                                      >
+                                        <AvatarC user={u} size={20} />
+                                        <span style={{ flex: 1 }}>{u.name}</span>
+                                        <span style={{ fontSize: 10, color: t.textDim }}>{assignedCount}/{allPStages.length}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>
