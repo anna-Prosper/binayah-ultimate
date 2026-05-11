@@ -979,7 +979,7 @@ function TaskCard({
         onDragStart={isDraggable ? e => { e.dataTransfer.setData("stageId", task.stageId); e.dataTransfer.effectAllowed = "move"; } : undefined}
       >
       {/* Top row */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           {editingStage === task.stageId ? (
             <input
@@ -1009,7 +1009,7 @@ function TaskCard({
             <div
               title={editOpen ? "Click to rename" : task.stageId}
               onClick={editOpen ? () => { setEditingStage?.(task.stageId); setEditingVal?.(task.displayName || task.stageId); } : undefined}
-              style={{ fontSize: 15, fontWeight: 700, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
+              style={{ fontSize: 15, fontWeight: 700, color: t.text, wordBreak: "break-word", lineHeight: 1.3, border: editOpen ? `2px dashed ${t.accent}55` : "none", borderRadius: editOpen ? 6 : 0, padding: editOpen ? "2px 6px" : 0, cursor: editOpen ? "text" : "default", background: editOpen ? t.accent + "08" : "transparent", transition: "all 0.15s" }}
             >{task.displayName}</div>
           )}
           <div style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 4, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
@@ -1341,9 +1341,9 @@ function SubtaskCard({
     <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell t={t} borderColor={t.border} pipelineColor={pipelineColor}>
       {/* Top row — identical structure to TaskCard */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "flex", alignItems: "center", gap: 4, minWidth: 0, overflow: "hidden" }}>
+          <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, display: "flex", alignItems: "flex-start", gap: 4, minWidth: 0, wordBreak: "break-word" }}>
             <span style={{ color: pipelineColor, flexShrink: 0 }}>⤷</span>
             {editOpen
               ? <input
@@ -1611,9 +1611,9 @@ function SubtaskKanbanCard({
         onDragEnd={!readOnly ? onDragSubtaskEnd : undefined}
       >
         {/* Top row — same structure as TaskCard */}
-        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, overflow: "hidden" }}>
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            <div style={{ fontSize: 15, fontWeight: 700, color: t.text, lineHeight: 1.3, wordBreak: "break-word" }}>
               <span style={{ color: sub.pipelineColor, marginRight: 4 }}>&#10551;</span>
               {editOpen
                 ? <input
