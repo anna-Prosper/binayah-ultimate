@@ -71,10 +71,12 @@ function CellView({
   }
   if (col.type === "url") {
     if (!value) return <span onClick={onEdit} style={{ color: t.textDim, cursor: "pointer" }}>—</span>;
+    // Strip javascript: and data: protocol to prevent XSS
+    const safeHref = /^https?:\/\//i.test(value) ? value : `https://${value}`;
     return (
       <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
         <a
-          href={value}
+          href={safeHref}
           target="_blank"
           rel="noopener noreferrer"
           style={{ color: t.accent, fontSize: 12, fontFamily: "var(--font-dm-mono), monospace", textDecoration: "none" }}
@@ -511,6 +513,7 @@ function TableView({
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [colNameVal, setColNameVal] = useState("");
+  const [confirmDeleteRowId, setConfirmDeleteRowId] = useState<number | null>(null);
 
   const saveColName = (colId: string) => {
     const trimmed = colNameVal.trim();
@@ -739,7 +742,10 @@ function TableView({
                         }}
                       />
                     ) : (
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      <span
+                        style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
+                        data-tooltip={`${col.name} · ${col.type}${canEdit ? " · double-click to rename" : ""}`}
+                      >
                         {col.name}
                         <span style={{ fontSize: 9, opacity: 0.5 }}>
                           {col.type === "url" ? "↗" : col.type === "date" ? "📅" : col.type === "status" ? "◎" : col.type === "user" ? "👤" : col.type === "number" ? "#" : "T"}
@@ -765,7 +771,9 @@ function TableView({
                       color: t.textDim, fontSize: 12,
                     }}
                   >
-                    No rows yet. Click + New to add one.
+                    {db.rows.length > 0
+                      ? "No rows match this filter."
+                      : canEdit ? "No rows yet. Click + New to add one." : "No rows yet."}
                   </td>
                 </tr>
               ) : (
@@ -820,20 +828,26 @@ function TableView({
                       borderBottom: `1px solid ${t.border}`,
                       textAlign: "center",
                     }}>
-                      {canEdit && hoveredRow === row.id && (
+                      {canEdit && (confirmDeleteRowId === row.id ? (
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                          <button
+                            onClick={() => { onDeleteRow(row.id); setConfirmDeleteRowId(null); }}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: t.red, fontSize: 10, padding: "1px 3px", borderRadius: 3 }}
+                          >✓</button>
+                          <button
+                            onClick={() => setConfirmDeleteRowId(null)}
+                            style={{ background: "transparent", border: "none", cursor: "pointer", color: t.textDim, fontSize: 10, padding: "1px 3px", borderRadius: 3 }}
+                          >✕</button>
+                        </span>
+                      ) : hoveredRow === row.id && (
                         <button
-                          onClick={() => onDeleteRow(row.id)}
-                          style={{
-                            background: "transparent", border: "none",
-                            cursor: "pointer", color: t.textDim,
-                            padding: 2, borderRadius: 3,
-                            display: "inline-flex", alignItems: "center",
-                          }}
-                          title="Delete row"
+                          onClick={() => setConfirmDeleteRowId(row.id)}
+                          style={{ background: "transparent", border: "none", cursor: "pointer", color: t.textDim, padding: 2, borderRadius: 3, display: "inline-flex", alignItems: "center" }}
+                          data-tooltip="Delete row"
                         >
                           <Trash2 size={11} />
                         </button>
-                      )}
+                      ))}
                     </td>
                   </tr>
                 ))
@@ -887,13 +901,15 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<number | null>(null);
+  const [confirmDeleteDbId, setConfirmDeleteDbId] = useState<number | null>(null);
 
   const wsId = currentWorkspaceId ?? "war-room";
 
   // Only admins and workspace operators can create/edit databases
+  const currentWorkspace = workspaces.find(w => w.id === wsId);
   const canEdit = !!currentUser && (
     ADMIN_IDS.includes(currentUser) ||
-    workspaces.find(w => w.id === wsId)?.captains.includes(currentUser) === true
+    currentWorkspace?.captains.includes(currentUser) === true
   );
   const wsDbs = databases.filter(db => db.workspaceId === wsId);
   const selectedDb = wsDbs.find(db => db.id === selectedDbId) || null;
@@ -934,20 +950,27 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
             {selectedDb.icon} {selectedDb.name}
           </span>
           <div style={{ flex: 1 }} />
-          {canEdit && (
+          {canEdit && (confirmDeleteDbId === selectedDb.id ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}>
+              <span style={{ color: t.textMuted }}>delete this database?</span>
+              <button
+                onClick={() => { deleteDatabase(selectedDb.id); setSelectedDbId(null); setConfirmDeleteDbId(null); }}
+                style={{ background: t.red + "22", border: `1px solid ${t.red}44`, color: t.red, cursor: "pointer", fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}
+              >yes, delete</button>
+              <button
+                onClick={() => setConfirmDeleteDbId(null)}
+                style={{ background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted, cursor: "pointer", fontSize: 11, padding: "2px 8px", borderRadius: 4 }}
+              >cancel</button>
+            </span>
+          ) : (
             <button
-              onClick={() => { deleteDatabase(selectedDb.id); setSelectedDbId(null); }}
-              style={{
-                background: "transparent", border: "none",
-                color: t.textDim, cursor: "pointer", fontSize: 11,
-                padding: "3px 6px", borderRadius: 4,
-                display: "flex", alignItems: "center", gap: 4,
-              }}
-              title="Delete database"
+              onClick={() => setConfirmDeleteDbId(selectedDb.id)}
+              style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, padding: "3px 6px", borderRadius: 4, display: "flex", alignItems: "center", gap: 4 }}
+              data-tooltip="Delete database"
             >
               <Trash2 size={12} /> delete
             </button>
-          )}
+          ))}
         </div>
 
         <TableView
@@ -981,8 +1004,9 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
             <Table2 size={20} style={{ color: t.accent }} />
             databases
           </div>
-          <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4 }}>
-            workspace tables — {wsDbs.length} database{wsDbs.length !== 1 ? "s" : ""}
+          <div style={{ fontSize: 12, color: t.textMuted, marginTop: 4, display: "flex", alignItems: "center", gap: 6 }}>
+            {currentWorkspace && <span>{currentWorkspace.icon} {currentWorkspace.name} ·</span>}
+            {wsDbs.length} database{wsDbs.length !== 1 ? "s" : ""}
           </div>
         </div>
         {canEdit && (
