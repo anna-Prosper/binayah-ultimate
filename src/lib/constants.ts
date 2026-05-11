@@ -1,7 +1,7 @@
 // ── Timing ────────────────────────────────────────────────────────────────────
 
 /** How often the sync poll fetches from the server (ms). */
-export const SYNC_POLL_INTERVAL_MS = 5_000;
+export const SYNC_POLL_INTERVAL_MS = 15_000;
 
 /** Debounce window before a state change triggers a PATCH write (ms). */
 export const SYNC_WRITE_DEBOUNCE_MS = 1_500;

@@ -271,7 +271,7 @@ export function ModelProvider({
   showToast = noopToast,
   currentWorkspaceId,
 }: ModelProviderProps) {
-  const t = mkTheme(themeId, isDark);
+  const t = useMemo(() => mkTheme(themeId, isDark), [themeId, isDark]);
 
   // ── Identity ──────────────────────────────────────────────────────────────
   const [currentUser, setCurrentUser] = useState<string | null>(() => {
@@ -938,66 +938,79 @@ export function ModelProvider({
   // ── Computed ──────────────────────────────────────────────────────────────
   const getStatus = useCallback((name: string) => stageStatusOverrides[name] || stageDefaults[name]?.status || "concept", [stageStatusOverrides]);
 
-  const getPoints = useCallback((uid: string) => {
+  const pointsMap = useMemo(() => {
+    const map: Record<string, number> = {};
     const archivedSubtaskKeySet = new Set(archivedSubtasks);
     const approvedSubtaskKeySet = new Set(approvedSubtasks);
-    let p = 0;
-    Object.entries(owners).forEach(([key, ownersList]) => {
-      if (!ownersList.includes(uid)) return;
-      const ownerCount = Math.max(ownersList.length, 1);
 
-      // Subtask — key is "stageId::subtaskId"
-      if (SubtaskKey.isValid(key)) {
-        if (!approvedSubtaskKeySet.has(key)) return;
-        const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
-        if (!parsed) return;
-        const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
-        if (!sub) return;
-        // Split subtask points among owners. Use Math.floor so totals are stable
-        // and never exceed the headline number on the card.
-        p += Math.floor((sub.points ?? 5) / ownerCount);
-        return;
-      }
-      // Stage — only awards stage-level points when stage is a leaf (no live subtasks).
-      // Stages with live subtasks earn their points via the subtask branch above.
-      if (!approvedStages.includes(key)) return;
-      const liveSubs = (subtasks[key] || []).filter(s => !archivedSubtaskKeySet.has(`${key}::${s.id}`));
-      if (liveSubs.length > 0) return;
-      const stageDefaultPts = stageDefaults[key]?.points || 10;
-      const stagePts = deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
-      p += Math.floor(stagePts / ownerCount);
-    });
+    // Collect all user IDs that appear anywhere in owners
+    const allUserIds = new Set<string>();
+    Object.values(owners).forEach(ownersList => ownersList.forEach(uid => allUserIds.add(uid)));
+    // Also include all known users so the lookup never misses someone with 0 pts
+    users.forEach(u => allUserIds.add(u.id));
 
-    // Pipeline-completion bonus: +25% of the pipeline's total stage points,
-    // split equally among the union of owners across the pipeline's stages.
-    // Each pipeline pays exactly once (idempotent via approvedPipelines).
-    if (approvedPipelines.length > 0) {
-      const allPipes = [...pipelineData, ...customPipelines];
-      for (const pipelineId of approvedPipelines) {
-        const pipe = allPipes.find(pp => pp.id === pipelineId);
-        if (!pipe) continue;
-        const allStages = [...pipe.stages, ...(customStages[pipelineId] || [])];
-        const ownersUnion = new Set<string>();
-        for (const stage of allStages) {
-          (owners[stage] || []).forEach(o => ownersUnion.add(o));
+    for (const uid of allUserIds) {
+      let p = 0;
+      Object.entries(owners).forEach(([key, ownersList]) => {
+        if (!ownersList.includes(uid)) return;
+        const ownerCount = Math.max(ownersList.length, 1);
+
+        // Subtask — key is "stageId::subtaskId"
+        if (SubtaskKey.isValid(key)) {
+          if (!approvedSubtaskKeySet.has(key)) return;
+          const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+          if (!parsed) return;
+          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
+          if (!sub) return;
+          // Split subtask points among owners. Use Math.floor so totals are stable
+          // and never exceed the headline number on the card.
+          p += Math.floor((sub.points ?? 5) / ownerCount);
+          return;
         }
-        if (ownersUnion.size === 0 || !ownersUnion.has(uid)) continue;
-        const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
-        const bonus = Math.floor(total * 0.25);
-        p += Math.floor(bonus / ownersUnion.size);
+        // Stage — only awards stage-level points when stage is a leaf (no live subtasks).
+        // Stages with live subtasks earn their points via the subtask branch above.
+        if (!approvedStages.includes(key)) return;
+        const liveSubs = (subtasks[key] || []).filter(s => !archivedSubtaskKeySet.has(`${key}::${s.id}`));
+        if (liveSubs.length > 0) return;
+        const stageDefaultPts = stageDefaults[key]?.points || 10;
+        const stagePts = deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+        p += Math.floor(stagePts / ownerCount);
+      });
+
+      // Pipeline-completion bonus: +25% of the pipeline's total stage points,
+      // split equally among the union of owners across the pipeline's stages.
+      // Each pipeline pays exactly once (idempotent via approvedPipelines).
+      if (approvedPipelines.length > 0) {
+        const allPipes = [...pipelineData, ...customPipelines];
+        for (const pipelineId of approvedPipelines) {
+          const pipe = allPipes.find(pp => pp.id === pipelineId);
+          if (!pipe) continue;
+          const allStages = [...pipe.stages, ...(customStages[pipelineId] || [])];
+          const ownersUnion = new Set<string>();
+          for (const stage of allStages) {
+            (owners[stage] || []).forEach(o => ownersUnion.add(o));
+          }
+          if (ownersUnion.size === 0 || !ownersUnion.has(uid)) continue;
+          const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
+          const bonus = Math.floor(total * 0.25);
+          p += Math.floor(bonus / ownersUnion.size);
+        }
       }
+
+      Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
+      map[uid] = p;
     }
+    return map;
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reactions, subtasks, archivedSubtasks, stagePointsOverride, customPipelines, customStages, users]);
 
-    Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
-    return p;
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reactions, subtasks, archivedSubtasks, stagePointsOverride, customPipelines, customStages]);
+  const getPoints = useCallback((uid: string) => pointsMap[uid] ?? 0, [pointsMap]);
 
-  const sc: Record<string, { l: string; c: string }> = {
+  const sc = useMemo<Record<string, { l: string; c: string }>>(() => ({
     active: { l: "live", c: t.green }, "in-progress": { l: "building", c: t.amber },
     planned: { l: "planned", c: t.cyan || t.accent }, concept: { l: "concept", c: t.purple }, blocked: { l: "blocked", c: t.red },
-  };
-  const ck: Record<string, string> = { blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate };
-  const pr: Record<string, { c: string }> = { NOW: { c: t.orange }, HIGH: { c: t.textMuted }, MEDIUM: { c: t.cyan || t.accent }, LOW: { c: t.textDim } };
+  }), [t]);
+  const ck = useMemo<Record<string, string>>(() => ({ blue: t.accent, purple: t.purple, green: t.green, amber: t.amber, cyan: t.cyan || t.accent, red: t.red, orange: t.orange, lime: t.lime, slate: t.slate }), [t]);
+  const pr = useMemo<Record<string, { c: string }>>(() => ({ NOW: { c: t.orange }, HIGH: { c: t.textMuted }, MEDIUM: { c: t.cyan || t.accent }, LOW: { c: t.textDim } }), [t]);
 
   // Backwards-compat aliases — every owner counts as both "claimer" and "assignee"
   // for legacy consumers (they used to be separate). New code should read `owners`
@@ -1017,8 +1030,8 @@ export function ModelProvider({
     subtasks: archivedSubtasks,
   }), [archivedStages, archivedPipelines, archivedSubtasks]);
 
-  const me = users.find(u => u.id === currentUser);
-  const allPipelinesGlobal = [...pipelineData, ...customPipelines];
+  const me = useMemo(() => users.find(u => u.id === currentUser), [users, currentUser]);
+  const allPipelinesGlobal = useMemo(() => [...pipelineData, ...customPipelines], [customPipelines]);
 
   // ── Undo stack ────────────────────────────────────────────────────────────
   const undoStack = useUndoStack();
@@ -1901,7 +1914,7 @@ export function ModelProvider({
     });
   }, [currentUser, markLocalWrite]);
 
-  const value: ModelContextValue = {
+  const value = useMemo<ModelContextValue>(() => ({
     users, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
     owners,
@@ -1949,7 +1962,56 @@ export function ModelProvider({
     peek: undoStack.peek,
     stackLen: undoStack.stack.length,
     t,
-  };
+  }), [
+    // State values
+    users, currentUser, me, streakByUser,
+    owners, claims, reactions, comments, subtasks,
+    commentReactions,
+    notifReads, notifDismissed, notifReadIds,
+    pendingNewComments,
+    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines,
+    stageDescOverrides, stageDueDates, stagePriorities, stageNameOverrides,
+    stagePointsOverride,
+    subtaskStages, subtaskDescOverrides, subtaskDueDates,
+    pipeDescOverrides, pipeMetaOverrides,
+    customStages, customPipelines, workspaces, activityLog,
+    reminders, notes, bugs, execProposals,
+    archivedStages, archivedPipelines, archivedSubtasks, stageImages,
+    chatMessages, hasMoreMessages, chatNotif, liveNotifs,
+    syncStatus,
+    currentWorkspaceId,
+    databases,
+    // Derived/memoized values
+    assignments, ownership, archived,
+    sc, ck, pr,
+    allPipelinesGlobal,
+    me,
+    getStatus, getPoints,
+    t,
+    undoStack.undo, undoStack.peek, undoStack.stack.length,
+    // Stable useCallback handlers — included to satisfy exhaustive-deps but they are stable refs
+    handleCommentReact, markAllNotifsRead, markNotifRead, dismissNotif,
+    flushPendingComments,
+    handleClaim, handleReact, addComment, deleteComment, addSubtask, toggleSubtask, renameSubtask,
+    lockSubtask, removeSubtask, setSubtaskPoints,
+    archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
+    setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
+    setStageStatusDirect, cycleStatus, approveStage, approveSubtask,
+    addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
+    addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
+    migrateSubtask,
+    createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,
+    isOfficerOfWorkspace,
+    pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel, updateWorkspaceHiddenTabs,
+    createDatabase, updateDatabase, deleteDatabase,
+    addDbRow, updateDbRow, deleteDbRow, addDbColumn,
+    addReminder, dismissReminder,
+    addNote, updateNote, deleteNote,
+    addBug, updateBug, deleteBug,
+    addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
+    setStageDueDate, setStagePriority, setStagePointsOverride,
+    setSubtaskDescOverride, setSubtaskDueDate, setPipeDescOverrides, setPipeMetaOverrides,
+  ]);
 
   return <ModelContext.Provider value={value}>{children}</ModelContext.Provider>;
 }
