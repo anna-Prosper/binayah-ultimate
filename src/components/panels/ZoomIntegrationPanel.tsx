@@ -25,7 +25,7 @@ type TaskProposal = { id: number; title: string; pipelineId: string; pipelineNam
 type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string; dueDate: string };
 
 export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmin: boolean; workspaceId?: string | null }) {
-  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, users, workspaces, pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel } = useModel();
+  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, archivedPipelines, users, workspaces, pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -535,7 +535,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                         />
                         <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>pipeline: {editPipe?.name || editing.pipelineId}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {allPipelinesGlobal.map(pipe => {
+                          {allPipelinesGlobal.filter(pipe => !(archivedPipelines || []).includes(pipe.id)).map(pipe => {
                             const sel = editing.pipelineId === pipe.id;
                             return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
                               style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>

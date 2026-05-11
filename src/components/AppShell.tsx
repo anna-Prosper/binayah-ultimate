@@ -144,7 +144,7 @@ function ShellInner({
   const pathname = usePathname() || "/";
   const activeNavItem: NavItem = navItemFromPathname(pathname);
 
-  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, updateWorkspaceHiddenTabs, undo, peek, stackLen, t } = useModel();
+  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, archivedPipelines, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, updateWorkspaceHiddenTabs, undo, peek, stackLen, t } = useModel();
   const { setReactOpen, setClaimAnim } = useEphemeral();
 
   // Hover/UI state — no more activeNavItem; that lives in the URL
@@ -315,7 +315,8 @@ function ShellInner({
   }, []);
 
   // Workspace-scoped pipelines
-  const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal; })() : allPipelinesGlobal;
+  const activePipelinesGlobal = allPipelinesGlobal.filter(p => !(archivedPipelines || []).includes(p.id));
+  const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? activePipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : activePipelinesGlobal; })() : activePipelinesGlobal;
 
   // Palette callbacks — navigation now goes via router.push
   const handlePaletteOpenStage = useCallback((pipelineId: string, stageName: string) => {

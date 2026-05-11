@@ -428,7 +428,31 @@ export interface ExecProposal {
   requestedValue?: string | null;
   requestedUserId?: string | null;
 }
-export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"];
+export const STATUS_ORDER = ["concept", "planned", "in-progress", "active", "blocked"] as const;
+export type StageStatus = typeof STATUS_ORDER[number];
+
+const STATUS_ALIASES: Record<string, StageStatus> = {
+  concept: "concept",
+  idea: "concept",
+  planned: "planned",
+  todo: "planned",
+  "to-do": "planned",
+  "in-progress": "in-progress",
+  in_progress: "in-progress",
+  progress: "in-progress",
+  building: "in-progress",
+  live: "active",
+  done: "active",
+  complete: "active",
+  completed: "active",
+  active: "active",
+  blocked: "blocked",
+};
+
+export function normalizeStageStatus(status: string | null | undefined): StageStatus {
+  const key = String(status || "").trim().toLowerCase();
+  return STATUS_ALIASES[key] || "concept";
+}
 
 // === DATABASE (Notion-style tables) ===
 export interface DbColumn {
