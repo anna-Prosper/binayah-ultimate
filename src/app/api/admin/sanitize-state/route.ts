@@ -59,9 +59,19 @@ export async function POST(req: NextRequest) {
 }
 
 async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
-  const session = await getServerSession(authOptions);
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isRootAdminFromSession(session)) return NextResponse.json({ error: "FORBIDDEN: root admin only" }, { status: 403 });
+  // Two auth paths:
+  //   1. Logged-in root admin session (Anna) — normal browser-driven flow
+  //   2. Header x-cron-secret matching CRON_SECRET — out-of-band ops trigger when
+  //      the browser session can't be used (CORS, third-party context, etc.)
+  const cronSecret = process.env.CRON_SECRET;
+  const headerSecret = req.headers.get("x-cron-secret");
+  const isCron = !!cronSecret && headerSecret === cronSecret;
+
+  if (!isCron) {
+    const session = await getServerSession(authOptions);
+    if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!isRootAdminFromSession(session)) return NextResponse.json({ error: "FORBIDDEN: root admin only" }, { status: 403 });
+  }
 
   await connectMongo();
   const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: State } | null;
