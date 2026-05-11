@@ -224,12 +224,9 @@ export default function PipelinesView({
           const pipeReactKey = `_pipe_${p.id}`;
           const pipeReactions = reactions[pipeReactKey] || {};
           const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
-          // #6: dim "settled" pipelines — only concept/done stages, nothing in flight
-          const hasActive = activePStages.some(s => {
-            const st = getStatus(s);
-            return st === "in-progress" || st === "planned" || st === "blocked";
-          });
-          const isSettled = activePStages.length > 0 && !hasActive;
+          // Dim + show Live tag only when ALL active stages are "active" (live) status
+          const isAllLive = activePStages.length > 0 && activePStages.every(s => getStatus(s) === "active");
+          const isSettled = isAllLive;
           // #4: priority config (icon + visual treatment matches task-card style)
           const priCfg = pipePriority === "NOW"
             ? { color: t.red, icon: "🔥", label: "NOW", urgent: true }
@@ -273,6 +270,12 @@ export default function PipelinesView({
                           style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}
                           data-tooltip={archivedPStages.length > 0 ? `${activePStages.length} active · ${archivedPStages.length} completed` : `${allPStages.length} stages`}
                         >{activePStages.length}{archivedPStages.length > 0 ? <span style={{ opacity: 0.5 }}>+{archivedPStages.length}✓</span> : null}</span>
+                        {isAllLive && (
+                          <span style={{ fontSize: 10, fontWeight: 800, color: t.green, background: t.green + "18", border: `1px solid ${t.green}44`, padding: "1px 7px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: "0.05em", display: "inline-flex", alignItems: "center", gap: 3 }}>
+                            <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.green, display: "inline-block", animation: "claimPulse 1.5s ease-in-out infinite" }} />
+                            LIVE
+                          </span>
+                        )}
                         {/* #4: priority badge — icon + tight pill, urgent state filled */}
                         <span
                           onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }}
