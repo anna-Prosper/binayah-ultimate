@@ -340,7 +340,8 @@ function ShellInner({
 
   const currentWorkspace = myWorkspaces.find(w => w.id === currentWorkspaceId) || null;
   // const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);  // moved to PipelinesView page
-  const allStages = [...pipelineData.flatMap(p => p.stages), ...customPipelines.flatMap(p => p.stages), ...Object.values(customStages).flat()];
+  // Workspace-scoped stage count — uses allPipelines (already filtered to currentWorkspace)
+  const allStages = allPipelines.flatMap(p => [...p.stages, ...(customStages[p.id] || [])]);
   // Bell badge now reflects the role-aware notifications panel: count of
   // action-required items + count of unread updates. The legacy `unseen`
   // (raw activityLog length minus lastSeenActivity) drove a number that

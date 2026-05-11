@@ -390,11 +390,13 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     showToast(`// pinged ${users.find(u => u.id === userId)?.name || userId}`, t.green);
   }, [activeDoc, currentUser, getDocUrl, sendChat, showToast, t.green, users]);
 
-  const allPipelines = workspacePipelineIds && workspacePipelineIds.length > 0
+  const allPipelines = workspacePipelineIds
     ? pipelineData.filter(p => workspacePipelineIds.includes(p.id))
     : pipelineData;
-  // Apply workspace scope: show docs with no pipeline OR whose pipelineId is in workspacePipelineIds.
-  const filteredDocs = workspacePipelineIds && workspacePipelineIds.length > 0
+  // Always apply workspace filter: show untagged docs + docs whose pipeline is in this workspace.
+  // When workspacePipelineIds is an empty array (workspace has no pipelines), only untagged docs show.
+  // When workspacePipelineIds is undefined (no workspace context), show everything.
+  const filteredDocs = workspacePipelineIds
     ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
     : docs;
 
