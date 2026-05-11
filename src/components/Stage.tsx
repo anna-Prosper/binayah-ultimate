@@ -620,8 +620,10 @@ export default function Stage({
   };
   void openPreview; // available for mockup preview button if added
 
+  const isLive = effectiveStatus === "active";
+
   return (
-    <div style={{ display: "flex" }}>
+    <div style={{ display: "flex", opacity: isLive && !isE && !isHovered ? 0.55 : 1, transition: "opacity 0.2s" }}>
       {/* Timeline dot */}
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: 28, flexShrink: 0, paddingTop: 4 }}>
         <div style={{ width: 10, height: 10, borderRadius: "50%", border: `2px solid ${st.c}`, background: effectiveStatus === "active" ? st.c : "transparent", boxShadow: effectiveStatus === "active" ? `0 0 8px ${st.c}44` : "none", zIndex: 1 }} />
