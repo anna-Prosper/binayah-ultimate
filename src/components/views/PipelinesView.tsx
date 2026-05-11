@@ -210,21 +210,26 @@ export default function PipelinesView({
           const pipeName = pipeMeta.name ?? p.name;
           const pipePriority = pipeMeta.priority ?? p.priority;
           const pipeDesc = pipeDescOverrides[p.id] ?? p.desc;
-          const allPStages = [...p.stages, ...(customStages[p.id] || [])].filter(s => !archivedStages.includes(s));
+          const allPStages = [...p.stages, ...(customStages[p.id] || [])];
+          const archivedPStages = allPStages.filter(s => archivedStages.includes(s));
+          const activePStages = allPStages.filter(s => !archivedStages.includes(s));
           const pC = ck[p.colorKey] || t.accent;
           const statusWeight: Record<string, number> = { concept: 0, planned: 25, "in-progress": 60, active: 100 };
-          const pct = allPStages.length > 0 ? Math.round(allPStages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) / allPStages.length) : 0;
-          const uClaim = [...new Set(allPStages.flatMap(s => claims[s] || []))];
-          const allPipelineClaimed = allPStages.length > 0 && allPStages.every(s => (claims[s] || []).includes(currentUser!));
+          // Archived stages count as 100% complete; active stages use their status weight
+          const pct = allPStages.length > 0
+            ? Math.round((activePStages.reduce((sum, s) => sum + (statusWeight[getStatus(s)] || 0), 0) + archivedPStages.length * 100) / allPStages.length)
+            : 0;
+          const uClaim = [...new Set(activePStages.flatMap(s => claims[s] || []))];
+          const allPipelineClaimed = activePStages.length > 0 && activePStages.every(s => (claims[s] || []).includes(currentUser!));
           const pipeReactKey = `_pipe_${p.id}`;
           const pipeReactions = reactions[pipeReactKey] || {};
           const pipeReactExist = Object.entries(pipeReactions).filter(([, v]) => v.length > 0);
           // #6: dim "settled" pipelines — only concept/done stages, nothing in flight
-          const hasActive = allPStages.some(s => {
+          const hasActive = activePStages.some(s => {
             const st = getStatus(s);
             return st === "in-progress" || st === "planned" || st === "blocked";
           });
-          const isSettled = allPStages.length > 0 && !hasActive;
+          const isSettled = activePStages.length > 0 && !hasActive;
           // #4: priority config (icon + visual treatment matches task-card style)
           const priCfg = pipePriority === "NOW"
             ? { color: t.red, icon: "🔥", label: "NOW", urgent: true }
@@ -245,7 +250,12 @@ export default function PipelinesView({
               style={{ background: t.bgCard, border: `1px solid ${pipelineEditMode === p.id ? pC + "55" : isO ? pC + "33" : t.border}`, borderRadius: 16, overflow: "hidden", boxShadow: isO ? t.shadowLg : t.shadow, transition: "all 0.25s, opacity 0.2s", opacity: isSettled && !isO ? 0.55 : 1, position: "relative" as const }}
             >
               {/* #3: thicker, status-tinted progress bar replacing the % text */}
-              <div style={{ height: 4, background: t.surface }}><div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} /></div>
+              <div
+                style={{ height: 4, background: t.surface, cursor: "default" }}
+                data-tooltip={`${pct}% complete · ${archivedPStages.length} archived · ${activePStages.length} active`}
+              >
+                <div style={{ width: `${Math.max(pct, 2)}%`, height: "100%", background: `linear-gradient(90deg,${pC},${pC}aa)`, transition: "width 0.5s" }} />
+              </div>
               {/* #5: tighter row padding */}
               <div onClick={() => toggleExpand(p.id)} style={{ padding: "8px 14px", cursor: "pointer" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -259,7 +269,10 @@ export default function PipelinesView({
                         ) : (
                           <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
                         )}
-                        <span style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}>{allPStages.length}</span>
+                        <span
+                          style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}
+                          data-tooltip={archivedPStages.length > 0 ? `${activePStages.length} active · ${archivedPStages.length} completed` : `${allPStages.length} stages`}
+                        >{activePStages.length}{archivedPStages.length > 0 ? <span style={{ opacity: 0.5 }}>+{archivedPStages.length}✓</span> : null}</span>
                         {/* #4: priority badge — icon + tight pill, urgent state filled */}
                         <span
                           onClick={e => { e.stopPropagation(); cyclePriority(p.id, pipePriority); }}
