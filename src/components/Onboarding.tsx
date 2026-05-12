@@ -42,7 +42,8 @@ const css = `
 @keyframes ob-popIn{from{opacity:0;transform:scale(0.7)}to{opacity:1;transform:scale(1)}}
 @keyframes ob-celebPop{0%{opacity:0;transform:scale(0.6) rotate(-12deg)}60%{transform:scale(1.15) rotate(4deg)}100%{opacity:1;transform:scale(1) rotate(0deg)}}
 @keyframes ob-celebFloat{0%,100%{transform:translateY(0) rotate(0deg);opacity:0.7}50%{transform:translateY(-18px) rotate(12deg);opacity:1}}
-@media(min-width:600px){.ob-av-grid{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}.ob-av-card{max-height:88vh;overflow-y:hidden!important}}
+@media(min-width:600px){.ob-av-grid{grid-template-columns:repeat(5,1fr)!important;gap:6px!important}}
+@media(min-width:900px){.ob-av-grid{grid-template-columns:repeat(6,1fr)!important}}
 `;
 
 // ─── Typewriter hook ──────────────────────────────────────────────────────────
@@ -138,14 +139,13 @@ function AvatarStep({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
   const [selAiImg, setSelAiImg] = useState<string | null>(null);
-  const [aiUserAvatar, setAiUserAvatar] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hints = ["cyberpunk hacker with neon glasses", "minimalist geometric logo", "astronaut explorer", "mystical wolf warrior", "zen monk in golden light"];
 
   async function generate() {
     if (!aiPrompt.trim()) return;
-    setAiLoading(true); setAiError(""); setAiImage(null); setSelAiImg(null); setAiUserAvatar(null);
+    setAiLoading(true); setAiError(""); setAiImage(null); setSelAiImg(null);
     try {
       const res = await fetch("/api/generate-pfp", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ prompt: aiPrompt }) });
       const data = await res.json();
@@ -153,7 +153,7 @@ function AvatarStep({
         setAiError(data.error === "GENERATION_TIMEOUT" ? "// avatar gen timed out — try again" : data.error || "generation failed");
         return;
       }
-      if (data.image) { setAiImage(data.image); setSelAiImg(data.image); setAiUserAvatar(data.image); }
+      if (data.image) { setAiImage(data.image); setSelAiImg(data.image); }
       else setAiError("no image returned — try a different prompt");
     } catch { setAiError("network error"); }
     finally { setAiLoading(false); }
@@ -165,15 +165,15 @@ function AvatarStep({
   }
 
   return (
-    <div style={{ position: "fixed", inset: 0, background: t.bg + "ee", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif" }}>
+    <div style={{ position: "fixed", inset: 0, background: t.bg + "ee", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, fontFamily: "var(--font-dm-sans), sans-serif", padding: 16, boxSizing: "border-box" }}>
       <AnimBg />
-      <div onClick={e => e.stopPropagation()} className="ob-av-card" style={{ maxHeight: "90vh", overflowY: "auto" }}>
-        <NB color={user.color} style={{ background: t.bgCard, padding: "20px 20px", maxWidth: 460, width: "94vw", textAlign: "center", animation: "ob-scaleIn 0.4s ease", position: "relative", zIndex: 1 }}>
+      <div onClick={e => e.stopPropagation()} className="ob-av-card" style={{ maxHeight: "calc(100vh - 32px)", overflowY: "auto", width: "min(96vw, 560px)" }}>
+        <NB color={user.color} style={{ background: t.bgCard, padding: "18px 18px 12px", maxWidth: 560, width: "100%", textAlign: "center", animation: "ob-scaleIn 0.4s ease", position: "relative", zIndex: 1, boxSizing: "border-box" }}>
           <div style={{ fontSize: 20, fontWeight: 900, color: user.color }}>choose your pfp</div>
-          <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 16px", fontFamily: "var(--font-dm-mono), monospace" }}>// {user.name.toLowerCase()}, pick your persona</p>
+          <p style={{ fontSize: 13, color: t.textMuted, margin: "4px 0 12px", fontFamily: "var(--font-dm-mono), monospace" }}>// {user.name.toLowerCase()}, pick your persona</p>
 
           {/* Tab switcher */}
-          <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 4, marginBottom: 16 }}>
+          <div style={{ display: "flex", gap: 4, background: t.surface, borderRadius: 12, padding: 4, marginBottom: 12 }}>
             {(["emoji", "ai"] as const).map(tb => (
               <button key={tb} onClick={() => setTab(tb)} style={{
                 flex: 1, padding: "8px 0", borderRadius: 12, border: "none", cursor: "pointer",
@@ -190,11 +190,11 @@ function AvatarStep({
 
           {/* Emoji/image tab */}
           {tab === "emoji" && (
-            <div className="ob-av-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "0 auto 16px" }}>
+            <div className="ob-av-grid" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, margin: "0 auto 12px" }}>
               {AVATARS.map((av, idx) => {
                 const active = selAvatar === av.id && !selAiImg;
                 return (
-                  <button key={av.id} onClick={() => { setSelAvatar(av.id); setSelAiImg(null); setAiUserAvatar(null); }} style={{
+                  <button key={av.id} onClick={() => { setSelAvatar(av.id); setSelAiImg(null); }} style={{
                     width: "100%", aspectRatio: "1", borderRadius: 16, padding: 0, overflow: "hidden",
                     border: `2px solid ${active ? user.color : t.border}`,
                     cursor: "pointer", transition: "all 0.2s", position: "relative",
@@ -270,32 +270,17 @@ function AvatarStep({
             </div>
           )}
 
-          {/* Preview */}
-          <div style={{ marginBottom: 20, animation: "ob-fadeIn 0.4s ease" }}>
-            <div style={{ display: "inline-block", position: "relative" }}>
-              <div style={{ position: "absolute", inset: -8, borderRadius: "50%", border: `2px solid ${user.color}22`, animation: "ob-ringExpand 2.5s ease-out infinite" }} />
-              {aiUserAvatar ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={aiUserAvatar} alt="selected ai avatar" style={{ width: 64, height: 64, borderRadius: "50%", objectFit: "cover", border: `2px solid ${user.color}` }} />
-              ) : selAvatar ? (
-                <AvatarC user={{ ...user, avatar: selAvatar }} size={64} />
-              ) : (
-                <div style={{ width: 64, height: 64, borderRadius: "50%", background: `radial-gradient(circle at 30% 30%, ${user.color}55, ${user.color}22)`, border: `2px solid ${user.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: user.color }}>{user.name[0]}</div>
-              )}
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: user.color, marginTop: 8 }}>{user.name}</div>
-            <div style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{user.role}</div>
+          <div style={{ position: "sticky", bottom: -12, margin: "0 -18px -12px", padding: "10px 18px 12px", background: `linear-gradient(180deg, ${t.bgCard}00, ${t.bgCard} 22%, ${t.bgCard})`, borderBottomLeftRadius: 18, borderBottomRightRadius: 18 }}>
+            <button onClick={confirm} style={{
+              background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 16,
+              padding: "12px 40px", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer",
+              fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`,
+              textTransform: "lowercase", position: "relative", overflow: "hidden", width: "100%",
+            }}>
+              <span style={{ position: "relative", zIndex: 1 }}>next →</span>
+              <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
+            </button>
           </div>
-
-          <button onClick={confirm} style={{
-            background: `linear-gradient(135deg,${user.color},${user.color}cc)`, border: "none", borderRadius: 16,
-            padding: "12px 40px", color: "#fff", fontSize: 15, fontWeight: 800, cursor: "pointer",
-            fontFamily: "var(--font-dm-sans), sans-serif", boxShadow: `0 4px 24px ${user.color}33`,
-            textTransform: "lowercase", position: "relative", overflow: "hidden",
-          }}>
-            <span style={{ position: "relative", zIndex: 1 }}>let&apos;s build →</span>
-            <div style={{ position: "absolute", top: 0, left: "-100%", width: "50%", height: "100%", background: "linear-gradient(90deg,transparent,rgba(255,255,255,0.15),transparent)", animation: "ob-scanlineH 2.5s ease-in-out infinite" }} />
-          </button>
         </NB>
       </div>
     </div>

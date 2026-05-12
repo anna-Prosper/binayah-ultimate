@@ -473,6 +473,14 @@ export function ModelProvider({
     localWritesRef.current[slice] = Date.now();
     userActionCounterRef.current += 1;
   }, []);
+  const persistPipeDescOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, string>>>>((next) => {
+    markLocalWrite("pipeDescOverrides");
+    setPipeDescOverrides(next);
+  }, [markLocalWrite]);
+  const persistPipeMetaOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, { name?: string; priority?: string }>>>>((next) => {
+    markLocalWrite("pipeMetaOverrides");
+    setPipeMetaOverrides(next);
+  }, [markLocalWrite]);
   const isProtected = (slice: string) => {
     const t = localWritesRef.current[slice];
     return t !== undefined && Date.now() - t < LOCAL_WRITE_PROTECT_MS;
@@ -2025,7 +2033,7 @@ export function ModelProvider({
     pendingNewComments, flushPendingComments,
     stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
-    subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides,
+    subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides: persistPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides: persistPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
     reminders, addReminder, dismissReminder,
     notes, addNote, updateNote, deleteNote,
@@ -2111,7 +2119,7 @@ export function ModelProvider({
     addBug, updateBug, deleteBug,
     addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
     setStageDueDate, setStagePriority, setStagePointsOverride,
-    setSubtaskDescOverride, setSubtaskDueDate, setPipeDescOverrides, setPipeMetaOverrides,
+    setSubtaskDescOverride, setSubtaskDueDate, persistPipeDescOverrides, persistPipeMetaOverrides,
   ]);
 
   return <ModelContext.Provider value={value}>{children}</ModelContext.Provider>;

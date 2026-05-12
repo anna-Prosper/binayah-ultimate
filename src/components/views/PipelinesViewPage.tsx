@@ -22,14 +22,14 @@ export default function PipelinesViewPage({ focusPipelineId }: { focusPipelineId
   const { workspaces, isOfficerOfWorkspace, getStatus, claims, users } = useModel();
   const { setCopied } = useEphemeral();
 
-  const [view, setView] = useState<"list" | "kanban" | "overview">(() => lsGet("view", "list"));
+  const [view, setView] = useState<"list" | "kanban" | "overview">(() => lsGet("pipelines_view_v2", "kanban"));
   const [expanded, setExpanded] = useState<string[]>(() => lsGet("expanded", ["research"]));
   const [expS, setExpS] = useState<string | null>(null);
   const [searchQ, setSearchQ] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
 
   useEffect(() => { lsSet("expanded", expanded); }, [expanded]);
-  useEffect(() => { lsSet("view", view); }, [view]);
+  useEffect(() => { lsSet("pipelines_view_v2", view); }, [view]);
 
   // Auto-expand the target pipeline when arriving via /pipelines/[id]
   useEffect(() => {

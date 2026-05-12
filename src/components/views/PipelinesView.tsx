@@ -195,7 +195,7 @@ export default function PipelinesView({
       {view === "kanban" && (
         <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
           <Suspense fallback={<KanbanSkeleton t={t} />}>
-            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin || readOnly ? "all" : "my"} pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} currentWorkspaceId={currentWorkspaceId} readOnly={readOnly} />
+            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin || readOnly ? "all" : "my"} showConceptToggle defaultHideConcept pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} currentWorkspaceId={currentWorkspaceId} readOnly={readOnly} />
           </Suspense>
         </ErrorBoundary>
       )}

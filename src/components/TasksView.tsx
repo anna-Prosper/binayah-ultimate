@@ -14,6 +14,7 @@ import { useModel, INBOX_PIPELINE_ID } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
+import { lsGet, lsSet } from "@/lib/storage";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 
@@ -36,6 +37,8 @@ interface Props {
   editMode?: boolean;
   onPipelineClick?: (pipelineId: string) => void;
   hideConcept?: boolean;
+  showConceptToggle?: boolean;
+  defaultHideConcept?: boolean;
   /** Workspace context for kanban creation. null = cross-workspace mode (force user to pick one). */
   currentWorkspaceId?: string | null;
   /** All workspaces the user can target when creating items in cross-workspace mode. */
@@ -79,7 +82,7 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
 }
 
 export default function TasksView(props: Props) {
-  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, editMode, onPipelineClick, hideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
+  const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, editMode, onPipelineClick, hideConcept, showConceptToggle, defaultHideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
@@ -114,7 +117,14 @@ export default function TasksView(props: Props) {
 
   const isMobile = useIsMobile(640);
 
-  const COLS = hideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
+  const hideConceptKey = `tasks_hide_concept_${currentUser || "guest"}`;
+  const [hideConceptPref, setHideConceptPref] = useState<boolean>(() => lsGet(hideConceptKey, defaultHideConcept ?? hideConcept ?? false));
+  useEffect(() => {
+    setHideConceptPref(lsGet(hideConceptKey, defaultHideConcept ?? hideConcept ?? false));
+  }, [hideConceptKey, defaultHideConcept, hideConcept]);
+  useEffect(() => { lsSet(hideConceptKey, hideConceptPref); }, [hideConceptKey, hideConceptPref]);
+  const effectiveHideConcept = showConceptToggle ? hideConceptPref : (hideConcept ?? hideConceptPref);
+  const COLS = effectiveHideConcept ? ALL_COLS.filter(c => c.status !== "concept") : ALL_COLS;
 
   const [view, setView] = useState<"list" | "kanban">("kanban");
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -249,7 +259,7 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => !(archivedStages || []).includes(s) && !(hideConcept && getStatus(s) === 'concept'))
+      .filter(s => !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
       .map(s => ({
         stageId: s,
         displayName: stageNameOverrides?.[s] || s,
@@ -523,6 +533,17 @@ export default function TasksView(props: Props) {
             <>
               <button style={{ ...flatBtn(myAllFilter === "my"), display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => setMyAllFilter("my")}><Cat size={12} /> mine</button>
               <button style={{ ...flatBtn(myAllFilter === "all"), display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => setMyAllFilter("all")}><Globe size={12} /> all</button>
+              <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
+            </>
+          )}
+          {showConceptToggle && (
+            <>
+              <button
+                style={{ ...flatBtn(effectiveHideConcept), display: "inline-flex", alignItems: "center", gap: 5 }}
+                onClick={() => setHideConceptPref(v => !v)}
+              >
+                {effectiveHideConcept ? "☑" : "☐"} hide concept
+              </button>
               <div style={{ width: 1, height: 16, background: t.border, margin: "0 4px" }} />
             </>
           )}

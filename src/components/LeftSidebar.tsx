@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2 } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
+export type NavItem = "home" | "my-tasks" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
 
 export interface SidebarPipeline {
   id: string;
@@ -46,6 +46,7 @@ interface Props {
 // (to render Links) and AppShell (to derive activeNavItem from pathname).
 export const NAV_HREFS: Record<NavItem, string> = {
   home: "/",
+  "my-tasks": "/my-tasks",
   now: "/", // legacy/unused — falls back to home
   pipelines: "/pipelines",
   documents: "/documents",
@@ -60,6 +61,7 @@ export const NAV_HREFS: Record<NavItem, string> = {
 
 export function navItemFromPathname(pathname: string): NavItem {
   if (!pathname || pathname === "/" || pathname === "") return "home";
+  if (pathname.startsWith("/my-tasks")) return "my-tasks";
   if (pathname.startsWith("/pipelines")) return "pipelines";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/notes")) return "notes";
@@ -87,6 +89,7 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
 
 const NAV_ICONS: Record<string, React.ReactNode> = {
   home: <Home size={15} strokeWidth={1.8} />,
+  "my-tasks": <ListTodo size={15} strokeWidth={1.8} />,
   pipelines: <Zap size={15} strokeWidth={1.8} />,
   documents: <FileText size={15} strokeWidth={1.8} />,
   notes: <StickyNote size={15} strokeWidth={1.8} />,
@@ -192,6 +195,7 @@ export default function LeftSidebar({
       {/* Home nav — workspace-independent */}
       <nav style={{ padding: "8px 0", borderBottom: `1px solid ${t.border}` }}>
         {renderNavItem({ id: "home", label: "home" })}
+        {renderNavItem({ id: "my-tasks", label: "my tasks" })}
       </nav>
 
       {/* Workspace switcher */}
