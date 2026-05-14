@@ -17,12 +17,13 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { deleteComment as deleteCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 import { useChatHandlers } from "@/lib/hooks/useChatHandlers";
 import { useWorkspaceHandlers } from "@/lib/hooks/useWorkspaceHandlers";
 import { useContentHandlers } from "@/lib/hooks/useContentHandlers";
+import { NOTION_DB_SEEDS } from "@/lib/notionDbSeeds";
 
 export type CustomPipeline = {
   id: string; name: string; desc: string; icon: string;
@@ -45,6 +46,7 @@ export function hydrateUsers(saved: UserType[], current: UserType[] = []): UserT
 }
 
 const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+
 
 interface ModelContextValue {
   // Users / identity
@@ -170,6 +172,7 @@ interface ModelContextValue {
 	  handleReact: (sid: string, emoji: string) => void;
 	  addComment: (sid: string, val: string, clearInput: () => void) => void;
 	  deleteComment: (sid: string, commentId: number) => void;
+	  editComment: (sid: string, commentId: number, text: string) => void;
   addSubtask: (sid: string, val: string, clearInput: () => void) => number | null;
   toggleSubtask: (sid: string, taskId: number) => void;
   renameSubtask: (sid: string, taskId: number, text: string) => void;
@@ -363,6 +366,7 @@ export function ModelProvider({
   const [bugs, setBugs] = useState<BugItem[]>(() => lsGet("bugs", []));
   const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
   const [databases, setDatabases] = useState<WorkspaceDb[]>(() => lsGet("databases", []));
+  const projectUpdateSeededRef = useRef(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
@@ -541,6 +545,19 @@ export function ModelProvider({
     if (typeof window === "undefined") return;
     setWorkspaces(prev => prev.map(w => w.name === "War Room" ? { ...w, name: "Binayah AI", icon: "🤖" } : w));
   }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWorkspaces(prev => {
+      let changed = false;
+      const next = prev.map(w => {
+        if (w.name !== "Digital Marketing") return w;
+        changed = true;
+        return { ...w, name: "Binayah Properties" };
+      });
+      if (changed) markLocalWrite("workspaces");
+      return changed ? next : prev;
+    });
+  }, [markLocalWrite]);
 
   // Self-heal + legacy migration:
   //   1. Drop the obsolete `firstMates` rank — merge any holdouts into `captains` (operators).
@@ -601,6 +618,23 @@ export function ModelProvider({
       .filter(u => lower.includes(`@${u.id.toLowerCase()}`) || lower.includes(`@${u.name.split(" ")[0].toLowerCase()}`))
       .map(u => u.id);
   }, [users]);
+  const notifyDescriptionMentions = useCallback((target: string, nextText: string, previousText: string, label: string) => {
+    if (!currentUser) return;
+    const previousMentioned = new Set(mentionedUserIds(previousText || ""));
+    const newlyMentioned = mentionedUserIds(nextText || "").filter(id => !previousMentioned.has(id));
+    if (newlyMentioned.length === 0) return;
+    const mentionText = nextText.slice(0, 600);
+    logActivity("mention", target, `updated description for "${label}" and mentioned ${newlyMentioned.map(id => `@${id}`).join(", ")}: ${mentionText.slice(0, 120)}`, newlyMentioned);
+    void patchState({
+      notificationEvents: [{
+        eventType: "mentioned",
+        stageKey: target,
+        userIds: newlyMentioned,
+        detail: `${users.find(u => u.id === currentUser)?.name || currentUser} mentioned you in the description for "${label}".`,
+        commentText: mentionText,
+      }],
+    });
+  }, [currentUser, logActivity, mentionedUserIds, users]);
 
   // Throttle conflict toasts so a busy team doesn't spam the user.
   const lastConflictToastRef = useRef(0);
@@ -608,10 +642,11 @@ export function ModelProvider({
   // re-creating mergePatch on every render while still observing fresh values.
   const stateMirrorRef = useRef({
     owners, stageStatusOverrides, stageDueDates, stagePriorities,
+    stageDescOverrides, subtaskDescOverrides,
   });
   useEffect(() => {
-    stateMirrorRef.current = { owners, stageStatusOverrides, stageDueDates, stagePriorities };
-  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities]);
+    stateMirrorRef.current = { owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskDescOverrides };
+  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskDescOverrides]);
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
@@ -928,6 +963,110 @@ export function ModelProvider({
   const setSyncStatus: (status: string) => void = useCallback(() => setOffline(), [setOffline]);
   setSyncStatusRef.current = setSyncStatus;
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (syncStatus !== "live" || projectUpdateSeededRef.current) return;
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const propertyWs = workspaces.find(w => normalize(w.name) === "binayahproperties");
+    if (!propertyWs && databases.length === 0) return;
+    const seedAliases: Record<string, string[]> = {
+      projectsupdate: ["projectupdate", "projects"],
+      backlinksupdate: ["backlinks"],
+      deepshikhacontentupdate: ["contentupdate", "deepshikhaupdate"],
+    };
+
+    projectUpdateSeededRef.current = true;
+    setDatabases(prev => {
+      const propertyWorkspaceId = propertyWs?.id || currentWorkspaceId || DEFAULT_WORKSPACE_ID;
+      const now = Date.now();
+      let changed = false;
+      const next = [...prev];
+
+      for (const seed of NOTION_DB_SEEDS) {
+        const seedName = normalize(seed.name);
+        const possibleNames = new Set([seedName, ...(seedAliases[seedName] || [])]);
+        let existingIndex = next.findIndex(db => possibleNames.has(normalize(db.name)));
+        const baseDb: WorkspaceDb = existingIndex >= 0 ? next[existingIndex] : {
+          id: seed.idBase,
+          workspaceId: propertyWorkspaceId,
+          name: seed.name,
+          icon: seed.icon,
+          columns: [],
+          rows: [],
+          views: [],
+          createdAt: now,
+          createdBy: currentUser || "anna",
+        };
+        const used = new Set<string>();
+        const columns = seed.columns.map((desired, index) => {
+          const wanted = normalize(desired.name);
+          const existing = baseDb.columns.find(c => !used.has(c.id) && (c.id === desired.id || normalize(c.name) === wanted)) ||
+            (!used.has(baseDb.columns[index]?.id || "") ? baseDb.columns[index] : undefined);
+          if (existing) used.add(existing.id);
+          return { ...desired, id: existing?.id || desired.id, width: existing?.width || desired.width };
+        });
+        const allColumns = [...columns, ...baseDb.columns.filter(c => !used.has(c.id))];
+        const col = Object.fromEntries(seed.columns.map((desired, index) => [desired.id, columns[index].id])) as Record<string, string>;
+        const remapValues = (values: Record<string, string>) => {
+          const out: Record<string, string> = {};
+          for (const [seedCol, value] of Object.entries(values)) {
+            out[col[seedCol] || seedCol] = value;
+          }
+          return out;
+        };
+        const rowKey = (values: Record<string, string>) => seed.dedupe
+          .map(id => (values[col[id] || id] || "").trim().toLowerCase())
+          .join("||");
+        const seen = new Set(baseDb.rows.map(row => rowKey(row.values)));
+        const rows = [...baseDb.rows];
+        seed.rows.forEach((source, index) => {
+          const values = remapValues(source);
+          const key = rowKey(values);
+          if (seen.has(key)) return;
+          seen.add(key);
+          const dateValue = Object.entries(values).find(([cid]) => allColumns.find(c => c.id === cid)?.type === "date")?.[1] || "";
+          rows.push({
+            id: seed.idBase + index + 1,
+            values,
+            createdBy: values[col.created_by] || currentUser || "anna",
+            createdAt: Date.parse(dateValue) || now,
+          });
+        });
+        const dateCol = columns.find(c => c.type === "date");
+        const statusCol = columns.find(c => c.type === "status");
+        const views = baseDb.views?.length ? baseDb.views : [
+          { id: "view_all", name: "All rows" },
+          ...(dateCol ? [{ id: "view_date", name: "By Date", filterCol: dateCol.id, filterVal: "" }] : []),
+          ...(statusCol ? [{ id: "view_status", name: "By Status", filterCol: statusCol.id, filterVal: "" }] : []),
+        ];
+        const nextDb: WorkspaceDb = {
+          ...baseDb,
+          name: existingIndex >= 0 ? baseDb.name : seed.name,
+          icon: baseDb.icon || seed.icon,
+          workspaceId: baseDb.workspaceId || propertyWorkspaceId,
+          columns: allColumns,
+          rows,
+          views,
+        };
+        const dbChanged = existingIndex < 0 ||
+          baseDb.name !== nextDb.name ||
+          baseDb.icon !== nextDb.icon ||
+          JSON.stringify(baseDb.columns) !== JSON.stringify(nextDb.columns) ||
+          baseDb.rows.length !== nextDb.rows.length;
+        if (!dbChanged) continue;
+        changed = true;
+        if (existingIndex >= 0) next[existingIndex] = nextDb;
+        else next.unshift(nextDb);
+      }
+
+      if (changed) {
+        markLocalWrite("databases");
+        return next;
+      }
+      return prev;
+    });
+  }, [currentUser, currentWorkspaceId, databases, markLocalWrite, syncStatus, workspaces]);
+
   // ── Debounced write — delegate to useSync's scheduleWrite ────────────────
   // Fires only when a user action (markLocalWrite) has advanced the counter
   // since the last scheduled write. Poll-driven state changes don't bump the
@@ -1163,63 +1302,83 @@ export function ModelProvider({
   // Cap at 2 owners *via this action* — admin assigning to more than 2 dilutes
   // accountability; if more people want in they can self-claim. The cap does
   // NOT apply to claims (anyone helping should count).
-  const ASSIGN_CAP = 2;
-  const assignTask = (sid: string, userId: string | null) => {
-    if (!currentUser) return;
-    const assignee = userId ? users.find(u => u.id === userId) : null;
+	  const ASSIGN_CAP = 2;
+	  const assignTask = (sid: string, userId: string | null) => {
+	    if (!currentUser) return;
+	    const assignee = userId ? users.find(u => u.id === userId) : null;
     if (requestInsteadOfMutate(
       "assign",
       sid,
       userId ? `assign ${assignee?.name || userId}` : "clear assignees",
       userId ? `Assign "${sid}" to ${assignee?.name || userId}.` : `Clear all assignees from "${sid}".`,
       { requestedUserId: userId },
-    )) return;
-    const isSubtask = SubtaskKey.isValid(sid);
-    markLocalWrite("owners");
-    setOwners(prev => {
-      const copy: Record<string, string[]> = { ...prev };
-      const prevList = copy[sid] || [];
+	    )) return;
+	    const isSubtask = SubtaskKey.isValid(sid);
+	    const currentList = owners[sid] || [];
+	    const isNewAssignment = !!userId && !currentList.includes(userId);
+	    let nextStageOwners: string[] = [];
+	    const applyAssignment = (prev: Record<string, string[]>): Record<string, string[]> => {
+	      const copy: Record<string, string[]> = { ...prev };
+	      const prevList = copy[sid] || [];
 
-      if (!userId) {
-        delete copy[sid];
-      } else {
-        const isCurrentlyAssigned = prevList.includes(userId);
-        let next: string[];
-        if (isCurrentlyAssigned) {
-          next = prevList.filter(u => u !== userId);
-        } else {
-          // Append; if at cap, drop the oldest (FIFO)
-          next = [...prevList, userId].slice(-ASSIGN_CAP);
-        }
-        if (next.length === 0) delete copy[sid]; else copy[sid] = next;
-      }
+	      if (!userId) {
+	        delete copy[sid];
+	      } else {
+	        const isCurrentlyAssigned = prevList.includes(userId);
+	        let next: string[];
+	        if (isCurrentlyAssigned) {
+	          next = prevList.filter(u => u !== userId);
+	        } else {
+	          // Append; if at cap, drop the oldest (FIFO)
+	          next = [...prevList, userId].slice(-ASSIGN_CAP);
+	        }
+	        nextStageOwners = next;
+	        if (next.length === 0) delete copy[sid]; else copy[sid] = next;
+	      }
 
-      // Cascade to subtasks: when a stage's primary assignee is set/cleared, propagate to
-      // any subtask that has no explicit assignment (i.e., was inheriting parent's).
-      if (!isSubtask && !sid.startsWith("_")) {
-        const taskSubtasks = subtasks[sid] || [];
-        const newPrimaryList = copy[sid] || [];
-        for (const sub of taskSubtasks) {
-          const subKey = SubtaskKey.make(sid, sub.id);
-          const subList = copy[subKey] || [];
-          // Inherit only if subtask was unassigned OR subtask's list exactly matched the
-          // OLD parent list (i.e., truly inherited, not customised).
-          const wasInheriting = subList.length === 0 ||
-            (subList.length === prevList.length && subList.every(u => prevList.includes(u)));
-          if (wasInheriting) {
-            if (newPrimaryList.length === 0) delete copy[subKey];
-            else copy[subKey] = [...newPrimaryList];
-          }
-        }
-      }
-      return copy;
-    });
+	      // Cascade to subtasks: when a stage's primary assignee is set/cleared, propagate to
+	      // any subtask that has no explicit assignment (i.e., was inheriting parent's).
+	      if (!isSubtask && !sid.startsWith("_")) {
+	        const taskSubtasks = subtasks[sid] || [];
+	        const newPrimaryList = copy[sid] || [];
+	        for (const sub of taskSubtasks) {
+	          const subKey = SubtaskKey.make(sid, sub.id);
+	          const subList = copy[subKey] || [];
+	          // Inherit only if subtask was unassigned OR subtask's list exactly matched the
+	          // OLD parent list (i.e., truly inherited, not customised).
+	          const wasInheriting = subList.length === 0 ||
+	            (subList.length === prevList.length && subList.every(u => prevList.includes(u)));
+	          if (wasInheriting) {
+	            if (newPrimaryList.length === 0) delete copy[subKey];
+	            else copy[subKey] = [...newPrimaryList];
+	          }
+	        }
+	      }
+	      return copy;
+	    };
+	    markLocalWrite("owners");
+	    setOwners(applyAssignment);
+	    if (isNewAssignment && userId) {
+	      const preview = applyAssignment(owners);
+	      const assignedName = assignee?.name || userId;
+	      patchState({
+	        owners: { [sid]: preview[sid] || nextStageOwners },
+	        notificationEvents: [{
+	          eventType: "assigned",
+	          stageKey: sid,
+	          userIds: [userId],
+	          detail: `${users.find(u => u.id === currentUser)?.name || currentUser} assigned "${sid}" to ${assignedName}.`,
+	        }],
+	      }).then(result => {
+	        if (!result.ok) setSyncStatus("offline");
+	      });
+	    }
 
-    if (userId) {
-      logActivity("assign", sid, `toggled ${assignee?.name || userId}`);
-    } else {
-      logActivity("assign", sid, "unassigned");
-    }
+	    if (userId) {
+	      logActivity("assign", sid, isNewAssignment ? `assigned ${assignee?.name || userId}` : `removed ${assignee?.name || userId}`);
+	    } else {
+	      logActivity("assign", sid, "unassigned");
+	    }
   };
 
   const handleReact = (sid: string, emoji: string) => {
@@ -1475,6 +1634,30 @@ export function ModelProvider({
     });
   };
 
+  const editComment = (sid: string, commentId: number, text: string) => {
+    if (!currentUser) return;
+    const existing = comments[sid] || [];
+    const comment = existing.find(c => c.id === commentId);
+    if (!comment) return;
+    if (comment.by !== currentUser && !ADMIN_IDS.includes(currentUser)) {
+      showToast("// you can only edit your own comment", t.amber);
+      return;
+    }
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    setComments(prev => ({
+      ...prev,
+      [sid]: (prev[sid] || []).map(c => c.id === commentId ? { ...c, text: trimmed } : c),
+    }));
+    patchCommentRemote(sid, commentId, trimmed).then(result => {
+      if (!result.ok) {
+        setComments(prev => ({ ...prev, [sid]: existing }));
+        setSyncStatus("offline");
+        showToast("// edit failed — refresh and try again", t.red);
+      }
+    });
+  };
+
   // ── flushPendingComments — merge buffered comments into main list ──────────
   const flushPendingComments = useCallback((stageId: string) => {
     setPendingNewComments(prev => {
@@ -1568,7 +1751,11 @@ export function ModelProvider({
 
   const setStageDescOverride = (name: string, val: string) => {
     if (requestInsteadOfMutate("edit", name, "edit task description", `Change description for "${name}" to:\n\n${val}`, { requestedValue: val })) return;
-    markLocalWrite("stageDescOverrides"); setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+    const previous = stateMirrorRef.current.stageDescOverrides[name] || "";
+    stateMirrorRef.current.stageDescOverrides = { ...stateMirrorRef.current.stageDescOverrides, [name]: val };
+    markLocalWrite("stageDescOverrides");
+    setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+    notifyDescriptionMentions(name, val, previous, stageNameOverrides[name] || name);
   };
   const setStageDueDate = (name: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
@@ -1590,8 +1777,14 @@ export function ModelProvider({
   };
   const setSubtaskDescOverride = (key: string, desc: string | null) => {
     if (requestInsteadOfMutate("edit", key, "edit subtask description", `Change description for "${key}" to:\n\n${desc || "(empty)"}`, { requestedValue: desc || "" })) return;
+    const nextDesc = desc || "";
+    const previous = stateMirrorRef.current.subtaskDescOverrides[key] || "";
+    stateMirrorRef.current.subtaskDescOverrides = { ...stateMirrorRef.current.subtaskDescOverrides, [key]: nextDesc };
     markLocalWrite("subtaskDescOverrides");
     setSubtaskDescOverrides(prev => { const next = { ...prev }; if (desc === null) delete next[key]; else next[key] = desc; return next; });
+    const parsed = SubtaskKey.isValid(key) ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]) : null;
+    const sub = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId) : null;
+    notifyDescriptionMentions(key, nextDesc, previous, sub?.text || key);
   };
   const setSubtaskDueDate = (key: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", key, "set subtask due date", val ? `Set due date for "${key}" to ${val}.` : `Clear due date for "${key}".`, { requestedValue: val })) return;
@@ -2044,7 +2237,7 @@ export function ModelProvider({
     syncStatus,
     getStatus, getPoints, sc, ck, pr,
     allPipelinesGlobal,
-    handleClaim, handleReact, addComment, deleteComment, addSubtask, toggleSubtask, renameSubtask,
+    handleClaim, handleReact, addComment, deleteComment, editComment, addSubtask, toggleSubtask, renameSubtask,
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
@@ -2101,7 +2294,7 @@ export function ModelProvider({
     // Stable useCallback handlers — included to satisfy exhaustive-deps but they are stable refs
     handleCommentReact, markAllNotifsRead, markNotifRead, dismissNotif,
     flushPendingComments,
-    handleClaim, handleReact, addComment, deleteComment, addSubtask, toggleSubtask, renameSubtask,
+    handleClaim, handleReact, addComment, deleteComment, editComment, addSubtask, toggleSubtask, renameSubtask,
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
     setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,

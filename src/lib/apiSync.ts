@@ -126,6 +126,32 @@ export type SharedState = {
   updatedAt?: number;
 };
 
+export type NotificationEventPatch = {
+  eventType:
+    | "assigned"
+    | "claimed"
+    | "unclaimed"
+    | "status_change"
+    | "active"
+    | "blocked"
+    | "approved"
+    | "commented"
+    | "mentioned"
+    | "subtask_added"
+    | "subtask_approved"
+    | "pipeline_completed"
+    | "reminder"
+    | "request"
+    | "due"
+    | "chat"
+    | "dm"
+    | "bug";
+  stageKey: string;
+  userIds?: string[];
+  detail?: string;
+  commentText?: string;
+};
+
 export type SyncResult = { ok: true } | { ok: false; error: string; status?: number };
 
 export async function fetchState(since?: number): Promise<SharedState | null> {
@@ -149,6 +175,7 @@ export async function fetchState(since?: number): Promise<SharedState | null> {
  */
 export type PatchEnvelope = Partial<SharedState> & {
   _deletes?: Record<string, string[]>;
+  notificationEvents?: NotificationEventPatch[];
 };
 
 // Bulk write for non-array state (claims, reactions, overrides, etc.)
@@ -217,6 +244,23 @@ export async function deleteComment(stage: string, commentId: number): Promise<S
       method: "DELETE",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ stage, commentId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      return { ok: false, error: (data as { error?: string }).error || `HTTP ${res.status}`, status: res.status };
+    }
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message || "network error" };
+  }
+}
+
+export async function patchComment(stage: string, commentId: number, text: string): Promise<SyncResult> {
+  try {
+    const res = await fetch(`${API_BASE}/comments`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage, commentId, text }),
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));

@@ -205,3 +205,68 @@ export async function DELETE(req: NextRequest) {
   logApi(ROUTE, "delete_success", { stage: stageKey, commentId });
   return NextResponse.json({ ok: true });
 }
+
+export async function PATCH(req: NextRequest) {
+  logApi(ROUTE, "patch_request");
+
+  const rl = rateLimit(req, `${ROUTE}:PATCH`, 30, 60_000);
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: "RATE_LIMITED", message: "Too many requests — slow down" },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfter) } }
+    );
+  }
+
+  const session = await getServerSession(authOptions);
+  const actorId = session?.user?.fixedUserId;
+  if (!actorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const { stage, commentId, text } = (await req.json()) as { stage?: unknown; commentId?: unknown; text?: unknown };
+
+  const stageErr = validateStageKey(stage);
+  if (stageErr) return NextResponse.json({ error: stageErr }, { status: 400 });
+  if (typeof commentId !== "number" || !Number.isFinite(commentId)) {
+    return NextResponse.json({ error: "commentId must be a number" }, { status: 400 });
+  }
+  const textErr = validateText(text, "text", 1000);
+  if (textErr) return NextResponse.json({ error: textErr }, { status: 400 });
+
+  await connectMongo();
+  const stageKey = stage as string;
+  const newText = text as string;
+
+  let casOk = false;
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const doc = await PipelineState.findOne(WORKSPACE).lean() as
+      | { state?: { comments?: Record<string, Array<{ id: number; by: string }>> }; updatedAt?: Date }
+      | null;
+    const comment = (doc?.state?.comments?.[stageKey] || []).find(c => c.id === commentId);
+    if (!comment) {
+      logApi(ROUTE, "patch_noop", { stage: stageKey, commentId });
+      return NextResponse.json({ error: "COMMENT_NOT_FOUND" }, { status: 404 });
+    }
+    if (comment.by !== actorId && !ADMIN_IDS.includes(actorId)) {
+      return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
+    }
+    const lockUpdatedAt = doc?.updatedAt;
+    const writeFilter = {
+      ...WORKSPACE,
+      ...(lockUpdatedAt ? { updatedAt: lockUpdatedAt } : { updatedAt: { $exists: false } }),
+      [`state.comments.${stageKey}.id`]: commentId,
+    };
+    const result = await PipelineState.findOneAndUpdate(
+      writeFilter,
+      { $set: { [`state.comments.${stageKey}.$.text`]: newText, updatedAt: new Date() } },
+      { new: true }
+    ).lean();
+    if (result) { casOk = true; break; }
+    await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
+  }
+  if (!casOk) {
+    logApi(ROUTE, "patch_cas_exhausted", { stage: stageKey, commentId });
+    return NextResponse.json({ error: "WRITE_CONTENTION" }, { status: 409 });
+  }
+
+  logApi(ROUTE, "patch_success", { stage: stageKey, commentId });
+  return NextResponse.json({ ok: true });
+}

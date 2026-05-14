@@ -426,7 +426,7 @@ export default function Stage({
     claims, reactions: rxns, comments, subtasks, users, workspaceUsers, currentUser, me,
     stageDescOverrides, stageImages, liveNotifs, activityLog,
     handleClaim, handleReact, cycleStatus,
-    addSubtask, archiveSubtask, addComment, deleteComment,
+    addSubtask, archiveSubtask, addComment, deleteComment, editComment,
     setStageDescOverride, setStageNameOverride,
     addStageImage, removeStageImage, archiveStage,
     getPoints,
@@ -471,6 +471,8 @@ export default function Stage({
   const [showMockup, setShowMockup] = useState(false);
   const [subtaskInputVal, setSubtaskInputVal] = useState("");
   const [commentInputVal, setCommentInputVal] = useState("");
+  const [editingCommentId, setEditingCommentId] = useState<number | null>(null);
+  const [editingCommentVal, setEditingCommentVal] = useState("");
   // Activity tab state
   const [activeDetailTab, setActiveDetailTab] = useState<"comments" | "activity">("comments");
   // "Since you were here" — snapshot taken at expand time
@@ -944,6 +946,14 @@ export default function Stage({
                   </div>
                 )}
 
+                {canArchive && (
+                  <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.amber; (e.currentTarget as HTMLElement).style.color = t.amber; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
+                    title="Archive this task">
+                    📦 archive
+                  </button>
+                )}
                 <button onClick={() => {
                   const sr = rxns[name] || {};
                   const owners = claimedBy.map(uid => users.find(u => u.id === uid)?.name).filter(Boolean);
@@ -961,14 +971,6 @@ export default function Stage({
                 }} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: copied === name ? t.green : t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>{copied === name ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}</span>
                 </button>
-                {canArchive && (
-                  <button onClick={() => setConfirmPending("stage")} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 12, padding: "4px 12px", cursor: "pointer", fontSize: 12, color: t.textMuted, fontWeight: 600, fontFamily: "var(--font-dm-mono), monospace", transition: "all 0.15s" }}
-                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.amber; (e.currentTarget as HTMLElement).style.color = t.amber; }}
-                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; (e.currentTarget as HTMLElement).style.color = t.textMuted; }}
-                    title="Archive this task">
-                    📦 archive
-                  </button>
-                )}
               </div>
             </div>
 
@@ -1070,9 +1072,23 @@ export default function Stage({
 	                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                                        <span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
-	                                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                                        {c.by === currentUser && (
+	                                          <>
+	                                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
+	                                            <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
+	                                          </>
+	                                        )}
+	                                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                                      </div>
-                                      <div style={{ fontSize: 12, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
+                                      {editingCommentId === c.id ? (
+                                        <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
+                                          <input autoFocus value={editingCommentVal} onChange={e => setEditingCommentVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { editComment(name, c.id, editingCommentVal); setEditingCommentId(null); } if (e.key === "Escape") setEditingCommentId(null); }} style={{ flex: 1, background: "transparent", border: `1px solid ${t.accent}55`, borderRadius: 6, padding: "2px 6px", fontSize: 12, color: t.text, fontFamily: "inherit", outline: "none" }} />
+                                          <button onClick={() => { editComment(name, c.id, editingCommentVal); setEditingCommentId(null); }} style={{ background: t.accent, border: "none", borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: "#fff", fontWeight: 700 }}>save</button>
+                                          <button onClick={() => setEditingCommentId(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: t.textDim }}>✕</button>
+                                        </div>
+                                      ) : (
+                                        <div style={{ fontSize: 12, color: t.textSec, lineHeight: 1.4 }}>{c.text}</div>
+                                      )}
                                     </div>
                                   </div>
                                   {/* Comment-level reactions */}
@@ -1380,9 +1396,23 @@ export default function Stage({
 	                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                        <span style={{ fontSize: 12, color: t.textDim }}>{c.time}</span>
-	                        {(c.by === currentUser || ADMIN_IDS.includes(currentUser!)) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                        {c.by === currentUser && (
+	                          <>
+	                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
+	                            <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
+	                          </>
+	                        )}
+	                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                      </div>
-                      <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>
+                      {editingCommentId === c.id ? (
+                        <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
+                          <input autoFocus value={editingCommentVal} onChange={e => setEditingCommentVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { editComment(name, c.id, editingCommentVal); setEditingCommentId(null); } if (e.key === "Escape") setEditingCommentId(null); }} style={{ flex: 1, background: "transparent", border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: t.text, fontFamily: "inherit", outline: "none", minHeight: 40 }} />
+                          <button onClick={() => { editComment(name, c.id, editingCommentVal); setEditingCommentId(null); }} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, color: "#fff", fontWeight: 700 }}>save</button>
+                          <button onClick={() => setEditingCommentId(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", cursor: "pointer", fontSize: 13, color: t.textDim }}>✕</button>
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 13, color: t.textSec, lineHeight: 1.5, marginTop: 0 }}>{c.text}</div>
+                      )}
                     </div>
                   </div>
                 ); })}
