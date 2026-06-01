@@ -167,6 +167,11 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
   // Use the explicitly passed workspaceId (from homeWsFilter) when available;
   // fall back to each individual workspace's pinned series for display.
   const activeWs = workspaceId ? workspaces.find(w => w.id === workspaceId) : null;
+  const workspacePipelineIds = activeWs ? new Set(activeWs.pipelineIds) : null;
+  const activePipelines = allPipelinesGlobal.filter(pipe =>
+    !(archivedPipelines || []).includes(pipe.id) &&
+    (!workspacePipelineIds || workspacePipelineIds.has(pipe.id))
+  );
 
   // Which topics are pinned to which workspace (for display when no specific ws selected)
   const allPinnedByWs = workspaces.map(w => ({ ws: w, pins: w.callSeriesFilters ?? [] }));
@@ -252,7 +257,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     setExtracting(true);
     setExtractError(null);
     try {
-      const pipelines = allPipelinesGlobal.map(p => ({
+      const pipelines = activePipelines.map(p => ({
         id: p.id,
         name: p.name,
         stages: [...p.stages, ...(customStages[p.id] ?? [])]
@@ -286,11 +291,11 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     // before the pipeline was deleted), pre-pick the first active pipeline so the
     // user doesn't silently dump the task into an invisible pipeline.
     const isArchived = (archivedPipelines || []).includes(p.pipelineId);
-    const stillExists = allPipelinesGlobal.some(x => x.id === p.pipelineId);
+    const stillExists = activePipelines.some(x => x.id === p.pipelineId);
     const pipelineId = (!isArchived && stillExists)
       ? p.pipelineId
-      : (allPipelinesGlobal.find(x => !(archivedPipelines || []).includes(x.id))?.id ?? "");
-    const pipe = allPipelinesGlobal.find(x => x.id === pipelineId);
+      : (activePipelines[0]?.id ?? "");
+    const pipe = activePipelines.find(x => x.id === pipelineId);
     const activeStages = pipe
       ? [...pipe.stages, ...(customStages[pipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
       : [];
@@ -305,17 +310,18 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     // could have manually selected one that got archived in another tab between
     // open and submit. Block rather than silently creating an invisible task.
     if (!editing.parentStage) {
-      const pipe = allPipelinesGlobal.find(p => p.id === editing.pipelineId);
+      const pipe = activePipelines.find(p => p.id === editing.pipelineId);
       const isArchived = (archivedPipelines || []).includes(editing.pipelineId);
       if (!pipe || isArchived) {
         // Surfacing via window.alert because this panel doesn't have a toast bus.
-        // Rare path (archived pipeline + no auto-correct) so the rough UX is fine.
-        alert("Pick an active pipeline first — this one is archived or missing.");
+        // Rare path (workspace/pipeline changed in another tab + no auto-correct)
+        // so the rough UX is fine.
+        alert("Pick an active pipeline in this workspace first — this one is archived, hidden, or missing.");
         return;
       }
     }
     const title = editing.title.trim();
-    const pipe = allPipelinesGlobal.find(p => p.id === editing.pipelineId);
+    const pipe = activePipelines.find(p => p.id === editing.pipelineId);
     const existingStageIds = pipe ? [...pipe.stages, ...(customStages[pipe.id] || [])] : [];
     const createSubtask = (parentStageId: string) => {
       const subtaskId = addSubtask(parentStageId, title, () => {});
@@ -614,7 +620,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                 {callProposals.map(p => {
                   const isEditing = editing?.id === p.id;
                   if (isEditing && editing) {
-                    const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
+                    const editPipe = activePipelines.find(x => x.id === editing.pipelineId);
                     const stagesInPipe = editPipe
                       ? [...editPipe.stages, ...(customStages[editPipe.id] || [])]
                         .filter(s => !(archivedStages || []).includes(s))
@@ -629,13 +635,14 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                         />
                         <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>pipeline: {editPipe?.name || editing.pipelineId}</div>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                          {allPipelinesGlobal.filter(pipe => !(archivedPipelines || []).includes(pipe.id)).map(pipe => {
+                          {activePipelines.map(pipe => {
                             const sel = editing.pipelineId === pipe.id;
                             return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "", newParentTitle: "" } : null); }}
                               style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
                               {pipe.icon} {pipe.name}
                             </button>;
                           })}
+                          {activePipelines.length === 0 && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>no pipelines in this workspace</span>}
                         </div>
                         <>
                           <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
