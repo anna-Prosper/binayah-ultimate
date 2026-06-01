@@ -661,17 +661,25 @@ export default function HomeView({
       const parsed = Date.parse(value || "");
       return Number.isFinite(parsed) ? parsed : 0;
     };
+    const visibleCommentTarget = (target: string) => {
+      if (visibleStageIds.has(target)) return target;
+      const parsed = SubtaskKey.isValid(target)
+        ? SubtaskKey.parse(target as Parameters<typeof SubtaskKey.parse>[0])
+        : null;
+      return parsed && visibleStageIds.has(parsed.parentStageId) ? target : null;
+    };
     const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) => {
-      // Only include comments on stages that are visible in this workspace scope
-      if (!visibleStageIds.has(target)) return [];
+      // Include comments on visible parent tasks and their visible subtasks.
+      const visibleTarget = visibleCommentTarget(target);
+      if (!visibleTarget) return [];
       return list
         .filter(c => c.text.includes("@"))
         .map(c => ({
-          target,
+          target: visibleTarget,
           text: c.text,
           by: c.by,
           time: timestampFrom(c.time || c.id),
-          title: stageNameLabel(target),
+          title: stageNameLabel(visibleTarget),
           directedToMe: mentionNeedles.some(n => c.text.toLowerCase().includes(n)),
           source: "comment" as const,
         }));
