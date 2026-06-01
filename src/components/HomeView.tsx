@@ -498,6 +498,7 @@ export default function HomeView({
   const {
     claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, activityLog, chatMessages,
+    archivedSubtasks,
     reminders, addReminder, dismissReminder,
     getStatus, ck, approveStage, approveSubtask, assignTask,
     execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
@@ -566,6 +567,7 @@ export default function HomeView({
     const visiblePipelineIds = new Set(visiblePipelines.map(p => p.id));
     const visibleStageIds = new Set<string>();
     const stageToPipeline = new Map<string, Pipeline>();
+    const archivedSubtaskSet = new Set(archivedSubtasks || []);
     for (const p of visiblePipelines) {
       for (const stage of [...p.stages, ...(customStages[p.id] || [])]) {
         visibleStageIds.add(stage);
@@ -605,14 +607,16 @@ export default function HomeView({
     const subtaskItems = Object.entries(subtasks || {}).flatMap(([parentStageId, list]) => {
       if (!visibleStageIds.has(parentStageId)) return [];
       const parent = stageToPipeline.get(parentStageId);
-      return list.map(sub => {
+      return list.flatMap(sub => {
         const key = `${parentStageId}::${sub.id}`;
+        const textKey = `${parentStageId}::${sub.text}`;
+        if (archivedSubtaskSet.has(key) || archivedSubtaskSet.has(textKey) || archivedSubtaskSet.has(sub.text)) return [];
         return {
           key,
           title: sub.text,
           pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
           pipelineId: parent?.id || "",
-          status: subtaskStages[key] || "planned",
+          status: sub.done ? "active" : (subtaskStages[key] || "planned"),
           owners: itemOwnerIds(key),
           priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
           dueDate: subtaskDueDates[key],
@@ -638,8 +642,7 @@ export default function HomeView({
     const scopedUsers = users.filter(u => scopedMemberIds.has(u.id));
     const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
     const reviewItems = allItems.filter(item =>
-      (item.kind === "task" && item.status === "active" && !item.approved) ||
-      (item.kind === "subtask" && item.done && !item.approved)
+      item.status === "active" && !item.approved
     );
     const blockedItems = allItems.filter(item => item.status === "blocked");
     const hotItems = allItems.filter(item =>

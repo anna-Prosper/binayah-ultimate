@@ -413,7 +413,7 @@ export default function TasksView(props: Props) {
         }
         if (!pipelineId) continue;
         const wsInfo = pipelineWorkspaceMap?.[pipelineId];
-        const status = normalizeStageStatus(subtaskStages?.[key] || (sub.done ? "active" : "planned"));
+        const status = normalizeStageStatus(sub.done ? "active" : (subtaskStages?.[key] || "planned"));
         tasks.push({
           key,
           text: sub.text,

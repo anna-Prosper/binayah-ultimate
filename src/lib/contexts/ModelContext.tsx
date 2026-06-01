@@ -848,8 +848,8 @@ export function ModelProvider({
       const nextList = list.map(subtask => {
         const key = SubtaskKey.make(parentStageId, subtask.id);
         const explicitStatus = subtaskStages[key];
-        const status = normalizeStageStatus(explicitStatus || (subtask.done ? "active" : "planned"));
-        if (!explicitStatus && subtask.done) {
+        const status = subtask.done ? "active" : normalizeStageStatus(explicitStatus || "planned");
+        if (subtask.done && explicitStatus !== "active") {
           nextSubtaskStages[key] = "active";
           stagesChanged = true;
         }
@@ -1870,7 +1870,7 @@ export function ModelProvider({
     const legacyDone = parsed
       ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
       : false;
-    const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
+    const prevStatus = legacyDone ? "active" : normalizeStageStatus(subtaskStages[key] || "planned");
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
     if (parsed && prevStatus !== nextStatus) {
@@ -1899,7 +1899,7 @@ export function ModelProvider({
     const legacyDone = parsed
       ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
       : false;
-    return normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
+    return legacyDone ? "active" : normalizeStageStatus(subtaskStages[key] || "planned");
   }, [subtasks, subtaskStages]);
 
   const cycleSubtaskStatus = (key: string) => {
