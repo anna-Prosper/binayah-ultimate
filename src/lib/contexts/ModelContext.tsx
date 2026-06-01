@@ -836,6 +836,48 @@ export function ModelProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser, users]);
 
+  useEffect(() => {
+    const nextSubtaskStages = { ...subtaskStages };
+    const nextSubtasks: typeof subtasks = {};
+    let stagesChanged = false;
+    let subtasksChanged = false;
+    const approvedToClear = new Set<string>();
+
+    for (const [parentStageId, list] of Object.entries(subtasks)) {
+      if (!Array.isArray(list)) continue;
+      const nextList = list.map(subtask => {
+        const key = SubtaskKey.make(parentStageId, subtask.id);
+        const explicitStatus = subtaskStages[key];
+        const status = normalizeStageStatus(explicitStatus || (subtask.done ? "active" : "planned"));
+        if (!explicitStatus && subtask.done) {
+          nextSubtaskStages[key] = "active";
+          stagesChanged = true;
+        }
+        const shouldBeDone = status === "active";
+        if (subtask.done !== shouldBeDone) {
+          subtasksChanged = true;
+          if (!shouldBeDone && approvedSubtasks.includes(key)) approvedToClear.add(key);
+          return { ...subtask, done: shouldBeDone };
+        }
+        return subtask;
+      });
+      if (nextList !== list) nextSubtasks[parentStageId] = nextList;
+    }
+
+    if (stagesChanged) {
+      markLocalWrite("subtaskStages");
+      setSubtaskStages(nextSubtaskStages);
+    }
+    if (subtasksChanged) {
+      markLocalWrite("subtasks");
+      setSubtasks(prev => ({ ...prev, ...nextSubtasks }));
+    }
+    if (approvedToClear.size > 0) {
+      markLocalWrite("approvedSubtasks");
+      setApprovedSubtasks(prev => prev.filter(key => !approvedToClear.has(key)));
+    }
+  }, [approvedSubtasks, markLocalWrite, subtasks, subtaskStages]);
+
   const getCurrentState = useCallback((): PatchEnvelope => {
     const state: Record<string, unknown> = {
       owners,
@@ -1450,8 +1492,18 @@ export function ModelProvider({
   };
 
   const toggleSubtask = (sid: string, taskId: number) => {
+    const key = SubtaskKey.make(sid, taskId);
+    const current = (subtasks[sid] || []).find(t => t.id === taskId);
+    if (!current || current.locked) return;
+    const nextDone = !current.done;
     markLocalWrite("subtasks");
-    setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: !t.done } : t) }));
+    setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: nextDone } : t) }));
+    markLocalWrite("subtaskStages");
+    setSubtaskStages(prev => ({ ...prev, [key]: nextDone ? "active" : "planned" }));
+    if (!nextDone && approvedSubtasks.includes(key)) {
+      markLocalWrite("approvedSubtasks");
+      setApprovedSubtasks(prev => prev.filter(k => k !== key));
+    }
   };
   const renameSubtask = (sid: string, taskId: number, text: string) => {
     const key = SubtaskKey.make(sid, taskId);
@@ -1815,7 +1867,10 @@ export function ModelProvider({
     const parsed = SubtaskKey.isValid(key)
       ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])
       : null;
-    const prevStatus = normalizeStageStatus(subtaskStages[key] || "planned");
+    const legacyDone = parsed
+      ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
+      : false;
+    const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
     if (parsed && prevStatus !== nextStatus) {
@@ -1837,10 +1892,18 @@ export function ModelProvider({
     }
   };
 
-  const getSubtaskStatus = useCallback((key: string) => normalizeStageStatus(subtaskStages[key] || "planned"), [subtaskStages]);
+  const getSubtaskStatus = useCallback((key: string) => {
+    const parsed = SubtaskKey.isValid(key)
+      ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])
+      : null;
+    const legacyDone = parsed
+      ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
+      : false;
+    return normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
+  }, [subtasks, subtaskStages]);
 
   const cycleSubtaskStatus = (key: string) => {
-    const cur = normalizeStageStatus(subtaskStages[key] || "planned");
+    const cur = getSubtaskStatus(key);
     const idx = STATUS_ORDER.indexOf(cur);
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     setSubtaskStage(key, next);

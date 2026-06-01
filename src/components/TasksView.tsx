@@ -401,7 +401,7 @@ export default function TasksView(props: Props) {
         }
         if (!pipelineId) continue;
         const wsInfo = pipelineWorkspaceMap?.[pipelineId];
-        const status = normalizeStageStatus(subtaskStages?.[key] || "planned");
+        const status = normalizeStageStatus(subtaskStages?.[key] || (sub.done ? "active" : "planned"));
         tasks.push({
           key,
           text: sub.text,
@@ -1999,7 +1999,7 @@ function SubtaskKanbanCard({
             {(() => {
               const subClaimers = claims[sub.key] || [];
               const isApproved = approvedSubtasks.includes(sub.key);
-              const isPending = sub.done && !isApproved;
+              const isPending = sub.status === "active" && !isApproved;
               return (
                 <>
                   <ClaimerPills claimerIds={subClaimers} users={users} getPoints={getPoints} t={t} variant="avatar" size={22} />
@@ -2083,7 +2083,7 @@ function SubtaskKanbanCard({
           const subClaimers = claims[sub.key] || [];
           const isClaimedByMe = currentUser ? subClaimers.includes(currentUser) : false;
           const isApproved = approvedSubtasks.includes(sub.key);
-          const isPending = sub.done && !isApproved;
+          const isPending = sub.status === "active" && !isApproved;
           return currentUser && !readOnly && !(isPending && isAdmin) && !isApproved
             ? <div><ClaimChip claimed={isClaimedByMe} pipelineColor={sub.pipelineColor} t={t} onClaim={() => handleClaim(sub.key)} variant="subtask" small /></div>
             : null;

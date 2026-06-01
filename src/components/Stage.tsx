@@ -154,12 +154,12 @@ function StageSubtaskCard({
   const points = task.points ?? DEFAULT_SUBTASK_POINTS;
   // Approval + status — mirrors the stage TaskCard flow
   const isApproved = approvedSubtasks.includes(key);
-  const isPending = task.done && !isApproved;
   const taskWorkspaceId = workspaces.find(w => w.pipelineIds.includes(pId))?.id;
   const taskWorkspace = workspaces.find(w => w.id === taskWorkspaceId);
   const canApprove = currentUser ? (ADMIN_IDS.includes(currentUser) || (taskWorkspace?.captains.includes(currentUser) ?? false)) : false;
   const canAssign = canApprove;
   const subStatus = getSubtaskStatus(key);
+  const isPending = subStatus === "active" && !isApproved;
   const stPill = sc[subStatus] ?? { l: subStatus, c: t.textMuted };
 
   const iconBtn: React.CSSProperties = {
