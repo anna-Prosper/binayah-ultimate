@@ -32,6 +32,11 @@ type CachedProposal = {
 };
 type CachedSummary = { uuid: string; topic: string; startTime: string; summary: string };
 
+function normalizeStageName(stageName: string | null | undefined): string | null {
+  if (!stageName || stageName.startsWith("default-parent-")) return null;
+  return stageName;
+}
+
 async function isAuthorized(req: NextRequest) {
   const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
   const cronSecret = process.env.CRON_SECRET;
@@ -138,9 +143,10 @@ function latestArchiveMeetings(summaries: CachedSummary[]): CachedMeeting[] {
 
 function withProposalUUIDs(proposals: CachedProposal[], meetings: CachedMeeting[]): CachedProposal[] {
   return proposals.map(p => {
-    if (p.sourceUUID) return p;
+    const normalized = { ...p, stageName: normalizeStageName(p.stageName) };
+    if (normalized.sourceUUID) return normalized;
     const match = meetings.find(m => m.topic === p.sourceMeeting && m.startTime === p.sourceDate);
-    return match ? { ...p, sourceUUID: match.uuid } : p;
+    return match ? { ...normalized, sourceUUID: match.uuid } : normalized;
   });
 }
 
@@ -198,7 +204,7 @@ async function syncNewMeetings(
         title: t.title,
         pipelineId: t.pipelineId,
         pipelineName: t.pipelineName,
-        stageName: t.stageName,
+        stageName: normalizeStageName(t.stageName),
         sourceMeeting: m.topic,
         sourceDate: m.startTime,
         sourceUUID: m.uuid,

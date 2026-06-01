@@ -15,6 +15,11 @@ type SuggestedTask = {
   stageName: string | null;
 };
 
+function normalizeStageName(stageName: string | null | undefined): string | null {
+  if (!stageName || stageName.startsWith("default-parent-")) return null;
+  return stageName;
+}
+
 export async function POST(req: NextRequest) {
   logApi(ROUTE, "request");
 
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
   }
 
   const pipelineList = (pipelines as Pipeline[])
-    .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.slice(0, 8).join(", ")}`)
+    .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.filter(stage => !stage.startsWith("default-parent-")).slice(0, 8).join(", ")}`)
     .join("\n");
 
   const systemPrompt = `You are a project management assistant for Binayah Properties, a Dubai real estate tech company.
@@ -51,7 +56,7 @@ export async function POST(req: NextRequest) {
 Extract concrete action items and tasks from the call summary below. For each task:
 1. Write a short, specific title (≤ 10 words)
 2. Pick the most relevant pipeline from the list provided
-3. If the pipeline has a matching existing stage, suggest that stage — otherwise set stageName to null (a new stage will be created)
+3. If the pipeline has a matching existing parent task, suggest that stage — otherwise set stageName to null so the task uses the hidden default parent
 
 Respond ONLY with valid JSON — an array of task objects. No markdown, no explanation.
 
@@ -106,6 +111,7 @@ ${pipelineList}`;
     // Clamp to 12 tasks max, validate each entry
     tasks = tasks
       .filter(t => t && typeof t.title === "string" && typeof t.pipelineId === "string")
+      .map(t => ({ ...t, stageName: normalizeStageName(t.stageName) }))
       .slice(0, 12);
 
     logApi(ROUTE, "ok", { count: tasks.length });

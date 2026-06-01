@@ -27,6 +27,10 @@ type EditingProposal = { id: number; title: string; pipelineId: string; parentSt
 const DEFAULT_PARENT_LABEL = "All";
 const defaultParentStageId = (pipelineId: string) => `default-parent-${pipelineId}`;
 const isDefaultParentStage = (stageId: string) => stageId.startsWith("default-parent-");
+const normalizeProposalStageName = (stageName: string | null | undefined) => {
+  if (!stageName || isDefaultParentStage(stageName)) return null;
+  return stageName;
+};
 const safeStageId = (value: string) => value.trim().replace(/[.$]/g, "_");
 const uniqueStageId = (base: string, existing: string[]) => {
   const root = safeStageId(base);
@@ -113,7 +117,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
           const existingIds = new Set(prev.map(p => p.id));
           const fresh = data.proposals!
             .filter(p => !existingIds.has(p.id) && !dismissedIdsRef.current.has(p.id))
-            .map(p => ({ ...p, status: "pending" as const }));
+            .map(p => ({ ...p, stageName: normalizeProposalStageName(p.stageName), status: "pending" as const }));
           return [...fresh, ...prev];
         });
         setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
@@ -224,7 +228,9 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
           setProposals(prev => {
             const nonPending = prev.filter(p => p.status !== "pending");
             const existingIds = new Set(nonPending.map(p => p.id));
-            const fresh = data.proposals!.filter(p => !existingIds.has(p.id)).map(p => ({ ...p, status: "pending" as const }));
+            const fresh = data.proposals!
+              .filter(p => !existingIds.has(p.id))
+              .map(p => ({ ...p, stageName: normalizeProposalStageName(p.stageName), status: "pending" as const }));
             return [...fresh, ...nonPending];
           });
           setNextId(n => Math.max(n, ...data.proposals!.map(p => p.id + 1)));
@@ -249,7 +255,8 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
       const pipelines = allPipelinesGlobal.map(p => ({
         id: p.id,
         name: p.name,
-        stages: [...p.stages, ...(customStages[p.id] ?? [])],
+        stages: [...p.stages, ...(customStages[p.id] ?? [])]
+          .filter(stageId => !isDefaultParentStage(stageId)),
       }));
       const res = await fetch("/api/call-summary", {
         method: "POST",
@@ -263,7 +270,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
         title: t.title,
         pipelineId: t.pipelineId,
         pipelineName: t.pipelineName,
-        stageName: t.stageName,
+        stageName: normalizeProposalStageName(t.stageName),
         status: "pending",
       }));
       setNextId(n => n + newProposals.length);
