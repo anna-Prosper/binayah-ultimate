@@ -105,6 +105,20 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
   };
 }
 
+const DEFAULT_PARENT_TASK_NAME = "All";
+
+function defaultParentStageIdForPipeline(pipelineId: string): string {
+  return `default-parent-${pipelineId}`;
+}
+
+function isDefaultParentStageId(stageId: string): boolean {
+  return stageId.startsWith("default-parent-");
+}
+
+function stageDisplayName(stageId: string, stageNameOverrides?: Record<string, string>): string {
+  return stageNameOverrides?.[stageId] || stageId;
+}
+
 export default function TasksView(props: Props) {
   const { t, allPipelines, customStages, pipeMetaOverrides, getStatus, users, currentUser, ck, isAdmin, showMyAllFilter, defaultMyAllFilter, pipelineWorkspaceMap, editMode, onPipelineClick, hideConcept, showConceptToggle, defaultHideConcept, currentWorkspaceId, availableWorkspaces, readOnly = false } = props;
   const {
@@ -185,7 +199,7 @@ export default function TasksView(props: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterNow] = useState(() => Date.now());
   // ── Kanban dynamic creation form ─────────────────────────────────────────────
-  // none selected → orphan; pipeline only → task; pipeline+stage → subtask.
+  // none selected → orphan; pipeline selected → subtask under explicit or default parent.
   // In cross-workspace mode, workspace must be picked first (drives pipeline list + scope).
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
@@ -220,13 +234,18 @@ export default function TasksView(props: Props) {
     if (!title) return;
     if (needsWorkspacePick && !newSubWsId) return; // must pick workspace first
     const customParentStage = newSubParentTitle.trim().replace(/[.$]/g, "_");
-    if (newSubPipeId && (newSubParentStage || customParentStage)) {
-      // Subtask
-      const parentStageId = newSubParentStage || customParentStage;
+    if (newSubPipeId) {
+      // Pipeline items are always stored as subtasks. If the user doesn't pick
+      // an explicit parent, route them to the hidden default parent for that pipeline.
       const pipe = allPipelines.find(p => p.id === newSubPipeId);
-      const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])];
-      if (customParentStage && !stagesInPipe.includes(parentStageId)) {
+      const allStagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])];
+      const stagesInPipe = allStagesInPipe.filter(s => !(archivedStages || []).includes(s));
+      const parentStageId = newSubParentStage || customParentStage || defaultParentStageIdForPipeline(newSubPipeId);
+      if (!stagesInPipe.includes(parentStageId)) {
         modelAddCustomStage(newSubPipeId, parentStageId);
+        if (!customParentStage) setStageNameOverride(parentStageId, DEFAULT_PARENT_TASK_NAME);
+      } else if (!customParentStage && stageDisplayName(parentStageId, stageNameOverrides) !== DEFAULT_PARENT_TASK_NAME) {
+        setStageNameOverride(parentStageId, DEFAULT_PARENT_TASK_NAME);
       }
       const taskId = modelAddSubtask(parentStageId, title, () => {});
       if (taskId !== null) {
@@ -236,13 +255,6 @@ export default function TasksView(props: Props) {
         if (newSubAssigneeId) assignTask(key, newSubAssigneeId);
         else if (currentUser) handleClaim(key);
       }
-    } else if (newSubPipeId) {
-      // Task in a pipeline
-      modelAddCustomStage(newSubPipeId, title);
-      if (newSubDueDate) setStageDueDate(title, newSubDueDate);
-      if (colStatus !== "planned") setStageStatus(title, colStatus);
-      if (newSubAssigneeId) assignTask(title, newSubAssigneeId);
-      else if (currentUser) handleClaim(title);
     } else {
       // Orphan task. Goes to inbox pipeline. If a workspace is in scope, ensure
       // inbox pipeline is in that workspace's pipelineIds so user sees it later.
@@ -262,7 +274,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubDueDate, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageNameOverride, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -317,7 +329,7 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
+      .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
       .map(s => ({
         stageId: s,
         displayName: stageNameOverrides?.[s] || s,
@@ -543,7 +555,12 @@ export default function TasksView(props: Props) {
 
   const moveParentPipelines = pipelines
     .filter(p => p.id !== INBOX_PIPELINE_ID)
-    .map(p => ({ id: p.id, name: p.displayName, icon: p.icon, stages: p.allStages }));
+    .map(p => ({
+      id: p.id,
+      name: p.displayName,
+      icon: p.icon,
+      stages: p.allStages.filter(s => !isDefaultParentStageId(s)),
+    }));
 
   const cardShared = {
     t, users, currentUser, reactions, comments,
@@ -791,7 +808,8 @@ export default function TasksView(props: Props) {
             <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 6 }}>
               {(() => {
                 const pipe = allPipelines.find(p => p.id === newSubPipeId);
-                const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s));
+                const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])]
+                  .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s));
                 return (
                   <>
                     <div style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>
@@ -799,7 +817,7 @@ export default function TasksView(props: Props) {
                         ? `new parent task: ${newSubParentTitle}`
                         : newSubParentStage
                           ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
-                          : "// parent task (optional)"}
+                          : "// parent task (optional — skip to use default parent)"}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
                       {(newSubParentStage || newSubParentTitle) && (
@@ -826,7 +844,7 @@ export default function TasksView(props: Props) {
                         style={{ flex: "1 1 260px", background: t.bgCard, border: `1px dashed ${t.accent}55`, borderRadius: 8, padding: "7px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
                       />
                       <span style={{ alignSelf: "center", color: t.textDim, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>
-                        {newSubParentTitle.trim() ? "creates parent + subtask" : "leave empty to create normal task"}
+                        {newSubParentTitle.trim() ? "creates parent + subtask" : "leave empty to use default parent"}
                       </span>
                     </div>
                   </>
@@ -1018,7 +1036,8 @@ export default function TasksView(props: Props) {
                       {/* Parent task picker — optional, only shown when pipeline selected */}
                       {newSubPipeId && (() => {
                         const pipe = allPipelines.find(p => p.id === newSubPipeId);
-                        const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s));
+                        const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])]
+                          .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s));
                         return (
                           <>
                             <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
@@ -1026,7 +1045,7 @@ export default function TasksView(props: Props) {
                                 ? `new parent task: ${newSubParentTitle}`
                                 : newSubParentStage
                                   ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
-                                  : "// parent task (optional — skip to create as task)"}
+                                  : "// parent task (optional — skip to use default parent)"}
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                               {(newSubParentStage || newSubParentTitle) && (
@@ -1061,7 +1080,7 @@ export default function TasksView(props: Props) {
                         <span style={{ fontSize: 10, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
                           {needsWorkspacePick && !newSubWsId
                             ? <span style={{ color: t.amber }}>// pick a workspace first</span>
-                            : <>{newSubPipeId && (newSubParentStage || newSubParentTitle.trim()) ? "→ subtask" : newSubPipeId ? "→ task" : "→ orphan task"}{" · "}↵ or click create</>}
+                            : <>{newSubPipeId ? "→ subtask" : "→ orphan task"}{" · "}↵ or click create</>}
                         </span>
                         <div style={{ display: "flex", gap: 4 }}>
                           <button onMouseDown={resetNewSub} data-no-close
