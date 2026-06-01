@@ -22,10 +22,27 @@ type ZoomRecordingsStatus = {
 };
 type ZoomMeeting = { id: string | number; uuid: string; topic: string; startTime: string; duration: number };
 type TaskProposal = { id: number; title: string; pipelineId: string; pipelineName: string; stageName: string | null; status: "pending" | "approved" | "rejected"; sourceMeeting?: string; sourceDate?: string; sourceUUID?: string; dueDate?: string };
-type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; description: string; assigneeId: string; dueDate: string };
+type EditingProposal = { id: number; title: string; pipelineId: string; parentStage: string; newParentTitle: string; description: string; assigneeId: string; dueDate: string };
+
+const DEFAULT_PARENT_LABEL = "All";
+const defaultParentStageId = (pipelineId: string) => `default-parent-${pipelineId}`;
+const isDefaultParentStage = (stageId: string) => stageId.startsWith("default-parent-");
+const safeStageId = (value: string) => value.trim().replace(/[.$]/g, "_");
+const uniqueStageId = (base: string, existing: string[]) => {
+  const root = safeStageId(base);
+  if (!root) return "";
+  if (!existing.includes(root)) return root;
+  let index = 2;
+  let candidate = `${root} (${index})`;
+  while (existing.includes(candidate)) {
+    index += 1;
+    candidate = `${root} (${index})`;
+  }
+  return candidate;
+};
 
 export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmin: boolean; workspaceId?: string | null }) {
-  const { addCustomStage, addSubtask, assignTask, setStageDescOverride, setStageDueDate, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, archivedPipelines, users, workspaces, pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel } = useModel();
+  const { addCustomStage, addSubtask, assignTask, setStageNameOverride, setSubtaskDescOverride, setSubtaskDueDate, allPipelinesGlobal, customStages, stageNameOverrides, archivedStages, archivedPipelines, users, workspaces, pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel } = useModel();
   const [status, setStatus] = useState<ZoomStatus | null>(null);
   const [checking, setChecking] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -266,7 +283,14 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     const pipelineId = (!isArchived && stillExists)
       ? p.pipelineId
       : (allPipelinesGlobal.find(x => !(archivedPipelines || []).includes(x.id))?.id ?? "");
-    setEditing({ id: p.id, title: p.stageName || p.title, pipelineId, parentStage: "", description: "", assigneeId: "", dueDate: p.dueDate || "" });
+    const pipe = allPipelinesGlobal.find(x => x.id === pipelineId);
+    const activeStages = pipe
+      ? [...pipe.stages, ...(customStages[pipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
+      : [];
+    const parentStage = p.stageName && activeStages.includes(p.stageName) && !isDefaultParentStage(p.stageName)
+      ? p.stageName
+      : "";
+    setEditing({ id: p.id, title: p.title, pipelineId, parentStage, newParentTitle: "", description: "", assigneeId: "", dueDate: p.dueDate || "" });
   };
   const confirmEdit = () => {
     if (!editing || !editing.title.trim()) return;
@@ -284,23 +308,41 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
       }
     }
     const title = editing.title.trim();
+    const pipe = allPipelinesGlobal.find(p => p.id === editing.pipelineId);
+    const existingStageIds = pipe ? [...pipe.stages, ...(customStages[pipe.id] || [])] : [];
+    const createSubtask = (parentStageId: string) => {
+      const subtaskId = addSubtask(parentStageId, title, () => {});
+      if (subtaskId !== null) {
+        const subtaskKey = SubtaskKey.make(parentStageId, subtaskId);
+        if (editing.description.trim()) {
+          setTimeout(() => setSubtaskDescOverride(subtaskKey, editing.description.trim()), 100);
+        }
+        if (editing.dueDate) {
+          setTimeout(() => setSubtaskDueDate(subtaskKey, editing.dueDate), 120);
+        }
+        if (editing.assigneeId) {
+          setTimeout(() => assignTask(subtaskKey, editing.assigneeId), 150);
+        }
+      }
+    };
     if (editing.parentStage) {
-      const subtaskId = addSubtask(editing.parentStage, title, () => {});
-      if (subtaskId !== null && editing.dueDate) {
-        setTimeout(() => setSubtaskDueDate(SubtaskKey.make(editing.parentStage, subtaskId), editing.dueDate), 120);
+      createSubtask(editing.parentStage);
+    } else if (editing.newParentTitle.trim()) {
+      const parentTitle = editing.newParentTitle.trim();
+      const parentStageId = uniqueStageId(parentTitle, existingStageIds);
+      if (!parentStageId) return;
+      addCustomStage(editing.pipelineId, parentStageId);
+      if (parentStageId !== parentTitle) {
+        setTimeout(() => setStageNameOverride(parentStageId, parentTitle), 80);
       }
+      createSubtask(parentStageId);
     } else {
-      addCustomStage(editing.pipelineId, title);
-      // Apply description + assignee after stage is created
-      if (editing.description.trim()) {
-        setTimeout(() => setStageDescOverride(title, editing.description.trim()), 100);
+      const parentStageId = defaultParentStageId(editing.pipelineId);
+      if (!existingStageIds.includes(parentStageId)) {
+        addCustomStage(editing.pipelineId, parentStageId);
+        setTimeout(() => setStageNameOverride(parentStageId, DEFAULT_PARENT_LABEL), 80);
       }
-      if (editing.dueDate) {
-        setTimeout(() => setStageDueDate(title, editing.dueDate), 120);
-      }
-      if (editing.assigneeId) {
-        setTimeout(() => assignTask(title, editing.assigneeId), 150);
-      }
+      createSubtask(parentStageId);
     }
     persistDismissed(editing.id);
     setProposals(prev => prev.map(x => x.id === editing.id ? { ...x, status: "approved" } : x));
@@ -567,7 +609,9 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                   if (isEditing && editing) {
                     const editPipe = allPipelinesGlobal.find(x => x.id === editing.pipelineId);
                     const stagesInPipe = editPipe
-                      ? [...editPipe.stages, ...(customStages[editPipe.id] || [])].filter(s => !(archivedStages || []).includes(s))
+                      ? [...editPipe.stages, ...(customStages[editPipe.id] || [])]
+                        .filter(s => !(archivedStages || []).includes(s))
+                        .filter(s => !isDefaultParentStage(s))
                       : [];
                     return (
                       <div key={p.id} style={{ border: `1.5px dashed ${t.accent}88`, borderRadius: 10, padding: 10, background: t.accent + "08", display: "flex", flexDirection: "column", gap: 6 }}>
@@ -580,25 +624,33 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                           {allPipelinesGlobal.filter(pipe => !(archivedPipelines || []).includes(pipe.id)).map(pipe => {
                             const sel = editing.pipelineId === pipe.id;
-                            return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "" } : null); }}
+                            return <button key={pipe.id} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, pipelineId: pipe.id, parentStage: "", newParentTitle: "" } : null); }}
                               style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>
                               {pipe.icon} {pipe.name}
                             </button>;
                           })}
                         </div>
-                        {stagesInPipe.length > 0 && (
-                          <>
-                            <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
-                              {editing.parentStage ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}` : "// parent task (optional)"}
-                            </div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                              {editing.parentStage && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "" } : null); }}
-                                style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: mono }}>✕ as task</button>}
-                              {stagesInPipe.map(s => { const sel = editing.parentStage === s; return <button key={s} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s } : null); }}
-                                style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>{stageNameOverrides?.[s] || s}</button>; })}
-                            </div>
-                          </>
-                        )}
+                        <>
+                          <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
+                            {editing.parentStage
+                              ? `as subtask of: ${stageNameOverrides?.[editing.parentStage] || editing.parentStage}`
+                              : editing.newParentTitle.trim()
+                                ? `create parent: ${editing.newParentTitle.trim()}`
+                                : "// parent task (optional - blank uses hidden default)"}
+                          </div>
+                          <input
+                            value={editing.newParentTitle}
+                            onChange={e => setEditing(prev => prev ? { ...prev, newParentTitle: e.target.value, parentStage: "" } : null)}
+                            placeholder="+ create parent task..."
+                            style={{ background: t.bgCard, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.text, fontFamily: mono, outline: "none", width: "100%", boxSizing: "border-box" }}
+                          />
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                            {(editing.parentStage || editing.newParentTitle.trim()) && <button type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: "", newParentTitle: "" } : null); }}
+                              style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: mono }}>✕ use default</button>}
+                            {stagesInPipe.map(s => { const sel = editing.parentStage === s; return <button key={s} type="button" onMouseDown={e => { e.preventDefault(); setEditing(prev => prev ? { ...prev, parentStage: sel ? "" : s, newParentTitle: "" } : null); }}
+                              style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: mono, fontWeight: sel ? 700 : 400 }}>{stageNameOverrides?.[s] || s}</button>; })}
+                          </div>
+                        </>
                         {/* Assignee */}
                         <div style={{ fontSize: 10, color: t.accent, fontFamily: mono, fontWeight: 700, letterSpacing: 0.5 }}>
                           {editing.assigneeId ? `assign to: ${users.find(u => u.id === editing.assigneeId)?.name || editing.assigneeId}` : "// assign to (optional)"}
@@ -634,7 +686,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                           <button type="button" onClick={() => setEditing(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 10px", cursor: "pointer", fontSize: 11, color: t.textMuted, fontFamily: mono }}>cancel</button>
                           <button type="button" onClick={confirmEdit} disabled={!editing.title.trim()}
                             style={{ background: editing.title.trim() ? t.accent : t.surface, border: "none", borderRadius: 8, padding: "4px 12px", cursor: editing.title.trim() ? "pointer" : "not-allowed", fontSize: 11, color: editing.title.trim() ? "#fff" : t.textDim, fontFamily: mono, fontWeight: 700 }}>
-                            {editing.parentStage ? "add as subtask" : "add as task"}
+                            {editing.parentStage || editing.newParentTitle.trim() ? "add as subtask" : "add to default"}
                           </button>
                         </div>
                       </div>
@@ -644,7 +696,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                     <div key={p.id} style={{ display: "flex", alignItems: "flex-start", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px" }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: t.text, lineHeight: 1.3 }}>{p.title}</div>
-                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>{p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → new stage"}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, fontFamily: mono, marginTop: 2 }}>{p.pipelineName}{p.stageName ? ` → ${p.stageName}` : " → hidden default parent"}</div>
                       </div>
                       <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
                         <button type="button" onClick={() => startEditing(p)} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "3px 8px", fontSize: 11, fontWeight: 850, fontFamily: mono, cursor: "pointer" }}>✓</button>
