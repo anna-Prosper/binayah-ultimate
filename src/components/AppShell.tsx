@@ -196,7 +196,9 @@ function ShellInner({
     if (lastSeenActivity === 0 && activityLog.length > 0) setLastSeenActivity(activityLog.length);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityLog.length]);
-  useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
+  // Keep the shell gated until the first server hydrate finishes. Rendering the
+  // cached model early can briefly hide newly persisted pipelines/tasks, then
+  // make them pop back in when Mongo arrives.
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
   useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
