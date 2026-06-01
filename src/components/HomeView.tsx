@@ -666,7 +666,12 @@ export default function HomeView({
       const parsed = SubtaskKey.isValid(target)
         ? SubtaskKey.parse(target as Parameters<typeof SubtaskKey.parse>[0])
         : null;
-      return parsed && visibleStageIds.has(parsed.parentStageId) ? target : null;
+      if (!parsed) return null;
+      if (visibleStageIds.has(parsed.parentStageId)) return target;
+      const currentParent = Object.entries(subtasks || {}).find(([parentStageId, list]) =>
+        visibleStageIds.has(parentStageId) && (list || []).some(sub => sub.id === parsed.subtaskId)
+      )?.[0];
+      return currentParent ? SubtaskKey.make(currentParent, parsed.subtaskId) : null;
     };
     const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) => {
       // Include comments on visible parent tasks and their visible subtasks.
@@ -678,7 +683,7 @@ export default function HomeView({
           target: visibleTarget,
           text: c.text,
           by: c.by,
-          time: timestampFrom(c.time || c.id),
+          time: timestampFrom(c.id || c.time),
           title: stageNameLabel(visibleTarget),
           directedToMe: mentionNeedles.some(n => c.text.toLowerCase().includes(n)),
           source: "comment" as const,
@@ -870,7 +875,8 @@ export default function HomeView({
       if (SubtaskKey.isValid(key)) {
         const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
         if (parsed) {
-          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
+          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId) ||
+            Object.values(subtasks || {}).flat().find(s => s.id === parsed.subtaskId);
           return sub?.text || key;
         }
       }
