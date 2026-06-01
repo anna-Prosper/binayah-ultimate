@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo, Link2, CalendarDays } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "my-tasks" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
+export type NavItem = "home" | "my-tasks" | "timeline" | "links" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
 
 export interface SidebarPipeline {
   id: string;
@@ -47,6 +47,8 @@ interface Props {
 export const NAV_HREFS: Record<NavItem, string> = {
   home: "/",
   "my-tasks": "/my-tasks",
+  timeline: "/timeline",
+  links: "/links",
   now: "/", // legacy/unused — falls back to home
   pipelines: "/pipelines",
   documents: "/documents",
@@ -62,6 +64,8 @@ export const NAV_HREFS: Record<NavItem, string> = {
 export function navItemFromPathname(pathname: string): NavItem {
   if (!pathname || pathname === "/" || pathname === "") return "home";
   if (pathname.startsWith("/my-tasks")) return "my-tasks";
+  if (pathname.startsWith("/timeline")) return "timeline";
+  if (pathname.startsWith("/links")) return "links";
   if (pathname.startsWith("/pipelines")) return "pipelines";
   if (pathname.startsWith("/chat")) return "chat";
   if (pathname.startsWith("/notes")) return "notes";
@@ -82,6 +86,7 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "bugs",       label: "testing"    },
   { id: "databases",  label: "databases"  },
   { id: "activity",   label: "activity"   },
+  { id: "timeline",   label: "timeline"   },
   { id: "archive",    label: "archive"    },
   { id: "chat",       label: "chat"       },
   { id: "calls",      label: "calls"      },
@@ -90,6 +95,8 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
 const NAV_ICONS: Record<string, React.ReactNode> = {
   home: <Home size={15} strokeWidth={1.8} />,
   "my-tasks": <ListTodo size={15} strokeWidth={1.8} />,
+  timeline: <CalendarDays size={15} strokeWidth={1.8} />,
+  links: <Link2 size={15} strokeWidth={1.8} />,
   pipelines: <Zap size={15} strokeWidth={1.8} />,
   documents: <FileText size={15} strokeWidth={1.8} />,
   notes: <StickyNote size={15} strokeWidth={1.8} />,
@@ -184,8 +191,11 @@ export default function LeftSidebar({
   return (
     <div style={{
       width: 220,
-      height: "100%",
+      height: "100vh",
+      minHeight: "100vh",
       flexShrink: 0,
+      position: "sticky",
+      top: 0,
       background: t.bgSoft,
       borderRight: `1px solid ${t.border}`,
       display: "flex",
@@ -246,14 +256,18 @@ export default function LeftSidebar({
 
       {/* Workspace-scoped nav items — only when user belongs to at least one workspace */}
       {workspaces.length > 0 ? (
-        <nav style={{ padding: "8px 0", display: "flex", flexDirection: "column", gap: 0 }}>
+        <nav style={{ padding: "8px 0 14px", display: "flex", flexDirection: "column", gap: 0, flex: "1 1 auto", overflowY: "auto", minHeight: 0 }}>
           {WORKSPACE_NAV_ITEMS.filter(item => !hiddenNavItems.includes(item.id)).map(item => renderNavItem(item))}
         </nav>
       ) : (
-        <div style={{ padding: "16px 12px", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6 }}>
+        <div style={{ padding: "16px 12px", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", lineHeight: 1.6, flex: "1 1 auto" }}>
           // no workspace yet.<br />ask an admin to add you.
         </div>
       )}
+
+      <nav style={{ padding: "8px 0", borderTop: `1px solid ${t.border}`, flexShrink: 0 }}>
+        {renderNavItem({ id: "links", label: "useful links" })}
+      </nav>
 
     </div>
   );

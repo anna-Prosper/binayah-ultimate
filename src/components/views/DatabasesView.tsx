@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
+import { AvatarC } from "@/components/ui/Avatar";
 import { Plus, Trash2, ExternalLink, ChevronDown, Table2 } from "lucide-react";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗","💾","🧾","📌","📍","🔐","💼","🏢","🌐","🎯","⚡","🔬","🔍","📡","🧪","🏗️","🤖","🎨","✅","⏰","🟢","🔴","🟡","🟣","💎","🚀","🧠","🔥"];
 
@@ -35,6 +37,193 @@ function truncateUrl(url: string): string {
   } catch {
     return url.slice(0, 30) + (url.length > 30 ? "…" : "");
   }
+}
+
+type DbUser = ReturnType<typeof useModel>["users"][number];
+
+function findDbUser(users: ReturnType<typeof useModel>["users"], value: string): DbUser | undefined {
+  const normalized = value.trim().toLowerCase();
+  if (!normalized) return undefined;
+  return users.find(u =>
+    u.id.toLowerCase() === normalized ||
+    u.name.toLowerCase() === normalized ||
+    u.name.split(" ")[0].toLowerCase() === normalized
+  );
+}
+
+function UserCellPill({
+  user,
+  value,
+  t,
+  onClick,
+}: {
+  user?: DbUser;
+  value: string;
+  t: ReturnType<typeof useModel>["t"];
+  onClick?: () => void;
+}) {
+  if (!user) {
+    return (
+      <span onClick={onClick} style={{ color: t.textDim, cursor: onClick ? "pointer" : "default", fontSize: 12 }}>
+        {value || "—"}
+      </span>
+    );
+  }
+  return (
+    <span
+      onClick={onClick}
+      style={{ display: "inline-flex", alignItems: "center", gap: 6, cursor: onClick ? "pointer" : "default", minWidth: 0 }}
+      title={user.name}
+    >
+      <AvatarC user={user} size={20} />
+      <span style={{ fontSize: 12, color: t.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user.name}</span>
+    </span>
+  );
+}
+
+function UserCellEditor({
+  value,
+  users,
+  t,
+  onSave,
+  onCancel,
+  onKeyDown,
+  baseInputStyle,
+}: {
+  value: string;
+  users: ReturnType<typeof useModel>["users"];
+  t: ReturnType<typeof useModel>["t"];
+  onSave: (v: string) => void;
+  onCancel: () => void;
+  onKeyDown: (e: React.KeyboardEvent) => void;
+  baseInputStyle: React.CSSProperties;
+}) {
+  const [val, setVal] = useState(value);
+  const pickerRef = useRef<HTMLDivElement | null>(null);
+  const selectedUser = findDbUser(users, val);
+
+  useEffect(() => {
+    const handlePointer = (event: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(event.target as Node)) {
+        onCancel();
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    document.addEventListener("mousedown", handlePointer);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointer);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onCancel]);
+
+  const choose = (next: string) => {
+    setVal(next);
+    onSave(next);
+  };
+
+  return (
+    <div
+      ref={pickerRef}
+      data-no-close
+      style={{ position: "relative", minWidth: 170, zIndex: 30 }}
+    >
+      <button
+        type="button"
+        autoFocus
+        onKeyDown={onKeyDown}
+        style={{
+          ...baseInputStyle,
+          minHeight: 28,
+          fontFamily: "inherit",
+          cursor: "default",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: 8,
+          textAlign: "left",
+        }}
+      >
+        <UserCellPill user={selectedUser} value={val} t={t} />
+        <ChevronDown size={12} color={t.textDim} />
+      </button>
+      <div
+        style={{
+          position: "absolute",
+          left: 0,
+          top: "calc(100% + 4px)",
+          width: 230,
+          maxHeight: 280,
+          overflowY: "auto",
+          background: t.bgCard,
+          border: `1px solid ${t.border}`,
+          borderRadius: 8,
+          boxShadow: t.shadowLg,
+          padding: 4,
+          zIndex: 2000,
+        }}
+      >
+        <button
+          type="button"
+          onMouseDown={e => {
+            e.preventDefault();
+            choose("");
+          }}
+          style={{
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            background: !val ? t.accent + "18" : "transparent",
+            border: "none",
+            borderRadius: 6,
+            padding: "7px 8px",
+            color: !val ? t.accent : t.textMuted,
+            cursor: "pointer",
+            fontSize: 12,
+            textAlign: "left",
+          }}
+        >
+          <span style={{ width: 20, height: 20, borderRadius: "50%", border: `1px dashed ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>—</span>
+          <span>None</span>
+        </button>
+        {users.map(u => {
+          const active = selectedUser?.id === u.id || val === u.id;
+          return (
+            <button
+              key={u.id}
+              type="button"
+              onMouseDown={e => {
+                e.preventDefault();
+                choose(u.id);
+              }}
+              style={{
+                width: "100%",
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                background: active ? u.color + "18" : "transparent",
+                border: "none",
+                borderRadius: 6,
+                padding: "7px 8px",
+                color: active ? u.color : t.text,
+                cursor: "pointer",
+                fontSize: 12,
+                textAlign: "left",
+                fontWeight: active ? 800 : 500,
+              }}
+            >
+              <AvatarC user={u} size={20} />
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{u.name}</span>
+              {active && <span style={{ color: u.color, fontWeight: 900 }}>✓</span>}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // Cell renderer
@@ -101,29 +290,7 @@ function CellView({
     );
   }
   if (col.type === "user") {
-    const user = users.find(u => u.id === value);
-    if (!user) return <span onClick={onEdit} style={{ color: t.textDim, cursor: "pointer", fontSize: 12 }}>{value || "—"}</span>;
-    return (
-      <span
-        onClick={onEdit}
-        style={{ display: "inline-flex", alignItems: "center", gap: 5, cursor: "pointer" }}
-      >
-        {user.avatar && (
-          <img src={user.avatar} alt="" style={{ width: 18, height: 18, borderRadius: "50%", objectFit: "cover" }} />
-        )}
-        {!user.avatar && (
-          <span style={{
-            width: 18, height: 18, borderRadius: "50%",
-            background: user.color || t.accent, display: "inline-flex",
-            alignItems: "center", justifyContent: "center",
-            fontSize: 9, fontWeight: 700, color: "#fff",
-          }}>
-            {user.name[0]}
-          </span>
-        )}
-        <span style={{ fontSize: 12, color: t.text }}>{user.name}</span>
-      </span>
-    );
+    return <UserCellPill user={findDbUser(users, value)} value={value} t={t} onClick={onEdit} />;
   }
   if (col.type === "number") {
     return (
@@ -202,20 +369,15 @@ function CellEditor({
 
   if (col.type === "user") {
     return (
-      <select
-        ref={r => { inputRef.current = r; }}
+      <UserCellEditor
         value={val}
-        onChange={e => setVal(e.target.value)}
-        onBlur={commit}
+        users={users}
+        t={t}
+        onSave={onSave}
+        onCancel={onCancel}
         onKeyDown={handleKey}
-        autoFocus
-        style={{ ...baseInputStyle, fontFamily: "inherit" }}
-      >
-        <option value="">—</option>
-        {users.map(u => (
-          <option key={u.id} value={u.id}>{u.name}</option>
-        ))}
-      </select>
+        baseInputStyle={baseInputStyle}
+      />
     );
   }
 
@@ -259,6 +421,7 @@ function AddColumnModal({
   onAdd: (col: Omit<DbColumn, "id">) => void;
   onClose: () => void;
 }) {
+  const isMobile = useIsMobile(720);
   const [name, setName] = useState("");
   const [type, setType] = useState<DbColumn["type"]>("text");
   const [options, setOptions] = useState("");
@@ -278,12 +441,14 @@ function AddColumnModal({
     <div style={{
       position: "fixed", inset: 0, zIndex: 1000,
       background: "rgba(0,0,0,0.5)", display: "flex",
-      alignItems: "center", justifyContent: "center",
+      alignItems: isMobile ? "flex-start" : "center", justifyContent: "center",
+      padding: isMobile ? 10 : 0,
     }} onClick={onClose}>
       <div
         style={{
           background: t.bgCard, border: `1px solid ${t.border}`,
-          borderRadius: 8, padding: 24, width: 340,
+          borderRadius: 8, padding: isMobile ? 16 : 24, width: isMobile ? "100%" : 340,
+          maxWidth: "100%",
           boxShadow: t.shadowLg,
         }}
         onClick={e => e.stopPropagation()}
@@ -389,18 +554,21 @@ function CreateDbModal({
   const [name, setName] = useState("");
   const [icon, setIcon] = useState("🗃️");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const isMobile = useIsMobile(720);
   void workspaceId;
 
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 1000,
       background: "rgba(0,0,0,0.5)", display: "flex",
-      alignItems: "center", justifyContent: "center",
+      alignItems: isMobile ? "flex-start" : "center", justifyContent: "center",
+      padding: isMobile ? 10 : 0,
     }} onClick={onClose}>
       <div
         style={{
           background: t.bgCard, border: `1px solid ${t.border}`,
-          borderRadius: 8, padding: 24, width: 320,
+          borderRadius: 8, padding: isMobile ? 16 : 24, width: isMobile ? "100%" : 320,
+          maxWidth: "100%",
           boxShadow: t.shadowLg,
         }}
         onClick={e => e.stopPropagation()}
@@ -493,6 +661,7 @@ function TableView({
   onAddRow,
   onAddColumn,
   onUpdateDb,
+  isMobile,
 }: {
   db: WorkspaceDb;
   t: ReturnType<typeof useModel>["t"];
@@ -503,6 +672,7 @@ function TableView({
   onAddRow: () => void;
   onAddColumn: (col: Omit<DbColumn, "id">) => void;
   onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
+  isMobile: boolean;
 }) {
   const [activeView, setActiveView] = useState(db.views[0]?.id || "view_all");
   const [editingCell, setEditingCell] = useState<{ rowId: number; colId: string } | null>(null);
@@ -514,6 +684,10 @@ function TableView({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [colNameVal, setColNameVal] = useState("");
   const [confirmDeleteRowId, setConfirmDeleteRowId] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!editingName) setNameVal(db.name);
+  }, [db.name, editingName]);
 
   const saveColName = (colId: string) => {
     const trimmed = colNameVal.trim();
@@ -536,18 +710,17 @@ function TableView({
     });
   })();
 
-  // Sort by date if "by Date" view
+  // Default sort: newest date first whenever the table has a date column.
+  // This keeps imported Notion update tables useful immediately without
+  // forcing users to switch to the date-specific view.
   const sortedRows = (() => {
-    if (currentView?.id === "view_date" || currentView?.name === "by Date") {
-      const dateCol = db.columns.find(c => c.type === "date");
-      if (!dateCol) return filteredRows;
-      return [...filteredRows].sort((a, b) => {
-        const da = new Date(a.values[dateCol.id] || "").getTime() || 0;
-        const db2 = new Date(b.values[dateCol.id] || "").getTime() || 0;
-        return db2 - da;
-      });
-    }
-    return filteredRows;
+    const dateCol = db.columns.find(c => c.type === "date");
+    if (!dateCol) return [...filteredRows].sort((a, b) => b.createdAt - a.createdAt);
+    return [...filteredRows].sort((a, b) => {
+      const da = new Date(a.values[dateCol.id] || "").getTime() || 0;
+      const db2 = new Date(b.values[dateCol.id] || "").getTime() || 0;
+      return db2 - da || b.createdAt - a.createdAt;
+    });
   })();
 
   const handleCellSave = (rowId: number, colId: string, value: string) => {
@@ -568,11 +741,12 @@ function TableView({
     <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
       {/* Toolbar */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 10,
-        padding: "10px 16px", borderBottom: `1px solid ${t.border}`,
+        display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 10,
+        flexDirection: isMobile ? "column" : "row",
+        padding: isMobile ? "8px 10px" : "10px 16px", borderBottom: `1px solid ${t.border}`,
         flexShrink: 0,
       }}>
-        <div style={{ position: "relative" }}>
+        <div style={{ position: "relative", display: "flex", alignItems: "center", gap: 8 }}>
           <button
             onClick={() => { if (canEdit) setShowIconPicker(v => !v); }}
             style={{
@@ -606,29 +780,56 @@ function TableView({
           )}
         </div>
         {editingName ? (
-          <input
-            autoFocus
-            value={nameVal}
-            onChange={e => setNameVal(e.target.value)}
-            onBlur={handleNameSave}
-            onKeyDown={e => { if (e.key === "Enter") handleNameSave(); if (e.key === "Escape") { setNameVal(db.name); setEditingName(false); } }}
-            style={{
-              background: t.surface, color: t.text,
-              border: `1px solid ${t.accent}`, borderRadius: 4,
-              padding: "3px 8px", fontSize: 14, fontWeight: 700,
-              outline: "none",
-            }}
-          />
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <input
+              autoFocus
+              value={nameVal}
+              onChange={e => setNameVal(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") handleNameSave(); if (e.key === "Escape") { setNameVal(db.name); setEditingName(false); } }}
+              style={{
+                background: t.surface, color: t.text,
+                border: `1px solid ${t.accent}`, borderRadius: 4,
+                padding: "3px 8px", fontSize: 14, fontWeight: 700,
+                outline: "none",
+              }}
+            />
+            <button
+              type="button"
+              onClick={handleNameSave}
+              style={{ background: t.accent, border: "none", borderRadius: 4, padding: "4px 8px", color: "#fff", cursor: "pointer", fontSize: 11, fontWeight: 800 }}
+            >
+              save
+            </button>
+            <button
+              type="button"
+              onClick={() => { setNameVal(db.name); setEditingName(false); }}
+              style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 4, padding: "3px 7px", color: t.textDim, cursor: "pointer", fontSize: 11 }}
+            >
+              cancel
+            </button>
+          </span>
         ) : (
-          <span
-            onClick={() => { if (canEdit) setEditingName(true); }}
-            style={{ fontSize: 14, fontWeight: 700, color: t.text, cursor: canEdit ? "pointer" : "default" }}
-          >
-            {db.name}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+            <span
+              onClick={() => { if (canEdit) setEditingName(true); }}
+              style={{ fontSize: 14, fontWeight: 700, color: t.text, cursor: canEdit ? "pointer" : "default" }}
+            >
+              {db.name}
+            </span>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => setEditingName(true)}
+                style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 4, padding: "2px 6px", color: t.textDim, cursor: "pointer", fontSize: 10 }}
+                data-tooltip="Rename database"
+              >
+                ✎
+              </button>
+            )}
           </span>
         )}
 
-        <div style={{ display: "flex", gap: 2, marginLeft: 8 }}>
+        <div style={{ display: "flex", gap: 4, marginLeft: isMobile ? 0 : 8, overflowX: "auto", maxWidth: "100%", paddingBottom: isMobile ? 2 : 0 }}>
           {db.views.map(v => (
             <button
               key={v.id}
@@ -646,17 +847,18 @@ function TableView({
           ))}
         </div>
 
-        <div style={{ flex: 1 }} />
+        <div style={{ flex: 1, display: isMobile ? "none" : "block" }} />
 
         {canEdit && (
-          <>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", width: isMobile ? "100%" : "auto" }}>
             <button
               onClick={() => setShowAddCol(true)}
               style={{
                 background: "transparent", border: `1px solid ${t.border}`,
                 borderRadius: 4, padding: "4px 10px", fontSize: 11,
                 color: t.textMuted, cursor: "pointer",
-                display: "flex", alignItems: "center", gap: 4,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                flex: isMobile ? "1 1 140px" : undefined,
               }}
             >
               <Plus size={11} /> add column
@@ -667,12 +869,13 @@ function TableView({
                 background: t.accent, border: "none",
                 borderRadius: 4, padding: "4px 12px", fontSize: 11,
                 color: "#fff", cursor: "pointer", fontWeight: 600,
-                display: "flex", alignItems: "center", gap: 4,
+                display: "flex", alignItems: "center", justifyContent: "center", gap: 4,
+                flex: isMobile ? "1 1 100px" : undefined,
               }}
             >
               <Plus size={11} /> New
             </button>
-          </>
+          </div>
         )}
       </div>
 
@@ -689,7 +892,7 @@ function TableView({
           </div>
         ) : (
           <table style={{
-            borderCollapse: "collapse", width: "100%",
+            borderCollapse: "collapse", width: "100%", minWidth: Math.max(520, db.columns.length * 130 + 32),
             tableLayout: "fixed", fontSize: 12,
           }}>
             <colgroup>
@@ -798,7 +1001,9 @@ function TableView({
                           padding: "0 12px",
                           borderBottom: `1px solid ${t.border}`,
                           borderRight: `1px solid ${t.border}`,
-                          overflow: "hidden",
+                          overflow: editingCell?.rowId === row.id && editingCell.colId === col.id ? "visible" : "hidden",
+                          position: "relative",
+                          zIndex: editingCell?.rowId === row.id && editingCell.colId === col.id ? 20 : 1,
                           maxWidth: col.width ? col.width : COL_MIN,
                           cursor: canEdit ? "text" : "default",
                         }}
@@ -902,13 +1107,16 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<number | null>(null);
   const [confirmDeleteDbId, setConfirmDeleteDbId] = useState<number | null>(null);
+  const isMobile = useIsMobile(720);
 
   const wsId = currentWorkspaceId ?? "war-room";
 
-  // Only admins and workspace operators can create/edit databases
+  // Workspace databases are collaborative: every workspace member can add rows
+  // and edit cells/columns. Root admins retain access everywhere.
   const currentWorkspace = workspaces.find(w => w.id === wsId);
   const canEdit = !!currentUser && (
     ADMIN_IDS.includes(currentUser) ||
+    currentWorkspace?.members.includes(currentUser) === true ||
     currentWorkspace?.captains.includes(currentUser) === true
   );
   const wsDbs = databases.filter(db => db.workspaceId === wsId);
@@ -930,8 +1138,9 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
       }}>
         {/* Back nav */}
         <div style={{
-          display: "flex", alignItems: "center", gap: 8,
-          padding: "8px 16px", borderBottom: `1px solid ${t.border}`,
+          display: "flex", alignItems: isMobile ? "stretch" : "center", gap: 8,
+          flexDirection: isMobile ? "column" : "row",
+          padding: isMobile ? "8px 10px" : "8px 16px", borderBottom: `1px solid ${t.border}`,
           flexShrink: 0,
         }}>
           <button
@@ -983,6 +1192,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
           onAddRow={() => addDbRow(selectedDb.id)}
           onAddColumn={col => addDbColumn(selectedDb.id, col)}
           onUpdateDb={patch => handleUpdateDb(selectedDb.id, patch)}
+          isMobile={isMobile}
         />
       </div>
     );
@@ -991,13 +1201,15 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   return (
     <div style={{
       display: "flex", flexDirection: "column",
-      height: "100%", background: t.bg, padding: 24,
+      height: "100%", background: t.bg, padding: isMobile ? 10 : 24,
       boxSizing: "border-box",
     }}>
       {/* Header */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        marginBottom: 24,
+        display: "flex", alignItems: isMobile ? "stretch" : "center", justifyContent: "space-between",
+        flexDirection: isMobile ? "column" : "row",
+        gap: isMobile ? 12 : 16,
+        marginBottom: isMobile ? 16 : 24,
       }}>
         <div>
           <div style={{ fontSize: 18, fontWeight: 700, color: t.text, display: "flex", alignItems: "center", gap: 8 }}>
@@ -1014,9 +1226,10 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
             onClick={() => setShowCreate(true)}
             style={{
               background: t.accent, border: "none",
-              borderRadius: 6, padding: "8px 16px", fontSize: 12,
+              borderRadius: 6, padding: "10px 16px", fontSize: 12,
               color: "#fff", cursor: "pointer", fontWeight: 600,
-              display: "flex", alignItems: "center", gap: 6,
+              display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+              width: isMobile ? "100%" : undefined,
             }}
           >
             <Plus size={13} /> Create database
@@ -1049,7 +1262,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
           )}
         </div>
       ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
           {wsDbs.map(db => (
             <div
               key={db.id}

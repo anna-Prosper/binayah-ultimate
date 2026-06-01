@@ -78,8 +78,10 @@ export const PATCH_KEY_WHITELIST = new Set([
   "approvedSubtasks",
   "approvedPipelines",
   "reminders",
+  "timelineEvents",
   "notes",
   "bugs",
+  "usefulLinks",
   "reactions",
   "subtasks",
   "stageStatusOverrides",
@@ -109,6 +111,9 @@ export const PATCH_KEY_WHITELIST = new Set([
   // Per-user per-item read state — userId → string[] of read item ids.
   "notifReadIds",
   "updatedAt",
+  // Transient server-side notification intents. Consumed by /api/pipeline-state
+  // after the state merge and never persisted.
+  "notificationEvents",
   // Envelope for explicit per-key deletions on map slices. Shape:
   //   { _deletes: { stageStatusOverrides: ["StageA"], owners: ["StageB::1"] } }
   // Required because map slices are now merged per-key on the server, so
@@ -149,8 +154,10 @@ export const MAP_SLICE_KEYS = new Set([
 export const ARRAY_BY_ID_SLICE_KEYS = new Set([
   "execProposals",
   "reminders",
+  "timelineEvents",
   "notes",
   "bugs",
+  "usefulLinks",
   "customPipelines",
   "databases",
 ]);

@@ -2,9 +2,9 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { Bell, Mail, X, Key, Zap } from "lucide-react";
+import { Bell, CalendarDays, ExternalLink, Flag, Mail, X, Key, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
-import { type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
+import { type ActivityItem, type TimelineEvent, type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
@@ -22,6 +22,88 @@ function isDefaultParentStageId(stageId: string) {
   return stageId.startsWith("default-parent-");
 }
 
+function formatRoadmapDate(date?: string) {
+  if (!date) return "No date";
+  return new Date(`${date}T12:00:00`).toLocaleDateString("en-US", {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function sortRoadmapEvents(a: TimelineEvent, b: TimelineEvent) {
+  const ad = a.date || "9999-12-31";
+  const bd = b.date || "9999-12-31";
+  if (ad !== bd) return ad.localeCompare(bd);
+  if (a.status === "done" && b.status !== "done") return 1;
+  if (a.status !== "done" && b.status === "done") return -1;
+  return a.title.localeCompare(b.title);
+}
+
+function RoadmapHomePanel({ t, events, users, canSeeAll }: { t: T; events: TimelineEvent[]; users: UserType[]; canSeeAll: boolean }) {
+  const mono = "var(--font-dm-mono), monospace";
+  const active = events.filter(event => event.status !== "done").sort(sortRoadmapEvents);
+  const done = events.filter(event => event.status === "done");
+  const visible = active.slice(0, canSeeAll ? 8 : 5);
+  if (!canSeeAll && visible.length === 0) return null;
+  return (
+    <section style={{ marginBottom: 16, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, padding: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 10, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ display: "flex", alignItems: "center", gap: 7, color: t.accent, fontFamily: mono, fontSize: 11, fontWeight: 900, letterSpacing: 0.8, textTransform: "uppercase" }}>
+            <CalendarDays size={14} />
+            roadmap
+            <span style={{ border: `1px solid ${t.accent}44`, background: t.accent + "14", borderRadius: 999, padding: "1px 7px", letterSpacing: 0 }}>{active.length}</span>
+          </div>
+          <div style={{ marginTop: 4, color: t.textMuted, fontSize: 12 }}>
+            {canSeeAll ? "All upcoming milestones" : "Milestones assigned to you"}
+            {done.length > 0 ? ` · ${done.length} done` : ""}
+          </div>
+        </div>
+        <a href="/timeline" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: t.accent, border: `1px solid ${t.accent}44`, background: t.accent + "10", borderRadius: 9, padding: "7px 10px", textDecoration: "none", fontFamily: mono, fontSize: 11, fontWeight: 900 }}>
+          open full
+          <ExternalLink size={13} />
+        </a>
+      </div>
+      {visible.length > 0 ? (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 250px), 1fr))", gap: 8 }}>
+          {visible.map(event => {
+            const isCore = (event.tier || "core") === "core";
+            const color = isCore ? t.accent : (t.cyan || t.amber);
+            const responsible = event.responsibleId ? users.find(user => user.id === event.responsibleId) : undefined;
+            return (
+              <div key={event.id} style={{ border: `1px solid ${color}33`, borderLeft: `4px solid ${color}`, background: color + "08", borderRadius: 10, padding: "9px 10px", minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 8 }}>
+                  <div style={{ color: t.text, fontSize: 13, fontWeight: 900, lineHeight: 1.25, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{event.title}</div>
+                  <span style={{ flexShrink: 0, color, background: color + "12", border: `1px solid ${color}33`, borderRadius: 999, padding: "1px 6px", fontFamily: mono, fontSize: 9, fontWeight: 900, textTransform: "uppercase" }}>
+                    {event.tier || "core"}
+                  </span>
+                </div>
+                <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", color: t.textMuted, fontFamily: mono, fontSize: 11 }}>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color }}>
+                    <Flag size={11} />
+                    {formatRoadmapDate(event.date)}
+                  </span>
+                  <span>· {event.group}</span>
+                  {responsible && (
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: responsible.color, fontWeight: 900 }}>
+                      <AvatarC user={responsible} size={14} />
+                      {responsible.name.split(" ")[0]}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div style={{ border: `1px dashed ${t.border}`, borderRadius: 10, padding: 14, color: t.textDim, fontFamily: mono, fontSize: 12 }}>
+          // no upcoming milestones
+        </div>
+      )}
+    </section>
+  );
+}
 
 function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   item: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string };
@@ -61,7 +143,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
   onPipelineClick?: (pipelineId: string) => void;
   onChatOpen?: () => void;
   currentUser?: string;
-  execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number }[];
+  execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number; target?: string; requestedAction?: string; requestedValue?: string | null; requestedUserId?: string | null }[];
   onAddReminder?: (title: string, remindAt: string) => void;
   onUpdateExecProposal?: (id: number, status: "reviewed" | "rejected") => void;
   onCompleteExecProposal?: (id: number) => void;
@@ -318,7 +400,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                             </div>
                             <div style={{ fontSize: 11, color: toneColor(t, item.tone), fontFamily: mono, whiteSpace: "nowrap", flexShrink: 0 }}>{item.meta}</div>
                           </div>
-                          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.body}</div>
+                          <div style={{ fontSize: 11, color: t.textMuted, marginTop: 2, lineHeight: 1.35 }}>{item.body}</div>
                         </div>
                       ));
                     })()}
@@ -397,7 +479,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                           <div style={{ fontSize: 13, fontWeight: 800, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.title}</div>
                           <div style={{ fontSize: 10, color: t.amber, fontFamily: mono, flexShrink: 0 }}>{item.kind}</div>
                         </div>
-                        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.requestedAction} · {item.body}</div>
+                        <div style={{ fontSize: 11, color: t.textMuted, marginTop: 3, lineHeight: 1.35 }}>{item.requestedAction} · {item.body}</div>
                       </div>
                       <button type="button" onClick={() => onRequestUpdate(item.id, "reviewed")} style={{ background: t.green + "22", border: `1px solid ${t.green}55`, color: t.green, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>approve</button>
                       <button type="button" onClick={() => onRequestUpdate(item.id, "rejected")} style={{ background: t.red + "12", border: `1px solid ${t.red}44`, color: t.red, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontFamily: mono, fontWeight: 800, cursor: "pointer", flexShrink: 0 }}>decline</button>
@@ -502,8 +584,9 @@ export default function HomeView({
   const {
     claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, stageNameOverrides, activityLog, chatMessages,
-    archivedStages, archivedSubtasks,
+    archivedStages, archivedSubtasks, archivedPipelines,
     reminders, addReminder, dismissReminder,
+    timelineEvents,
     getStatus, ck, approveStage, approveSubtask, assignTask,
     execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
   } = useModel();
@@ -553,8 +636,8 @@ export default function HomeView({
         if (hasOwnedStage || hasOwnedSubtask) ids.add(p.id);
       }
     }
-    return allPipelinesGlobal.filter(p => ids.has(p.id));
-  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks]);
+    return allPipelinesGlobal.filter(p => ids.has(p.id) && !archivedPipelines.includes(p.id));
+  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks, archivedPipelines]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
 
@@ -580,14 +663,37 @@ export default function HomeView({
         .replace(/[^a-z0-9]+/g, "")
         .trim();
     const archivedStageNorms = new Set<string>();
-    archivedStageSet.forEach(stageId => {
-      archivedStageNorms.add(normalizeArchiveKey(stageId));
-      archivedStageNorms.add(normalizeArchiveKey(stageNameOverrides[stageId] || stageId));
+    archivedStageSet.forEach(sid => {
+      archivedStageNorms.add(normalizeArchiveKey(sid));
+      archivedStageNorms.add(normalizeArchiveKey(stageNameOverrides[sid] || sid));
+    });
+    Object.entries(stageNameOverrides).forEach(([sid, label]) => {
+      if (archivedStageSet.has(sid) || archivedStageSet.has(label) || archivedStageNorms.has(normalizeArchiveKey(sid)) || archivedStageNorms.has(normalizeArchiveKey(label))) {
+        archivedStageNorms.add(normalizeArchiveKey(sid));
+        archivedStageNorms.add(normalizeArchiveKey(label));
+      }
     });
     activityLog.forEach(entry => {
       if (entry.type !== "archive") return;
       archivedStageNorms.add(normalizeArchiveKey(entry.target));
       archivedStageNorms.add(normalizeArchiveKey(stageNameOverrides[entry.target] || entry.target));
+    });
+    const completedActivityNorms = new Set<string>();
+    activityLog.forEach(entry => {
+      if (entry.type !== "status") return;
+      if (!/approved|done|live|complete/i.test(entry.detail || "")) return;
+      completedActivityNorms.add(normalizeArchiveKey(entry.target));
+      completedActivityNorms.add(normalizeArchiveKey(stageNameOverrides[entry.target] || entry.target));
+    });
+    const archivedSubtaskNorms = new Set<string>();
+    archivedSubtaskSet.forEach(key => {
+      archivedSubtaskNorms.add(normalizeArchiveKey(key));
+      const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+      if (parsed) {
+        const text = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text;
+        archivedSubtaskNorms.add(normalizeArchiveKey(text));
+        archivedSubtaskNorms.add(normalizeArchiveKey(`${parsed.parentStageId}::${text || parsed.subtaskId}`));
+      }
     });
     const isArchivedStageId = (stageId: string) => {
       const label = stageNameOverrides[stageId] || stageId;
@@ -595,6 +701,15 @@ export default function HomeView({
         archivedStageSet.has(label) ||
         archivedStageNorms.has(normalizeArchiveKey(stageId)) ||
         archivedStageNorms.has(normalizeArchiveKey(label));
+    };
+    const isArchivedSubtaskId = (key: string, text: string) => {
+      const labelKey = key.replace(/::\d+$/, `::${text}`);
+      return archivedSubtaskSet.has(key) ||
+        archivedSubtaskSet.has(labelKey) ||
+        archivedSubtaskSet.has(text) ||
+        archivedSubtaskNorms.has(normalizeArchiveKey(key)) ||
+        archivedSubtaskNorms.has(normalizeArchiveKey(labelKey)) ||
+        archivedSubtaskNorms.has(normalizeArchiveKey(text));
     };
     for (const p of visiblePipelines) {
       for (const stage of [...p.stages, ...(customStages[p.id] || [])]) {
@@ -639,14 +754,13 @@ export default function HomeView({
       const parent = stageToPipeline.get(parentStageId);
       return list.flatMap(sub => {
         const key = `${parentStageId}::${sub.id}`;
-        const textKey = `${parentStageId}::${sub.text}`;
-        if (archivedSubtaskSet.has(key) || archivedSubtaskSet.has(textKey) || archivedSubtaskSet.has(sub.text)) return [];
+        if (isArchivedSubtaskId(key, sub.text)) return [];
         return {
           key,
           title: sub.text,
           pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
           pipelineId: parent?.id || "",
-          status: sub.done ? "active" : (subtaskStages[key] || "planned"),
+          status: subtaskStages[key] || "planned",
           owners: itemOwnerIds(key),
           priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
           dueDate: subtaskDueDates[key],
@@ -656,11 +770,21 @@ export default function HomeView({
         };
       });
     });
-    const allItems = [...stageItems, ...subtaskItems].filter(item =>
-      (item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId)) &&
-      item.status !== "concept"
-    );
-    const myItems = allItems.filter(item => item.owners.includes(currentUser));
+    const allItems = [...stageItems, ...subtaskItems].filter(item => {
+      if (item.pipelineId !== "" && !visiblePipelineIds.has(item.pipelineId)) return false;
+      if (item.kind === "task") return !isArchivedStageId(item.key) && !isArchivedStageId(item.title);
+      return !isArchivedSubtaskId(item.key, item.title);
+    });
+    const isClosedForAttention = (item: typeof allItems[number]) =>
+      item.status === "concept" ||
+      (item.kind === "task" && isDefaultParentStageId(item.key)) ||
+      item.status === "active" ||
+      item.approved ||
+      completedActivityNorms.has(normalizeArchiveKey(item.key)) ||
+      completedActivityNorms.has(normalizeArchiveKey(item.title)) ||
+      (item.kind === "subtask" && item.done);
+    const openItems = allItems.filter(item => !isClosedForAttention(item));
+    const myItems = openItems.filter(item => item.owners.includes(currentUser));
     // Scope activity to the current workspace — entries carry a workspaceId since the
     // per-key server merge refactor. Legacy entries without workspaceId are allowed through
     // so old data isn't silently hidden. When homeWsFilter is null (all-workspaces view),
@@ -675,17 +799,18 @@ export default function HomeView({
     const scopedUsers = users.filter(u => scopedMemberIds.has(u.id));
     const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
     const reviewItems = allItems.filter(item =>
-      item.status === "active" && !item.approved
+      (item.kind === "task" && item.status === "active" && !item.approved) ||
+      (item.kind === "subtask" && item.done && !item.approved)
     );
-    const blockedItems = allItems.filter(item => item.status === "blocked");
-    const hotItems = allItems.filter(item =>
+    const blockedItems = openItems.filter(item => item.status === "blocked");
+    const hotItems = openItems.filter(item =>
       (item.priority === "NOW" || item.priority === "HIGH") &&
       item.status !== "active" &&
       item.status !== "blocked"
     );
     const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : (priority === "MED" || priority === "MEDIUM") ? 2 : 3;
     const assignableStatus = (status: string) => status === "planned" || status === "in-progress";
-    const unownedItems = allItems
+    const unownedItems = openItems
       .filter(item => item.owners.length === 0 && assignableStatus(item.status))
       .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
     const firstName = me.name.split(" ")[0].toLowerCase();
@@ -695,30 +820,17 @@ export default function HomeView({
       const parsed = Date.parse(value || "");
       return Number.isFinite(parsed) ? parsed : 0;
     };
-    const visibleCommentTarget = (target: string) => {
-      if (visibleStageIds.has(target)) return target;
-      const parsed = SubtaskKey.isValid(target)
-        ? SubtaskKey.parse(target as Parameters<typeof SubtaskKey.parse>[0])
-        : null;
-      if (!parsed) return null;
-      if (visibleStageIds.has(parsed.parentStageId)) return target;
-      const currentParent = Object.entries(subtasks || {}).find(([parentStageId, list]) =>
-        visibleStageIds.has(parentStageId) && (list || []).some(sub => sub.id === parsed.subtaskId)
-      )?.[0];
-      return currentParent ? SubtaskKey.make(currentParent, parsed.subtaskId) : null;
-    };
     const commentInteractions = Object.entries(comments || {}).flatMap(([target, list]) => {
-      // Include comments on visible parent tasks and their visible subtasks.
-      const visibleTarget = visibleCommentTarget(target);
-      if (!visibleTarget) return [];
+      // Only include comments on stages that are visible in this workspace scope
+      if (!visibleStageIds.has(target)) return [];
       return list
         .filter(c => c.text.includes("@"))
         .map(c => ({
-          target: visibleTarget,
+          target,
           text: c.text,
           by: c.by,
-          time: timestampFrom(c.id || c.time),
-          title: stageNameLabel(visibleTarget),
+          time: timestampFrom(c.time || c.id),
+          title: stageNameLabel(target),
           directedToMe: mentionNeedles.some(n => c.text.toLowerCase().includes(n)),
           source: "comment" as const,
         }));
@@ -739,14 +851,33 @@ export default function HomeView({
       .filter(item => item.directedToMe)
       .sort((a, b) => b.time - a.time)
       .slice(0, 8);
+    const notificationInteractions = activityLog
+      .filter(a =>
+        a.notifyTo?.includes(currentUser) &&
+        a.user !== currentUser &&
+        (!a.workspaceId || scopedWsIds.has(a.workspaceId)) &&
+        a.time >= weekAgo
+      )
+      .map(a => ({
+        target: a.target,
+        text: a.detail,
+        by: a.user,
+        time: a.time,
+        title: stageNameLabel(a.target),
+        directedToMe: true,
+        source: "notification" as const,
+      }));
+    const recentSignals = [...recentInteractions, ...notificationInteractions]
+      .sort((a, b) => b.time - a.time)
+      .slice(0, 8);
     const mentions = recentInteractions.filter(item => item.directedToMe).slice(0, 5);
     const mineBlocked = blockedItems.filter(item => item.owners.includes(currentUser));
     const mineHot = hotItems.filter(item => item.owners.includes(currentUser));
     const dueTime = (due?: string) => due ? new Date(`${due}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
-    const expiredItems = allItems.filter(item => item.dueDate && dueTime(item.dueDate) < overviewNow && item.status !== "active");
-    const soonItems = allItems.filter(item => {
+    const expiredItems = openItems.filter(item => item.dueDate && dueTime(item.dueDate) < overviewNow);
+    const soonItems = openItems.filter(item => {
       const due = dueTime(item.dueDate);
-      return Number.isFinite(due) && due >= overviewNow && due <= overviewNow + 3 * 24 * 60 * 60 * 1000 && item.status !== "active";
+      return Number.isFinite(due) && due >= overviewNow && due <= overviewNow + 3 * 24 * 60 * 60 * 1000;
     });
     const myDueItems = [...expiredItems, ...soonItems]
       .filter(item => item.owners.includes(currentUser))
@@ -785,7 +916,7 @@ export default function HomeView({
     const people = roleLabel === "agent" ? [] : scopedUsers
       .filter(u => u.id !== currentUser && (roleLabel !== "exec" || !EXEC_IDS.includes(u.id)))
       .map(u => {
-        const openItems = allItems.filter(item => item.owners.includes(u.id) && item.status !== "active");
+        const userOpenItems = openItems.filter(item => item.owners.includes(u.id));
         const userActivity = activityLog.filter(a => a.user === u.id);
         const userComments = Object.entries(comments || {}).flatMap(([target, list]) =>
           list.filter(c => c.by === u.id).map(c => ({ target, text: c.text }))
@@ -800,14 +931,14 @@ export default function HomeView({
           .filter(a => a.time > dayAgo && a.type === "status_change" && /active|in progress|→ active/i.test(a.detail))
           .slice(0, 1)[0];
         const recentComment = userComments.slice(-1)[0];
-        const stale = openItems.length > 0 && (!lastActivity || overviewNow - lastActivity > 48 * 60 * 60 * 1000);
+        const stale = userOpenItems.length > 0 && (!lastActivity || overviewNow - lastActivity > 48 * 60 * 60 * 1000);
         const title = u.name.split(" ")[0];
         if (stale) {
           return {
             user: u,
             title,
             meta: lastActivity ? `${timeAgo(lastActivity)} quiet` : "no updates",
-            body: `${openItems.length} open item${openItems.length === 1 ? "" : "s"} without recent movement`,
+            body: `${userOpenItems.length} open item${userOpenItems.length === 1 ? "" : "s"} without recent movement`,
             tone: "amber" as AttentionTone,
           };
         }
@@ -820,7 +951,7 @@ export default function HomeView({
             tone: "green" as AttentionTone,
           };
         }
-        if (openItems.length === 0) {
+        if (userOpenItems.length === 0) {
           return {
             user: u,
             title,
@@ -829,11 +960,11 @@ export default function HomeView({
             tone: "accent" as AttentionTone,
           };
         }
-        if (openItems.length >= 5) {
+        if (userOpenItems.length >= 5) {
           return {
             user: u,
             title,
-            meta: `${openItems.length} open`,
+            meta: `${userOpenItems.length} open`,
             body: lastActivity ? `last update ${timeAgo(lastActivity)}` : "loaded with no visible update",
             tone: "cyan" as AttentionTone,
           };
@@ -842,8 +973,8 @@ export default function HomeView({
           user: u,
           title,
           meta: lastActivity ? timeAgo(lastActivity) : "quiet",
-          body: recentComment ? truncate(recentComment.text, 70) : `${openItems.length} open item${openItems.length === 1 ? "" : "s"}`,
-          tone: openItems.length > 0 ? "cyan" as AttentionTone : "accent" as AttentionTone,
+          body: recentComment ? truncate(recentComment.text, 70) : `${userOpenItems.length} open item${userOpenItems.length === 1 ? "" : "s"}`,
+          tone: userOpenItems.length > 0 ? "cyan" as AttentionTone : "accent" as AttentionTone,
         };
       })
       .sort((a, b) => {
@@ -863,7 +994,7 @@ export default function HomeView({
         ? [
             { label: "needs approval", value: reviewItems.length, tone: "green" as AttentionTone },
             { label: "expiring", value: expiredItems.length + soonItems.length, tone: expiredItems.length ? "red" as AttentionTone : "amber" as AttentionTone },
-            { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
+            { label: "recent tags", value: recentSignals.length, tone: "cyan" as AttentionTone },
             { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ]
         : roleLabel === "exec"
@@ -876,7 +1007,7 @@ export default function HomeView({
         : [
             { label: "approval queue", value: reviewItems.length, tone: "green" as AttentionTone },
             { label: "expiring", value: expiredItems.length + soonItems.length, tone: expiredItems.length ? "red" as AttentionTone : "amber" as AttentionTone },
-            { label: "recent tags", value: recentInteractions.length, tone: "cyan" as AttentionTone },
+              { label: "recent tags", value: recentSignals.length, tone: "cyan" as AttentionTone },
             { label: "quiet teammates", value: people.filter(p => p.tone === "amber").length, tone: "accent" as AttentionTone },
           ];
 
@@ -909,15 +1040,31 @@ export default function HomeView({
       if (SubtaskKey.isValid(key)) {
         const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
         if (parsed) {
-          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId) ||
-            Object.values(subtasks || {}).flat().find(s => s.id === parsed.subtaskId);
+          const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
           return sub?.text || key;
         }
       }
-      return key;
+      return stageNameOverrides[key] || key;
     }
     function commentUserLabel(id: string) {
       return users.find(u => u.id === id)?.name.split(" ")[0] || id;
+    }
+    function requestSignalBody(a: ActivityItem) {
+      const rawDetail = a.detail || "";
+      const actionFromDetail = rawDetail.split(":")[0]?.trim() || rawDetail;
+      const matchingRequest = execProposals.find(p =>
+        p.by === a.user &&
+        (p.target || "") === a.target &&
+        (p.requestedAction || "") === actionFromDetail &&
+        Math.abs((p.createdAt || 0) - a.time) < 10 * 60 * 1000
+      );
+      if (matchingRequest?.body) return `${stageNameLabel(a.target)} · ${truncate(matchingRequest.body, 180)}`;
+      if (rawDetail.includes(":")) return `${stageNameLabel(a.target)} · ${truncate(rawDetail, 180)}`;
+      return `${stageNameLabel(a.target)} · ${truncate(rawDetail, 72)}`;
+    }
+    function proposalTitle(p: typeof pendingApprovalRequests[number]) {
+      const targetLabel = p.target ? stageNameLabel(p.target) : p.title.replace(/^[^:]+:\s*/, "");
+      return `${p.kind || "request"}: ${targetLabel}`;
     }
 
     return {
@@ -932,13 +1079,13 @@ export default function HomeView({
       rawUnownedItems: unownedItems.slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
       rawUnownedCount: unownedItems.length,
       rawDueItems: [...expiredItems, ...soonItems].sort((a, b) => dueTime(a.dueDate) - dueTime(b.dueDate)).slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: `${i.pipelineName} · ${dueTime(i.dueDate) < overviewNow ? "expired" : `due ${i.dueDate}`}` })),
-      rawMyItems: myItems.filter(i => i.status !== "active").sort((a, b) => {
+      rawMyItems: myItems.sort((a, b) => {
         const rank = { "in-progress": 0, planned: 1, concept: 2, blocked: 3 } as Record<string, number>;
         return (rank[a.status] ?? 4) - (rank[b.status] ?? 4);
       }).slice(0, 5).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName, status: i.status })),
       rawMineBlocked: mineBlocked.slice(0, 3).map(i => ({ key: i.key, title: i.title, pipelineName: i.pipelineName })),
-      rawRecentInteractions: recentInteractions.slice(0, 5).map(i => ({
-        title: `${commentUserLabel(i.by)} tagged you`,
+      rawRecentInteractions: recentSignals.slice(0, 5).map(i => ({
+        title: i.source === "notification" ? `${commentUserLabel(i.by)} notified you` : `${commentUserLabel(i.by)} tagged you`,
         meta: i.time ? formatEventTime(i.time) : "",
         body: `${i.source === "chat" ? "chat" : i.title}: ${truncate(i.text, 86)}`,
         tone: "amber" as AttentionTone,
@@ -953,8 +1100,8 @@ export default function HomeView({
       })),
       rawApprovalRequests: pendingApprovalRequests.map(p => ({
         id: p.id,
-        title: p.title,
-        body: truncate(p.body, 100),
+        title: proposalTitle(p),
+        body: truncate(p.body, 180),
         meta: timeAgo(p.createdAt),
         kind: p.kind || "request",
         requestedAction: p.requestedAction || "review",
@@ -963,7 +1110,7 @@ export default function HomeView({
         tone: a.type === "create" ? "green" as AttentionTone : a.type === "claim" ? "cyan" as AttentionTone : "amber" as AttentionTone,
         title: `${commentUserLabel(a.user)} ${a.type === "claim" ? "claimed work" : a.type === "create" ? "created work" : "sent a request"}`,
         meta: timeAgo(a.time),
-        body: `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
+        body: a.type === "request" ? requestSignalBody(a) : `${stageNameLabel(a.target)} · ${truncate(a.detail, 72)}`,
       })),
     };
   }, [
@@ -971,6 +1118,11 @@ export default function HomeView({
     customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, stageNameOverrides, subtaskDueDates,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
+
+  const homeRoadmapEvents = useMemo(() => {
+    const base = timelineEvents.filter(event => isCaptainOfAny || event.responsibleId === currentUser);
+    return [...base].sort(sortRoadmapEvents);
+  }, [currentUser, isCaptainOfAny, timelineEvents]);
 
   return (
     <div>
@@ -1135,6 +1287,7 @@ export default function HomeView({
             onPipelineClick={onPipelineClick}
             onChatOpen={onChatOpen}
           />
+          <RoadmapHomePanel t={t} events={homeRoadmapEvents} users={users} canSeeAll={isCaptainOfAny} />
           {/* Standalone Reminder panel is redundant — inline '+ reminder' button is now in
               the AttentionOverview header for every role. Standalone Exec Requests panel kept
               only for non-admins (execs use it to submit; admins approve via the inline banner). */}

@@ -31,6 +31,21 @@ export type SharedState = {
     emailedTo?: string[];
     dismissedBy?: string[];
   }[];
+  timelineEvents?: {
+    id: number;
+    title: string;
+    group: string;
+    status: "planned" | "in-progress" | "done" | "blocked";
+    tier?: "core" | "secondary";
+    date?: string;
+    label?: string;
+    notes?: string;
+    responsibleId?: string;
+    url?: string;
+    createdBy: string;
+    createdAt: number;
+    updatedAt: number;
+  }[];
   notes?: {
     id: number;
     title: string;
@@ -72,6 +87,25 @@ export type SharedState = {
       by: string;
       time: number;
     }[];
+  }[];
+  usefulLinks?: {
+    id: number;
+    group: string;
+    eyebrow: string;
+    title: string;
+    label?: string;
+    href: string;
+    icon: string;
+    badge?: string;
+    description?: string;
+    credentials?: {
+      username?: string;
+      email?: string;
+      password?: string;
+    };
+    createdBy: string;
+    createdAt: number;
+    updatedAt: number;
   }[];
   execProposals?: {
     id: number;

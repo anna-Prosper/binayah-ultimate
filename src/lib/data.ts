@@ -376,6 +376,23 @@ export interface ReminderItem {
   emailedTo?: string[];
   dismissedBy?: string[];
 }
+export type TimelineEventStatus = "planned" | "in-progress" | "done" | "blocked";
+export type TimelineEventTier = "core" | "secondary";
+export interface TimelineEvent {
+  id: number;
+  title: string;
+  group: string;
+  status: TimelineEventStatus;
+  tier?: TimelineEventTier;
+  date?: string;
+  label?: string;
+  notes?: string;
+  responsibleId?: string;
+  url?: string;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}
 export type BugSeverity = "low" | "medium" | "high" | "critical";
 export type BugStatus = "open" | "triage" | "testing" | "fixed" | "closed";
 export type BugType = "bug" | "test" | "qa";
@@ -412,6 +429,61 @@ export interface BugItem {
   attachments?: BugAttachment[];
   comments?: BugComment[];
 }
+export type UsefulLinkIcon =
+  | "newspaper"
+  | "search"
+  | "calculator"
+  | "message"
+  | "code"
+  | "clapperboard"
+  | "globe"
+  | "shield"
+  | "wrench"
+  | "file"
+  | "layout"
+  | "sparkles"
+  | "bot"
+  | "link";
+export interface UsefulLinkCredentials {
+  username?: string;
+  email?: string;
+  password?: string;
+}
+export interface UsefulLinkItem {
+  id: number;
+  group: string;
+  eyebrow: string;
+  title: string;
+  label?: string;
+  href: string;
+  icon: UsefulLinkIcon;
+  badge?: string;
+  description?: string;
+  credentials?: UsefulLinkCredentials;
+  createdBy: string;
+  createdAt: number;
+  updatedAt: number;
+}
+export const DEFAULT_USEFUL_LINKS: UsefulLinkItem[] = [
+  { id: 1781000000001, group: "Tools", eyebrow: "Internal operations", title: "SM & News Automation", label: "Production", href: "https://sm-automation-eight.vercel.app/", icon: "newspaper", badge: "production", description: "Automate social media posts and news content distribution.", createdBy: "system", createdAt: 1781000000001, updatedAt: 1781000000001 },
+  { id: 1781000000002, group: "Tools", eyebrow: "Internal operations", title: "SM & News Automation", label: "Test", href: "http://46.101.136.142/", icon: "newspaper", badge: "test", description: "Testing environment for social/news automation changes.", createdBy: "system", createdAt: 1781000000002, updatedAt: 1781000000002 },
+  { id: 1781000000003, group: "Tools", eyebrow: "Internal operations", title: "Prospect Filtering", href: "http://prospect-finder-prod.eba-uxjcpaxd.ap-south-1.elasticbeanstalk.com/", icon: "search", badge: "launch", description: "Filter and qualify incoming leads efficiently.", createdBy: "system", createdAt: 1781000000003, updatedAt: 1781000000003 },
+  { id: 1781000000004, group: "Tools", eyebrow: "Internal operations", title: "Property Valuation", href: "https://property-valuation.binayahhub.com/", icon: "calculator", badge: "launch", description: "Instant property value estimate tool.", createdBy: "system", createdAt: 1781000000004, updatedAt: 1781000000004 },
+  { id: 1781000000005, group: "Tools", eyebrow: "Internal operations", title: "Valuation Bot", label: "WhatsApp", href: "https://wa.me/17155199219", icon: "message", badge: "whatsapp", description: "WhatsApp-based property valuation assistant.", createdBy: "system", createdAt: 1781000000005, updatedAt: 1781000000005 },
+  { id: 1781000000006, group: "Tools", eyebrow: "Internal operations", title: "Landing Pages Automation", href: "https://binayah-dashboard.vercel.app/", icon: "code", badge: "automation", description: "Landing page automation dashboard.", createdBy: "system", createdAt: 1781000000006, updatedAt: 1781000000006 },
+  { id: 1781000000007, group: "Tools", eyebrow: "Internal operations", title: "AI Video Automation", href: "https://vercel.com/prosper3/binayah-studio", icon: "clapperboard", badge: "studio", description: "AI video automation project on Vercel.", createdBy: "system", createdAt: 1781000000007, updatedAt: 1781000000007 },
+  { id: 1781000000008, group: "Tools", eyebrow: "Internal operations", title: "New Next.js Website", href: "https://staging.binayahhub.com/", icon: "globe", badge: "staging", description: "Staging environment for the new Next.js website.", createdBy: "system", createdAt: 1781000000008, updatedAt: 1781000000008 },
+  { id: 1781000000009, group: "Tools", eyebrow: "Internal operations", title: "News API", href: "https://property-news-api.onrender.com/login?from=%2F", icon: "shield", badge: "login", description: "News API dashboard.", credentials: { email: "admin@example.com", password: "pass@123" }, createdBy: "system", createdAt: 1781000000009, updatedAt: 1781000000009 },
+  { id: 1781000000010, group: "Tools", eyebrow: "Internal operations", title: "Agent Tools", href: "https://agent-tools-qb97.onrender.com/", icon: "wrench", badge: "login", description: "Property listing comparing for agents.", credentials: { username: "admin", password: "pass@123" }, createdBy: "system", createdAt: 1781000000010, updatedAt: 1781000000010 },
+  { id: 1781000000011, group: "WordPress Staging", eyebrow: "Templates", title: "News Template", href: "https://binayahcom.fixed-staging.co.uk/dubai-news/best-off-plan-under-aed-2-million-new-news/", icon: "file", createdBy: "system", createdAt: 1781000000011, updatedAt: 1781000000011 },
+  { id: 1781000000012, group: "WordPress Staging", eyebrow: "Templates", title: "Project Template", href: "https://binayahcom.fixed-staging.co.uk/dubai-projects/latest-project/", icon: "layout", createdBy: "system", createdAt: 1781000000012, updatedAt: 1781000000012 },
+  { id: 1781000000013, group: "Lovable Templates", eyebrow: "Design previews", title: "New Website", href: "https://kindred-glow-create.lovable.app/", icon: "globe", createdBy: "system", createdAt: 1781000000013, updatedAt: 1781000000013 },
+  { id: 1781000000014, group: "Lovable Templates", eyebrow: "Design previews", title: "Project Template", href: "https://kindred-glow-create.lovable.app/project/palm-jumeirah-villas", icon: "layout", createdBy: "system", createdAt: 1781000000014, updatedAt: 1781000000014 },
+  { id: 1781000000015, group: "Lovable Templates", eyebrow: "Design previews", title: "News Template", href: "https://kindred-glow-create.lovable.app/news/best-offplan-under-2m", icon: "file", createdBy: "system", createdAt: 1781000000015, updatedAt: 1781000000015 },
+  { id: 1781000000016, group: "Lovable Templates", eyebrow: "Design previews", title: "Valuation", href: "https://kindred-glow-create.lovable.app/valuation", icon: "calculator", createdBy: "system", createdAt: 1781000000016, updatedAt: 1781000000016 },
+  { id: 1781000000017, group: "Lovable Templates", eyebrow: "Design previews", title: "Market Pulse", href: "https://kindred-glow-create.lovable.app/pulse", icon: "sparkles", createdBy: "system", createdAt: 1781000000017, updatedAt: 1781000000017 },
+  { id: 1781000000018, group: "Lovable Templates", eyebrow: "Design previews", title: "Style Guide", href: "https://kindred-glow-create.lovable.app/design-guidelines", icon: "bot", createdBy: "system", createdAt: 1781000000018, updatedAt: 1781000000018 },
+];
 export interface ExecProposal {
   id: number;
   title: string;

@@ -32,6 +32,7 @@ export interface ContentHandlersDeps {
   setSubtaskDescOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setSubtaskDueDates: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   markLocalWrite: (slice: string) => void;
+  flushNow?: () => void;
   logActivity: (type: string, target: string, detail: string, notifyTo?: string[]) => void;
   showToast: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
   tAmber: string;
@@ -58,11 +59,22 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     setSubtaskDescOverrides,
     setSubtaskDueDates,
     markLocalWrite,
+    flushNow,
     logActivity,
     showToast,
     tAmber,
     tGreen,
   } = deps;
+
+  const samePendingRequest = (a: ExecProposal, b: ExecProposal) =>
+    a.status === "pending" &&
+    b.status === "pending" &&
+    a.kind === b.kind &&
+    (a.target || "") === (b.target || "") &&
+    (a.requestedAction || "") === (b.requestedAction || "") &&
+    (a.requestedValue ?? "") === (b.requestedValue ?? "") &&
+    (a.requestedUserId ?? "") === (b.requestedUserId ?? "") &&
+    a.by === b.by;
 
   // Internal helper — not returned
   const applyExecProposalAction = useCallback((proposal: ExecProposal): boolean => {
@@ -290,7 +302,8 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     setBugs(prev => [bug, ...prev].slice(0, 300));
     logActivity("bug", bug.title, `${bug.type} · ${bug.severity}`, bug.ownerId ? [bug.ownerId] : undefined);
     showToast("// tracker item added", tGreen);
-  }, [currentUser, currentWorkspaceId, markLocalWrite, setBugs, logActivity, showToast, tAmber, tGreen]);
+    setTimeout(() => flushNow?.(), 0);
+  }, [currentUser, currentWorkspaceId, markLocalWrite, setBugs, logActivity, showToast, tAmber, tGreen, flushNow]);
 
   const updateBug = useCallback((id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask" | "attachments" | "comments">>) => {
     if (!currentUser) return;
@@ -314,13 +327,15 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
         updatedAt: Date.now(),
       };
     }));
-  }, [currentUser, markLocalWrite, setBugs]);
+    setTimeout(() => flushNow?.(), 0);
+  }, [currentUser, markLocalWrite, setBugs, flushNow]);
 
   const deleteBug = useCallback((id: number) => {
     if (!currentUser) return;
     markLocalWrite("bugs");
     setBugs(prev => prev.filter(item => item.id !== id || (item.createdBy !== currentUser && item.ownerId !== currentUser && !ADMIN_IDS.includes(currentUser))));
-  }, [currentUser, markLocalWrite, setBugs]);
+    setTimeout(() => flushNow?.(), 0);
+  }, [currentUser, markLocalWrite, setBugs, flushNow]);
 
   const updateExecProposalStatus = useCallback((id: number, status: "reviewed" | "rejected" | "canceled") => {
     if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
@@ -330,13 +345,18 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     const proposal = execProposals.find(p => p.id === id);
     if (proposal && status === "reviewed" && proposal.status === "pending" && !applyExecProposalAction(proposal)) return;
     markLocalWrite("execProposals");
-    setExecProposals(prev => prev.map(p => p.id === id ? {
-      ...p,
-      status,
-      reviewedAt: Date.now(),
-      reviewedBy: currentUser,
-    } : p));
-  }, [currentUser, execProposals, applyExecProposalAction, markLocalWrite, setExecProposals, showToast, tAmber]);
+    const reviewedAt = Date.now();
+    setExecProposals(prev => prev.map(p => {
+      const shouldClose = p.id === id || (proposal ? samePendingRequest(p, proposal) : false);
+      return shouldClose ? {
+        ...p,
+        status,
+        reviewedAt,
+        reviewedBy: currentUser,
+      } : p;
+    }));
+    setTimeout(() => flushNow?.(), 0);
+  }, [currentUser, execProposals, applyExecProposalAction, markLocalWrite, setExecProposals, showToast, tAmber, flushNow]);
 
   const applyExecProposal = useCallback((id: number) => {
     if (!currentUser || !ADMIN_IDS.includes(currentUser)) {

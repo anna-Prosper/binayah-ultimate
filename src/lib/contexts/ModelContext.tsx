@@ -11,9 +11,9 @@ import {
 } from "@/lib/constants";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
-  pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER, normalizeStageStatus,
+  pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER, normalizeStageStatus, DEFAULT_USEFUL_LINKS,
   ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type WorkspaceDb, type DbColumn,
+	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type UsefulLinkItem, type UsefulLinkIcon, type WorkspaceDb, type DbColumn,
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
@@ -101,6 +101,10 @@ interface ModelContextValue {
 	  reminders: ReminderItem[];
 	  addReminder: (input: { title: string; body: string; recipientIds: string[]; remindAt: string; workspaceId?: string }) => void;
 	  dismissReminder: (id: number) => void;
+  timelineEvents: TimelineEvent[];
+  addTimelineEvent: (input: { title: string; group: string; status: TimelineEventStatus; tier?: TimelineEventTier; date?: string; label?: string; notes?: string; responsibleId?: string; url?: string }) => void;
+  updateTimelineEvent: (id: number, patch: Partial<Pick<TimelineEvent, "title" | "group" | "status" | "tier" | "date" | "label" | "notes" | "responsibleId" | "url">>) => void;
+  deleteTimelineEvent: (id: number) => void;
 	  notes: NoteItem[];
 	  addNote: (input: { title: string; body: string; pinnedTo?: string; color?: string }) => void;
 	  updateNote: (id: number, patch: Partial<Pick<NoteItem, "title" | "body" | "pinnedTo" | "color">>) => void;
@@ -109,6 +113,10 @@ interface ModelContextValue {
   addBug: (input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => void;
   updateBug: (id: number, patch: Partial<Pick<BugItem, "title" | "body" | "steps" | "expected" | "actual" | "type" | "severity" | "status" | "ownerId" | "linkedTask" | "attachments" | "comments">>) => void;
   deleteBug: (id: number) => void;
+  usefulLinks: UsefulLinkItem[];
+  addUsefulLink: (input: Omit<UsefulLinkItem, "id" | "createdBy" | "createdAt" | "updatedAt">) => void;
+  updateUsefulLink: (id: number, patch: Partial<Pick<UsefulLinkItem, "group" | "eyebrow" | "title" | "label" | "href" | "icon" | "badge" | "description" | "credentials">>) => void;
+  deleteUsefulLink: (id: number) => void;
   execProposals: ExecProposal[];
   addExecProposal: (title: string, body: string) => void;
   requestWorkChange: (input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string; requestedValue?: string | null; requestedUserId?: string | null }) => void;
@@ -362,11 +370,15 @@ export function ModelProvider({
   const [workspaces, setWorkspaces] = useState<Workspace[]>(() => lsGet("workspaces", []));
   const [activityLog, setActivityLog] = useState<ActivityItem[]>(() => lsGet("activityLog", []));
   const [reminders, setReminders] = useState<ReminderItem[]>(() => lsGet("reminders", []));
+  const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>(() => lsGet("timelineEvents", []));
   const [notes, setNotes] = useState<NoteItem[]>(() => lsGet("notes", []));
   const [bugs, setBugs] = useState<BugItem[]>(() => lsGet("bugs", []));
+  const [usefulLinks, setUsefulLinks] = useState<UsefulLinkItem[]>(() => lsGet("usefulLinks", []));
   const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
   const [databases, setDatabases] = useState<WorkspaceDb[]>(() => lsGet("databases", []));
   const projectUpdateSeededRef = useRef(false);
+  const usefulLinksSeededRef = useRef(false);
+  const workspaceContentMigrationRef = useRef(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
   const [archivedPipelines, setArchivedPipelines] = useState<string[]>(() => lsGet("archivedPipelines", []));
   const [archivedSubtasks, setArchivedSubtasks] = useState<string[]>(() => lsGet("archivedSubtasks", []));
@@ -423,7 +435,7 @@ export function ModelProvider({
     "notifReads", "notifDismissed", "notifReadIds",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
-    "execProposals", "reminders", "notes", "bugs", "customPipelines", "databases",
+    "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases",
   ] as const, []);
   const SET_SLICES = useMemo(() => [
     "approvedStages", "approvedSubtasks", "approvedPipelines",
@@ -477,6 +489,9 @@ export function ModelProvider({
     localWritesRef.current[slice] = Date.now();
     userActionCounterRef.current += 1;
   }, []);
+  const protectLocalSlice = useCallback((slice: string) => {
+    localWritesRef.current[slice] = Date.now();
+  }, []);
   const persistPipeDescOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, string>>>>((next) => {
     markLocalWrite("pipeDescOverrides");
     setPipeDescOverrides(next);
@@ -505,7 +520,7 @@ export function ModelProvider({
       stageDescOverrides, stageDueDates, stagePriorities, subtaskDescOverrides,
       subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
       workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-      activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+      activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
       notifReads, notifDismissed, notifReadIds, databases,
     };
     if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
@@ -525,7 +540,7 @@ export function ModelProvider({
     stageDescOverrides, stageDueDates, stagePriorities, subtaskDescOverrides,
     subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
     workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-    activityLog, reminders, notes, bugs, execProposals, stagePointsOverride,
+    activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
     notifReads, notifDismissed, notifReadIds, databases,
   ]);
 
@@ -558,6 +573,8 @@ export function ModelProvider({
       return changed ? next : prev;
     });
   }, [markLocalWrite]);
+
+  const timelineSeededRef = useRef(false);
 
   // Self-heal + legacy migration:
   //   1. Drop the obsolete `firstMates` rank — merge any holdouts into `captains` (operators).
@@ -737,10 +754,12 @@ export function ModelProvider({
     }
     if (s.activityLog) setActivityLog(s.activityLog);
     if (s.reminders && !isProtected("reminders")) setReminders(s.reminders as ReminderItem[]);
+    if (s.timelineEvents && !isProtected("timelineEvents")) setTimelineEvents(s.timelineEvents as TimelineEvent[]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).databases && !isProtected("databases")) setDatabases((s as any).databases as WorkspaceDb[]);
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
+    if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
     if (s.comments) {
@@ -848,8 +867,8 @@ export function ModelProvider({
       const nextList = list.map(subtask => {
         const key = SubtaskKey.make(parentStageId, subtask.id);
         const explicitStatus = subtaskStages[key];
-        const status = subtask.done ? "active" : normalizeStageStatus(explicitStatus || "planned");
-        if (subtask.done && explicitStatus !== "active") {
+        const status = normalizeStageStatus(explicitStatus || (subtask.done ? "active" : "planned"));
+        if (!explicitStatus && subtask.done) {
           nextSubtaskStages[key] = "active";
           stagesChanged = true;
         }
@@ -883,8 +902,10 @@ export function ModelProvider({
       owners,
       approvedStages, approvedSubtasks, approvedPipelines,
       reminders,
+      timelineEvents,
       notes,
       bugs,
+      usefulLinks,
       execProposals,
       subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
       subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
@@ -948,7 +969,7 @@ export function ModelProvider({
     const envelope: PatchEnvelope = state as PatchEnvelope;
     if (Object.keys(deletes).length > 0) envelope._deletes = deletes;
     return envelope;
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals,
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, usefulLinks, execProposals,
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
@@ -1006,6 +1027,55 @@ export function ModelProvider({
   setSyncStatusRef.current = setSyncStatus;
 
   useEffect(() => {
+    if (timelineSeededRef.current || syncStatus === "hydrating" || timelineEvents.length > 0 || !currentUser) return;
+    timelineSeededRef.current = true;
+    const now = Date.now();
+    const seedItems: Array<Omit<TimelineEvent, "id" | "createdBy" | "createdAt" | "updatedAt">> = [
+      { title: "SM automation", status: "done", group: "Automation", tier: "core" },
+      { title: "Prospect Evaluation", status: "done", group: "Leads", tier: "core" },
+      { title: "Binayah Hub", status: "done", group: "Platform", tier: "core" },
+      { title: "Binayah News API", status: "done", group: "Content", tier: "core" },
+      { title: "Next.js website", status: "planned", date: "2026-05-21", label: "Thursday", group: "Website", tier: "core" },
+      { title: "SEO / Leads analytics", status: "planned", date: "2026-05-21", label: "Thursday", group: "Analytics", notes: "WP milestone", tier: "core" },
+      { title: "Binayah Engagement Farming", status: "planned", date: "2026-05-22", label: "Friday", group: "Growth", tier: "secondary" },
+      { title: "Property Valuation", status: "planned", date: "2026-05-22", label: "Friday", group: "Tools", tier: "core" },
+      { title: "Landing Pages automation", status: "planned", date: "2026-05-26", label: "Tuesday next week", group: "Automation", tier: "core" },
+      { title: "Auto emailing / WhatsApp for Prospect Finder", status: "planned", date: "2026-05-26", label: "Next Tuesday", group: "Leads", tier: "core" },
+      { title: "SEO / Leads analytics", status: "planned", date: "2026-05-27", label: "Next Wednesday", group: "Analytics", notes: "Next.js milestone", tier: "core" },
+      { title: "Video Automation", status: "planned", date: "2026-05-27", label: "Initial phase", group: "Media", notes: "Initial phase starts Wednesday / Friday", tier: "secondary" },
+      { title: "Price Comparison for Agents", status: "planned", date: "2026-05-27", label: "Next Wednesday", group: "Agent Tools", tier: "core" },
+      { title: "Market Pulse", status: "planned", date: "2026-05-28", label: "Next Thursday", group: "Market", tier: "core" },
+      { title: "Video Automation", status: "planned", date: "2026-05-29", label: "Friday checkpoint", group: "Media", notes: "Follow-up checkpoint", tier: "secondary" },
+      { title: "Voice call agent", status: "planned", date: "2026-06-03", label: "June 3", group: "Voice AI", tier: "core" },
+    ];
+    const seed: TimelineEvent[] = seedItems.map((item, index) => ({
+      id: now + index,
+      createdBy: currentUser,
+      createdAt: now,
+      updatedAt: now,
+      ...item,
+    }));
+    markLocalWrite("timelineEvents");
+    setTimelineEvents(seed);
+    setTimeout(() => writeNowRef.current?.(), 0);
+  }, [currentUser, markLocalWrite, syncStatus, timelineEvents.length]);
+
+  useEffect(() => {
+    if (usefulLinksSeededRef.current || syncStatus === "hydrating" || usefulLinks.length > 0 || !currentUser) return;
+    usefulLinksSeededRef.current = true;
+    const now = Date.now();
+    const seed = DEFAULT_USEFUL_LINKS.map(link => ({
+      ...link,
+      createdBy: currentUser,
+      createdAt: link.createdAt || now,
+      updatedAt: now,
+    }));
+    markLocalWrite("usefulLinks");
+    setUsefulLinks(seed);
+    setTimeout(() => writeNowRef.current?.(), 0);
+  }, [currentUser, markLocalWrite, syncStatus, usefulLinks.length]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (syncStatus !== "live" || projectUpdateSeededRef.current) return;
     const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -1047,7 +1117,11 @@ export function ModelProvider({
           if (existing) used.add(existing.id);
           return { ...desired, id: existing?.id || desired.id, width: existing?.width || desired.width };
         });
-        const allColumns = [...columns, ...baseDb.columns.filter(c => !used.has(c.id))];
+        const seededColumnNames = new Set(columns.map(c => normalize(c.name)));
+        const allColumns = [
+          ...columns,
+          ...baseDb.columns.filter(c => !used.has(c.id) && !seededColumnNames.has(normalize(c.name))),
+        ];
         const col = Object.fromEntries(seed.columns.map((desired, index) => [desired.id, columns[index].id])) as Record<string, string>;
         const remapValues = (values: Record<string, string>) => {
           const out: Record<string, string> = {};
@@ -1059,15 +1133,30 @@ export function ModelProvider({
         const rowKey = (values: Record<string, string>) => seed.dedupe
           .map(id => (values[col[id] || id] || "").trim().toLowerCase())
           .join("||");
-        const seen = new Set(baseDb.rows.map(row => rowKey(row.values)));
-        const rows = [...baseDb.rows];
+        const rows = baseDb.rows.map(row => {
+          const values = remapValues(row.values);
+          for (const column of baseDb.columns) {
+            const canonical = columns.find(c => normalize(c.name) === normalize(column.name));
+            if (!canonical || canonical.id === column.id || !row.values[column.id] || values[canonical.id]) continue;
+            values[canonical.id] = row.values[column.id];
+          }
+          return { ...row, values };
+        });
+        const seen = new Set<string>();
+        const dedupedRows = rows.filter(row => {
+          const key = rowKey(row.values);
+          if (!key.replace(/\|/g, "")) return true;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         seed.rows.forEach((source, index) => {
           const values = remapValues(source);
           const key = rowKey(values);
           if (seen.has(key)) return;
           seen.add(key);
           const dateValue = Object.entries(values).find(([cid]) => allColumns.find(c => c.id === cid)?.type === "date")?.[1] || "";
-          rows.push({
+          dedupedRows.push({
             id: seed.idBase + index + 1,
             values,
             createdBy: values[col.created_by] || currentUser || "anna",
@@ -1081,20 +1170,21 @@ export function ModelProvider({
           ...(dateCol ? [{ id: "view_date", name: "By Date", filterCol: dateCol.id, filterVal: "" }] : []),
           ...(statusCol ? [{ id: "view_status", name: "By Status", filterCol: statusCol.id, filterVal: "" }] : []),
         ];
+        const forcePropertyWorkspace = seedName === "backlinksupdate";
         const nextDb: WorkspaceDb = {
           ...baseDb,
           name: existingIndex >= 0 ? baseDb.name : seed.name,
           icon: baseDb.icon || seed.icon,
-          workspaceId: baseDb.workspaceId || propertyWorkspaceId,
+          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : (baseDb.workspaceId || propertyWorkspaceId),
           columns: allColumns,
-          rows,
+          rows: dedupedRows,
           views,
         };
         const dbChanged = existingIndex < 0 ||
           baseDb.name !== nextDb.name ||
           baseDb.icon !== nextDb.icon ||
           JSON.stringify(baseDb.columns) !== JSON.stringify(nextDb.columns) ||
-          baseDb.rows.length !== nextDb.rows.length;
+          JSON.stringify(baseDb.rows) !== JSON.stringify(nextDb.rows);
         if (!dbChanged) continue;
         changed = true;
         if (existingIndex >= 0) next[existingIndex] = nextDb;
@@ -1109,6 +1199,93 @@ export function ModelProvider({
     });
   }, [currentUser, currentWorkspaceId, databases, markLocalWrite, syncStatus, workspaces]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (syncStatus !== "live" || workspaceContentMigrationRef.current) return;
+    const normalize = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const aiWs = workspaces.find(w => normalize(w.name) === "binayahai");
+    const propertyWs = workspaces.find(w => normalize(w.name) === "binayahproperties");
+    if (!aiWs || !propertyWs) return;
+    const isBacklinks = (db: WorkspaceDb) => {
+      const name = normalize(db.name);
+      return name === "backlinks" || name === "backlinksupdate";
+    };
+    const propertyBugs = bugs.some(bug => bug.workspaceId === propertyWs.id);
+    const backlinkDbs = databases.filter(isBacklinks);
+    const backlinksNeedMove = backlinkDbs.length > 1 || backlinkDbs.some(db => db.workspaceId !== propertyWs.id);
+    if (!propertyBugs && !backlinksNeedMove) {
+      workspaceContentMigrationRef.current = true;
+      return;
+    }
+
+    workspaceContentMigrationRef.current = true;
+
+    if (propertyBugs) setBugs(prev => {
+      let bugChanged = false;
+      const next = prev.map(bug => {
+        if (bug.workspaceId !== propertyWs.id) return bug;
+        bugChanged = true;
+        return { ...bug, workspaceId: aiWs.id };
+      });
+      if (bugChanged) {
+        markLocalWrite("bugs");
+        setTimeout(() => writeNowRef.current?.(), 0);
+        return next;
+      }
+      return prev;
+    });
+
+    if (backlinksNeedMove) setDatabases(prev => {
+      const backlinkDbs = prev.filter(isBacklinks);
+      if (backlinkDbs.length === 0) return prev;
+
+      const base = backlinkDbs.find(db => db.workspaceId === propertyWs.id) || backlinkDbs[0];
+      const colIds = new Set(base.columns.map(c => c.id));
+      const colNames = new Set(base.columns.map(c => normalize(c.name)));
+      const columns = [
+        ...base.columns,
+        ...backlinkDbs.flatMap(db => db.columns).filter(c => {
+          if (colIds.has(c.id) || colNames.has(normalize(c.name))) return false;
+          colIds.add(c.id);
+          colNames.add(normalize(c.name));
+          return true;
+        }),
+      ];
+      const baseColumnByName = new Map(base.columns.map(c => [normalize(c.name), c.id]));
+      const remapRowValues = (db: WorkspaceDb, values: Record<string, string>) => {
+        const next = { ...values };
+        for (const column of db.columns) {
+          const targetId = baseColumnByName.get(normalize(column.name));
+          if (!targetId || targetId === column.id || !values[column.id] || next[targetId]) continue;
+          next[targetId] = values[column.id];
+          delete next[column.id];
+        }
+        return next;
+      };
+      const rowKeys = new Set<string>();
+      const rows = backlinkDbs.flatMap(db => db.rows.map(row => ({ ...row, values: remapRowValues(db, row.values) }))).filter(row => {
+        const key = JSON.stringify(row.values);
+        if (rowKeys.has(key)) return false;
+        rowKeys.add(key);
+        return true;
+      });
+      const merged: WorkspaceDb = {
+        ...base,
+        workspaceId: propertyWs.id,
+        columns,
+        rows,
+      };
+      const next = [...prev.filter(db => !isBacklinks(db)), merged];
+      const dbChanged = backlinkDbs.length !== 1 || base.workspaceId !== propertyWs.id || rows.length !== base.rows.length;
+      if (dbChanged) {
+        markLocalWrite("databases");
+        setTimeout(() => writeNowRef.current?.(), 0);
+        return next;
+      }
+      return prev;
+    });
+  }, [bugs, databases, markLocalWrite, syncStatus, workspaces]);
+
   // ── Debounced write — delegate to useSync's scheduleWrite ────────────────
   // Fires only when a user action (markLocalWrite) has advanced the counter
   // since the last scheduled write. Poll-driven state changes don't bump the
@@ -1120,7 +1297,7 @@ export function ModelProvider({
     lastWrittenActionRef.current = userActionCounterRef.current;
     scheduleWrite();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -1163,25 +1340,27 @@ export function ModelProvider({
         if (!ownersList.includes(uid)) return;
         const ownerCount = Math.max(ownersList.length, 1);
 
-        // Subtask — key is "stageId::subtaskId"
+        // Subtask — key is "stageId::subtaskId".
+        // If the parent stage itself has been approved, the parent card pays the
+        // displayed ledger total, so individual subtask approvals should not pay
+        // a second time.
         if (SubtaskKey.isValid(key)) {
           if (!approvedSubtaskKeySet.has(key)) return;
           const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
           if (!parsed) return;
+          if (approvedStages.includes(parsed.parentStageId)) return;
           const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
           if (!sub) return;
           // Split subtask points among owners. Use Math.floor so totals are stable
           // and never exceed the headline number on the card.
-          p += Math.floor((sub.points ?? 5) / ownerCount);
+          p += Math.floor(((sub.points && sub.points > 0) ? sub.points : 5) / ownerCount);
           return;
         }
-        // Stage — only awards stage-level points when stage is a leaf (no live subtasks).
-        // Stages with live subtasks earn their points via the subtask branch above.
+        // Stage — approving a task pays the same point value shown on its card.
+        // For parent tasks this is the live subtask ledger total.
         if (!approvedStages.includes(key)) return;
-        const liveSubs = (subtasks[key] || []).filter(s => !archivedSubtaskKeySet.has(`${key}::${s.id}`));
-        if (liveSubs.length > 0) return;
         const stageDefaultPts = stageDefaults[key]?.points || 10;
-        const stagePts = deriveStageDisplayPoints(key, undefined, archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
+        const stagePts = deriveStageDisplayPoints(key, subtasks[key], archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
         p += Math.floor(stagePts / ownerCount);
       });
 
@@ -1199,7 +1378,7 @@ export function ModelProvider({
             (owners[stage] || []).forEach(o => ownersUnion.add(o));
           }
           if (ownersUnion.size === 0 || !ownersUnion.has(uid)) continue;
-          const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
+          const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? ((stagePointsOverride[s] && stagePointsOverride[s] > 0) ? stagePointsOverride[s] : 10)), 0);
           const bonus = Math.floor(total * 0.25);
           p += Math.floor(bonus / ownersUnion.size);
         }
@@ -1288,6 +1467,26 @@ export function ModelProvider({
 
   const requestWorkChange = useCallback((input: { kind: "edit" | "archive" | "assign"; target: string; title: string; body: string; requestedAction: string; requestedValue?: string | null; requestedUserId?: string | null }) => {
     if (!currentUser) return;
+    const dedupeKey = [
+      input.kind,
+      input.target,
+      input.requestedAction,
+      input.requestedValue ?? "",
+      input.requestedUserId ?? "",
+      currentUser,
+    ].join("::");
+    const hasSamePending = execProposals.some(p => p.status === "pending" && [
+      p.kind,
+      p.target || "",
+      p.requestedAction || "",
+      p.requestedValue ?? "",
+      p.requestedUserId ?? "",
+      p.by,
+    ].join("::") === dedupeKey);
+    if (hasSamePending) {
+      showToast("// request already waiting for Anna", t.amber);
+      return;
+    }
     markLocalWrite("execProposals");
     const proposal: ExecProposal = {
       id: Date.now(),
@@ -1303,9 +1502,9 @@ export function ModelProvider({
       requestedUserId: input.requestedUserId ?? null,
     };
     setExecProposals(prev => [proposal, ...prev].slice(0, 100));
-    logActivity("request", input.target, input.requestedAction, ADMIN_IDS);
+    logActivity("request", input.target, `${input.requestedAction}: ${input.body}`, ADMIN_IDS);
     showToast("// request sent to Anna", t.green);
-  }, [currentUser, logActivity, markLocalWrite, showToast, t.green]);
+  }, [currentUser, execProposals, logActivity, markLocalWrite, showToast, t.amber, t.green]);
 
   const requestInsteadOfMutate = useCallback((kind: "edit" | "archive" | "assign", target: string, requestedAction: string, detail: string, meta?: { requestedValue?: string | null; requestedUserId?: string | null }) => {
     if (canMutateDirectly()) return false;
@@ -1633,10 +1832,10 @@ export function ModelProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [undoStack, logActivity]);
 
-  const MAX_COMMENT_LEN = 1000;
+  const MAX_COMMENT_LEN = 3000;
   const addComment = (sid: string, val: string, clearInput: () => void) => {
     if (!val || !currentUser) return;
-    if (val.length > MAX_COMMENT_LEN) { showToast("// comment too long — max 1000 chars", t.red); return; }
+    if (val.length > MAX_COMMENT_LEN) { showToast("// comment too long — max 3000 chars", t.red); return; }
     const commentId = Date.now();
     // Optimistic: mark pending=true so the UI can dim or show a spinner until
     // the server confirms. On success we strip the flag in place; on failure
@@ -1763,6 +1962,13 @@ export function ModelProvider({
     });
     markLocalWrite("archivedStages");
     setArchivedStages(prev => Array.from(new Set([...prev, sid])));
+    markLocalWrite("stageDueDates");
+    setStageDueDates(prev => {
+      if (!(sid in prev)) return prev;
+      const next = { ...prev };
+      delete next[sid];
+      return next;
+    });
     logActivity("archive", sid, "archived");
     showToast(label, t.textMuted, 8000, {
       label: "undo",
@@ -1794,6 +2000,13 @@ export function ModelProvider({
     });
     markLocalWrite("archivedSubtasks");
     setArchivedSubtasks(prev => Array.from(new Set([...prev, key])));
+    markLocalWrite("subtaskDueDates");
+    setSubtaskDueDates(prev => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
     showToast(`archived subtask`, t.textMuted, 8000, {
       label: "undo",
       onClick: () => { undoStack.removeById(op.id); setArchivedSubtasks(prev => prev.filter(k => k !== key)); },
@@ -1870,7 +2083,7 @@ export function ModelProvider({
     const legacyDone = parsed
       ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
       : false;
-    const prevStatus = legacyDone ? "active" : normalizeStageStatus(subtaskStages[key] || "planned");
+    const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
     if (parsed && prevStatus !== nextStatus) {
@@ -1899,7 +2112,7 @@ export function ModelProvider({
     const legacyDone = parsed
       ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
       : false;
-    return legacyDone ? "active" : normalizeStageStatus(subtaskStages[key] || "planned");
+    return normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
   }, [subtasks, subtaskStages]);
 
   const cycleSubtaskStatus = (key: string) => {
@@ -1952,7 +2165,7 @@ export function ModelProvider({
     if (!allApproved) return;
     markLocalWrite("approvedPipelines");
     setApprovedPipelines(prev => [...prev, owningPipe.id]);
-    const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? stagePointsOverride[s] ?? 10), 0);
+    const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? ((stagePointsOverride[s] && stagePointsOverride[s] > 0) ? stagePointsOverride[s] : 10)), 0);
     const bonus = Math.floor(total * 0.25);
     logActivity("status", owningPipe.id, `pipeline complete · +${bonus} bonus`);
     showToast(`// ${owningPipe.name || owningPipe.id} complete — +${bonus}pts bonus shared`, t.green);
@@ -2157,6 +2370,7 @@ export function ModelProvider({
     setSubtaskDescOverrides,
     setSubtaskDueDates,
     markLocalWrite,
+    flushNow: () => writeNowRef.current?.(),
     logActivity,
     showToast,
     tAmber: t.amber,
@@ -2164,6 +2378,151 @@ export function ModelProvider({
   });
 
 
+
+  // ── Timeline handlers ───────────────────────────────────────────────────
+  const addTimelineEvent = useCallback((input: { title: string; group: string; status: TimelineEventStatus; tier?: TimelineEventTier; date?: string; label?: string; notes?: string; responsibleId?: string; url?: string }) => {
+    if (!currentUser) return;
+    const title = input.title.trim();
+    if (!title) {
+      showToast("// timeline event needs a title", t.amber);
+      return;
+    }
+    const now = Date.now();
+    const event: TimelineEvent = {
+      id: now,
+      title: title.slice(0, 160),
+      group: (input.group.trim() || "General").slice(0, 80),
+      status: input.status,
+      tier: input.tier || "core",
+      date: input.date || undefined,
+      label: input.label?.trim().slice(0, 80) || undefined,
+      notes: input.notes?.trim().slice(0, 1200) || undefined,
+      responsibleId: input.responsibleId || undefined,
+      url: input.url?.trim().slice(0, 500) || undefined,
+      createdBy: currentUser,
+      createdAt: now,
+      updatedAt: now,
+    };
+    protectLocalSlice("timelineEvents");
+    setTimelineEvents(prev => [event, ...prev].slice(0, 300));
+    patchState({ timelineEvents: [event] }).then(result => {
+      if (!result.ok) {
+        setSyncStatus("offline");
+        showToast(`// timeline save failed: ${result.error}`, t.amber);
+      } else {
+        protectLocalSlice("timelineEvents");
+      }
+    });
+    showToast("// timeline event added", t.green);
+  }, [currentUser, protectLocalSlice, setSyncStatus, showToast, t.amber, t.green]);
+
+  const updateTimelineEvent = useCallback((id: number, patch: Partial<Pick<TimelineEvent, "title" | "group" | "status" | "tier" | "date" | "label" | "notes" | "responsibleId" | "url">>) => {
+    const existing = timelineEvents.find(event => event.id === id);
+    if (!existing) return;
+    const updated: TimelineEvent = {
+      ...existing,
+      ...patch,
+      title: patch.title !== undefined ? patch.title.trim().slice(0, 160) : existing.title,
+      group: patch.group !== undefined ? (patch.group.trim() || "General").slice(0, 80) : existing.group,
+      label: patch.label !== undefined ? (patch.label.trim().slice(0, 80) || undefined) : existing.label,
+      notes: patch.notes !== undefined ? (patch.notes.trim().slice(0, 1200) || undefined) : existing.notes,
+      date: patch.date !== undefined ? (patch.date || undefined) : existing.date,
+      responsibleId: patch.responsibleId !== undefined ? (patch.responsibleId || undefined) : existing.responsibleId,
+      url: patch.url !== undefined ? (patch.url.trim().slice(0, 500) || undefined) : existing.url,
+      updatedAt: Date.now(),
+    };
+    protectLocalSlice("timelineEvents");
+    setTimelineEvents(prev => prev.map(event => event.id === id ? updated : event));
+    patchState({ timelineEvents: [updated] }).then(result => {
+      if (!result.ok) {
+        setSyncStatus("offline");
+        showToast(`// timeline save failed: ${result.error}`, t.amber);
+      } else {
+        protectLocalSlice("timelineEvents");
+      }
+    });
+  }, [protectLocalSlice, setSyncStatus, showToast, t.amber, timelineEvents]);
+
+  const deleteTimelineEvent = useCallback((id: number) => {
+    protectLocalSlice("timelineEvents");
+    setTimelineEvents(prev => prev.filter(event => event.id !== id));
+    patchState({ _deletes: { timelineEvents: [String(id)] } }).then(result => {
+      if (!result.ok) {
+        setSyncStatus("offline");
+        showToast(`// timeline delete failed: ${result.error}`, t.amber);
+      } else {
+        protectLocalSlice("timelineEvents");
+      }
+    });
+  }, [protectLocalSlice, setSyncStatus, showToast, t.amber]);
+
+  // ── Useful links handlers ───────────────────────────────────────────────
+  const addUsefulLink = useCallback((input: Omit<UsefulLinkItem, "id" | "createdBy" | "createdAt" | "updatedAt">) => {
+    if (!currentUser) return;
+    const title = input.title.trim();
+    const href = input.href.trim();
+    if (!title || !href) {
+      showToast("// link needs a title and URL", t.amber);
+      return;
+    }
+    const now = Date.now();
+    const item: UsefulLinkItem = {
+      id: now,
+      group: (input.group.trim() || "Tools").slice(0, 80),
+      eyebrow: (input.eyebrow.trim() || "Internal operations").slice(0, 80),
+      title: title.slice(0, 120),
+      label: input.label?.trim().slice(0, 80) || undefined,
+      href: href.slice(0, 1000),
+      icon: (input.icon || "link") as UsefulLinkIcon,
+      badge: input.badge?.trim().slice(0, 40) || undefined,
+      description: input.description?.trim().slice(0, 500) || undefined,
+      credentials: input.credentials && (input.credentials.username || input.credentials.email || input.credentials.password)
+        ? {
+            username: input.credentials.username?.trim().slice(0, 120) || undefined,
+            email: input.credentials.email?.trim().slice(0, 180) || undefined,
+            password: input.credentials.password?.slice(0, 240) || undefined,
+          }
+        : undefined,
+      createdBy: currentUser,
+      createdAt: now,
+      updatedAt: now,
+    };
+    markLocalWrite("usefulLinks");
+    setUsefulLinks(prev => [item, ...prev].slice(0, 160));
+    showToast("// useful link added", t.green);
+  }, [currentUser, markLocalWrite, showToast, t.amber, t.green]);
+
+  const updateUsefulLink = useCallback((id: number, patch: Partial<Pick<UsefulLinkItem, "group" | "eyebrow" | "title" | "label" | "href" | "icon" | "badge" | "description" | "credentials">>) => {
+    markLocalWrite("usefulLinks");
+    setUsefulLinks(prev => prev.map(item => {
+      if (item.id !== id) return item;
+      return {
+        ...item,
+        ...patch,
+        group: patch.group !== undefined ? (patch.group.trim() || "Tools").slice(0, 80) : item.group,
+        eyebrow: patch.eyebrow !== undefined ? (patch.eyebrow.trim() || "Internal operations").slice(0, 80) : item.eyebrow,
+        title: patch.title !== undefined ? (patch.title.trim() || "Untitled link").slice(0, 120) : item.title,
+        label: patch.label !== undefined ? (patch.label.trim().slice(0, 80) || undefined) : item.label,
+        href: patch.href !== undefined ? patch.href.trim().slice(0, 1000) : item.href,
+        badge: patch.badge !== undefined ? (patch.badge.trim().slice(0, 40) || undefined) : item.badge,
+        description: patch.description !== undefined ? (patch.description.trim().slice(0, 500) || undefined) : item.description,
+        credentials: patch.credentials !== undefined && (patch.credentials.username || patch.credentials.email || patch.credentials.password)
+          ? {
+              username: patch.credentials.username?.trim().slice(0, 120) || undefined,
+              email: patch.credentials.email?.trim().slice(0, 180) || undefined,
+              password: patch.credentials.password?.slice(0, 240) || undefined,
+            }
+          : patch.credentials === undefined ? item.credentials : undefined,
+        updatedAt: Date.now(),
+      };
+    }));
+    showToast("// useful link updated", t.green);
+  }, [markLocalWrite, showToast, t.green]);
+
+  const deleteUsefulLink = useCallback((id: number) => {
+    markLocalWrite("usefulLinks");
+    setUsefulLinks(prev => prev.filter(item => item.id !== id));
+  }, [markLocalWrite]);
 
   // ── Database (Notion-style tables) handlers ───────────────────────────────
   const createDatabase = useCallback((workspaceId: string, name: string, icon: string) => {
@@ -2305,8 +2664,10 @@ export function ModelProvider({
     subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides: persistPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides: persistPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
     reminders, addReminder, dismissReminder,
+    timelineEvents, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent,
     notes, addNote, updateNote, deleteNote,
     bugs, addBug, updateBug, deleteBug,
+    usefulLinks, addUsefulLink, updateUsefulLink, deleteUsefulLink,
     execProposals, addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
     archivedStages, archivedPipelines, archivedSubtasks, archived, stageImages,
     chatMessages, setChatMessages, hasMoreMessages, chatNotif, setChatNotif, liveNotifs,
@@ -2353,7 +2714,7 @@ export function ModelProvider({
     subtaskStages, subtaskDescOverrides, subtaskDueDates,
     pipeDescOverrides, pipeMetaOverrides,
     customStages, customPipelines, workspaces, activityLog,
-    reminders, notes, bugs, execProposals,
+    reminders, timelineEvents, notes, bugs, usefulLinks, execProposals,
     archivedStages, archivedPipelines, archivedSubtasks, stageImages,
     chatMessages, hasMoreMessages, chatNotif, liveNotifs,
     syncStatus,
@@ -2384,8 +2745,10 @@ export function ModelProvider({
     createDatabase, updateDatabase, deleteDatabase,
     addDbRow, updateDbRow, deleteDbRow, addDbColumn,
     addReminder, dismissReminder,
+    addTimelineEvent, updateTimelineEvent, deleteTimelineEvent,
     addNote, updateNote, deleteNote,
     addBug, updateBug, deleteBug,
+    addUsefulLink, updateUsefulLink, deleteUsefulLink,
     addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
     setStageDueDate, setStagePriority, setStagePointsOverride,
     setSubtaskDescOverride, setSubtaskDueDate, persistPipeDescOverrides, persistPipeMetaOverrides,

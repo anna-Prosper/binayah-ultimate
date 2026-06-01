@@ -14,17 +14,17 @@ import { AppShellProvider, type AppShellContextValue } from "@/lib/contexts/AppS
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
 import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { AvatarStep6, FloatingBg } from "@/components/Onboarding";
-import WelcomeModal from "@/components/WelcomeModal";
 import { ToastContainer, RecoveryToast, useToasts, type ToastItem } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
 import { ActivitySkeleton } from "@/components/ui/Skeletons";
 import { TooltipPortal } from "@/components/ui/TooltipPortal";
 import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
-import SearchPalette from "@/components/SearchPalette";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw, Phone, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon, Home, ListTodo, Bug, Table2, Link2 } from "lucide-react";
+const AvatarStep6 = dynamic(() => import("@/components/Onboarding").then(m => m.AvatarStep6), { ssr: false, loading: () => null });
+const FloatingBg = dynamic(() => import("@/components/Onboarding").then(m => m.FloatingBg), { ssr: false, loading: () => null });
+const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), { ssr: false, loading: () => null });
 const SettingsView = dynamic(() => import("@/components/views/SettingsView"), { ssr: false, loading: () => null });
 const CallSummaryModal = dynamic(() => import("@/components/CallSummaryModal"), { ssr: false, loading: () => null });
 const ArchiveView = dynamic(() => import("@/components/views/ArchiveView"), { ssr: false, loading: () => null });
@@ -35,7 +35,8 @@ const TeamBar = dynamic(() => import("@/components/views/TeamBar"), { ssr: false
 const CreateWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.CreateWorkspaceModal), { ssr: false });
 const ManageWorkspaceModal = dynamic(() => import("@/components/WorkspaceAdmin").then(m => m.ManageWorkspaceModal), { ssr: false });
 const DocumentsPanel = dynamic(() => import("@/components/DocumentsPanel"), { ssr: false, loading: () => null });
-import QuickAddModal from "@/components/QuickAddModal";
+const SearchPalette = dynamic(() => import("@/components/SearchPalette"), { ssr: false, loading: () => null });
+const QuickAddModal = dynamic(() => import("@/components/QuickAddModal"), { ssr: false, loading: () => null });
 
 /**
  * AppShell — the persistent chrome around all (app)/* route pages.
@@ -175,6 +176,7 @@ function ShellInner({
   const [showWelcome, setShowWelcome] = useState(() => { if (typeof window === "undefined" || !initialUserId) return false; return !localStorage.getItem(`binayah_welcomed_${initialUserId}`); });
   const prevMyPtsRef = useRef(0);
   const prevApprovedRef = useRef<string[]>([]);
+  const approvalToastReadyRef = useRef(false);
   const isMobile = useIsMobile(768);
 
   // Refs for reading current overlay state inside the keyboard handler closure (which has [] deps)
@@ -197,8 +199,7 @@ function ShellInner({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityLog.length]);
   // Keep the shell gated until the first server hydrate finishes. Rendering the
-  // cached model early can briefly hide newly persisted pipelines/tasks, then
-  // make them pop back in when Mongo arrives.
+  // cached model early can briefly show stale state and hide newly saved items.
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
   useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
@@ -283,7 +284,16 @@ function ShellInner({
 
   // Approval animation
   useEffect(() => {
-    if (!currentUser) { prevApprovedRef.current = [...approvedStages]; return; }
+    if (!currentUser) {
+      approvalToastReadyRef.current = false;
+      prevApprovedRef.current = [...approvedStages];
+      return;
+    }
+    if (!approvalToastReadyRef.current) {
+      approvalToastReadyRef.current = true;
+      prevApprovedRef.current = [...approvedStages];
+      return;
+    }
     approvedStages.forEach(stage => {
       if (!prevApprovedRef.current.includes(stage) && (claims[stage] || []).includes(currentUser)) {
         showToast(`// ${stage} approved · +10pts earned`, t.green, 3500);
@@ -315,10 +325,6 @@ function ShellInner({
     setChatDefaultTab("dm");
     setShowChat(true);
   }, []);
-
-  // Workspace-scoped pipelines
-  const activePipelinesGlobal = allPipelinesGlobal.filter(p => !(archivedPipelines || []).includes(p.id));
-  const allPipelines = currentWorkspaceId ? (() => { const ws = workspaces.find(w => w.id === currentWorkspaceId); return ws ? activePipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : activePipelinesGlobal; })() : activePipelinesGlobal;
 
   // Palette callbacks — navigation now goes via router.push
   const handlePaletteOpenStage = useCallback((pipelineId: string, stageName: string) => {
@@ -352,9 +358,24 @@ function ShellInner({
   // Computed
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
   const isRootAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
-  const binayahAiWorkspace = workspaces.find(w => w.id === DEFAULT_WORKSPACE_ID);
+  const activePipelinesGlobal = useMemo(
+    () => allPipelinesGlobal.filter(p => !(archivedPipelines || []).includes(p.id)),
+    [allPipelinesGlobal, archivedPipelines],
+  );
+  const allPipelines = useMemo(() => {
+    if (!currentWorkspaceId) return activePipelinesGlobal;
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    return ws ? activePipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : activePipelinesGlobal;
+  }, [activePipelinesGlobal, currentWorkspaceId, workspaces]);
+  const binayahAiWorkspace = useMemo(
+    () => workspaces.find(w => w.id === DEFAULT_WORKSPACE_ID),
+    [workspaces],
+  );
   const canSeeCalls = !!currentUser && (isExec || !!binayahAiWorkspace?.members.includes(currentUser));
-  const myWorkspaces = workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser!)) : true);
+  const myWorkspaces = useMemo(
+    () => workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser)) : true),
+    [currentUser, isExec, workspaces],
+  );
 
   // If user lands on /calls without permission, bounce home
   useEffect(() => {
@@ -368,10 +389,16 @@ function ShellInner({
     }
   }, [myWorkspaces, currentWorkspaceId, setCurrentWorkspaceId]);
 
-  const currentWorkspace = myWorkspaces.find(w => w.id === currentWorkspaceId) || null;
+  const currentWorkspace = useMemo(
+    () => myWorkspaces.find(w => w.id === currentWorkspaceId) || null,
+    [currentWorkspaceId, myWorkspaces],
+  );
   // const isAdmin = isOfficerOfWorkspace(currentWorkspaceId);  // moved to PipelinesView page
   // Workspace-scoped stage count — uses allPipelines (already filtered to currentWorkspace)
-  const allStages = allPipelines.flatMap(p => [...p.stages, ...(customStages[p.id] || [])]);
+  const allStages = useMemo(
+    () => allPipelines.flatMap(p => [...p.stages, ...(customStages[p.id] || [])]),
+    [allPipelines, customStages],
+  );
   // Bell badge now reflects the role-aware notifications panel: count of
   // action-required items + count of unread updates. The legacy `unseen`
   // (raw activityLog length minus lastSeenActivity) drove a number that
@@ -471,7 +498,6 @@ function ShellInner({
           >
             <RotateCcw size={14} strokeWidth={2} />
           </button>
-          {canSeeCalls && <button onClick={e => { e.stopPropagation(); setShowCallSummary(true); }} style={{ ...hBtn, fontSize: 15 }} data-tooltip="Call summary → tasks"><Phone size={15} strokeWidth={1.8} /></button>}
           <button onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(!showChat); setChatNotif(null); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} data-tooltip="Team chat"><MessageSquare size={16} strokeWidth={1.8} />{chatNotif && !showChat && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}`, animation: "claimPulse 1s ease infinite" }} />}</button>
           <button onClick={e => { e.stopPropagation(); setShowActivity(!showActivity); if (!showActivity) setLastSeenActivity(activityLog.length); }} style={{ ...hBtn, fontSize: 15, position: "relative" }} data-tooltip="Notifications"><Bell size={16} strokeWidth={1.8} />{unseen > 0 && <div style={{ position: "absolute", top: 6, right: 6, minWidth: 14, height: 14, borderRadius: 8, background: t.red, border: `2px solid ${t.bg}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, color: "#fff", fontWeight: 800 }}>{unseen > 9 ? "9+" : unseen}</div>}</button>
           <button onClick={e => { e.stopPropagation(); setShowSettings(v => !v); }} style={{ ...hBtn, fontSize: 15 }} data-tooltip="Notification settings"><SettingsIcon size={16} strokeWidth={1.8} /></button>
@@ -488,9 +514,22 @@ function ShellInner({
     </div>
   );
 
+  const mobileNavItems = ([
+    { id: "home", label: "Home", icon: <Home size={17} strokeWidth={1.9} />, action: () => router.push("/") },
+    { id: "my-tasks", label: "Tasks", icon: <ListTodo size={17} strokeWidth={1.9} />, action: () => router.push("/my-tasks") },
+    { id: "pipelines", label: "Pipes", icon: <Zap size={17} strokeWidth={1.9} />, action: () => router.push("/pipelines") },
+    { id: "bugs", label: "Bugs", icon: <Bug size={17} strokeWidth={1.9} />, action: () => router.push("/bugs") },
+    { id: "databases", label: "DBs", icon: <Table2 size={17} strokeWidth={1.9} />, action: () => router.push("/databases") },
+    { id: "links", label: "Links", icon: <Link2 size={17} strokeWidth={1.9} />, action: () => router.push("/links") },
+  ] satisfies { id: NavItem; label: string; icon: React.ReactNode; action: () => void }[]).filter(item => {
+    if (item.id === "bugs" && currentWorkspace?.hiddenTabs?.includes("bugs")) return false;
+    if (item.id === "databases" && currentWorkspace?.hiddenTabs?.includes("databases")) return false;
+    return true;
+  });
+
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setShowArchive(false); setShowChat(false); setShowActivity(false); setShowSettings(false); }}>
-      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{flex-wrap:wrap!important;gap:4px!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}}@media(max-width:640px){.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;gap:8px!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px ${t.accent}55,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 4px 32px ${t.accent}88,0 2px 12px rgba(0,0,0,0.4)}}@keyframes urgentPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}`}</style>
+      <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{width:100%!important;flex-wrap:nowrap!important;gap:6px!important;overflow-x:auto!important;padding-bottom:2px!important;-webkit-overflow-scrolling:touch}.bu-header-btns>*{flex:0 0 auto!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}.bu-mobile-nav{display:flex!important}}@media(max-width:640px){.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;align-items:stretch!important;gap:8px!important}.bu-header>div:first-child{min-width:0!important}.bu-header>div:first-child span+div+div span{display:none!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px ${t.accent}55,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 4px 32px ${t.accent}88,0 2px 12px rgba(0,0,0,0.4)}}@keyframes urgentPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}`}</style>
 
       <ChromeShell
         sidebar={sidebarNode}
@@ -503,7 +542,7 @@ function ShellInner({
         contentStyle={
           activeNavItem === "chat" && !isMobile
             ? { padding: 0, display: "flex", flexDirection: "column", minHeight: 0 }
-            : { padding: isMobile ? "0 12px 16px" : "0 20px 24px" }
+            : { padding: isMobile ? "0 10px 108px" : "0 20px 24px" }
         }
       >
         <AppShellProvider value={shellContextValue}>
@@ -516,6 +555,35 @@ function ShellInner({
         {/* Toasts */}
         {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent }}>{chatNotif.isClaim ? <Handshake size={16} /> : chatNotif.isReaction ? <Zap size={16} /> : chatNotif.isComment ? <MessageSquare size={16} /> : <Eye size={16} />}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, padding: 0, marginLeft: 4, display: "inline-flex", alignItems: "center" }}><X size={15} /></button></div>)}
       </ChromeShell>
+
+      {isMobile && (
+        <nav
+          className="bu-mobile-nav"
+          onClick={e => e.stopPropagation()}
+          style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 650, display: "none", alignItems: "center", justifyContent: "space-between", gap: 4, padding: "6px 7px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 18, boxShadow: "0 12px 36px rgba(0,0,0,0.22)", backdropFilter: "blur(14px)" }}
+          aria-label="Mobile navigation"
+        >
+          {mobileNavItems.map(item => {
+            const active = activeNavItem === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setShowActivity(false);
+                  setShowChat(false);
+                  setShowSettings(false);
+                  item.action();
+                }}
+                style={{ flex: "1 1 0", minWidth: 0, height: 50, border: `1px solid ${active ? t.accent + "55" : "transparent"}`, background: active ? t.accent + "18" : "transparent", color: active ? t.accent : t.textMuted, borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10, fontWeight: active ? 900 : 750, cursor: "pointer" }}
+              >
+                <span style={{ display: "inline-flex", alignItems: "center" }}>{item.icon}</span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{item.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {/* WORKSPACE MODALS */}
       {workspaceModal === "create" && <Suspense fallback={null}><CreateWorkspaceModal t={t} users={users} ck={ck} onClose={() => setWorkspaceModal(null)} onCreate={(name, icon, colorKey) => createWorkspace(name, icon, colorKey)} /></Suspense>}
@@ -536,14 +604,14 @@ function ShellInner({
       ) : null}
 
       {/* FABs */}
-      <button onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); }} data-tooltip="Team chat" style={{ position: "fixed", bottom: 88, right: 24, zIndex: 600, width: 48, height: 48, borderRadius: "50%", background: t.bgCard, border: `1px solid ${t.border}`, boxShadow: `0 2px 12px rgba(0,0,0,0.25)`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.text } as React.CSSProperties}><MessageSquare size={20} />{chatNotif && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}` }} />}</button>
-      <button onClick={e => { e.stopPropagation(); setChatDefaultTab("ai"); setShowChat(prev => !prev); }} data-tooltip={showChat && chatDefaultTab === "ai" ? "Close" : "Ask Binayah AI"} style={{ position: "fixed", bottom: 24, right: 24, zIndex: 600, width: 54, height: 54, borderRadius: "50%", background: (showChat && chatDefaultTab === "ai") ? t.surface : `linear-gradient(135deg, ${t.accent}, ${t.purple || t.accent})`, border: `1px solid ${(showChat && chatDefaultTab === "ai") ? t.border : "transparent"}`, boxShadow: (showChat && chatDefaultTab === "ai") ? "none" : `0 4px 24px ${t.accent}55`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: (showChat && chatDefaultTab === "ai") ? 20 : 22, transform: (showChat && chatDefaultTab === "ai") ? "scale(0.9) rotate(90deg)" : "scale(1)", animation: (showChat && chatDefaultTab === "ai") ? "none" : "fabPulse 3s ease-in-out infinite" }}>
+      {!isMobile && <button onClick={e => { e.stopPropagation(); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); }} data-tooltip="Team chat" style={{ position: "fixed", bottom: 88, right: 24, zIndex: 600, width: 48, height: 48, borderRadius: "50%", background: t.bgCard, border: `1px solid ${t.border}`, boxShadow: `0 2px 12px rgba(0,0,0,0.25)`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: t.text } as React.CSSProperties}><MessageSquare size={20} />{chatNotif && <div style={{ position: "absolute", top: 6, right: 6, width: 8, height: 8, borderRadius: "50%", background: t.accent, border: `2px solid ${t.bg}` }} />}</button>}
+      <button onClick={e => { e.stopPropagation(); setChatDefaultTab("ai"); setShowChat(prev => !prev); }} data-tooltip={showChat && chatDefaultTab === "ai" ? "Close" : "Ask Binayah AI"} style={{ position: "fixed", bottom: isMobile ? 82 : 24, right: isMobile ? 14 : 24, zIndex: 600, width: isMobile ? 48 : 54, height: isMobile ? 48 : 54, borderRadius: "50%", background: (showChat && chatDefaultTab === "ai") ? t.surface : `linear-gradient(135deg, ${t.accent}, ${t.purple || t.accent})`, border: `1px solid ${(showChat && chatDefaultTab === "ai") ? t.border : "transparent"}`, boxShadow: (showChat && chatDefaultTab === "ai") ? "none" : `0 4px 24px ${t.accent}55`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: (showChat && chatDefaultTab === "ai") ? 20 : 22, transform: (showChat && chatDefaultTab === "ai") ? "scale(0.9) rotate(90deg)" : "scale(1)", animation: (showChat && chatDefaultTab === "ai") ? "none" : "fabPulse 3s ease-in-out infinite" }}>
         <span style={{ color: "#fff", display: "inline-flex", alignItems: "center" }}>{(showChat && chatDefaultTab === "ai") ? <X size={20} /> : <Bot size={22} />}</span>
       </button>
 
       {/* Archive FAB + panel — operators only */}
-      {!isMobile && currentUser && (ADMIN_IDS.includes(currentUser) || workspaces.some(w => w.captains.includes(currentUser))) && (<button onClick={e => { e.stopPropagation(); setShowArchive(v => !v); }} data-tooltip="Archive" style={{ position: "fixed", bottom: 28, left: 28, width: 44, height: 44, borderRadius: "50%", background: showArchive ? t.amber + "22" : t.bgCard, border: `2px solid ${showArchive ? t.amber : t.border}`, color: showArchive ? t.amber : t.textMuted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.15)", zIndex: 500 }}>📦</button>)}
-      {showArchive && (<div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 80, left: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16 }}><ArchiveView /></div>)}
+      {!isMobile && currentUser && (ADMIN_IDS.includes(currentUser) || workspaces.some(w => w.captains.includes(currentUser))) && (<button onClick={e => { e.stopPropagation(); setShowArchive(v => !v); }} data-tooltip="Archive" style={{ position: "fixed", bottom: 70, left: 28, width: 44, height: 44, borderRadius: "50%", background: showArchive ? t.amber + "22" : t.bgCard, border: `2px solid ${showArchive ? t.amber : t.border}`, color: showArchive ? t.amber : t.textMuted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 12px rgba(0,0,0,0.15)", zIndex: 500 }}>📦</button>)}
+      {showArchive && (<div onClick={e => e.stopPropagation()} style={{ position: "fixed", bottom: 122, left: 28, width: 340, maxHeight: "60vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499, padding: 16 }}><ArchiveView /></div>)}
 
       {/* Activity (notification bell) panel — desktop only; mobile uses BottomSheet.
           Renders regardless of route so the bell works as a quick-peek widget
@@ -582,34 +650,47 @@ function ShellInner({
       )}
 
       {/* Search Palette */}
-      <SearchPalette t={t} open={showPalette} onClose={() => setShowPalette(false)} onOpenStage={handlePaletteOpenStage} onOpenDocument={handlePaletteOpenDocument} onOpenPerson={handlePaletteOpenPerson} />
+      {showPalette && (
+        <SearchPalette
+          t={t}
+          open={showPalette}
+          onClose={() => setShowPalette(false)}
+          onOpenStage={handlePaletteOpenStage}
+          onOpenDocument={handlePaletteOpenDocument}
+          onOpenPerson={handlePaletteOpenPerson}
+        />
+      )}
 
       {/* Welcome Modal */}
       {showWelcome && initialUserId && me && (<WelcomeModal user={me} t={t} themeId={themeId} setThemeId={setThemeId} isDark={isDark} setIsDark={setIsDark} onDismiss={handleWelcomeDismiss} />)}
 
-      <CallSummaryModal
-        open={showCallSummary}
-        onClose={() => setShowCallSummary(false)}
-        t={t}
-        pipelines={allPipelinesGlobal.map(p => ({
-          id: p.id,
-          name: p.name,
-          icon: p.icon,
-          stages: [...p.stages, ...(customStages[p.id] ?? [])],
-        }))}
-        onAddTask={(pipelineId, stageName) => {
-          addCustomStage(pipelineId, stageName);
-          showToast(`// stage added to pipeline`, t.green);
-        }}
-      />
+      {showCallSummary && (
+        <CallSummaryModal
+          open={showCallSummary}
+          onClose={() => setShowCallSummary(false)}
+          t={t}
+          pipelines={allPipelinesGlobal.map(p => ({
+            id: p.id,
+            name: p.name,
+            icon: p.icon,
+            stages: [...p.stages, ...(customStages[p.id] ?? [])],
+          }))}
+          onAddTask={(pipelineId, stageName) => {
+            addCustomStage(pipelineId, stageName);
+            showToast(`// stage added to pipeline`, t.green);
+          }}
+        />
+      )}
 
-      <QuickAddModal
-        open={showQuickAdd}
-        onClose={() => setShowQuickAdd(false)}
-        t={t}
-        pipelines={allPipelines.map(p => ({ id: p.id, name: p.name, icon: p.icon }))}
-        onAdd={(pid, title) => { addCustomStage(pid, title); showToast(`// ${title} added`, t.green); }}
-      />
+      {showQuickAdd && (
+        <QuickAddModal
+          open={showQuickAdd}
+          onClose={() => setShowQuickAdd(false)}
+          t={t}
+          pipelines={allPipelines.map(p => ({ id: p.id, name: p.name, icon: p.icon }))}
+          onAdd={(pid, title) => { addCustomStage(pid, title); showToast(`// ${title} added`, t.green); }}
+        />
+      )}
 
       {/* While You Were Away Digest */}
       {showDigest && currentUser && me && !showWelcome && (
