@@ -18,6 +18,10 @@ const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false }
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 type AttentionTone = "accent" | "green" | "amber" | "red" | "cyan";
 
+function isDefaultParentStageId(stageId: string) {
+  return stageId.startsWith("default-parent-");
+}
+
 
 function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   item: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string };
@@ -497,8 +501,8 @@ export default function HomeView({
 }: Props) {
   const {
     claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
-    owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, activityLog, chatMessages,
-    archivedSubtasks,
+    owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, stageNameOverrides, activityLog, chatMessages,
+    archivedStages, archivedSubtasks,
     reminders, addReminder, dismissReminder,
     getStatus, ck, approveStage, approveSubtask, assignTask,
     execProposals, addExecProposal, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
@@ -567,9 +571,34 @@ export default function HomeView({
     const visiblePipelineIds = new Set(visiblePipelines.map(p => p.id));
     const visibleStageIds = new Set<string>();
     const stageToPipeline = new Map<string, Pipeline>();
+    const archivedStageSet = new Set(archivedStages || []);
     const archivedSubtaskSet = new Set(archivedSubtasks || []);
+    const normalizeArchiveKey = (value?: string | null) =>
+      (value || "")
+        .toLowerCase()
+        .replace(/[_\s]+/g, " ")
+        .replace(/[^a-z0-9]+/g, "")
+        .trim();
+    const archivedStageNorms = new Set<string>();
+    archivedStageSet.forEach(stageId => {
+      archivedStageNorms.add(normalizeArchiveKey(stageId));
+      archivedStageNorms.add(normalizeArchiveKey(stageNameOverrides[stageId] || stageId));
+    });
+    activityLog.forEach(entry => {
+      if (entry.type !== "archive") return;
+      archivedStageNorms.add(normalizeArchiveKey(entry.target));
+      archivedStageNorms.add(normalizeArchiveKey(stageNameOverrides[entry.target] || entry.target));
+    });
+    const isArchivedStageId = (stageId: string) => {
+      const label = stageNameOverrides[stageId] || stageId;
+      return archivedStageSet.has(stageId) ||
+        archivedStageSet.has(label) ||
+        archivedStageNorms.has(normalizeArchiveKey(stageId)) ||
+        archivedStageNorms.has(normalizeArchiveKey(label));
+    };
     for (const p of visiblePipelines) {
       for (const stage of [...p.stages, ...(customStages[p.id] || [])]) {
+        if (isArchivedStageId(stage)) continue;
         visibleStageIds.add(stage);
         stageToPipeline.set(stage, p);
       }
@@ -589,6 +618,7 @@ export default function HomeView({
     const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : isExec ? "exec" : "agent";
 
     const stageItems = Array.from(visibleStageIds).map(stageId => {
+      if (isDefaultParentStageId(stageId) || isArchivedStageId(stageId)) return null;
       const pipeline = stageToPipeline.get(stageId);
       const priority = pipeline ? pipeMetaOverrides[pipeline.id]?.priority : undefined;
       return {
@@ -603,7 +633,7 @@ export default function HomeView({
         kind: "task" as const,
         approved: approvedStages.includes(stageId),
       };
-    });
+    }).filter((item): item is NonNullable<typeof item> => item !== null);
     const subtaskItems = Object.entries(subtasks || {}).flatMap(([parentStageId, list]) => {
       if (!visibleStageIds.has(parentStageId)) return [];
       const parent = stageToPipeline.get(parentStageId);
@@ -626,7 +656,10 @@ export default function HomeView({
         };
       });
     });
-    const allItems = [...stageItems, ...subtaskItems].filter(item => item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId));
+    const allItems = [...stageItems, ...subtaskItems].filter(item =>
+      (item.pipelineId === "" || visiblePipelineIds.has(item.pipelineId)) &&
+      item.status !== "concept"
+    );
     const myItems = allItems.filter(item => item.owners.includes(currentUser));
     // Scope activity to the current workspace — entries carry a workspaceId since the
     // per-key server merge refactor. Legacy entries without workspaceId are allowed through
@@ -651,8 +684,9 @@ export default function HomeView({
       item.status !== "blocked"
     );
     const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : (priority === "MED" || priority === "MEDIUM") ? 2 : 3;
+    const assignableStatus = (status: string) => status === "planned" || status === "in-progress";
     const unownedItems = allItems
-      .filter(item => item.owners.length === 0 && item.status !== "active")
+      .filter(item => item.owners.length === 0 && assignableStatus(item.status))
       .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
     const firstName = me.name.split(" ")[0].toLowerCase();
     const mentionNeedles = [`@${firstName}`, `@${currentUser.toLowerCase()}`];
@@ -933,8 +967,8 @@ export default function HomeView({
       })),
     };
   }, [
-    activityLog, approvedPipelines, approvedStages, approvedSubtasks, assignments, chatMessages, claims, comments, currentUser,
-    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, subtaskDueDates,
+    activityLog, approvedPipelines, approvedStages, approvedSubtasks, archivedStages, archivedSubtasks, assignments, chatMessages, claims, comments, currentUser,
+    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, stageNameOverrides, subtaskDueDates,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
 
