@@ -196,7 +196,7 @@ interface ModelContextValue {
   approveStage: (name: string) => void;
   approveSubtask: (key: string) => void;
   addCustomStage: (pid: string, val: string) => void;
-  addCustomPipeline: (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }) => string | null;
+  addCustomPipeline: (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }, workspaceId?: string) => string | null;
   addUnparentedStage: (title: string) => Promise<string | null>;
   moveStageToPipeline: (stageName: string, fromPid: string, toPid: string) => void;
   cyclePriority: (pid: string, cur: string) => void;
@@ -2056,15 +2056,19 @@ export function ModelProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const addCustomPipeline = (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }): string | null => {
+  const addCustomPipeline = (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }, workspaceId?: string): string | null => {
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
+    const targetWorkspaceId = workspaceId || currentWorkspaceId;
     markLocalWrite("customPipelines");
     setCustomPipelines(prev => [...prev, { ...form, id, points: 0, stages: [] }]);
-    if (currentWorkspaceId) {
+    if (targetWorkspaceId) {
       markLocalWrite("workspaces");
-      setWorkspaces(prev => prev.map(w => w.id === currentWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
+      setWorkspaces(prev => prev.map(w => w.id === targetWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
     }
+    // Custom pipelines must hit the server before polling can merge an older
+    // snapshot back over the optimistic local state.
+    setTimeout(() => writeNowRef.current?.(), 0);
     return id;
   };
 

@@ -138,7 +138,7 @@ export default function PipelinesView({
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const addCustomStageLocal = (pid: string) => { const val = newStageInput[pid]?.trim(); if (!val) return; addCustomStage(pid, val); setNewStageInput(prev => ({ ...prev, [pid]: "" })); };
-  const addCustomPipelineLocal = () => { if (!newPipeForm.name.trim()) return; const id = addCustomPipeline(newPipeForm); if (id) { setNewPipeForm({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" }); setAddingPipeline(false); setExpanded(prev => [...prev, id]); } };
+  const addCustomPipelineLocal = () => { if (!newPipeForm.name.trim()) return; const id = addCustomPipeline(newPipeForm, currentWorkspaceId ?? undefined); if (id) { setNewPipeForm({ name: "", desc: "", icon: "🔧", colorKey: "blue", priority: "MEDIUM" }); setAddingPipeline(false); setExpanded(prev => [...prev, id]); } };
 
   // Top claim stage
   const topClaimStageName = (() => {
