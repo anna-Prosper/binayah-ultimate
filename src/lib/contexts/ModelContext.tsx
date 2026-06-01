@@ -1027,7 +1027,7 @@ export function ModelProvider({
       for (const seed of NOTION_DB_SEEDS) {
         const seedName = normalize(seed.name);
         const possibleNames = new Set([seedName, ...(seedAliases[seedName] || [])]);
-        let existingIndex = next.findIndex(db => possibleNames.has(normalize(db.name)));
+        const existingIndex = next.findIndex(db => possibleNames.has(normalize(db.name)));
         const baseDb: WorkspaceDb = existingIndex >= 0 ? next[existingIndex] : {
           id: seed.idBase,
           workspaceId: propertyWorkspaceId,
@@ -2060,11 +2060,20 @@ export function ModelProvider({
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
     const targetWorkspaceId = workspaceId || currentWorkspaceId;
+    const pipeline = { ...form, id, points: 0, stages: [] };
     markLocalWrite("customPipelines");
-    setCustomPipelines(prev => [...prev, { ...form, id, points: 0, stages: [] }]);
+    setCustomPipelines(prev => {
+      const next = [...prev, pipeline];
+      lsSet("customPipelines", next);
+      return next;
+    });
     if (targetWorkspaceId) {
       markLocalWrite("workspaces");
-      setWorkspaces(prev => prev.map(w => w.id === targetWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
+      setWorkspaces(prev => {
+        const next = prev.map(w => w.id === targetWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w);
+        lsSet("workspaces", next);
+        return next;
+      });
     }
     // Custom pipelines must hit the server before polling can merge an older
     // snapshot back over the optimistic local state.
