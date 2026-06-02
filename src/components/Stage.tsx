@@ -115,6 +115,12 @@ function StageSubtaskCard({
     setCopied(k); setTimeout(() => setCopied(null), 2000);
   };
 
+  const copyComment = (commentId: number, text: string) => {
+    const copyKey = `comment:${key}:${commentId}`;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(copyKey); setTimeout(() => setCopied(null), 2000);
+  };
+
   const handleSubtaskCommentInputChange = useCallback((val: string) => {
     setCommentInputVal(val);
     const mention = detectMention(val);
@@ -365,7 +371,24 @@ function StageSubtaskCard({
         <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 10, padding: 8 }}>
           {cmts.length > 0 && (
             <div style={{ maxHeight: 100, overflowY: "auto", marginBottom: 6, display: "flex", flexDirection: "column", gap: 4 }}>
-              {cmts.slice(-4).map(c => { const u = resolveCommentUser(users, c.by); return <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}><AvatarC user={u} size={14} /><div style={{ flex: 1 }}><span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name} </span><span style={{ fontSize: 12, color: t.text }}>{c.text}</span></div></div>; })}
+              {cmts.slice(-4).map(c => {
+                const u = resolveCommentUser(users, c.by);
+                const copyKey = `comment:${key}:${c.id}`;
+                return (
+                  <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
+                    <AvatarC user={u} size={14} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name}</span>
+                        <button type="button" onClick={() => copyComment(c.id, c.text)} title="Copy comment" style={{ marginLeft: "auto", background: "transparent", border: "none", color: copied === copyKey ? t.green : t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", display: "inline-flex", alignItems: "center", gap: 3, padding: 0 }}>
+                          {copied === copyKey ? <><Check size={10} /> copied</> : <><Clipboard size={10} /> copy</>}
+                        </button>
+                      </div>
+                      <div style={{ fontSize: 12, color: t.text, lineHeight: 1.35 }}>{c.text}</div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           )}
           <div style={{ position: "relative" }}>
@@ -595,6 +618,12 @@ export default function Stage({
   const shareStage = (stageName: string, text: string) => {
     navigator.clipboard?.writeText(text).catch(() => {});
     setCopied(stageName); setTimeout(() => setCopied(null), 2000);
+  };
+
+  const copyComment = (commentId: number, text: string) => {
+    const copyKey = `comment:${name}:${commentId}`;
+    navigator.clipboard?.writeText(text).catch(() => {});
+    setCopied(copyKey); setTimeout(() => setCopied(null), 2000);
   };
 
   // Fallback for custom stages not in stageDefaults
@@ -1057,6 +1086,7 @@ export default function Stage({
                               const isFirstUnseen = seenAtMount !== undefined && c.id > seenAtMount && (idx === 0 || cmts[idx - 1].id <= seenAtMount);
                               const cRxs = getCommentReactions(c.id);
                               const cRxEntries = Object.entries(cRxs).filter(([, arr]) => arr.length > 0);
+                              const copyKey = `comment:${name}:${c.id}`;
                               return (
                                 <div key={c.id} style={{ marginBottom: 6, opacity: c.pending ? 0.55 : 1, transition: "opacity 0.2s" }}>
                                   {isFirstUnseen && (
@@ -1072,13 +1102,16 @@ export default function Stage({
 	                                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                                        <span style={{ fontSize: 11, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                                        <span style={{ fontSize: 11, color: t.textDim }}>{c.time}</span>
+	                                        <button type="button" onClick={() => copyComment(c.id, c.text)} title="Copy comment" style={{ marginLeft: "auto", background: "transparent", border: "none", color: copied === copyKey ? t.green : t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace", display: "inline-flex", alignItems: "center", gap: 3 }}>
+	                                          {copied === copyKey ? <><Check size={10} /> copied</> : <><Clipboard size={10} /> copy</>}
+	                                        </button>
 	                                        {c.by === currentUser && (
 	                                          <>
-	                                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
+	                                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
 	                                            <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
 	                                          </>
 	                                        )}
-	                                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 10, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                                      </div>
                                       {editingCommentId === c.id ? (
                                         <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
@@ -1389,20 +1422,23 @@ export default function Stage({
             <div style={{ padding: "12px 16px" }}>
               <div style={{ fontSize: 11, color: t.textDim, letterSpacing: 0.5, textTransform: "uppercase", marginBottom: 8, fontWeight: 600 }}>comments {cmts.length > 0 && `(${cmts.length})`}</div>
               <div style={{ maxHeight: 200, overflowY: "auto", marginBottom: 8 }}>
-                {cmts.map(c => { const u = resolveCommentUser(users, c.by); return (
+                {cmts.map(c => { const u = resolveCommentUser(users, c.by); const copyKey = `comment:${name}:${c.id}`; return (
                   <div key={c.id} style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                     <AvatarC user={u} size={22} />
                     <div style={{ flex: 1 }}>
 	                      <div style={{ display: "flex", gap: 4, alignItems: "baseline" }}>
 	                        <span style={{ fontSize: 13, fontWeight: 700, color: u.color }}>{u.name}</span>
 	                        <span style={{ fontSize: 12, color: t.textDim }}>{c.time}</span>
+	                        <button type="button" onClick={() => copyComment(c.id, c.text)} title="Copy comment" style={{ marginLeft: "auto", background: "transparent", border: "none", color: copied === copyKey ? t.green : t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace", display: "inline-flex", alignItems: "center", gap: 3 }}>
+	                          {copied === copyKey ? <><Check size={11} /> copied</> : <><Clipboard size={11} /> copy</>}
+	                        </button>
 	                        {c.by === currentUser && (
 	                          <>
-	                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
+	                            <button type="button" onClick={() => { setEditingCommentId(c.id); setEditingCommentVal(c.text); }} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
 	                            <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
 	                          </>
 	                        )}
-	                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ marginLeft: "auto", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
+	                        {c.by !== currentUser && ADMIN_IDS.includes(currentUser!) && <button type="button" onClick={() => deleteComment(name, c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>}
 	                      </div>
                       {editingCommentId === c.id ? (
                         <div style={{ display: "flex", gap: 4, marginTop: 4 }}>
