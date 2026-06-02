@@ -81,7 +81,7 @@ export async function GET(req: NextRequest) {
         rows: rows.map(r => ({
           eventType: r.eventType,
           detail: r.detail,
-          stageName: r.stageKey,
+          stageName: r.stageName || r.stageKey,
           pipelineName: r.pipelineName,
           workspaceName: r.workspaceName,
           actorName: r.actorName,

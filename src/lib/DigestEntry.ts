@@ -12,6 +12,7 @@ export interface IDigestEntry extends Document {
   recipientId: string;       // fixedUserId
   eventType: string;
   stageKey: string;
+  stageName?: string;
   pipelineName: string;
   workspaceName: string;
   actorName: string;
@@ -24,6 +25,7 @@ const DigestEntrySchema = new Schema<IDigestEntry>({
   recipientId: { type: String, required: true, index: true },
   eventType: { type: String, required: true },
   stageKey: { type: String, required: true },
+  stageName: { type: String, default: "" },
   pipelineName: { type: String, default: "" },
   workspaceName: { type: String, default: "" },
   actorName: { type: String, default: "" },

@@ -11,6 +11,7 @@ import { sendNotifications } from "@/lib/sendNotifications";
 import { getServerSession } from "next-auth/next";
 import { authOptions, isRootAdminFromSession } from "@/lib/auth";
 import { chatBus } from "@/lib/chatBus";
+import { SubtaskKey } from "@/lib/subtaskKey";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -468,11 +469,18 @@ export async function PATCH(req: NextRequest) {
 
     // Pipeline-level lookup helper
     function resolveStageContext(stageKey: string) {
-      const pipelineId = stageToP.get(stageKey);
+      const parsedSubtask = SubtaskKey.parse(stageKey as Parameters<typeof SubtaskKey.parse>[0]);
+      const parentStageKey = parsedSubtask?.parentStageId ?? stageKey;
+      const pipelineId = stageToP.get(parentStageKey);
       const pipeline = pipelineData.find(p => p.id === pipelineId);
-      const pipelineName = pipeline?.name ?? pipelineId ?? stageKey;
+      const pipelineName = pipeline?.name ?? pipelineId ?? parentStageKey;
       const ws = pipelineId ? pipelineToWs.get(pipelineId) : undefined;
+      const displayStageName = parsedSubtask
+        ? (postSubtasks[parentStageKey] ?? []).find(s => s.id === parsedSubtask.subtaskId)?.text ?? stageKey
+        : stageKey;
       return {
+        displayStageName,
+        parentStageKey,
         pipelineName,
         workspaceId: ws?.id ?? "",
         workspaceName: ws?.name ?? "",
@@ -500,6 +508,7 @@ export async function PATCH(req: NextRequest) {
         void sendNotifications({
           eventType,
           stageKey,
+          displayStageName: ctx.displayStageName,
           pipelineName: ctx.pipelineName,
           workspaceId: ctx.workspaceId,
           workspaceName: ctx.workspaceName,
@@ -508,10 +517,10 @@ export async function PATCH(req: NextRequest) {
           claimers: postOwners[stageKey] ?? [],
           assignees: postOwners[stageKey] ?? [],
           newlyAssigned: eventType === "assigned" ? added : undefined,
-          points: stageDefaults[stageKey]?.points ?? 10,
+          points: stageDefaults[ctx.parentStageKey]?.points ?? 10,
           detail: eventType === "assigned"
-            ? `${actorUserId} assigned ${added.join(", ")} to ${stageKey}`
-            : `${actorUserId} claimed ${stageKey}`,
+            ? `${actorUserId} assigned ${added.join(", ")} to ${ctx.displayStageName}`
+            : `${actorUserId} claimed ${ctx.displayStageName}`,
         });
       }
     }
@@ -529,6 +538,7 @@ export async function PATCH(req: NextRequest) {
         void sendNotifications({
           eventType,
           stageKey,
+          displayStageName: ctx.displayStageName,
           pipelineName: ctx.pipelineName,
           workspaceId: ctx.workspaceId,
           workspaceName: ctx.workspaceName,
@@ -536,8 +546,8 @@ export async function PATCH(req: NextRequest) {
           actorId: actorUserId,
           claimers: postOwners[stageKey] ?? [],
           assignees: postOwners[stageKey] ?? [],
-          points: stageDefaults[stageKey]?.points ?? 10,
-          detail: `${stageKey}: ${prev} → ${newStatus}`,
+          points: stageDefaults[ctx.parentStageKey]?.points ?? 10,
+          detail: `${ctx.displayStageName}: ${prev} → ${newStatus}`,
         });
       }
     }
@@ -551,6 +561,7 @@ export async function PATCH(req: NextRequest) {
         void sendNotifications({
           eventType: "approved",
           stageKey,
+          displayStageName: ctx.displayStageName,
           pipelineName: ctx.pipelineName,
           workspaceId: ctx.workspaceId,
           workspaceName: ctx.workspaceName,
@@ -558,8 +569,8 @@ export async function PATCH(req: NextRequest) {
           actorId: actorUserId,
           claimers: postOwners[stageKey] ?? [],
           assignees: postOwners[stageKey] ?? [],
-          points: stageDefaults[stageKey]?.points ?? 10,
-          detail: `${stageKey} approved (+${stageDefaults[stageKey]?.points ?? 10}pts)`,
+          points: stageDefaults[ctx.parentStageKey]?.points ?? 10,
+          detail: `${ctx.displayStageName} approved (+${stageDefaults[ctx.parentStageKey]?.points ?? 10}pts)`,
         });
       }
     }
@@ -604,6 +615,7 @@ export async function PATCH(req: NextRequest) {
         void sendNotifications({
           eventType: "subtask_approved",
           stageKey: subKey,
+          displayStageName: subText,
           pipelineName: ctx.pipelineName,
           workspaceId: ctx.workspaceId,
           workspaceName: ctx.workspaceName,

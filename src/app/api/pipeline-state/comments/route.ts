@@ -9,6 +9,7 @@ import { authOptions } from "@/lib/auth";
 import { parseMentions } from "@/lib/mentions";
 import { sendNotifications } from "@/lib/sendNotifications";
 import { ADMIN_IDS, pipelineData, stageDefaults } from "@/lib/data";
+import { SubtaskKey } from "@/lib/subtaskKey";
 
 export const dynamic = "force-dynamic";
 const WORKSPACE = { workspaceId: "main" };
@@ -104,19 +105,28 @@ export async function POST(req: NextRequest) {
       const postWorkspaces = (postState.workspaces as Array<{
         id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[];
       }> | undefined) ?? [];
-      // Resolve workspace for this stage
+      // Resolve workspace for this task. If the comment is on a subtask, route
+      // through the parent stage but display the subtask text to humans.
       const stageToP = new Map<string, string>();
       for (const p of pipelineData) for (const s of p.stages) stageToP.set(s, p.id);
       const customStages = (postState.customStages as Record<string, string[]> | undefined) ?? {};
       for (const [pid, stages] of Object.entries(customStages)) for (const s of stages) stageToP.set(s, pid);
-      const pipelineId = stageToP.get(stageKey);
+      const customPipelines = (postState.customPipelines as Array<{ id: string; name: string }> | undefined) ?? [];
+      const parsedSubtask = SubtaskKey.parse(stageKey as Parameters<typeof SubtaskKey.parse>[0]);
+      const parentStageKey = parsedSubtask?.parentStageId ?? stageKey;
+      const pipelineId = stageToP.get(parentStageKey);
       const pipeline = pipelineData.find(p => p.id === pipelineId);
+      const customPipeline = customPipelines.find(p => p.id === pipelineId);
       const ws = postWorkspaces.find(w => pipelineId && w.pipelineIds.includes(pipelineId));
+      const displayStageName = parsedSubtask
+        ? (postState.subtasks as Record<string, Array<{ id: number; text: string }>> | undefined)?.[parsedSubtask.parentStageId]?.find(s => s.id === parsedSubtask.subtaskId)?.text || stageKey
+        : stageKey;
       const mentioned = parseMentions(commentText);
       void sendNotifications({
         eventType: mentioned.length > 0 ? "mentioned" : "commented",
         stageKey,
-        pipelineName: pipeline?.name ?? pipelineId ?? stageKey,
+        displayStageName,
+        pipelineName: pipeline?.name ?? customPipeline?.name ?? pipelineId ?? parentStageKey,
         workspaceId: ws?.id ?? "",
         workspaceName: ws?.name ?? "",
         workspaces: postWorkspaces,
@@ -124,8 +134,8 @@ export async function POST(req: NextRequest) {
         claimers: stageOwners,
         assignees: stageOwners,
         mentioned,
-        points: stageDefaults[stageKey]?.points ?? 0,
-        detail: `${authoredUser} commented on ${stageKey}: "${commentText.slice(0, 80)}"`,
+        points: stageDefaults[parentStageKey]?.points ?? 0,
+        detail: `${authoredUser} commented on ${displayStageName}: "${commentText.slice(0, 80)}"`,
         commentText,
       });
     } catch (e) {

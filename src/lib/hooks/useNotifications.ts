@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { ADMIN_IDS } from "@/lib/data";
 import type { NotificationItem } from "@/lib/notificationKinds";
+import { SubtaskKey } from "@/lib/subtaskKey";
 
 const DAY = 86_400_000;
 type InAppPrefs = {
@@ -83,7 +84,7 @@ export function useNotifications() {
   const {
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
-    stageDueDates, activityLog, comments, chatMessages, users,
+    stageDueDates, activityLog, comments, chatMessages, users, subtasks,
     notifReads, notifDismissed, notifReadIds,
   } = m;
 
@@ -139,8 +140,18 @@ export function useNotifications() {
     const ar: NotificationItem[] = [];
     const up: NotificationItem[] = [];
     const userName = (id: string) => users.find(u => u.id === id)?.name || id;
+    const parentStageFor = (key: string) => {
+      if (!SubtaskKey.isValid(key)) return key;
+      return SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])?.parentStageId ?? key;
+    };
+    const itemTitle = (key: string) => {
+      if (!SubtaskKey.isValid(key)) return key;
+      const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
+      if (!parsed) return key;
+      return (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text || key;
+    };
     const stageHref = (s: string) => {
-      const pid = stageToPipeline.get(s);
+      const pid = stageToPipeline.get(parentStageFor(s));
       return pid ? `/pipelines/${pid}` : "/pipelines";
     };
 
@@ -308,9 +319,9 @@ export function useNotifications() {
         if (c.by === me) continue;
         const t = Date.parse(c.time) || c.id;
         up.push({
-          id: `comment:${stage}:${c.id}`, kind: "comment", title: stage,
+          id: `comment:${stage}:${c.id}`, kind: "comment", title: itemTitle(stage),
           body: `${userName(c.by)}: ${c.text.slice(0, 100)}`,
-          stage, pipelineId: stageToPipeline.get(stage), href: stageHref(stage),
+          stage, pipelineId: stageToPipeline.get(parentStageFor(stage)), href: stageHref(stage),
           time: t, priority: "medium", actionRequired: false,
         });
       }
@@ -326,7 +337,7 @@ export function useNotifications() {
         up.push({
           id: `mention:comment:${stage}:${c.id}`, kind: "mention",
           title: `${userName(c.by)} mentioned you`, body: c.text.slice(0, 140),
-          stage, pipelineId: stageToPipeline.get(stage), href: stageHref(stage),
+          stage, pipelineId: stageToPipeline.get(parentStageFor(stage)), href: stageHref(stage),
           time: t, priority: "high", actionRequired: false,
         });
       }
@@ -422,7 +433,7 @@ export function useNotifications() {
   }, [
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
-    stageDueDates, activityLog, comments, chatMessages, users,
+    stageDueDates, activityLog, comments, chatMessages, users, subtasks,
     notifReads, notifDismissed, notifReadIds,
     now, prefs,
   ]);

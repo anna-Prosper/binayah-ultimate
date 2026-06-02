@@ -37,6 +37,8 @@ import DigestEntry from "@/lib/DigestEntry";
 export interface NotifyOpts {
   eventType: EventType;
   stageKey: string;
+  /** Human-readable item label. For subtasks this should be the subtask text, not the parent stage key. */
+  displayStageName?: string;
   pipelineName: string;
   workspaceId: string;
   workspaceName: string;
@@ -136,6 +138,7 @@ function renderEmail(
 export async function sendNotifications(opts: NotifyOpts): Promise<void> {
   const appUrl = process.env.DASHBOARD_URL ?? process.env.NEXTAUTH_URL ?? "https://dashboard-gamification.vercel.app";
   const actorDisplay = opts.actorName ?? resolveDisplayName(opts.actorId);
+  const displayStageName = opts.displayStageName || opts.stageKey;
 
   try { await connectMongo(); } catch (err) {
     console.error("[notify] MongoDB connect failed:", (err as Error).message);
@@ -164,7 +167,7 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
       if (!(await checkNotifyRateLimit(fixedUserId, opts.stageKey, opts.eventType))) continue;
 
       const tmpl = renderEmail(opts.eventType, {
-        stageName: opts.stageKey,
+        stageName: displayStageName,
         pipelineName: opts.pipelineName,
         actorName: actorDisplay,
         appUrl,
@@ -198,10 +201,11 @@ export async function sendNotifications(opts: NotifyOpts): Promise<void> {
         recipientId: fixedUserId,
         eventType: opts.eventType,
         stageKey: opts.stageKey,
+        stageName: displayStageName,
         pipelineName: opts.pipelineName,
         workspaceName: opts.workspaceName,
         actorName: actorDisplay,
-        detail: opts.detail || `${actorDisplay}: ${opts.eventType} on ${opts.stageKey}`,
+        detail: opts.detail || `${actorDisplay}: ${opts.eventType} on ${displayStageName}`,
         points: opts.points ?? 0,
       });
     } catch (err) {
