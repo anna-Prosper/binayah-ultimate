@@ -17,6 +17,7 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
+import { displayStageName } from "@/lib/displayLabels";
 import { deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
@@ -1954,8 +1955,8 @@ export function ModelProvider({
 
   const archiveStage = (sid: string) => {
     if (archivedStages.includes(sid)) return;
-    if (requestInsteadOfMutate("archive", sid, "archive task", `Archive "${stageNameOverrides[sid] || sid}".`)) return;
-    const label = `archived "${stageNameOverrides[sid] || sid}"`;
+    if (requestInsteadOfMutate("archive", sid, "archive task", `Archive "${displayStageName(sid, stageNameOverrides)}".`)) return;
+    const label = `archived "${displayStageName(sid, stageNameOverrides)}"`;
     const op = undoStack.push({
       label,
       inverse: () => { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); },
@@ -1975,7 +1976,7 @@ export function ModelProvider({
       onClick: () => { undoStack.removeById(op.id); { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; },
     });
   };
-  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => Array.from(new Set(prev)).filter(s => s !== sid)); }; showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
+  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => Array.from(new Set(prev)).filter(s => s !== sid)); }; showToast(`restored: ${displayStageName(sid, stageNameOverrides)}`, t.green); };
   const archivePipeline = (pid: string) => {
     if (archivedPipelines.includes(pid)) return;
     const label = `archived pipeline "${pid}"`;
@@ -2020,7 +2021,7 @@ export function ModelProvider({
     stateMirrorRef.current.stageDescOverrides = { ...stateMirrorRef.current.stageDescOverrides, [name]: val };
     markLocalWrite("stageDescOverrides");
     setStageDescOverrides(prev => ({ ...prev, [name]: val }));
-    notifyDescriptionMentions(name, val, previous, stageNameOverrides[name] || name);
+    notifyDescriptionMentions(name, val, previous, displayStageName(name, stageNameOverrides));
   };
   const setStageDueDate = (name: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
@@ -2768,7 +2769,7 @@ export function useStage(stageId: string) {
     subtasks: subtasks[stageId] || [],
     status: stageStatusOverrides?.[stageId],
     desc: stageDescOverrides?.[stageId],
-    displayName: stageNameOverrides?.[stageId] || stageId,
+    displayName: displayStageName(stageId, stageNameOverrides),
     assignedTo: assignments[stageId] || [],
   }), [claims, reactions, comments, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, assignments, stageId]);
 }

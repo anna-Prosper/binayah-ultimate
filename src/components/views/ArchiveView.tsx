@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
+import { displayStageName } from "@/lib/displayLabels";
 import { CheckCircle2, Archive } from "lucide-react";
 
 export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }) {
@@ -34,7 +35,7 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
     return {
       key,
       parentStageId,
-      parentStageName: stageNameOverrides[parentStageId] || parentStageId || "(unknown)",
+      parentStageName: parentStageId ? displayStageName(parentStageId, stageNameOverrides) : "(unknown)",
       text: sub?.text || "(text unavailable)",
     };
   });
@@ -56,13 +57,13 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
       const done = (items as { id: number; text: string; done: boolean; by: string }[]).filter(s => s.done);
       if (done.length === 0) continue;
       const pipeline = allPipelinesGlobal.find(p => p.stages?.includes(stageId));
-      const stageName = stageNameOverrides[stageId] || stageId;
+      const stageName = displayStageName(stageId, stageNameOverrides);
       done.forEach(d => push(pipeline?.id, stageName, { id: d.id, text: d.text, by: d.by, kind: "subtask" }));
     }
 
     // 2. Archived stages (archive task button)
     archivedStages.forEach(sid => {
-      const name = stageNameOverrides[sid] || sid;
+      const name = displayStageName(sid, stageNameOverrides);
       const pipeline = allPipelinesGlobal.find(p => p.stages?.includes(sid));
       const meta = archiveMeta.get(sid) || "";
       push(pipeline?.id, pipeline?.name || "Archived stages", { id: sid, text: name, by: meta, kind: "stage" });
@@ -89,7 +90,7 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
   const totalCompleted = completedByPipeline.reduce((acc, g) => acc + g.tasks.length, 0);
 
   const q = query.trim().toLowerCase();
-  const filteredStages = archivedStages.filter(sid => !q || `${stageNameOverrides[sid] || sid} ${archiveMeta.get(sid) || ""}`.toLowerCase().includes(q));
+  const filteredStages = archivedStages.filter(sid => !q || `${displayStageName(sid, stageNameOverrides)} ${archiveMeta.get(sid) || ""}`.toLowerCase().includes(q));
   const filteredPipelines = archivedPipelines.filter(pid => {
     const p = allPipelinesGlobal.find(p => p.id === pid);
     return !q || `${pipeMetaOverrides[pid]?.name || p?.name || pid} ${archiveMeta.get(pid) || ""}`.toLowerCase().includes(q);
@@ -205,7 +206,7 @@ export default function ArchiveView({ fullPage = false }: { fullPage?: boolean }
                 {filteredStages.map(sid => (
                   <div key={sid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, background: t.bgHover, marginBottom: 4 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{stageNameOverrides[sid] || sid}</div>
+                      <div style={{ fontSize: 13, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{displayStageName(sid, stageNameOverrides)}</div>
                       {archiveMeta.get(sid) && <div style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>{archiveMeta.get(sid)}</div>}
                     </div>
                     <button onClick={() => restoreStage(sid)} style={{ background: t.green + "18", border: `1px solid ${t.green}44`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: t.green, fontWeight: 700, fontFamily: mono }}>restore</button>

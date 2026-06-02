@@ -5,6 +5,7 @@ import { T } from "@/lib/themes";
 import { type UserType } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { displayStageName } from "@/lib/displayLabels";
 
 interface StageEntry {
   stageId: string;
@@ -69,7 +70,7 @@ export default function TodayView({ t, stages, currentUser, users, ck }: TodayVi
       {stages.map(stage => {
         const claimed = isClaimed(stage.stageId);
         const stColor = statusColor(stage.status);
-        const displayName = stageNameOverrides[stage.stageId] || stage.displayName;
+        const displayName = displayStageName(stage.stageId, stageNameOverrides) || stage.displayName;
         const cmts = comments[stage.stageId] || [];
         const isCommentOpen = commentOpen === stage.stageId;
 

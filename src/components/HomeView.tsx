@@ -9,6 +9,7 @@ import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
+import { displayStageName } from "@/lib/displayLabels";
 import { truncate, timeAgo, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
 import { ExecutiveRequestsPanel } from "@/components/panels/ExecutiveRequestsPanel";
 import { ZoomIntegrationPanel } from "@/components/panels/ZoomIntegrationPanel";
@@ -1044,7 +1045,7 @@ export default function HomeView({
           return sub?.text || key;
         }
       }
-      return stageNameOverrides[key] || key;
+      return displayStageName(key, stageNameOverrides);
     }
     function commentUserLabel(id: string) {
       return users.find(u => u.id === id)?.name.split(" ")[0] || id;

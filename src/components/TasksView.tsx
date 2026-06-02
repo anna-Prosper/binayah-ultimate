@@ -15,6 +15,7 @@ import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
 import { lsGet, lsSet } from "@/lib/storage";
+import { displayStageName } from "@/lib/displayLabels";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 type KanbanDueFilter = "all" | "overdue" | "soon" | "none";
@@ -105,7 +106,7 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
   };
 }
 
-const DEFAULT_PARENT_TASK_NAME = "All";
+const DEFAULT_PARENT_TASK_NAME = "default";
 
 function defaultParentStageIdForPipeline(pipelineId: string): string {
   return `default-parent-${pipelineId}`;
@@ -116,7 +117,7 @@ function isDefaultParentStageId(stageId: string): boolean {
 }
 
 function stageDisplayName(stageId: string, stageNameOverrides?: Record<string, string>): string {
-  return stageNameOverrides?.[stageId] || stageId;
+  return displayStageName(stageId, stageNameOverrides);
 }
 
 export default function TasksView(props: Props) {
@@ -332,7 +333,7 @@ export default function TasksView(props: Props) {
       .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
       .map(s => ({
         stageId: s,
-        displayName: stageNameOverrides?.[s] || s,
+        displayName: stageDisplayName(s, stageNameOverrides),
         pipelineName: p.displayName,
         pipelineIcon: p.icon,
         pipelineColor: p.color,
@@ -395,7 +396,7 @@ export default function TasksView(props: Props) {
       for (const sub of subtaskList) {
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
-        const parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
+        const parentStageName = stageDisplayName(parentStageId, stageNameOverrides);
         let pipelineId = "";
         let pipelineIcon = "";
         let pipelineName = "";
@@ -816,7 +817,7 @@ export default function TasksView(props: Props) {
                       {newSubParentTitle
                         ? `new parent task: ${newSubParentTitle}`
                         : newSubParentStage
-                          ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
+                          ? `parent task: ${stageDisplayName(newSubParentStage, stageNameOverrides)}`
                           : "// parent task (optional — skip to use default parent)"}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
@@ -831,7 +832,7 @@ export default function TasksView(props: Props) {
                         return (
                           <button key={s} type="button" onClick={() => { setNewSubParentStage(sel ? "" : s); setNewSubParentTitle(""); }}
                             style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
-                            {stageNameOverrides?.[s] || s}
+                            {stageDisplayName(s, stageNameOverrides)}
                           </button>
                         );
                       })}
@@ -1044,7 +1045,7 @@ export default function TasksView(props: Props) {
                               {newSubParentTitle
                                 ? `new parent task: ${newSubParentTitle}`
                                 : newSubParentStage
-                                  ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
+                                  ? `parent task: ${stageDisplayName(newSubParentStage, stageNameOverrides)}`
                                   : "// parent task (optional — skip to use default parent)"}
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1059,7 +1060,7 @@ export default function TasksView(props: Props) {
                                 return (
                                   <button key={s} onMouseDown={e => { e.preventDefault(); setNewSubParentStage(sel ? "" : s); setNewSubParentTitle(""); }} data-no-close
                                     style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
-                                    {stageNameOverrides?.[s] || s}
+                                    {stageDisplayName(s, stageNameOverrides)}
                                   </button>
                                 );
                               })}
@@ -1859,7 +1860,7 @@ function SubtaskCard({
                       }}
                       data-no-close
                       style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                    >{stageNameOverrides?.[s] || s}</button>
+                    >{stageDisplayName(s, stageNameOverrides)}</button>
                   ))}
                 </div>
               );
@@ -2087,7 +2088,7 @@ function SubtaskKanbanCard({
                         }}
                         style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, color: t.text, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, padding: "4px 9px", textAlign: "left" }}
                       >
-                        {stageNameOverrides?.[stage] || stage}
+                        {stageDisplayName(stage, stageNameOverrides)}
                       </button>
                     ))}
                   </div>
@@ -2226,7 +2227,7 @@ function SubtaskKanbanCard({
                         }}
                         data-no-close
                         style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                      >{stageNameOverrides?.[s] || s}</button>
+                      >{stageDisplayName(s, stageNameOverrides)}</button>
                     ))}
                   </div>
                 );
