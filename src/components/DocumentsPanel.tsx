@@ -57,6 +57,8 @@ interface DocFull extends DocListItem {
   attachments?: DocAttachment[];
 }
 
+type DocPatchFields = Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>;
+
 interface Props {
   t: T;
   /** When set, immediately opens this doc on mount/change (used by Cmd+K palette routing) */
@@ -128,7 +130,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   const titleSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const contentSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const savedIndicatorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const saveInFlight = useRef(false);
+  const titleDraftRef = useRef<string | null>(null);
 
   // Clear all pending timers on unmount
   useEffect(() => () => {
@@ -169,6 +171,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     setActiveId(id);
     setLoadingDoc(true);
     setSaveStatus("idle");
+    titleDraftRef.current = null;
     if (isMobile) setMobileView("editor");
     try {
       const res = await fetch(`/api/documents/${id}`);
@@ -196,9 +199,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   }, [filterPipeline, openDoc, workspacePipelineIds, showToast, t.red]);
 
   // PATCH helper — sets saveStatus, updates list + activeDoc, surfaces toast on error
-  const patchDoc = useCallback(async (id: string, fields: Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>) => {
-    if (saveInFlight.current) return;
-    saveInFlight.current = true;
+  const patchDoc = useCallback(async (id: string, fields: DocPatchFields) => {
     try {
       setSaveStatus("saving");
       const res = await fetch(`/api/documents/${id}`, {
@@ -208,10 +209,24 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       });
       if (res.ok) {
         const data = await res.json() as { doc: DocFull };
-        // Update list item
-        setDocs(prev => prev.map(d => d._id === id ? { ...d, ...data.doc } : d));
-        // Update activeDoc to pick up server-assigned updatedBy + updatedAt
-        setActiveDoc(prev => prev && prev._id === id ? { ...prev, ...data.doc } : prev);
+        const titleWasSaved = "title" in fields;
+        const applyTitleFromServer = titleWasSaved && (titleDraftRef.current === null || titleDraftRef.current === fields.title);
+        if (titleWasSaved && titleDraftRef.current === fields.title) titleDraftRef.current = null;
+        setDocs(prev => prev.map(d => d._id === id ? {
+          ...d,
+          updatedAt: data.doc.updatedAt,
+          updatedBy: data.doc.updatedBy,
+          ...(applyTitleFromServer ? { title: data.doc.title } : {}),
+          ...("pipelineId" in fields ? { pipelineId: data.doc.pipelineId } : {}),
+        } : d));
+        setActiveDoc(prev => prev && prev._id === id ? {
+          ...prev,
+          updatedAt: data.doc.updatedAt,
+          updatedBy: data.doc.updatedBy,
+          ...(applyTitleFromServer ? { title: data.doc.title } : {}),
+          ...("content" in fields ? { content: data.doc.content } : {}),
+          ...("pipelineId" in fields ? { pipelineId: data.doc.pipelineId } : {}),
+        } : prev);
         setSaveStatus("saved");
         // Bust the search palette's doc-content cache so saved content is searchable
         invalidateDocCache();
@@ -226,8 +241,6 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       setSaveStatus("error");
       showToast("// save failed — check connection", t.red, 4000);
       savedIndicatorTimer.current = setTimeout(() => setSaveStatus("idle"), 3000);
-    } finally {
-      saveInFlight.current = false;
     }
   }, [showToast, t.red]);
 
@@ -330,6 +343,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   // Title change — debounce 800ms; blur save handled by input onBlur
   const handleTitleChange = (val: string) => {
     if (!activeDoc || !activeId) return;
+    titleDraftRef.current = val;
     setActiveDoc(prev => prev ? { ...prev, title: val } : prev);
     if (titleSaveTimer.current) clearTimeout(titleSaveTimer.current);
     titleSaveTimer.current = setTimeout(() => {
