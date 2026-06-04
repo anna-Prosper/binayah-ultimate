@@ -90,6 +90,8 @@ const blankForm: LinkFormState = {
   password: "",
 };
 
+const CREATE_SECTION_VALUE = "__create_section__";
+
 function formFromItem(item: UsefulLinkItem): LinkFormState {
   return {
     group: item.group,
@@ -305,7 +307,19 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
   const { t, usefulLinks } = useModel();
   const [form, setForm] = useState<LinkFormState>(() => item ? formFromItem(item) : blankForm);
   const [showPassword, setShowPassword] = useState(false);
-  const groups = useMemo(() => Array.from(new Set(usefulLinks.map(link => link.group))).sort(), [usefulLinks]);
+  const sections = useMemo(() => {
+    const map = new Map<string, { key: string; group: string; eyebrow: string; label: string }>();
+    for (const link of usefulLinks) {
+      const group = link.group.trim() || "Tools";
+      const eyebrow = link.eyebrow.trim() || "Internal operations";
+      const key = `${group}::${eyebrow}`;
+      if (!map.has(key)) map.set(key, { key, group, eyebrow, label: `${group} / ${eyebrow}` });
+    }
+    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+  }, [usefulLinks]);
+  const selectedSectionKey = `${form.group.trim() || "Tools"}::${form.eyebrow.trim() || "Internal operations"}`;
+  const hasSelectedSection = sections.some(section => section.key === selectedSectionKey);
+  const [creatingSection, setCreatingSection] = useState(() => !item && sections.length === 0);
   const update = <K extends keyof LinkFormState>(key: K, value: LinkFormState[K]) => setForm(prev => ({ ...prev, [key]: value }));
   const inputStyle = { width: "100%", border: `1px solid ${t.border}`, background: t.bgCard, color: t.text, borderRadius: 8, padding: "9px 10px", fontSize: 13, outline: "none", boxSizing: "border-box" as const };
   const labelStyle = { color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10, fontWeight: 900, textTransform: "uppercase" as const, letterSpacing: 0.7 };
@@ -335,13 +349,38 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
           <Field label="url" labelStyle={labelStyle}>
             <input required type="url" value={form.href} onChange={e => update("href", e.target.value)} style={inputStyle} placeholder="https://..." />
           </Field>
-          <Field label="group" labelStyle={labelStyle}>
-            <input list="useful-link-groups" value={form.group} onChange={e => update("group", e.target.value)} style={inputStyle} placeholder="Tools" />
-            <datalist id="useful-link-groups">{groups.map(group => <option key={group} value={group} />)}</datalist>
+          <Field label="section" labelStyle={labelStyle} full>
+            <select
+              value={creatingSection || !hasSelectedSection ? CREATE_SECTION_VALUE : selectedSectionKey}
+              onChange={e => {
+                if (e.target.value === CREATE_SECTION_VALUE) {
+                  setCreatingSection(true);
+                  return;
+                }
+                const section = sections.find(entry => entry.key === e.target.value);
+                if (!section) return;
+                setCreatingSection(false);
+                setForm(prev => ({ ...prev, group: section.group, eyebrow: section.eyebrow }));
+              }}
+              style={inputStyle}
+            >
+              {!hasSelectedSection && !creatingSection && (
+                <option value={selectedSectionKey}>{form.group || "Tools"} / {form.eyebrow || "Internal operations"}</option>
+              )}
+              {sections.map(section => <option key={section.key} value={section.key}>{section.label}</option>)}
+              <option value={CREATE_SECTION_VALUE}>+ create new section</option>
+            </select>
           </Field>
-          <Field label="section label" labelStyle={labelStyle}>
-            <input value={form.eyebrow} onChange={e => update("eyebrow", e.target.value)} style={inputStyle} placeholder="Internal operations" />
-          </Field>
+          {creatingSection && (
+            <>
+              <Field label="group" labelStyle={labelStyle}>
+                <input value={form.group} onChange={e => update("group", e.target.value)} style={inputStyle} placeholder="Tools" />
+              </Field>
+              <Field label="section label" labelStyle={labelStyle}>
+                <input value={form.eyebrow} onChange={e => update("eyebrow", e.target.value)} style={inputStyle} placeholder="Internal operations" />
+              </Field>
+            </>
+          )}
           <Field label="small label" labelStyle={labelStyle}>
             <input value={form.label} onChange={e => update("label", e.target.value)} style={inputStyle} placeholder="Production, Test, WhatsApp..." />
           </Field>
