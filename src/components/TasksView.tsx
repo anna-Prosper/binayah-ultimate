@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { User, Clipboard, Check, Cat, Globe, MessageSquare } from "lucide-react";
 import { T } from "@/lib/themes";
-import { REACTIONS, normalizeStageStatus, stageDefaults, type SubtaskItem, type UserType, type CommentItem, ADMIN_IDS } from "@/lib/data";
+import { REACTIONS, normalizeStageStatus, stageDefaults, type SubtaskItem, type UserType, type CommentItem, type Workspace, ADMIN_IDS } from "@/lib/data";
 import { deriveStageDisplayPoints } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
@@ -15,7 +15,6 @@ import { SubtaskKey } from "@/lib/subtaskKey";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import TodayView from "@/components/TodayView";
 import { lsGet, lsSet } from "@/lib/storage";
-import { displayStageName } from "@/lib/displayLabels";
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 type KanbanDueFilter = "all" | "overdue" | "soon" | "none";
@@ -106,7 +105,25 @@ function resolveCommentUser(users: UserType[], by: string): UserType {
   };
 }
 
-const DEFAULT_PARENT_TASK_NAME = "default";
+function usersForPipelineWorkspace(users: UserType[], workspaces: Workspace[], pipelineId: string, fallbackUsers: UserType[]): UserType[] {
+  const owningWorkspace = workspaces.find(w => w.pipelineIds.includes(pipelineId));
+  if (!owningWorkspace) return fallbackUsers.length ? fallbackUsers : users;
+  const memberIds = new Set(owningWorkspace.members);
+  const scopedUsers = users.filter(u => memberIds.has(u.id));
+  return scopedUsers.length ? scopedUsers : (fallbackUsers.length ? fallbackUsers : users);
+}
+
+function mentionUsersForTaskScope(users: UserType[], workspaces: Workspace[], pipelineId: string, fallbackUsers: UserType[], currentWorkspaceId?: string | null): UserType[] {
+  return currentWorkspaceId === null
+    ? users
+    : usersForPipelineWorkspace(users, workspaces, pipelineId, fallbackUsers);
+}
+
+const DEFAULT_PARENT_TASK_NAME = "All";
+
+function stageDisplayName(stageId: string, stageNameOverrides?: Record<string, string>): string {
+  return stageNameOverrides?.[stageId] || stageId;
+}
 
 function defaultParentStageIdForPipeline(pipelineId: string): string {
   return `default-parent-${pipelineId}`;
@@ -116,8 +133,31 @@ function isDefaultParentStageId(stageId: string): boolean {
   return stageId.startsWith("default-parent-");
 }
 
-function stageDisplayName(stageId: string, stageNameOverrides?: Record<string, string>): string {
-  return displayStageName(stageId, stageNameOverrides);
+function uniqueStageId(base: string, existing: string[]): string {
+  if (!existing.includes(base)) return base;
+  let i = 2;
+  while (existing.includes(`${base}-${i}`)) i++;
+  return `${base}-${i}`;
+}
+
+function resolveDefaultParentStageId(
+  pipelineId: string,
+  stagesInPipe: string[],
+  stageNameOverrides?: Record<string, string>,
+): string {
+  const canonical = defaultParentStageIdForPipeline(pipelineId);
+  if (stagesInPipe.includes(canonical)) return canonical;
+  const visibleAll = stagesInPipe.find(stageId => stageDisplayName(stageId, stageNameOverrides).trim().toLowerCase() === DEFAULT_PARENT_TASK_NAME.toLowerCase());
+  return visibleAll || canonical;
+}
+
+function hasDuplicateDisplayName(
+  stageId: string,
+  stagesInPipe: string[],
+  stageNameOverrides?: Record<string, string>,
+): boolean {
+  const display = stageDisplayName(stageId, stageNameOverrides).trim().toLowerCase();
+  return stagesInPipe.filter(s => stageDisplayName(s, stageNameOverrides).trim().toLowerCase() === display).length > 1;
 }
 
 export default function TasksView(props: Props) {
@@ -131,6 +171,7 @@ export default function TasksView(props: Props) {
     addComment: modelAddComment, deleteComment, editComment,
     addSubtask: modelAddSubtask,
     addCustomStage: modelAddCustomStage,
+    addCustomPipeline: modelAddCustomPipeline,
     addUnparentedStage,
     migrateSubtask,
     workspaces, setWorkspaces,
@@ -200,7 +241,7 @@ export default function TasksView(props: Props) {
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterNow] = useState(() => Date.now());
   // ── Kanban dynamic creation form ─────────────────────────────────────────────
-  // none selected → orphan; pipeline selected → subtask under explicit or default parent.
+  // none selected → orphan; pipeline only → task; pipeline+stage → subtask.
   // In cross-workspace mode, workspace must be picked first (drives pipeline list + scope).
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
@@ -208,6 +249,7 @@ export default function TasksView(props: Props) {
   const [newSubAssigneeId, setNewSubAssigneeId] = useState("");
   const [newSubWsId, setNewSubWsId] = useState<string>(""); // workspace for cross-workspace mode
   const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = orphan
+  const [newSubPipeTitle, setNewSubPipeTitle] = useState<string>("");
   const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = no parent (task-level)
   const [newSubParentTitle, setNewSubParentTitle] = useState<string>(""); // create new parent stage, then add title as subtask
   const [createAtTop, setCreateAtTop] = useState(false);
@@ -226,8 +268,26 @@ export default function TasksView(props: Props) {
     : "";
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage(""); setNewSubParentTitle(""); setCreateAtTop(false);
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); setCreateAtTop(false);
   }, []);
+
+  const createPipelineAndUse = useCallback(() => {
+    if (readOnly) return;
+    const name = newSubPipeTitle.trim().replace(/[.$]/g, "_");
+    if (!name || (needsWorkspacePick && !newSubWsId)) return;
+    const id = modelAddCustomPipeline({
+      name,
+      desc: "",
+      icon: "🧩",
+      colorKey: "purple",
+      priority: "MEDIUM",
+    }, formWsId || undefined);
+    if (!id) return;
+    setNewSubPipeId(id);
+    setNewSubPipeTitle("");
+    setNewSubParentStage("");
+    setNewSubParentTitle("");
+  }, [formWsId, modelAddCustomPipeline, needsWorkspacePick, newSubPipeTitle, newSubWsId, readOnly]);
 
   const submitNewItem = useCallback(async (colStatus: string) => {
     if (readOnly) return;
@@ -236,15 +296,16 @@ export default function TasksView(props: Props) {
     if (needsWorkspacePick && !newSubWsId) return; // must pick workspace first
     const customParentStage = newSubParentTitle.trim().replace(/[.$]/g, "_");
     if (newSubPipeId) {
-      // Pipeline items are always stored as subtasks. If the user doesn't pick
-      // an explicit parent, route them to the hidden default parent for that pipeline.
+      // Subtask
       const pipe = allPipelines.find(p => p.id === newSubPipeId);
       const allStagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])];
       const stagesInPipe = allStagesInPipe.filter(s => !(archivedStages || []).includes(s));
-      const parentStageId = newSubParentStage || customParentStage || defaultParentStageIdForPipeline(newSubPipeId);
+      const defaultParentStageId = resolveDefaultParentStageId(newSubPipeId, stagesInPipe, stageNameOverrides);
+      const parentStageId = newSubParentStage || customParentStage || uniqueStageId(defaultParentStageId, allStagesInPipe);
       if (!stagesInPipe.includes(parentStageId)) {
         modelAddCustomStage(newSubPipeId, parentStageId);
         if (!customParentStage) setStageNameOverride(parentStageId, DEFAULT_PARENT_TASK_NAME);
+        setStageStatus(parentStageId, customParentStage ? "concept" : "planned");
       } else if (!customParentStage && stageDisplayName(parentStageId, stageNameOverrides) !== DEFAULT_PARENT_TASK_NAME) {
         setStageNameOverride(parentStageId, DEFAULT_PARENT_TASK_NAME);
       }
@@ -275,7 +336,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubDueDate, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageNameOverride, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -330,10 +391,10 @@ export default function TasksView(props: Props) {
   const allStageTasks = pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
-      .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
+      .filter(s => !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
       .map(s => ({
         stageId: s,
-        displayName: stageDisplayName(s, stageNameOverrides),
+        displayName: stageNameOverrides?.[s] || s,
         pipelineName: p.displayName,
         pipelineIcon: p.icon,
         pipelineColor: p.color,
@@ -356,15 +417,17 @@ export default function TasksView(props: Props) {
   });
 
   // Apply my/all filter when in cross-workspace mode
+  const visibleStageTasks = allStageTasks.filter(s => !isDefaultParentStageId(s.stageId));
+
   const baseStageTasks = (showMyAllFilter && myAllFilter === "my")
-    ? allStageTasks.filter(s => {
+    ? visibleStageTasks.filter(s => {
         if (!currentUser) return false;
         if (s.claimers.includes(currentUser)) return true;
         if ((assignments[s.stageId] || []).includes(currentUser)) return true;
         if ((owners[s.stageId] || []).includes(currentUser)) return true;
         return false;
       })
-    : allStageTasks;
+    : visibleStageTasks;
 
   // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
   const dueMatches = (due?: string) => {
@@ -396,7 +459,7 @@ export default function TasksView(props: Props) {
       for (const sub of subtaskList) {
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
-        const parentStageName = stageDisplayName(parentStageId, stageNameOverrides);
+        const parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
         let pipelineId = "";
         let pipelineIcon = "";
         let pipelineName = "";
@@ -414,7 +477,7 @@ export default function TasksView(props: Props) {
         }
         if (!pipelineId) continue;
         const wsInfo = pipelineWorkspaceMap?.[pipelineId];
-        const status = normalizeStageStatus(sub.done ? "active" : (subtaskStages?.[key] || "planned"));
+        const status = normalizeStageStatus(subtaskStages?.[key] || (sub.done ? "active" : "planned"));
         tasks.push({
           key,
           text: sub.text,
@@ -475,6 +538,46 @@ export default function TasksView(props: Props) {
     () => [...filteredSubtaskKanbanTasks].sort(compareKanbanItems),
     [filteredSubtaskKanbanTasks, compareKanbanItems]
   );
+  const [cardNavigationTick, setCardNavigationTick] = useState(0);
+  useEffect(() => {
+    const handleCardNavigation = (event: Event) => {
+      const stage = (event as CustomEvent<{ stage?: string }>).detail?.stage;
+      if (!stage) return;
+      const url = new URL(window.location.href);
+      url.searchParams.set("stage", stage);
+      window.history.replaceState(window.history.state, "", `${url.pathname}${url.search}${url.hash}`);
+      setCardNavigationTick(tick => tick + 1);
+    };
+    window.addEventListener("binayah:navigate-card", handleCardNavigation as EventListener);
+    return () => window.removeEventListener("binayah:navigate-card", handleCardNavigation as EventListener);
+  }, []);
+  useEffect(() => {
+    const targetStage = new URLSearchParams(window.location.search).get("stage");
+    if (!targetStage) return;
+    let cancelled = false;
+    let retryTimer: number | undefined;
+    let cleanupTimer: number | undefined;
+    const scrollToTarget = (attempt = 0) => {
+      if (cancelled) return;
+      const card = Array.from(document.querySelectorAll<HTMLElement>("[data-card-key]"))
+        .find(el => el.dataset.cardKey === targetStage);
+      if (!card) {
+        if (attempt < 12) retryTimer = window.setTimeout(() => scrollToTarget(attempt + 1), 120);
+        return;
+      }
+      card.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+      card.classList.remove("bu-card-jump-highlight");
+      void card.offsetWidth;
+      card.classList.add("bu-card-jump-highlight");
+      cleanupTimer = window.setTimeout(() => card.classList.remove("bu-card-jump-highlight"), 1800);
+    };
+    retryTimer = window.setTimeout(() => scrollToTarget(), 80);
+    return () => {
+      cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+      if (cleanupTimer) window.clearTimeout(cleanupTimer);
+    };
+  }, [cardNavigationTick, sortedStageTasks.length, sortedSubtaskKanbanTasks.length]);
 
   const statusColor = (status: string) => {
     const col = COLS.find(c => c.status === status);
@@ -556,12 +659,7 @@ export default function TasksView(props: Props) {
 
   const moveParentPipelines = pipelines
     .filter(p => p.id !== INBOX_PIPELINE_ID)
-    .map(p => ({
-      id: p.id,
-      name: p.displayName,
-      icon: p.icon,
-      stages: p.allStages.filter(s => !isDefaultParentStageId(s)),
-    }));
+    .map(p => ({ id: p.id, name: p.displayName, icon: p.icon, stages: p.allStages }));
 
   const cardShared = {
     t, users, currentUser, reactions, comments,
@@ -583,6 +681,7 @@ export default function TasksView(props: Props) {
       .filter(p => p.id !== INBOX_PIPELINE_ID)
       .map(p => ({ id: p.id, name: p.displayName, icon: p.icon })),
     moveParentPipelines,
+    currentWorkspaceId,
     readOnly,
   };
 
@@ -659,6 +758,7 @@ export default function TasksView(props: Props) {
                 setNewSubAssigneeId("");
                 setNewSubWsId("");
                 setNewSubPipeId("");
+                setNewSubPipeTitle("");
                 setNewSubParentStage("");
                 setNewSubParentTitle("");
               }}
@@ -753,7 +853,7 @@ export default function TasksView(props: Props) {
           </select>
           <select
             value={newSubPipeId}
-            onChange={e => { setNewSubPipeId(e.target.value); setNewSubParentStage(""); setNewSubParentTitle(""); }}
+            onChange={e => { setNewSubPipeId(e.target.value); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
             disabled={needsWorkspacePick && !newSubWsId}
             style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 0, opacity: needsWorkspacePick && !newSubWsId ? 0.55 : 1 }}
           >
@@ -768,6 +868,28 @@ export default function TasksView(props: Props) {
               })
               .map(p => <option key={p.id} value={p.id}>{p.icon} {(p as { displayName?: string }).displayName || p.name}</option>)}
           </select>
+          {(!needsWorkspacePick || newSubWsId) && (
+            <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+              <input
+                value={newSubPipeTitle}
+                onChange={e => setNewSubPipeTitle(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter") { e.preventDefault(); createPipelineAndUse(); }
+                  if (e.key === "Escape") setNewSubPipeTitle("");
+                }}
+                placeholder="+ create pipeline..."
+                style={{ flex: "1 1 260px", background: t.bgCard, border: `1px dashed ${t.accent}55`, borderRadius: 8, padding: "7px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+              />
+              <button
+                type="button"
+                disabled={!newSubPipeTitle.trim()}
+                onClick={createPipelineAndUse}
+                style={{ background: newSubPipeTitle.trim() ? t.accent + "18" : "transparent", border: `1px solid ${newSubPipeTitle.trim() ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "7px 12px", cursor: newSubPipeTitle.trim() ? "pointer" : "not-allowed", fontSize: 12, color: newSubPipeTitle.trim() ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}
+              >
+                create + use
+              </button>
+            </div>
+          )}
           <select
             value={newSubAssigneeId}
             onChange={e => setNewSubAssigneeId(e.target.value)}
@@ -797,7 +919,7 @@ export default function TasksView(props: Props) {
               {(availableWorkspaces || []).map(w => {
                 const sel = newSubWsId === w.id;
                 return (
-                  <button key={w.id} onClick={() => { setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
+                  <button key={w.id} onClick={() => { setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
                     style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                     {w.icon} {w.name}
                   </button>
@@ -809,30 +931,27 @@ export default function TasksView(props: Props) {
             <div style={{ gridColumn: "1 / -1", display: "flex", flexDirection: "column", gap: 6 }}>
               {(() => {
                 const pipe = allPipelines.find(p => p.id === newSubPipeId);
-                const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])]
-                  .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s));
+                const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s) && !isDefaultParentStageId(s));
                 return (
                   <>
                     <div style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}>
                       {newSubParentTitle
                         ? `new parent task: ${newSubParentTitle}`
                         : newSubParentStage
-                          ? `parent task: ${stageDisplayName(newSubParentStage, stageNameOverrides)}`
-                          : "// parent task (optional — skip to use default parent)"}
+                          ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
+                          : `// parent task (defaults to ${DEFAULT_PARENT_TASK_NAME})`}
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-                      {(newSubParentStage || newSubParentTitle) && (
-                        <button type="button" onClick={() => { setNewSubParentStage(""); setNewSubParentTitle(""); }}
-                          style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
-                          ✕ clear parent
-                        </button>
-                      )}
+                      <button type="button" onClick={() => { setNewSubParentStage(""); setNewSubParentTitle(""); }}
+                        style={{ background: (!newSubParentStage && !newSubParentTitle.trim()) ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${(!newSubParentStage && !newSubParentTitle.trim()) ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: (!newSubParentStage && !newSubParentTitle.trim()) ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: (!newSubParentStage && !newSubParentTitle.trim()) ? 700 : 400 }}>
+                        {DEFAULT_PARENT_TASK_NAME}
+                      </button>
                       {stagesInPipe.map(s => {
                         const sel = newSubParentStage === s;
                         return (
                           <button key={s} type="button" onClick={() => { setNewSubParentStage(sel ? "" : s); setNewSubParentTitle(""); }}
                             style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
-                            {stageDisplayName(s, stageNameOverrides)}
+                            {stageNameOverrides?.[s] || s}{hasDuplicateDisplayName(s, stagesInPipe, stageNameOverrides) ? ` (${s})` : ""}
                           </button>
                         );
                       })}
@@ -845,7 +964,7 @@ export default function TasksView(props: Props) {
                         style={{ flex: "1 1 260px", background: t.bgCard, border: `1px dashed ${t.accent}55`, borderRadius: 8, padding: "7px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
                       />
                       <span style={{ alignSelf: "center", color: t.textDim, fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>
-                        {newSubParentTitle.trim() ? "creates parent + subtask" : "leave empty to use default parent"}
+                        {newSubParentTitle.trim() ? "creates parent + subtask" : `leave empty to use ${DEFAULT_PARENT_TASK_NAME}`}
                       </span>
                     </div>
                   </>
@@ -985,7 +1104,7 @@ export default function TasksView(props: Props) {
                             {(availableWorkspaces || []).map(w => {
                               const sel = newSubWsId === w.id;
                               return (
-                                <button key={w.id} onMouseDown={e => { e.preventDefault(); setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
+                                <button key={w.id} onMouseDown={e => { e.preventDefault(); setNewSubWsId(sel ? "" : w.id); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
                                   style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                                   {w.icon} {w.name}
                                 </button>
@@ -1015,7 +1134,7 @@ export default function TasksView(props: Props) {
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                               {newSubPipeId && (
-                                <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
+                                <button onMouseDown={e => { e.preventDefault(); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
                                   style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
                                   ✕ clear pipeline
                                 </button>
@@ -1023,7 +1142,7 @@ export default function TasksView(props: Props) {
                               {pipesToShow.map(p => {
                                 const sel = newSubPipeId === p.id;
                                 return (
-                                  <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(sel ? "" : p.id); setNewSubParentTitle(""); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }} data-no-close
+                                  <button key={p.id} onMouseDown={e => { e.preventDefault(); setNewSubPipeId(sel ? "" : p.id); setNewSubPipeTitle(""); setNewSubParentTitle(""); if (newSubParentStage && !([...p.stages, ...(customStages[p.id] || [])].includes(newSubParentStage))) setNewSubParentStage(""); }} data-no-close
                                     style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                                     {p.icon} {(p as { displayName?: string }).displayName || p.name}
                                   </button>
@@ -1031,36 +1150,55 @@ export default function TasksView(props: Props) {
                               })}
                               {pipesToShow.length === 0 && <span style={{ fontSize: 10, color: t.textDim, fontStyle: "italic" }}>no pipelines in this workspace</span>}
                             </div>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <input
+                                value={newSubPipeTitle}
+                                onChange={e => setNewSubPipeTitle(e.target.value)}
+                                onKeyDown={e => {
+                                  if (e.key === "Enter") { e.preventDefault(); createPipelineAndUse(); }
+                                  if (e.key === "Escape") setNewSubPipeTitle("");
+                                }}
+                                placeholder="+ create pipeline..."
+                                data-no-close
+                                style={{ flex: "1 1 220px", background: t.bgCard, border: `1px dashed ${t.accent}55`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
+                              />
+                              <button
+                                type="button"
+                                disabled={!newSubPipeTitle.trim()}
+                                onMouseDown={e => { e.preventDefault(); createPipelineAndUse(); }}
+                                data-no-close
+                                style={{ background: newSubPipeTitle.trim() ? t.accent + "18" : "transparent", border: `1px solid ${newSubPipeTitle.trim() ? t.accent + "66" : t.border}`, borderRadius: 8, padding: "5px 9px", cursor: newSubPipeTitle.trim() ? "pointer" : "not-allowed", fontSize: 11, color: newSubPipeTitle.trim() ? t.accent : t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 800 }}
+                              >
+                                create + use
+                              </button>
+                            </div>
                           </>
                         );
                       })()}
                       {/* Parent task picker — optional, only shown when pipeline selected */}
                       {newSubPipeId && (() => {
                         const pipe = allPipelines.find(p => p.id === newSubPipeId);
-                        const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])]
-                          .filter(s => !isDefaultParentStageId(s) && !(archivedStages || []).includes(s));
+                        const stagesInPipe = [...(pipe?.stages || []), ...(customStages[newSubPipeId] || [])].filter(s => !(archivedStages || []).includes(s) && !isDefaultParentStageId(s));
                         return (
                           <>
                             <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
                               {newSubParentTitle
                                 ? `new parent task: ${newSubParentTitle}`
                                 : newSubParentStage
-                                  ? `parent task: ${stageDisplayName(newSubParentStage, stageNameOverrides)}`
-                                  : "// parent task (optional — skip to use default parent)"}
+                                  ? `parent task: ${stageNameOverrides?.[newSubParentStage] || newSubParentStage}`
+                                  : `// parent task (defaults to ${DEFAULT_PARENT_TASK_NAME})`}
                             </div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                              {(newSubParentStage || newSubParentTitle) && (
-                                <button onMouseDown={e => { e.preventDefault(); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
-                                  style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
-                                  ✕ clear parent
-                                </button>
-                              )}
+                              <button onMouseDown={e => { e.preventDefault(); setNewSubParentStage(""); setNewSubParentTitle(""); }} data-no-close
+                                style={{ background: (!newSubParentStage && !newSubParentTitle.trim()) ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${(!newSubParentStage && !newSubParentTitle.trim()) ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: (!newSubParentStage && !newSubParentTitle.trim()) ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: (!newSubParentStage && !newSubParentTitle.trim()) ? 700 : 400 }}>
+                                {DEFAULT_PARENT_TASK_NAME}
+                              </button>
                               {stagesInPipe.map(s => {
                                 const sel = newSubParentStage === s;
                                 return (
                                   <button key={s} onMouseDown={e => { e.preventDefault(); setNewSubParentStage(sel ? "" : s); setNewSubParentTitle(""); }} data-no-close
                                     style={{ background: sel ? t.accent + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? t.accent + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? t.accent : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
-                                    {stageDisplayName(s, stageNameOverrides)}
+                                    {stageNameOverrides?.[s] || s}{hasDuplicateDisplayName(s, stagesInPipe, stageNameOverrides) ? ` (${s})` : ""}
                                   </button>
                                 );
                               })}
@@ -1109,7 +1247,7 @@ export default function TasksView(props: Props) {
                     </div>
                   ) : !readOnly ? (
                     <button
-                      onClick={() => { setCreateAtTop(false); setNewTaskCol(col.status); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
+                      onClick={() => { setCreateAtTop(false); setNewTaskCol(col.status); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
@@ -1195,6 +1333,7 @@ interface SharedCardProps {
   availablePipelines?: { id: string; name: string; icon: string }[];
   moveParentPipelines?: { id: string; name: string; icon: string; stages: string[] }[];
   getPoints?: (uid: string) => number;
+  currentWorkspaceId?: string | null;
   readOnly?: boolean;
 }
 
@@ -1216,6 +1355,7 @@ function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, hideS
               taskSub={sub}
               stageId={task.stageId}
               parentStageName={task.stageId}
+              pipelineId={task.pipelineId}
               pipelineColor={task.pipelineColor}
               pipelineIcon={task.pipelineIcon}
               pipelineName={task.pipelineName}
@@ -1240,9 +1380,9 @@ function TaskCard({
   isAdmin, approveStage, approvedStages, subtasks,
   editingStage, setEditingStage, editingVal, setEditingVal, setStageNameOverride, onPipelineClick,
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
-  availablePipelines, getPoints, readOnly,
+  availablePipelines, getPoints, currentWorkspaceId, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, workspaceUsers } = useModel();
+  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, workspaceUsers, workspaces } = useModel();
   const stagePriority = stagePriorities[task.stageId];
   const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
@@ -1268,6 +1408,9 @@ function TaskCard({
   const showReactPicker = reactOpen === task.stageId;
   const showCommentPopover = commentOpen === task.stageId;
   const showAssignPicker = assignOpen === task.stageId;
+  const taskWorkspaceUsers = useMemo(() => (
+    mentionUsersForTaskScope(users, workspaces, task.pipelineId, workspaceUsers, currentWorkspaceId)
+  ), [currentWorkspaceId, task.pipelineId, users, workspaces, workspaceUsers]);
 
   // Only register the click-outside handler when *this* card has a popover open.
   // Otherwise every card on screen would call setCommentOpen(null) on every click in
@@ -1307,6 +1450,7 @@ function TaskCard({
     <div
       ref={cardRef}
       data-testid="task-card"
+      data-card-key={task.stageId}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       // The card is an explicit drop target for both stage and subtask drags.
@@ -1446,7 +1590,7 @@ function TaskCard({
               const current = stageDescOverrides[task.stageId] || "";
               if (descDraft !== current) setStageDescOverride(task.stageId, descDraft);
             }}
-            users={workspaceUsers.length ? workspaceUsers : users}
+            users={taskWorkspaceUsers}
             t={t}
             placeholder="Stage description..."
             rows={2}
@@ -1611,7 +1755,7 @@ function TaskCard({
       {showCommentPopover && (
         <CommentPopover
           t={t}
-          users={workspaceUsers}
+          users={taskWorkspaceUsers}
           comments={cmts}
           currentUser={currentUser}
           inputValue={commentInput[task.stageId] || ""}
@@ -1631,21 +1775,21 @@ function TaskCard({
 // ─── Subtask card (smaller, no description/preview) ──────────────────────────
 
 function SubtaskCard({
-  taskSub, stageId, parentStageName, pipelineColor, pipelineIcon, pipelineName,
+  taskSub, stageId, parentStageName, pipelineId, pipelineColor, pipelineIcon, pipelineName,
   t, users, currentUser, reactions, comments,
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, deleteComment, editComment, commentInput, setCommentInput, copied,
-  handleClaim, claims, getPoints, readOnly, moveParentPipelines,
+  handleClaim, claims, getPoints, currentWorkspaceId, readOnly, moveParentPipelines,
 }: {
-  taskSub: SubtaskItem; stageId: string; parentStageName: string;
+  taskSub: SubtaskItem; stageId: string; parentStageName: string; pipelineId: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
   onToggle: () => void;
 } & SharedCardProps & { handleClaim?: (sid: string) => void; claims?: Record<string, string[]> }) {
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [descVal, setDescVal] = useState("");
@@ -1656,7 +1800,7 @@ function SubtaskCard({
   const key = SubtaskKey.make(stageId, taskSub.id);
   const dueDate = subtaskDueDates[key];
   const scopedParentPipelines = useMemo(() => (moveParentPipelines || [])
-    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== stageId) }))
+    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== stageId && !isDefaultParentStageId(s)) }))
     .filter(p => p.stages.length > 0), [moveParentPipelines, archivedStages, stageId]);
 
   const commitRenameSSC = () => {
@@ -1668,6 +1812,9 @@ function SubtaskCard({
   const showReactPicker = reactOpen === key;
   const showCommentPopover = commentOpen === key;
   const showAssignPicker = assignOpen === key;
+  const subtaskWorkspaceUsers = useMemo(() => (
+    mentionUsersForTaskScope(users, workspaces, pipelineId, workspaceUsers, currentWorkspaceId)
+  ), [currentWorkspaceId, pipelineId, users, workspaces, workspaceUsers]);
 
   // Only run the click-outside handler when *this* card has a popover open —
   // otherwise sibling cards' handlers fire on every click and close the popover.
@@ -1696,7 +1843,7 @@ function SubtaskCard({
   const claimers = claims?.[key] || [];
 
   return (
-    <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div ref={subtaskRef} data-card-key={key} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell t={t} borderColor={t.border} pipelineColor={pipelineColor}>
       {/* Top row — identical structure to TaskCard */}
       <div style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
@@ -1795,7 +1942,7 @@ function SubtaskCard({
               value={descVal}
               onChange={setDescVal}
               onBlur={() => { setSubtaskDescOverride(key, descVal.trim() || null); }}
-              users={workspaceUsers.length ? workspaceUsers : users}
+              users={subtaskWorkspaceUsers}
               t={t}
               placeholder="Add a description..."
               rows={2}
@@ -1860,7 +2007,7 @@ function SubtaskCard({
                       }}
                       data-no-close
                       style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                    >{stageDisplayName(s, stageNameOverrides)}</button>
+                    >{stageNameOverrides?.[s] || s}</button>
                   ))}
                 </div>
               );
@@ -1882,7 +2029,7 @@ function SubtaskCard({
       {showCommentPopover && (
         <CommentPopover
           t={t}
-          users={workspaceUsers}
+          users={subtaskWorkspaceUsers}
           comments={cmts}
           currentUser={currentUser}
           inputValue={commentInput[key] || ""}
@@ -1906,12 +2053,12 @@ function SubtaskKanbanCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, deleteComment, editComment, commentInput, setCommentInput, copied,
-  isAdmin, getPoints, readOnly, moveParentPipelines,
+  isAdmin, getPoints, currentWorkspaceId, readOnly, moveParentPipelines,
 }: {
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces } = useModel();
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
@@ -1957,9 +2104,12 @@ function SubtaskKanbanCard({
   const dueDate = subtaskDueDates[sub.key];
   const taskId = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0])?.subtaskId ?? NaN;
   const parentPipelineOptions = useMemo(() => (moveParentPipelines || [])
-    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== sub.parentStageId) }))
+    .map(p => ({ ...p, stages: p.stages.filter(s => !(archivedStages || []).includes(s) && s !== sub.parentStageId && !isDefaultParentStageId(s)) }))
     .filter(p => p.stages.length > 0), [moveParentPipelines, archivedStages, sub.parentStageId]);
   const selectedParentPipeline = parentPipelineOptions.find(p => p.id === parentPickerPipelineId) || parentPipelineOptions[0];
+  const subtaskWorkspaceUsers = useMemo(() => (
+    mentionUsersForTaskScope(users, workspaces, sub.pipelineId, workspaceUsers, currentWorkspaceId)
+  ), [currentWorkspaceId, sub.pipelineId, users, workspaces, workspaceUsers]);
 
   const commitRename = () => {
     const trimmed = editVal.trim();
@@ -1967,7 +2117,7 @@ function SubtaskKanbanCard({
   };
 
   return (
-    <div ref={subtaskRef} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
+    <div ref={subtaskRef} data-card-key={sub.key} onMouseEnter={() => setIsHovered(true)} onMouseLeave={() => setIsHovered(false)}>
       <CardShell
         t={t}
         borderColor={isUnknownParent ? t.amber + "55" : t.border}
@@ -2088,7 +2238,7 @@ function SubtaskKanbanCard({
                         }}
                         style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, color: t.text, cursor: "pointer", fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, padding: "4px 9px", textAlign: "left" }}
                       >
-                        {stageDisplayName(stage, stageNameOverrides)}
+                        {stageNameOverrides?.[stage] || stage}
                       </button>
                     ))}
                   </div>
@@ -2162,7 +2312,7 @@ function SubtaskKanbanCard({
                 value={descVal}
                 onChange={setDescVal}
                 onBlur={() => { setSubtaskDescOverride(sub.key, descVal.trim() || null); }}
-                users={workspaceUsers.length ? workspaceUsers : users}
+                users={subtaskWorkspaceUsers}
                 t={t}
                 placeholder="Add a description..."
                 rows={2}
@@ -2227,7 +2377,7 @@ function SubtaskKanbanCard({
                         }}
                         data-no-close
                         style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace" }}
-                      >{stageDisplayName(s, stageNameOverrides)}</button>
+                      >{stageNameOverrides?.[s] || s}</button>
                     ))}
                   </div>
                 );
@@ -2249,7 +2399,7 @@ function SubtaskKanbanCard({
         {showCommentPopover && (
           <CommentPopover
             t={t}
-            users={workspaceUsers}
+            users={subtaskWorkspaceUsers}
             comments={cmts}
             currentUser={currentUser}
             inputValue={commentInput[sub.key] || ""}
@@ -2596,6 +2746,30 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
 }) {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editingVal, setEditingVal] = useState("");
+  const [copiedCommentId, setCopiedCommentId] = useState<number | null>(null);
+  const copyComment = async (comment: CommentItem) => {
+    try {
+      await navigator.clipboard.writeText(comment.text);
+      setCopiedCommentId(comment.id);
+      window.setTimeout(() => setCopiedCommentId(id => id === comment.id ? null : id), 1200);
+    } catch {
+      // Text remains selectable even if the Clipboard API is unavailable.
+    }
+  };
+  const commentActionBtn = (tone: "copy" | "edit" | "delete"): React.CSSProperties => ({
+    background: tone === "delete" ? t.red + "10" : t.accent + "10",
+    border: `1px solid ${tone === "delete" ? t.red + "30" : t.accent + "30"}`,
+    color: tone === "delete" ? t.red : t.accent,
+    cursor: "pointer",
+    fontSize: 10,
+    lineHeight: 1,
+    fontWeight: 800,
+    fontFamily: "var(--font-dm-mono), monospace",
+    borderRadius: 999,
+    padding: "5px 8px",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  });
   // @mention autocomplete: detect "@word" at cursor and surface user matches
   const mentionMatch = inputValue.match(/(^|\s)@([\w-]*)$/);
   const mentionQuery = mentionMatch ? (mentionMatch[2] || "").toLowerCase() : null;
@@ -2613,7 +2787,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
     onInputChange(`${before}@${firstName} `);
   };
   return (
-    <div data-no-close onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0 }}>
+    <div data-no-close onClick={e => e.stopPropagation()} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 12, padding: 8, marginTop: 0, userSelect: "text" }}>
       <div style={{ fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginBottom: 6, textTransform: "uppercase" as const }}>
         comments ({comments.length})
       </div>
@@ -2625,16 +2799,21 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
             const isAdminViewer = ADMIN_IDS.includes(currentUser!);
             const isEditing = editingId === c.id;
             return (
-              <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start" }}>
+              <div key={c.id} style={{ display: "flex", gap: 4, alignItems: "flex-start", userSelect: "text" }}>
                 <AvatarC user={u} size={18} />
 	                <div style={{ flex: 1, minWidth: 0 }}>
 	                  <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
 	                    <div style={{ fontSize: 11, color: u.color, fontWeight: 700, flex: 1 }}>{u.name}</div>
-	                    {isAuthor && onEdit && !isEditing && (
-	                      <button type="button" onClick={() => { setEditingId(c.id); setEditingVal(c.text); }} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>edit</button>
-	                    )}
-	                    {(isAuthor || isAdminViewer) && !isEditing && (
-	                      <button type="button" onClick={() => onDelete(c.id)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 11, fontFamily: "var(--font-dm-mono), monospace" }}>delete</button>
+	                    {!isEditing && (
+	                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+	                        <button type="button" onClick={() => copyComment(c)} style={commentActionBtn("copy")}>{copiedCommentId === c.id ? "copied" : "copy"}</button>
+	                        {isAuthor && onEdit && (
+	                          <button type="button" onClick={() => { setEditingId(c.id); setEditingVal(c.text); }} style={commentActionBtn("edit")}>edit</button>
+	                        )}
+	                        {(isAuthor || isAdminViewer) && (
+	                          <button type="button" onClick={() => onDelete(c.id)} style={commentActionBtn("delete")}>delete</button>
+	                        )}
+	                      </div>
 	                    )}
 	                  </div>
 	                  {isEditing ? (
@@ -2643,6 +2822,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
 	                        data-no-close
 	                        autoFocus
 	                        value={editingVal}
+	                        maxLength={3000}
 	                        onChange={e => setEditingVal(e.target.value)}
 	                        onKeyDown={e => {
 	                          if (e.key === "Enter") { e.preventDefault(); onEdit?.(c.id, editingVal); setEditingId(null); }
@@ -2654,7 +2834,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
 	                      <button data-no-close onMouseDown={e => e.stopPropagation()} onClick={() => setEditingId(null)} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "2px 8px", cursor: "pointer", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>✕</button>
 	                    </div>
 	                  ) : (
-	                    <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word" }}>{c.text}</div>
+	                    <div style={{ fontSize: 13, color: t.text, wordBreak: "break-word", userSelect: "text", cursor: "text", WebkitUserSelect: "text" }}>{c.text}</div>
 	                  )}
                 </div>
               </div>
@@ -2687,6 +2867,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
           <input
             data-no-close
             value={inputValue}
+            maxLength={3000}
             onChange={e => onInputChange(e.target.value)}
             onKeyDown={e => {
               if (e.key === "Enter" && mentionQuery !== null && mentionMatches.length > 0) {

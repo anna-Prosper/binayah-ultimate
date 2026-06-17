@@ -30,6 +30,14 @@ export default function PipelinesViewPage({ focusPipelineId }: { focusPipelineId
 
   useEffect(() => { lsSet("expanded", expanded); }, [expanded]);
   useEffect(() => { lsSet("pipelines_view_v2", view); }, [view]);
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("view") === "kanban") {
+      setView("kanban");
+    }
+    const handleCardNavigation = () => setView("kanban");
+    window.addEventListener("binayah:navigate-card", handleCardNavigation);
+    return () => window.removeEventListener("binayah:navigate-card", handleCardNavigation);
+  }, []);
 
   // Auto-expand the target pipeline when arriving via /pipelines/[id]
   useEffect(() => {

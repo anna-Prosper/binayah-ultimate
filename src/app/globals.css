@@ -25,6 +25,24 @@ textarea {
   font: inherit;
 }
 
+@media (max-width: 768px) {
+  html,
+  body {
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  button {
+    touch-action: manipulation;
+  }
+}
+
 /* Tooltip text lives in data-tooltip attributes. TooltipPortal (AppShell)
  * reads them via mouseover and renders a fixed-position div into document.body —
  * immune to overflow:hidden ancestors, no CSS pseudo-element clipping issues. */
@@ -38,4 +56,22 @@ textarea {
   overflow-wrap: anywhere;
   white-space: normal;
   word-break: normal;
+}
+
+.bu-card-jump-highlight {
+  animation: bu-card-jump-highlight 1.8s ease;
+}
+
+@keyframes bu-card-jump-highlight {
+  0%,
+  100% {
+    outline: 0 solid transparent;
+    outline-offset: 0;
+  }
+
+  18%,
+  70% {
+    outline: 3px solid color-mix(in srgb, #06b6d4 78%, white);
+    outline-offset: 4px;
+  }
 }

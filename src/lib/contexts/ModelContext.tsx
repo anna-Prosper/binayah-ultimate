@@ -17,7 +17,6 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { displayStageName } from "@/lib/displayLabels";
 import { deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
@@ -421,6 +420,7 @@ export function ModelProvider({
   // localWrites: timestamps of recent optimistic writes by slice — poll merges skip slices written within the window
   // Window must comfortably exceed the scheduleWrite debounce (1.5s) + server round-trip (~500ms) so writes survive merge.
   const localWritesRef = useRef<Record<string, number>>({});
+  const dirtyMapKeysRef = useRef<Record<string, Set<string>>>({});
   const LOCAL_WRITE_PROTECT_MS = _LOCAL_WRITE_PROTECT_MS;
 
   // Diff-based delete tracking. The server merges every slice instead of
@@ -486,8 +486,13 @@ export function ModelProvider({
       serverKeysRef.current.subtasks = new Set(Object.keys(s.subtasks));
     }
   }, [MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
-  const markLocalWrite = useCallback((slice: string) => {
+  const markLocalWrite = useCallback((slice: string, key?: string) => {
     localWritesRef.current[slice] = Date.now();
+    if (key) {
+      const keys = dirtyMapKeysRef.current[slice] ?? new Set<string>();
+      keys.add(key);
+      dirtyMapKeysRef.current[slice] = keys;
+    }
     userActionCounterRef.current += 1;
   }, []);
   const protectLocalSlice = useCallback((slice: string) => {
@@ -763,7 +768,7 @@ export function ModelProvider({
     if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
-    if (s.comments) {
+    if (s.comments && !isProtected("comments")) {
       let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
       let pendingLiveNotif: { stage: string; name: string } | null = null;
       const newPending: Record<string, CommentItem[]> = {};
@@ -908,7 +913,7 @@ export function ModelProvider({
       bugs,
       usefulLinks,
       execProposals,
-      subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
+      subtasks, stageDescOverrides, stageDueDates, stageNameOverrides,
       subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       stagePointsOverride,
@@ -918,12 +923,21 @@ export function ModelProvider({
       notifReadIds,
       databases,
     };
+    const dirtyStatusKeys = dirtyMapKeysRef.current.stageStatusOverrides;
+    if (dirtyStatusKeys?.size) {
+      state.stageStatusOverrides = Object.fromEntries(
+        [...dirtyStatusKeys]
+          .filter(key => Object.prototype.hasOwnProperty.call(stageStatusOverrides, key))
+          .map(key => [key, stageStatusOverrides[key]])
+      );
+    }
     // Compute _deletes by diffing current state against the last server-known
     // membership. Anything the server thinks exists but no longer exists locally
     // was deleted by the user and needs an explicit removal on the server.
     const deletes: Record<string, string[]> = {};
     // MAP slices: by key name.
     for (const slice of MAP_SLICES) {
+      if (slice === "stageStatusOverrides") continue;
       const localVal = state[slice];
       if (!localVal || typeof localVal !== "object" || Array.isArray(localVal)) continue;
       const localKeys = new Set(Object.keys(localVal as Record<string, unknown>));
@@ -970,7 +984,7 @@ export function ModelProvider({
     const envelope: PatchEnvelope = state as PatchEnvelope;
     if (Object.keys(deletes).length > 0) envelope._deletes = deletes;
     return envelope;
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, notes, bugs, usefulLinks, execProposals,
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals,
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
@@ -980,10 +994,23 @@ export function ModelProvider({
   // record those memberships as the new server-known set so we don't re-send
   // the same _deletes on the next scheduleWrite.
   const onWriteSuccess = useCallback((sent: PatchEnvelope) => {
+    if (sent.stageStatusOverrides && dirtyMapKeysRef.current.stageStatusOverrides) {
+      for (const key of Object.keys(sent.stageStatusOverrides)) {
+        dirtyMapKeysRef.current.stageStatusOverrides.delete(key);
+      }
+      if (dirtyMapKeysRef.current.stageStatusOverrides.size === 0) {
+        delete dirtyMapKeysRef.current.stageStatusOverrides;
+      }
+    }
     for (const slice of MAP_SLICES) {
       const v = (sent as Record<string, unknown>)[slice];
       if (v && typeof v === "object" && !Array.isArray(v)) {
-        serverKeysRef.current[slice] = new Set(Object.keys(v as Record<string, unknown>));
+        const keys = Object.keys(v as Record<string, unknown>);
+        if (slice === "stageStatusOverrides") {
+          serverKeysRef.current[slice] = new Set([...(serverKeysRef.current[slice] ?? []), ...keys]);
+        } else {
+          serverKeysRef.current[slice] = new Set(keys);
+        }
       }
     }
     for (const slice of ARRAY_BY_ID_SLICES) {
@@ -1842,6 +1869,7 @@ export function ModelProvider({
     // the server confirms. On success we strip the flag in place; on failure
     // we remove the comment entirely and surface a toast.
     const c: CommentItem = { id: commentId, text: val, by: currentUser, time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }), pending: true };
+    protectLocalSlice("comments");
     setComments(prev => ({ ...prev, [sid]: [...(prev[sid] || []), c] }));
     clearInput();
     logActivity("comment", sid, val.slice(0, 100), mentionedUserIds(val));
@@ -1855,6 +1883,7 @@ export function ModelProvider({
       // Server accepted — clear pending flag in place. (A subsequent sync poll
       // would also overwrite this slice with server data, but flipping the
       // flag here gives an instant green-light without waiting up to 5s.)
+      protectLocalSlice("comments");
       setComments(prev => ({
         ...prev,
         [sid]: (prev[sid] || []).map(x => x.id === commentId ? { ...x, pending: false } : x),
@@ -1955,8 +1984,8 @@ export function ModelProvider({
 
   const archiveStage = (sid: string) => {
     if (archivedStages.includes(sid)) return;
-    if (requestInsteadOfMutate("archive", sid, "archive task", `Archive "${displayStageName(sid, stageNameOverrides)}".`)) return;
-    const label = `archived "${displayStageName(sid, stageNameOverrides)}"`;
+    if (requestInsteadOfMutate("archive", sid, "archive task", `Archive "${stageNameOverrides[sid] || sid}".`)) return;
+    const label = `archived "${stageNameOverrides[sid] || sid}"`;
     const op = undoStack.push({
       label,
       inverse: () => { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); },
@@ -1976,7 +2005,7 @@ export function ModelProvider({
       onClick: () => { undoStack.removeById(op.id); { markLocalWrite("archivedStages"); setArchivedStages(prev => prev.filter(s => s !== sid)); }; },
     });
   };
-  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => Array.from(new Set(prev)).filter(s => s !== sid)); }; showToast(`restored: ${displayStageName(sid, stageNameOverrides)}`, t.green); };
+  const restoreStage = (sid: string) => { { markLocalWrite("archivedStages"); setArchivedStages(prev => Array.from(new Set(prev)).filter(s => s !== sid)); }; showToast(`restored: ${stageNameOverrides[sid] || sid}`, t.green); };
   const archivePipeline = (pid: string) => {
     if (archivedPipelines.includes(pid)) return;
     const label = `archived pipeline "${pid}"`;
@@ -2021,7 +2050,7 @@ export function ModelProvider({
     stateMirrorRef.current.stageDescOverrides = { ...stateMirrorRef.current.stageDescOverrides, [name]: val };
     markLocalWrite("stageDescOverrides");
     setStageDescOverrides(prev => ({ ...prev, [name]: val }));
-    notifyDescriptionMentions(name, val, previous, displayStageName(name, stageNameOverrides));
+    notifyDescriptionMentions(name, val, previous, stageNameOverrides[name] || name);
   };
   const setStageDueDate = (name: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
@@ -2125,7 +2154,7 @@ export function ModelProvider({
 
   const setStageStatusDirect = (name: string, status: string) => {
     const next = normalizeStageStatus(status);
-    markLocalWrite("stageStatusOverrides");
+    markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
@@ -2134,7 +2163,7 @@ export function ModelProvider({
     const cur = getStatus(name);
     const idx = STATUS_ORDER.indexOf(cur);
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
-    markLocalWrite("stageStatusOverrides");
+    markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
@@ -2274,24 +2303,12 @@ export function ModelProvider({
     if (!form.name.trim()) return null;
     const id = `custom-${Date.now()}`;
     const targetWorkspaceId = workspaceId || currentWorkspaceId;
-    const pipeline = { ...form, id, points: 0, stages: [] };
     markLocalWrite("customPipelines");
-    setCustomPipelines(prev => {
-      const next = [...prev, pipeline];
-      lsSet("customPipelines", next);
-      return next;
-    });
+    setCustomPipelines(prev => [...prev, { ...form, id, points: 0, stages: [] }]);
     if (targetWorkspaceId) {
       markLocalWrite("workspaces");
-      setWorkspaces(prev => {
-        const next = prev.map(w => w.id === targetWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w);
-        lsSet("workspaces", next);
-        return next;
-      });
+      setWorkspaces(prev => prev.map(w => w.id === targetWorkspaceId && !w.pipelineIds.includes(id) ? { ...w, pipelineIds: [...w.pipelineIds, id] } : w));
     }
-    // Custom pipelines must hit the server before polling can merge an older
-    // snapshot back over the optimistic local state.
-    setTimeout(() => writeNowRef.current?.(), 0);
     return id;
   };
 
@@ -2652,7 +2669,7 @@ export function ModelProvider({
     return users.filter(u => ws.members.includes(u.id));
   }, [users, workspaces, currentWorkspaceId]);
 
-  const value = useMemo<ModelContextValue>(() => ({
+  const value: ModelContextValue = {
     users, workspaceUsers, setUsers, currentUser, setCurrentUser, me,
     streakByUser,
     owners,
@@ -2702,58 +2719,7 @@ export function ModelProvider({
     peek: undoStack.peek,
     stackLen: undoStack.stack.length,
     t,
-  }), [
-    // State values
-    users, workspaceUsers, currentUser, me, streakByUser,
-    owners, claims, reactions, comments, subtasks,
-    commentReactions,
-    notifReads, notifDismissed, notifReadIds,
-    pendingNewComments,
-    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines,
-    stageDescOverrides, stageDueDates, stagePriorities, stageNameOverrides,
-    stagePointsOverride,
-    subtaskStages, subtaskDescOverrides, subtaskDueDates,
-    pipeDescOverrides, pipeMetaOverrides,
-    customStages, customPipelines, workspaces, activityLog,
-    reminders, timelineEvents, notes, bugs, usefulLinks, execProposals,
-    archivedStages, archivedPipelines, archivedSubtasks, stageImages,
-    chatMessages, hasMoreMessages, chatNotif, liveNotifs,
-    syncStatus,
-    currentWorkspaceId,
-    databases,
-    // Derived/memoized values
-    assignments, ownership, archived,
-    sc, ck, pr,
-    allPipelinesGlobal,
-    me,
-    getStatus, getPoints,
-    t,
-    undoStack.undo, undoStack.peek, undoStack.stack.length,
-    // Stable useCallback handlers — included to satisfy exhaustive-deps but they are stable refs
-    handleCommentReact, markAllNotifsRead, markNotifRead, dismissNotif,
-    flushPendingComments,
-    handleClaim, handleReact, addComment, deleteComment, editComment, addSubtask, toggleSubtask, renameSubtask,
-    lockSubtask, removeSubtask, setSubtaskPoints,
-    archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
-    setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
-    setStageStatusDirect, cycleStatus, approveStage, approveSubtask,
-    addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
-    addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
-    migrateSubtask,
-    createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace,
-    isOfficerOfWorkspace,
-    pinCallSeries, unpinCallSeries, setWorkspaceCallsLabel, updateWorkspaceHiddenTabs,
-    createDatabase, updateDatabase, deleteDatabase,
-    addDbRow, updateDbRow, deleteDbRow, addDbColumn,
-    addReminder, dismissReminder,
-    addTimelineEvent, updateTimelineEvent, deleteTimelineEvent,
-    addNote, updateNote, deleteNote,
-    addBug, updateBug, deleteBug,
-    addUsefulLink, updateUsefulLink, deleteUsefulLink,
-    addExecProposal, requestWorkChange, updateExecProposalStatus, applyExecProposal, cancelExecProposal, completeExecProposal, deleteExecProposal,
-    setStageDueDate, setStagePriority, setStagePointsOverride,
-    setSubtaskDescOverride, setSubtaskDueDate, persistPipeDescOverrides, persistPipeMetaOverrides,
-  ]);
+  };
 
   return <ModelContext.Provider value={value}>{children}</ModelContext.Provider>;
 }
@@ -2769,7 +2735,7 @@ export function useStage(stageId: string) {
     subtasks: subtasks[stageId] || [],
     status: stageStatusOverrides?.[stageId],
     desc: stageDescOverrides?.[stageId],
-    displayName: displayStageName(stageId, stageNameOverrides),
+    displayName: stageNameOverrides?.[stageId] || stageId,
     assignedTo: assignments[stageId] || [],
   }), [claims, reactions, comments, subtasks, stageStatusOverrides, stageDescOverrides, stageNameOverrides, assignments, stageId]);
 }

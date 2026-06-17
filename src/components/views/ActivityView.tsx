@@ -59,13 +59,14 @@ function matchesFilter(item: NotificationItem, filter: Filter, isReadCheck: (n: 
 }
 
 function ItemRow({
-  item, t, isRead, onDismiss, onMarkRead,
+  item, t, isRead, onDismiss, onMarkRead, onNavigate,
 }: {
   item: NotificationItem;
   t: ReturnType<typeof useModel>["t"];
   isRead: boolean;
   onDismiss?: (id: string) => void;
   onMarkRead?: (id: string) => void;
+  onNavigate?: (item: NotificationItem) => void;
 }) {
   const color = priorityColor(t, item.priority);
   // Read vs unread is signalled by COLOR — unread cards carry the priority tint
@@ -79,9 +80,16 @@ function ItemRow({
   const handleRowClick = () => {
     if (!isRead && onMarkRead) onMarkRead(item.id);
   };
+  const handleNavigate = () => {
+    handleRowClick();
+    if (item.stage && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("binayah:navigate-card", { detail: { stage: item.stage } }));
+    }
+    onNavigate?.(item);
+  };
   const inner = (
     <div
-      onClick={handleRowClick}
+      onClick={item.href ? undefined : handleRowClick}
       style={{
         position: "relative",
         display: "grid",
@@ -152,7 +160,7 @@ function ItemRow({
     </div>
   );
   if (item.href) {
-    return <Link href={item.href} style={{ textDecoration: "none", color: "inherit", display: "block" }}>{inner}</Link>;
+    return <Link href={item.href} onClick={handleNavigate} style={{ textDecoration: "none", color: "inherit", display: "block" }}>{inner}</Link>;
   }
   return inner;
 }
@@ -170,7 +178,7 @@ function SectionHeader({ label, count, t }: { label: string; count: number; t: R
   );
 }
 
-export default function ActivityView({ showToast, currentWorkspaceId }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string }) {
+export default function ActivityView({ showToast, currentWorkspaceId, onNavigate }: { showToast: (msg: string, color: string) => void; currentWorkspaceId?: string; onNavigate?: (item: NotificationItem) => void }) {
   const { t, markAllNotifsRead, markNotifRead, dismissNotif, activityLog, users, currentUser, execProposals, completeExecProposal } = useModel();
   const { actionRequired, updates, unreadUpdatesCount, unreadActionCount, isItemRead } = useNotifications();
   const [filter, setFilter] = useState<Filter>("all");
@@ -427,7 +435,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
               <SectionHeader label="action required" count={visibleAr.length} t={t} />
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {visibleAr.map(item => (
-                  <ItemRow key={item.id} item={item} t={t} isRead={isItemRead(item)} onMarkRead={markNotifRead} />
+                  <ItemRow key={item.id} item={item} t={t} isRead={isItemRead(item)} onMarkRead={markNotifRead} onNavigate={onNavigate} />
                 ))}
               </div>
             </>
@@ -446,6 +454,7 @@ export default function ActivityView({ showToast, currentWorkspaceId }: { showTo
                     isRead={isItemRead(item)}
                     onDismiss={dismissNotif}
                     onMarkRead={markNotifRead}
+                    onNavigate={onNavigate}
                   />
                 ))}
               </div>

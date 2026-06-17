@@ -22,11 +22,14 @@ export type NotificationKind =
   | "stalled"
   | "opportunity"
   | "mention"
+  | "assignment"
   | "claim"
   | "comment"
+  | "message"
   | "reaction"
   | "approval-given"
-  | "status-change";
+  | "status-change"
+  | "team-update";
 
 export type NotificationItem = {
   id: string;
@@ -56,9 +59,12 @@ export const KIND_LABEL: Record<NotificationKind, string> = {
   stalled: "stalled",
   opportunity: "open task",
   mention: "mentioned you",
+  assignment: "assigned to you",
   claim: "claimed",
   comment: "commented",
+  message: "new message",
   reaction: "reacted",
   "approval-given": "approved",
   "status-change": "status changed",
+  "team-update": "team update",
 };

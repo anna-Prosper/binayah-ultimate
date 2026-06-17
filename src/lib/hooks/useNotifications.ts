@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { ADMIN_IDS } from "@/lib/data";
 import type { NotificationItem } from "@/lib/notificationKinds";
-import { SubtaskKey } from "@/lib/subtaskKey";
 
 const DAY = 86_400_000;
 type InAppPrefs = {
@@ -49,6 +48,7 @@ function inAppKeyForKind(kind: NotificationItem["kind"]): keyof InAppPrefs {
     case "approval-given":
     case "exec-update": return "inAppApproved";
     case "exec-pending": return "inAppRequest";
+    case "assignment": return "inAppAssigned";
     case "claim":
     case "opportunity": return "inAppClaim";
     case "status-change":
@@ -58,6 +58,7 @@ function inAppKeyForKind(kind: NotificationItem["kind"]): keyof InAppPrefs {
     case "reaction": return "inAppComment";
     case "reminder": return "inAppReminder";
     case "due-soon": return "inAppDue";
+    case "message": return "inAppChat";
     case "bug": return "inAppBug";
     case "unassigned-now": return "inAppAssigned";
     default: return "inAppOther";
@@ -84,7 +85,7 @@ export function useNotifications() {
   const {
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
-    stageDueDates, activityLog, comments, chatMessages, users, subtasks,
+    stageDueDates, activityLog, comments, chatMessages, users,
     notifReads, notifDismissed, notifReadIds,
   } = m;
 
@@ -140,20 +141,17 @@ export function useNotifications() {
     const ar: NotificationItem[] = [];
     const up: NotificationItem[] = [];
     const userName = (id: string) => users.find(u => u.id === id)?.name || id;
-    const parentStageFor = (key: string) => {
-      if (!SubtaskKey.isValid(key)) return key;
-      return SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0])?.parentStageId ?? key;
-    };
-    const itemTitle = (key: string) => {
-      if (!SubtaskKey.isValid(key)) return key;
-      const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
-      if (!parsed) return key;
-      return (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text || key;
-    };
     const stageHref = (s: string) => {
-      const pid = stageToPipeline.get(parentStageFor(s));
-      return pid ? `/pipelines/${pid}` : "/pipelines";
+      const baseStage = s.split("::")[0];
+      const pid = stageToPipeline.get(s) || stageToPipeline.get(baseStage);
+      const stageParam = encodeURIComponent(s);
+      return pid
+        ? `/pipelines/${encodeURIComponent(pid)}?view=kanban&stage=${stageParam}`
+        : `/my-tasks?stage=${stageParam}`;
     };
+    const stagePipeId = (s: string) => stageToPipeline.get(s) || stageToPipeline.get(s.split("::")[0]);
+    const isCaptainStage = (stage: string) => myCaptainStages.includes(stage) || myCaptainStages.includes(stage.split("::")[0]);
+    const isMemberStage = (stage: string) => myMemberStages.includes(stage) || myMemberStages.includes(stage.split("::")[0]);
 
     // ── ACTION REQUIRED ─────────────────────────────────────────────────────
 
@@ -319,9 +317,9 @@ export function useNotifications() {
         if (c.by === me) continue;
         const t = Date.parse(c.time) || c.id;
         up.push({
-          id: `comment:${stage}:${c.id}`, kind: "comment", title: itemTitle(stage),
+          id: `comment:${stage}:${c.id}`, kind: "comment", title: stage,
           body: `${userName(c.by)}: ${c.text.slice(0, 100)}`,
-          stage, pipelineId: stageToPipeline.get(parentStageFor(stage)), href: stageHref(stage),
+          stage, pipelineId: stageToPipeline.get(stage), href: stageHref(stage),
           time: t, priority: "medium", actionRequired: false,
         });
       }
@@ -337,7 +335,7 @@ export function useNotifications() {
         up.push({
           id: `mention:comment:${stage}:${c.id}`, kind: "mention",
           title: `${userName(c.by)} mentioned you`, body: c.text.slice(0, 140),
-          stage, pipelineId: stageToPipeline.get(parentStageFor(stage)), href: stageHref(stage),
+          stage, pipelineId: stageToPipeline.get(stage), href: stageHref(stage),
           time: t, priority: "high", actionRequired: false,
         });
       }
@@ -356,31 +354,93 @@ export function useNotifications() {
       });
     }
 
-    // 14. Activity-log-derived updates on stages I own (excluding my own actions).
+    // 14. Description/document-style mentions emitted as activity.
+    for (const a of activityLog) {
+      if (a.type !== "mention" || a.user === me) continue;
+      const lower = (a.detail || "").toLowerCase();
+      const explicitlyForMe = a.notifyTo?.includes(me) || meHandles.some(h => lower.includes(h));
+      if (!explicitlyForMe) continue;
+      up.push({
+        id: `mention:activity:${a.target}:${a.time}`, kind: "mention",
+        title: `${userName(a.user)} mentioned you`, body: (a.detail || "").slice(0, 140),
+        stage: a.target, pipelineId: stageToPipeline.get(a.target), href: stageHref(a.target),
+        time: a.time, priority: "high", actionRequired: false,
+      });
+    }
+
+    // 15. Normal team/DM messages.
+    for (const msg of chatMessages) {
+      if (msg.userId === me) continue;
+      const lower = msg.text.toLowerCase();
+      if (meHandles.some(h => lower.includes(h))) continue;
+      const threadId = msg.threadId || "team";
+      const isDmForMe = threadId.startsWith("dm:") && threadId.split(":").includes(me);
+      const isTeamMessage = threadId === "team";
+      if (!isDmForMe && !isTeamMessage) continue;
+      const t = Date.parse(msg.time) || msg.id;
+      up.push({
+        id: `message:${threadId}:${msg.id}`, kind: "message",
+        title: isDmForMe ? `${userName(msg.userId)} sent you a DM` : `${userName(msg.userId)} posted in team chat`,
+        body: msg.text ? msg.text.slice(0, 140) : `${msg.attachments?.length || 0} attachment${(msg.attachments?.length || 0) === 1 ? "" : "s"}`,
+        href: "/chat", time: t, priority: isDmForMe ? "high" : "low", actionRequired: false,
+      });
+    }
+
+    // 15. Activity-log-derived updates on stages I own (excluding my own actions).
     for (const a of activityLog) {
       if (!a.target) continue;
       if (!owners[a.target]?.includes(me)) continue;
       if (a.user === me) continue;
-      if (a.type === "claim") {
+      if (a.type === "assign") {
+        up.push({
+          id: `assignment:${a.target}:${a.user}:${a.time}`, kind: "assignment", title: a.target,
+          body: `${userName(a.user)} ${a.detail || "assigned this work"}`,
+          stage: a.target, pipelineId: stagePipeId(a.target), href: stageHref(a.target),
+          time: a.time, priority: "high", actionRequired: false,
+        });
+      } else if (a.type === "claim") {
         up.push({
           id: `claim:${a.target}:${a.user}:${a.time}`, kind: "claim", title: a.target,
           body: `${userName(a.user)} ${a.detail || "claimed"}`,
-          stage: a.target, pipelineId: stageToPipeline.get(a.target), href: stageHref(a.target),
+          stage: a.target, pipelineId: stagePipeId(a.target), href: stageHref(a.target),
           time: a.time, priority: "low", actionRequired: false,
         });
       } else if (a.type === "status_change") {
         up.push({
           id: `status:${a.target}:${a.time}`, kind: "status-change", title: a.target,
           body: a.detail || "status changed",
-          stage: a.target, pipelineId: stageToPipeline.get(a.target), href: stageHref(a.target),
+          stage: a.target, pipelineId: stagePipeId(a.target), href: stageHref(a.target),
           time: a.time, priority: "medium", actionRequired: false,
         });
       } else if (a.type === "approve") {
         up.push({
           id: `approval-given:${a.target}:${a.time}`, kind: "approval-given", title: a.target,
           body: `${userName(a.user)} approved`,
-          stage: a.target, pipelineId: stageToPipeline.get(a.target), href: stageHref(a.target),
+          stage: a.target, pipelineId: stagePipeId(a.target), href: stageHref(a.target),
           time: a.time, priority: "low", actionRequired: false,
+        });
+      }
+    }
+
+    // 16. Operators/admins: team activity across their workspaces.
+    if (isCaptainSomewhere) {
+      const teamEventTypes = new Set(["assign", "claim", "comment", "status_change", "approve", "create"]);
+      for (const a of activityLog) {
+        if (!a.target || a.user === me || !teamEventTypes.has(a.type)) continue;
+        if (!isCaptainStage(a.target) && !isMemberStage(a.target)) continue;
+        const id = `team:${a.type}:${a.target}:${a.user}:${a.time}`;
+        if (up.some(n => n.id === id || n.id.endsWith(`:${a.target}:${a.time}`))) continue;
+        const label =
+          a.type === "assign" ? "assignment" :
+          a.type === "claim" ? "claim" :
+          a.type === "comment" ? "comment" :
+          a.type === "status_change" ? "status update" :
+          a.type === "approve" ? "approval" : "new task";
+        up.push({
+          id, kind: "team-update", title: a.target,
+          body: `${userName(a.user)} ${label}: ${a.detail || ""}`.trim(),
+          stage: a.target, pipelineId: stagePipeId(a.target), href: stageHref(a.target),
+          time: a.time, priority: a.type === "status_change" ? "medium" : "low", actionRequired: false,
         });
       }
     }
@@ -433,7 +493,7 @@ export function useNotifications() {
   }, [
     currentUser, workspaces, allPipelinesGlobal, customStages, archivedStages, owners,
     approvedStages, getStatus, stagePriorities, execProposals, bugs, reminders,
-    stageDueDates, activityLog, comments, chatMessages, users, subtasks,
+    stageDueDates, activityLog, comments, chatMessages, users,
     notifReads, notifDismissed, notifReadIds,
     now, prefs,
   ]);

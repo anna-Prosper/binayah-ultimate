@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { Bell, CalendarDays, ExternalLink, Flag, Mail, X, Key, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
 import { type ActivityItem, type TimelineEvent, type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
@@ -9,7 +10,6 @@ import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { displayStageName } from "@/lib/displayLabels";
 import { truncate, timeAgo, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
 import { ExecutiveRequestsPanel } from "@/components/panels/ExecutiveRequestsPanel";
 import { ZoomIntegrationPanel } from "@/components/panels/ZoomIntegrationPanel";
@@ -18,10 +18,6 @@ const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false }
 
 interface Pipeline { id: string; name: string; icon: string; colorKey: string; stages: string[]; }
 type AttentionTone = "accent" | "green" | "amber" | "red" | "cyan";
-
-function isDefaultParentStageId(stageId: string) {
-  return stageId.startsWith("default-parent-");
-}
 
 function formatRoadmapDate(date?: string) {
   if (!date) return "No date";
@@ -61,10 +57,10 @@ function RoadmapHomePanel({ t, events, users, canSeeAll }: { t: T; events: Timel
             {done.length > 0 ? ` · ${done.length} done` : ""}
           </div>
         </div>
-        <a href="/timeline" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: t.accent, border: `1px solid ${t.accent}44`, background: t.accent + "10", borderRadius: 9, padding: "7px 10px", textDecoration: "none", fontFamily: mono, fontSize: 11, fontWeight: 900 }}>
+        <Link href="/timeline" style={{ display: "inline-flex", alignItems: "center", gap: 6, color: t.accent, border: `1px solid ${t.accent}44`, background: t.accent + "10", borderRadius: 9, padding: "7px 10px", textDecoration: "none", fontFamily: mono, fontSize: 11, fontWeight: 900 }}>
           open full
           <ExternalLink size={13} />
-        </a>
+        </Link>
       </div>
       {visible.length > 0 ? (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 250px), 1fr))", gap: 8 }}>
@@ -106,19 +102,19 @@ function RoadmapHomePanel({ t, events, users, canSeeAll }: { t: T; events: Timel
   );
 }
 
-function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
-  item: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string };
+function RecentInteractionCard({ item, t, mono, onPipelineClick, onCardNavigate }: {
+  item: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; cardLabel?: string; source?: string };
   t: T;
   mono: string;
   onPipelineClick?: (pipelineId: string) => void;
-  onChatOpen?: () => void;
+  onCardNavigate?: (key: string, label?: string) => void;
 }) {
   const [hovered, setHovered] = useState(false);
   const accentColor = t.cyan || t.accent;
   const handleClick = () => {
-    if (item.source === "chat" && onChatOpen) {
-      onChatOpen();
-    } else if (item.key && onPipelineClick) {
+    if (item.key && item.key !== "chat" && onCardNavigate) {
+      onCardNavigate(item.key, item.cardLabel || item.title);
+    } else if (item.key && item.key !== "chat" && onPipelineClick) {
       onPipelineClick(item.key);
     }
   };
@@ -139,10 +135,10 @@ function RecentInteractionCard({ item, t, mono, onPipelineClick, onChatOpen }: {
   );
 }
 
-function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onChatOpen, currentUser, execProposals, onAddReminder, onUpdateExecProposal, onCompleteExecProposal, reminders, onDismissReminder }: {
+function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequestUpdate, onPipelineClick, onCardNavigate, currentUser, execProposals, onAddReminder, onUpdateExecProposal, onCompleteExecProposal, reminders, onDismissReminder }: {
   t: T;
   onPipelineClick?: (pipelineId: string) => void;
-  onChatOpen?: () => void;
+  onCardNavigate?: (key: string, label?: string) => void;
   currentUser?: string;
   execProposals?: { id: number; title: string; body: string; status: string; by: string; kind?: string; createdAt: number; target?: string; requestedAction?: string; requestedValue?: string | null; requestedUserId?: string | null }[];
   onAddReminder?: (title: string, remindAt: string) => void;
@@ -164,7 +160,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
     rawDueItems: { key: string; title: string; pipelineName: string }[];
     rawMyItems: { key: string; title: string; pipelineName: string; status: string }[];
     rawMineBlocked: { key: string; title: string; pipelineName: string }[];
-    rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; source?: string }[];
+    rawRecentInteractions: { title: string; meta: string; body: string; tone: AttentionTone; key?: string; cardLabel?: string; source?: string }[];
     rawRecentActivity: { title: string; meta: string; body: string; tone: AttentionTone }[];
     rawApprovalRequests: { id: number; title: string; body: string; meta: string; kind: string; requestedAction: string }[];
     rawAnnaSignals: { title: string; meta: string; body: string; tone: AttentionTone }[];
@@ -496,7 +492,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
-                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
+                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onCardNavigate={onCardNavigate} />
                   ))}
                 </div>
               )}
@@ -524,7 +520,7 @@ function AttentionOverview({ t, attention, users, onApprove, onAssign, onRequest
                 <div style={{ marginBottom: 8 }}>
                   <div style={{ fontSize: 10, color: t.cyan || t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" as const, marginBottom: 4 }}>recent tags and messages</div>
                   {attention.rawRecentInteractions.slice(0, 4).map((item, i) => (
-                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onChatOpen={onChatOpen} />
+                    <RecentInteractionCard key={i} item={item} t={t} mono={mono} onPipelineClick={onPipelineClick} onCardNavigate={onCardNavigate} />
                   ))}
                 </div>
               )}
@@ -579,7 +575,7 @@ interface Props {
 export default function HomeView({
   t, me, users, myWorkspaces, allPipelinesGlobal, pipeMetaOverrides,
   currentUser, isCaptainOfAny, onSwitchWorkspace,
-  editMode, onPipelineClick, onChatOpen, onUserClick, navbarSlot,
+  editMode, onPipelineClick, onUserClick, navbarSlot,
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
@@ -595,6 +591,21 @@ export default function HomeView({
   // null = show all workspaces; string = filter to specific workspace
   const [homeWsFilter, setHomeWsFilter] = useState<string | null>(null);
   const [overviewNow] = useState(() => Date.now());
+  const navigateToCard = useCallback((key: string, label?: string) => {
+    const normalize = (value?: string) => (value || "").trim().toLowerCase().replace(/\s+/g, " ");
+    const exactCandidates = [key, label, stageNameOverrides[key]].filter(Boolean).map(normalize);
+    const textCandidates = exactCandidates.filter(candidate => candidate.length > 2);
+    const cards = Array.from(document.querySelectorAll<HTMLElement>("[data-card-key]"));
+    const card = cards.find(el => exactCandidates.includes(normalize(el.dataset.cardKey)))
+      || cards.find(el => textCandidates.some(candidate => normalize(el.textContent || "").includes(candidate)));
+    if (!card) return;
+
+    card.scrollIntoView({ behavior: "smooth", block: "center", inline: "nearest" });
+    card.classList.remove("bu-card-jump-highlight");
+    void card.offsetWidth;
+    card.classList.add("bu-card-jump-highlight");
+    window.setTimeout(() => card.classList.remove("bu-card-jump-highlight"), 1800);
+  }, [stageNameOverrides]);
 
   // Build full pipeline→workspace map from ALL user's workspaces
   const pipelineWorkspaceMap = useMemo(() => {
@@ -734,7 +745,6 @@ export default function HomeView({
     const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : isExec ? "exec" : "agent";
 
     const stageItems = Array.from(visibleStageIds).map(stageId => {
-      if (isDefaultParentStageId(stageId) || isArchivedStageId(stageId)) return null;
       const pipeline = stageToPipeline.get(stageId);
       const priority = pipeline ? pipeMetaOverrides[pipeline.id]?.priority : undefined;
       return {
@@ -749,7 +759,7 @@ export default function HomeView({
         kind: "task" as const,
         approved: approvedStages.includes(stageId),
       };
-    }).filter((item): item is NonNullable<typeof item> => item !== null);
+    });
     const subtaskItems = Object.entries(subtasks || {}).flatMap(([parentStageId, list]) => {
       if (!visibleStageIds.has(parentStageId)) return [];
       const parent = stageToPipeline.get(parentStageId);
@@ -777,8 +787,6 @@ export default function HomeView({
       return !isArchivedSubtaskId(item.key, item.title);
     });
     const isClosedForAttention = (item: typeof allItems[number]) =>
-      item.status === "concept" ||
-      (item.kind === "task" && isDefaultParentStageId(item.key)) ||
       item.status === "active" ||
       item.approved ||
       completedActivityNorms.has(normalizeArchiveKey(item.key)) ||
@@ -1045,7 +1053,7 @@ export default function HomeView({
           return sub?.text || key;
         }
       }
-      return displayStageName(key, stageNameOverrides);
+      return stageNameOverrides[key] || key;
     }
     function commentUserLabel(id: string) {
       return users.find(u => u.id === id)?.name.split(" ")[0] || id;
@@ -1091,6 +1099,7 @@ export default function HomeView({
         body: `${i.source === "chat" ? "chat" : i.title}: ${truncate(i.text, 86)}`,
         tone: "amber" as AttentionTone,
         key: i.target,
+        cardLabel: i.title,
         source: i.source,
       })),
       rawRecentActivity: activeUpdates.slice(0, 4).map(a => ({
@@ -1286,7 +1295,7 @@ export default function HomeView({
             onAssign={(key, userId) => assignTask(key, userId)}
             onRequestUpdate={updateExecProposalStatus}
             onPipelineClick={onPipelineClick}
-            onChatOpen={onChatOpen}
+            onCardNavigate={navigateToCard}
           />
           <RoadmapHomePanel t={t} events={homeRoadmapEvents} users={users} canSeeAll={isCaptainOfAny} />
           {/* Standalone Reminder panel is redundant — inline '+ reminder' button is now in

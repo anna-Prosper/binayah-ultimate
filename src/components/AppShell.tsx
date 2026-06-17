@@ -12,7 +12,7 @@ import { ModelProvider, useModel } from "@/lib/contexts/ModelContext";
 import { useNotifications } from "@/lib/hooks/useNotifications";
 import { AppShellProvider, type AppShellContextValue } from "@/lib/contexts/AppShellContext";
 import { mkTheme, THEME_OPTIONS } from "@/lib/themes";
-import { pipelineData, type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
+import { type UserType, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { ToastContainer, RecoveryToast, useToasts, type ToastItem } from "@/components/ui/Toast";
 import { ErrorBoundary } from "@/components/ui/ErrorBoundary";
@@ -145,7 +145,7 @@ function ShellInner({
   const pathname = usePathname() || "/";
   const activeNavItem: NavItem = navItemFromPathname(pathname);
 
-  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, customPipelines, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, archivedPipelines, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, updateWorkspaceHiddenTabs, undo, peek, stackLen, t } = useModel();
+  const { users, setUsers, currentUser, me, claims, approvedStages, customStages, workspaces, activityLog, chatNotif, setChatNotif, syncStatus, getPoints, ck, allPipelinesGlobal, archivedPipelines, handleClaim, addCustomStage, createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace, updateWorkspaceHiddenTabs, undo, peek, stackLen, t } = useModel();
   const { setReactOpen, setClaimAnim } = useEphemeral();
 
   // Hover/UI state — no more activeNavItem; that lives in the URL
@@ -198,8 +198,7 @@ function ShellInner({
     if (lastSeenActivity === 0 && activityLog.length > 0) setLastSeenActivity(activityLog.length);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityLog.length]);
-  // Keep the shell gated until the first server hydrate finishes. Rendering the
-  // cached model early can briefly show stale state and hide newly saved items.
+  useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
   useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
@@ -357,7 +356,6 @@ function ShellInner({
 
   // Computed
   const isExec = !!currentUser && EXEC_IDS.includes(currentUser);
-  const isRootAdmin = !!currentUser && ADMIN_IDS.includes(currentUser);
   const activePipelinesGlobal = useMemo(
     () => allPipelinesGlobal.filter(p => !(archivedPipelines || []).includes(p.id)),
     [allPipelinesGlobal, archivedPipelines],
@@ -550,7 +548,7 @@ function ShellInner({
         </AppShellProvider>
 
         {/* Mobile activity bottom sheet — independent of route */}
-        {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} /></Suspense></ErrorBoundary></BottomSheet>)}
+        {isMobile && (<BottomSheet open={showActivity} onClose={() => setShowActivity(false)} title="// activity feed" t={t}><ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}><Suspense fallback={<ActivitySkeleton t={t} />}><ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} onNavigate={() => setShowActivity(false)} /></Suspense></ErrorBoundary></BottomSheet>)}
 
         {/* Toasts */}
         {chatNotif && (<div style={{ position: "fixed", bottom: 80, right: 16, maxWidth: "min(300px, calc(100vw - 32px))", background: t.bgCard, border: `1px solid ${chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent}44`, borderRadius: 16, padding: "12px 16px", display: "flex", alignItems: "flex-start", gap: 8, boxShadow: t.shadowLg, animation: "slideUp 0.25s ease", zIndex: 600, fontFamily: "var(--font-dm-mono), monospace" }}><span style={{ display: "inline-flex", alignItems: "center", flexShrink: 0, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent }}>{chatNotif.isClaim ? <Handshake size={16} /> : chatNotif.isReaction ? <Zap size={16} /> : chatNotif.isComment ? <MessageSquare size={16} /> : <Eye size={16} />}</span><div style={{ flex: 1, minWidth: 0 }}><div style={{ fontSize: 12, fontWeight: 800, color: chatNotif.isClaim ? t.accent : chatNotif.isReaction ? t.green : t.accent, marginBottom: 4 }}>{chatNotif.name}</div><div style={{ fontSize: 13, color: t.text, lineHeight: 1.4, wordBreak: "break-word" }}>{chatNotif.text.length > 80 ? chatNotif.text.slice(0, 80) + "…" : chatNotif.text}</div>{chatNotif.isComment && chatNotif.stage && <div style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>on {chatNotif.stage}</div>}</div><button onClick={() => setChatNotif(null)} style={{ background: "none", border: "none", cursor: "pointer", color: t.textDim, padding: 0, marginLeft: 4, display: "inline-flex", alignItems: "center" }}><X size={15} /></button></div>)}
@@ -620,7 +618,7 @@ function ShellInner({
         <div onClick={e => e.stopPropagation()} style={{ position: "fixed", top: 70, right: 16, width: 360, maxHeight: "70vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 16, boxShadow: "0 8px 32px rgba(0,0,0,0.25)", zIndex: 499 }}>
           <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
             <Suspense fallback={<ActivitySkeleton t={t} />}>
-              <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} />
+              <ActivityView showToast={showToast} currentWorkspaceId={currentWorkspaceId} onNavigate={() => setShowActivity(false)} />
             </Suspense>
           </ErrorBoundary>
         </div>
