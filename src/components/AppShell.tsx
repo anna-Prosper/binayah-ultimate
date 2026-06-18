@@ -21,7 +21,7 @@ import { TooltipPortal } from "@/components/ui/TooltipPortal";
 import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon, Home, ListTodo, Bug, Table2, Link2 } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon, Home, ListTodo, Bug, Table2, Link2, FileText, StickyNote } from "lucide-react";
 const AvatarStep6 = dynamic(() => import("@/components/Onboarding").then(m => m.AvatarStep6), { ssr: false, loading: () => null });
 const FloatingBg = dynamic(() => import("@/components/Onboarding").then(m => m.FloatingBg), { ssr: false, loading: () => null });
 const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), { ssr: false, loading: () => null });
@@ -516,12 +516,18 @@ function ShellInner({
     { id: "home", label: "Home", icon: <Home size={17} strokeWidth={1.9} />, action: () => router.push("/") },
     { id: "my-tasks", label: "Tasks", icon: <ListTodo size={17} strokeWidth={1.9} />, action: () => router.push("/my-tasks") },
     { id: "pipelines", label: "Pipes", icon: <Zap size={17} strokeWidth={1.9} />, action: () => router.push("/pipelines") },
+    { id: "documents", label: "Docs", icon: <FileText size={17} strokeWidth={1.9} />, action: () => { router.push("/documents"); setShowDocumentsMobile(true); } },
+    { id: "notes", label: "Notes", icon: <StickyNote size={17} strokeWidth={1.9} />, action: () => router.push("/notes") },
     { id: "bugs", label: "Bugs", icon: <Bug size={17} strokeWidth={1.9} />, action: () => router.push("/bugs") },
     { id: "databases", label: "DBs", icon: <Table2 size={17} strokeWidth={1.9} />, action: () => router.push("/databases") },
     { id: "links", label: "Links", icon: <Link2 size={17} strokeWidth={1.9} />, action: () => router.push("/links") },
+    { id: "activity", label: "Alerts", icon: <Bell size={17} strokeWidth={1.9} />, action: () => { router.push("/activity"); setShowActivity(true); setLastSeenActivity(activityLog.length); } },
+    { id: "chat", label: "Chat", icon: <MessageSquare size={17} strokeWidth={1.9} />, action: () => { router.push("/chat"); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); } },
   ] satisfies { id: NavItem; label: string; icon: React.ReactNode; action: () => void }[]).filter(item => {
     if (item.id === "bugs" && currentWorkspace?.hiddenTabs?.includes("bugs")) return false;
     if (item.id === "databases" && currentWorkspace?.hiddenTabs?.includes("databases")) return false;
+    if (item.id === "documents" && currentWorkspace?.hiddenTabs?.includes("documents")) return false;
+    if (item.id === "notes" && currentWorkspace?.hiddenTabs?.includes("notes")) return false;
     return true;
   });
 
@@ -540,7 +546,7 @@ function ShellInner({
         contentStyle={
           activeNavItem === "chat" && !isMobile
             ? { padding: 0, display: "flex", flexDirection: "column", minHeight: 0 }
-            : { padding: isMobile ? "0 10px 108px" : "0 20px 24px" }
+            : { padding: isMobile ? "0 10px calc(112px + env(safe-area-inset-bottom))" : "0 20px 24px" }
         }
       >
         <AppShellProvider value={shellContextValue}>
@@ -558,7 +564,7 @@ function ShellInner({
         <nav
           className="bu-mobile-nav"
           onClick={e => e.stopPropagation()}
-          style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 650, display: "none", alignItems: "center", justifyContent: "space-between", gap: 4, padding: "6px 7px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 18, boxShadow: "0 12px 36px rgba(0,0,0,0.22)", backdropFilter: "blur(14px)" }}
+          style={{ position: "fixed", left: 8, right: 8, bottom: 8, zIndex: 650, display: "none", alignItems: "center", justifyContent: "flex-start", gap: 4, padding: "6px 7px", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 18, boxShadow: "0 12px 36px rgba(0,0,0,0.22)", backdropFilter: "blur(14px)" }}
           aria-label="Mobile navigation"
         >
           {mobileNavItems.map(item => {
@@ -573,7 +579,7 @@ function ShellInner({
                   setShowSettings(false);
                   item.action();
                 }}
-                style={{ flex: "1 1 0", minWidth: 0, height: 50, border: `1px solid ${active ? t.accent + "55" : "transparent"}`, background: active ? t.accent + "18" : "transparent", color: active ? t.accent : t.textMuted, borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10, fontWeight: active ? 900 : 750, cursor: "pointer" }}
+                style={{ flex: "0 0 64px", minWidth: 64, height: 52, border: `1px solid ${active ? t.accent + "55" : "transparent"}`, background: active ? t.accent + "18" : "transparent", color: active ? t.accent : t.textMuted, borderRadius: 14, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10, fontWeight: active ? 900 : 750, cursor: "pointer", scrollSnapAlign: "center" }}
               >
                 <span style={{ display: "inline-flex", alignItems: "center" }}>{item.icon}</span>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>{item.label}</span>

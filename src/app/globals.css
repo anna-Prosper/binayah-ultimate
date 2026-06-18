@@ -18,6 +18,22 @@ body {
   text-rendering: optimizeLegibility;
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+img,
+svg,
+video,
+canvas {
+  max-width: 100%;
+}
+
 button,
 input,
 select,
@@ -25,21 +41,91 @@ textarea {
   font: inherit;
 }
 
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
 @media (max-width: 768px) {
   html,
   body {
     width: 100%;
+    min-width: 0;
     overflow-x: hidden;
+    overscroll-behavior-x: none;
   }
 
   input,
   select,
   textarea {
     font-size: 16px;
+    max-width: 100%;
   }
 
   button {
     touch-action: manipulation;
+  }
+
+  .bu-shell {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .bu-shell-main,
+  .bu-shell-content {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .bu-shell-content {
+    padding-bottom: calc(112px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .bu-mobile-nav {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: calc(6px + env(safe-area-inset-bottom)) !important;
+  }
+
+  .bu-mobile-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bu-home-actions::-webkit-scrollbar,
+  .bu-mobile-scroll-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  .bu-home-actions,
+  .bu-mobile-scroll-x {
+    scrollbar-width: none;
+  }
+
+  .bu-mobile-nav button,
+  .bu-touch-target {
+    min-height: 44px;
+  }
+
+  .bu-home-actions > * {
+    flex: 0 0 auto;
+  }
+
+  .bu-mobile-stack {
+    grid-template-columns: 1fr !important;
+  }
+
+  .bu-mobile-scroll-x {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .bu-no-mobile-overflow {
+    max-width: 100%;
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 

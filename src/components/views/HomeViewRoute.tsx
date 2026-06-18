@@ -82,7 +82,7 @@ export default function HomeViewRoute({
           setViewingUser={setViewingUser}
           onChangeAvatar={(uid, avatar) => { setSelUser(uid); setSelAvatar(avatar); setShowAvatarPicker(true); }}
           navbarSlot={(
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+            <div className="bu-home-actions bu-mobile-scroll-x" style={{ display: "flex", alignItems: "center", gap: 4, maxWidth: "100%", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
               <div onClick={e => { e.stopPropagation(); setSelUser(currentUser); setSelAvatar(me.avatar); setShowAvatarPicker(true); }} style={{ display: "flex", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "6px 10px", cursor: "pointer" }} onMouseEnter={e => (e.currentTarget as HTMLElement).style.borderColor = me.color + "55"} onMouseLeave={e => (e.currentTarget as HTMLElement).style.borderColor = t.border}>
                 <AvatarC user={me} size={24} />
                 <div>

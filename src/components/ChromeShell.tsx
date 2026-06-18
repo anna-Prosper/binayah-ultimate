@@ -27,11 +27,11 @@ export function ChromeShell({
   contentStyle,
 }: ChromeShellProps) {
   return (
-    <div style={{ display: "flex", flexDirection: "row", ...outerStyle }}>
+    <div className="bu-shell" style={{ display: "flex", flexDirection: "row", ...outerStyle }}>
       {sidebar}
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowX: "hidden", ...mainStyle }}>
-        <div style={headerStyle}>{header}</div>
-        <div style={{ flex: 1, minWidth: 0, overflowX: "hidden", ...contentStyle }}>
+      <div className="bu-shell-main" style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", overflowX: "hidden", ...mainStyle }}>
+        <div className="bu-shell-header" style={headerStyle}>{header}</div>
+        <div className="bu-shell-content" style={{ flex: 1, minWidth: 0, overflowX: "hidden", ...contentStyle }}>
           {children}
         </div>
       </div>

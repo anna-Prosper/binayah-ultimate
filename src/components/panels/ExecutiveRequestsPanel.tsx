@@ -4,6 +4,7 @@ import { T } from "@/lib/themes";
 import { type UserType, type ExecProposal, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { timeAgo, isExecutiveProposal } from "@/lib/timeHelpers";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSubmit, onUpdate, onApply, onDelete, onCancel }: {
   t: T;
@@ -19,6 +20,7 @@ export function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSub
   const mono = "var(--font-dm-mono), monospace";
   const isExec = EXEC_IDS.includes(currentUser);
   const isAdmin = ADMIN_IDS.includes(currentUser);
+  const isMobile = useIsMobile(720);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [sectionCollapsed, setSectionCollapsed] = useState(() => {
@@ -55,7 +57,7 @@ export function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSub
       </button>
 
       {!sectionCollapsed && isExec && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(180px, 0.7fr) 1fr auto", gap: 8, alignItems: "stretch", marginBottom: visible.length > 0 ? 12 : 0 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px, 0.7fr) 1fr auto", gap: 8, alignItems: "stretch", marginBottom: visible.length > 0 ? 12 : 0 }}>
           <input
             value={title}
             onChange={e => setTitle(e.target.value)}
@@ -75,7 +77,7 @@ export function ExecutiveRequestsPanel({ t, currentUser, users, proposals, onSub
             type="button"
             onClick={submit}
             disabled={!title.trim() || !body.trim()}
-            style={{ background: (!title.trim() || !body.trim()) ? t.bgHover || t.bgSoft : t.accent + "22", border: `1px solid ${(!title.trim() || !body.trim()) ? t.border : t.accent + "77"}`, borderRadius: 8, color: (!title.trim() || !body.trim()) ? t.textDim : t.accent, padding: "0 14px", fontFamily: mono, fontSize: 13, fontWeight: 800, cursor: (!title.trim() || !body.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+            style={{ background: (!title.trim() || !body.trim()) ? t.bgHover || t.bgSoft : t.accent + "22", border: `1px solid ${(!title.trim() || !body.trim()) ? t.border : t.accent + "77"}`, borderRadius: 8, color: (!title.trim() || !body.trim()) ? t.textDim : t.accent, padding: isMobile ? "10px 14px" : "0 14px", fontFamily: mono, fontSize: 13, fontWeight: 800, cursor: (!title.trim() || !body.trim()) ? "not-allowed" : "pointer", whiteSpace: "nowrap", minHeight: isMobile ? 44 : undefined }}
           >
             send
           </button>

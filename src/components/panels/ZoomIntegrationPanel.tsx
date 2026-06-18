@@ -4,6 +4,7 @@ import { T } from "@/lib/themes";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { DEFAULT_PARENT_DISPLAY_LABEL, displayStageName } from "@/lib/displayLabels";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 type ZoomStatus = {
   configured: boolean;
@@ -156,6 +157,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     try { return localStorage.getItem("home_section_zoom") === "1"; } catch { return false; }
   });
   const toggleSection = () => setSectionCollapsed((v: boolean) => { const next = !v; try { localStorage.setItem("home_section_zoom", next ? "1" : "0"); } catch {} return next; });
+  const isMobile = useIsMobile(720);
 
   if (!isAdmin) return null;
   const configured = status?.configured ?? false;
@@ -382,7 +384,7 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
         </div>
         <span style={{ fontSize: 12, color: t.textDim, fontFamily: mono, flexShrink: 0 }}>{sectionCollapsed ? "▼" : "▲"}</span>
       </button>
-      {!sectionCollapsed && <div style={{ display: "grid", gridTemplateColumns: "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
+      {!sectionCollapsed && <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(240px, 0.8fr) minmax(280px, 1.2fr)", gap: 14 }}>
       <div style={{ minWidth: 0 }}>
         <div style={{ marginTop: 0, fontSize: 13, color: t.textMuted, lineHeight: 1.45 }}>
           Paste any call summary or meeting notes — AI extracts action items and queues them here for approval. Each approved task becomes a stage in the relevant pipeline.

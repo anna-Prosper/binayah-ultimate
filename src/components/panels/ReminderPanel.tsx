@@ -3,6 +3,7 @@ import { useState } from "react";
 import { T } from "@/lib/themes";
 import { type UserType } from "@/lib/data";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 export function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismiss }: {
   t: T;
@@ -13,6 +14,7 @@ export function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismi
   onDismiss: (id: number) => void;
 }) {
   const mono = "var(--font-dm-mono), monospace";
+  const isMobile = useIsMobile(720);
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -58,7 +60,7 @@ export function ReminderPanel({ t, users, currentUser, reminders, onAdd, onDismi
         <button type="button" onClick={e => { e.stopPropagation(); setOpen(v => !v); }} style={{ background: t.accent + "16", border: `1px solid ${t.accent}55`, color: t.accent, borderRadius: 8, padding: "5px 10px", fontSize: 12, fontFamily: mono, fontWeight: 800, cursor: "pointer" }}>{open ? "close" : "+ reminder"}</button>
       </div>}
       {!sectionCollapsed && open && (
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(160px, .8fr) minmax(180px, 1fr) auto", gap: 8, alignItems: "start", marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(160px, .8fr) minmax(180px, 1fr) auto", gap: 8, alignItems: "start", marginBottom: 12 }}>
           <input value={title} onChange={e => setTitle(e.target.value)} placeholder="title" maxLength={140} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 13, outline: "none" }} />
           <input value={body} onChange={e => setBody(e.target.value)} placeholder="note (optional)" maxLength={1000} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", color: t.text, fontSize: 13, outline: "none" }} />
           <input type="datetime-local" value={remindAt} onChange={e => setRemindAt(e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 9px", color: t.textMuted, fontSize: 12, fontFamily: mono, outline: "none" }} />

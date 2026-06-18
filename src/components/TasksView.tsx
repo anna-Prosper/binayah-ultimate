@@ -773,7 +773,17 @@ export default function TasksView(props: Props) {
           )}
         </div>
         {/* Flat inline controls */}
-        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <div
+          className="bu-mobile-scroll-x"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 4,
+            maxWidth: "100%",
+            overflowX: isMobile ? "auto" : "visible",
+            paddingBottom: isMobile ? 2 : 0,
+          }}
+        >
           {showMyAllFilter && (
             <>
               <button style={{ ...flatBtn(myAllFilter === "my"), display: "inline-flex", alignItems: "center", gap: 5 }} onClick={() => setFilterPref("myAllFilter", "my")}><Cat size={12} /> mine</button>
@@ -799,12 +809,12 @@ export default function TasksView(props: Props) {
       </div>
       {filterOpen && (
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center", marginBottom: 12, padding: 8, border: `1px solid ${t.border}`, borderRadius: 12, background: t.bgCard }}>
-          <select value={assigneeFilter} onChange={e => setFilterPref("assigneeFilter", e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${assigneeFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
+          <select value={assigneeFilter} onChange={e => setFilterPref("assigneeFilter", e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${assigneeFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, flex: isMobile ? "1 1 100%" : undefined, minHeight: isMobile ? 44 : undefined }}>
             <option value="all">all assignees</option>
             <option value="unassigned">unassigned</option>
             {users.filter(u => u.id !== "ai").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
-          <select value={priorityFilter} onChange={e => setFilterPref("priorityFilter", e.target.value as KanbanFilterPrefs["priorityFilter"])} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${priorityFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
+          <select value={priorityFilter} onChange={e => setFilterPref("priorityFilter", e.target.value as KanbanFilterPrefs["priorityFilter"])} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${priorityFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, flex: isMobile ? "1 1 calc(50% - 4px)" : undefined, minHeight: isMobile ? 44 : undefined }}>
             <option value="all">all priorities</option>
             <option value="NOW">now</option>
             <option value="HIGH">high</option>
@@ -812,17 +822,17 @@ export default function TasksView(props: Props) {
             <option value="LOW">low</option>
             <option value="none">no priority</option>
           </select>
-          <select value={pipelineFilter} onChange={e => setFilterPref("pipelineFilter", e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${pipelineFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, maxWidth: 220 }}>
+          <select value={pipelineFilter} onChange={e => setFilterPref("pipelineFilter", e.target.value)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${pipelineFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, maxWidth: isMobile ? "100%" : 220, flex: isMobile ? "1 1 100%" : undefined, minHeight: isMobile ? 44 : undefined }}>
             <option value="all">all pipelines</option>
             {pipelines.filter(p => p.id !== INBOX_PIPELINE_ID).map(p => <option key={p.id} value={p.id}>{p.icon} {p.displayName}</option>)}
           </select>
-          <select value={dueFilter} onChange={e => setFilterPref("dueFilter", e.target.value as KanbanDueFilter)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${dueFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
+          <select value={dueFilter} onChange={e => setFilterPref("dueFilter", e.target.value as KanbanDueFilter)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${dueFilter !== "all" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, flex: isMobile ? "1 1 calc(50% - 4px)" : undefined, minHeight: isMobile ? 44 : undefined }}>
             <option value="all">all due dates</option>
             <option value="overdue">overdue</option>
             <option value="soon">due soon</option>
             <option value="none">no due date</option>
           </select>
-          <select value={sortMode} onChange={e => setFilterPref("sortMode", e.target.value as KanbanSortMode)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${sortMode !== "due-priority" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
+          <select value={sortMode} onChange={e => setFilterPref("sortMode", e.target.value as KanbanSortMode)} style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${sortMode !== "due-priority" ? t.accent + "88" : t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, flex: isMobile ? "1 1 100%" : undefined, minHeight: isMobile ? 44 : undefined }}>
             <option value="due-priority">sort: due, priority</option>
             <option value="priority-due">sort: priority, due</option>
             <option value="title">sort: title</option>
@@ -832,7 +842,7 @@ export default function TasksView(props: Props) {
       )}
 
       {!readOnly && createAtTop && newTaskCol && (
-        <div style={{ marginBottom: 14, padding: 10, border: `1.5px dashed ${t.accent}88`, borderRadius: 14, background: t.accent + "08", display: "grid", gridTemplateColumns: "minmax(180px, 1.5fr) repeat(4, minmax(130px, 1fr)) auto", gap: 8, alignItems: "center" }} data-no-close>
+        <div style={{ marginBottom: 14, padding: 10, border: `1.5px dashed ${t.accent}88`, borderRadius: 14, background: t.accent + "08", display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(180px, 1.5fr) repeat(4, minmax(130px, 1fr)) auto", gap: 8, alignItems: "center" }} data-no-close>
           <input
             autoFocus
             value={newSubTitle}
@@ -904,7 +914,7 @@ export default function TasksView(props: Props) {
             onChange={e => setNewSubDueDate(e.target.value)}
             style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 0 }}
           />
-          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 6, justifyContent: isMobile ? "stretch" : "flex-end" }}>
             <button onClick={resetNewSub} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", cursor: "pointer", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>cancel</button>
             <button
               disabled={!newSubTitle.trim() || (needsWorkspacePick && !newSubWsId)}
@@ -1001,7 +1011,7 @@ export default function TasksView(props: Props) {
           })}
         </div>
       ) : (
-        <div style={{ display: "flex", gap: 12, alignItems: "stretch", overflowX: "auto", paddingBottom: 16, minHeight: "calc(100vh - 190px)" }}>
+        <div className="bu-mobile-scroll-x" style={{ display: "flex", gap: 12, alignItems: "stretch", overflowX: "auto", paddingBottom: 16, minHeight: "calc(100vh - 190px)", scrollSnapType: isMobile ? "x mandatory" : undefined }}>
           {COLS.map(col => {
             const colTasks = sortedStageTasks.filter(s => s.status === col.status);
             const colSubtasks = sortedSubtaskKanbanTasks.filter(s => s.status === col.status);
@@ -1012,7 +1022,7 @@ export default function TasksView(props: Props) {
             return (
               <div
                 key={col.status}
-                style={{ flex: "1 1 280px", minWidth: 260, minHeight: "calc(100vh - 210px)", background: isOver ? t.accent + "0a" : "transparent", border: `1px solid ${isOver ? t.accent + "55" : "transparent"}`, borderRadius: 16, transition: "all 0.15s", padding: 4, display: "flex", flexDirection: "column" }}
+                style={{ flex: isMobile ? "0 0 min(88vw, 340px)" : "1 1 280px", minWidth: isMobile ? "min(88vw, 340px)" : 260, minHeight: "calc(100vh - 210px)", background: isOver ? t.accent + "0a" : "transparent", border: `1px solid ${isOver ? t.accent + "55" : "transparent"}`, borderRadius: 16, transition: "all 0.15s", padding: 4, display: "flex", flexDirection: "column", scrollSnapAlign: isMobile ? "start" : undefined }}
                 onDragEnter={e => {
                   if (readOnly) return;
                   e.preventDefault(); setDragOver(col.status);

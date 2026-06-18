@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { useModel } from "@/lib/contexts/ModelContext";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import type { UsefulLinkIcon, UsefulLinkItem } from "@/lib/data";
 
 type LinkFormState = {
@@ -110,6 +111,7 @@ function formFromItem(item: UsefulLinkItem): LinkFormState {
 
 export default function UsefulLinksView() {
   const { t, usefulLinks, addUsefulLink, updateUsefulLink, deleteUsefulLink } = useModel();
+  const isMobile = useIsMobile(720);
   const [editing, setEditing] = useState<UsefulLinkItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
 
@@ -138,20 +140,20 @@ export default function UsefulLinksView() {
   };
 
   return (
-    <main style={{ padding: "22px 28px 34px", color: t.text, maxWidth: 1220, margin: "0 auto", width: "100%" }}>
-      <header style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "end", gap: 16, marginBottom: 20 }}>
+    <main style={{ padding: isMobile ? "14px 8px 24px" : "22px 28px 34px", color: t.text, maxWidth: 1220, margin: "0 auto", width: "100%" }}>
+      <header style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto", alignItems: "end", gap: isMobile ? 12 : 16, marginBottom: 20 }}>
         <div>
           <div style={{ color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>
             Binayah Hub
           </div>
-          <h1 style={{ margin: "5px 0 5px", fontSize: 28, lineHeight: 1.1, letterSpacing: 0, color: t.text }}>
+          <h1 style={{ margin: "5px 0 5px", fontSize: isMobile ? 23 : 28, lineHeight: 1.1, letterSpacing: 0, color: t.text }}>
             Internal Tools & Automation
           </h1>
           <p style={{ margin: 0, color: t.textMuted, fontSize: 14, lineHeight: 1.45, maxWidth: 620 }}>
             Streamline operations with purpose-built tools for the Binayah team.
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
             <ExternalLink size={15} />
             {totalLinks} links
@@ -305,6 +307,7 @@ function UsefulLinkCard({ item, onEdit, onDelete }: { item: UsefulLinkItem; onEd
 
 function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | null; onClose: () => void; onSubmit: (form: LinkFormState) => void }) {
   const { t, usefulLinks } = useModel();
+  const isMobile = useIsMobile(720);
   const [form, setForm] = useState<LinkFormState>(() => item ? formFromItem(item) : blankForm);
   const [showPassword, setShowPassword] = useState(false);
   const sections = useMemo(() => {
@@ -331,7 +334,7 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(12, 8, 18, 0.45)", display: "grid", placeItems: "center", padding: 16 }} onClick={onClose}>
-      <form onSubmit={submit} onClick={e => e.stopPropagation()} style={{ width: "min(720px, 100%)", maxHeight: "min(820px, calc(100vh - 32px))", overflow: "auto", background: t.bgCard, color: t.text, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 24px 70px rgba(0,0,0,0.28)", padding: 18 }}>
+      <form onSubmit={submit} onClick={e => e.stopPropagation()} style={{ width: "min(720px, 100%)", maxHeight: "min(820px, calc(100vh - 32px))", overflow: "auto", background: t.bgCard, color: t.text, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 24px 70px rgba(0,0,0,0.28)", padding: isMobile ? 14 : 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
           <div>
             <div style={labelStyle}>{item ? "edit useful link" : "new useful link"}</div>
@@ -342,7 +345,7 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 12 }}>
           <Field label="title" labelStyle={labelStyle}>
             <input required value={form.title} onChange={e => update("title", e.target.value)} style={inputStyle} placeholder="Tool name" />
           </Field>
