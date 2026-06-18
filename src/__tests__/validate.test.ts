@@ -63,8 +63,9 @@ describe("validateStageKey", () => {
     expect(validateStageKey("")).not.toBeNull();
   });
 
-  it("rejects names over 80 chars", () => {
-    expect(validateStageKey("x".repeat(81))).not.toBeNull();
+  it("rejects names over 240 chars", () => {
+    expect(validateStageKey("x".repeat(240))).toBeNull();
+    expect(validateStageKey("x".repeat(241))).not.toBeNull();
   });
 
   it("rejects names with $ or .", () => {

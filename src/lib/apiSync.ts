@@ -214,12 +214,14 @@ export type PatchEnvelope = Partial<SharedState> & {
 
 // Bulk write for non-array state (claims, reactions, overrides, etc.)
 // chatMessages, comments, and activityLog are excluded — they use atomic appends
-export async function patchState(patch: PatchEnvelope): Promise<SyncResult> {
+export async function patchState(patch: PatchEnvelope, opts?: { keepalive?: boolean }): Promise<SyncResult> {
   try {
+    const body = JSON.stringify({ ...patch, updatedAt: Date.now() });
     const res = await fetch(API_BASE, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...patch, updatedAt: Date.now() }),
+      body,
+      keepalive: opts?.keepalive === true && body.length < 60_000,
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({})) as { error?: string; reason?: string };
@@ -231,6 +233,18 @@ export async function patchState(patch: PatchEnvelope): Promise<SyncResult> {
     return { ok: true };
   } catch (err) {
     return { ok: false, error: (err as Error).message || "network error" };
+  }
+}
+
+export function beaconPatchState(patch: PatchEnvelope): boolean {
+  if (typeof navigator === "undefined" || typeof Blob === "undefined") return false;
+  try {
+    const body = JSON.stringify({ ...patch, updatedAt: Date.now() });
+    if (body.length >= 60_000) return false;
+    const blob = new Blob([body], { type: "application/json" });
+    return navigator.sendBeacon?.(API_BASE, blob) ?? false;
+  } catch {
+    return false;
   }
 }
 

@@ -17,7 +17,7 @@ import {
 	} from "@/lib/data";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
-import { deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { beaconPatchState, deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { useSync, type SyncStatus } from "@/lib/hooks/useSync";
 import { type ChatMsg } from "@/components/ChatPanel";
 import { useChatHandlers } from "@/lib/hooks/useChatHandlers";
@@ -1066,7 +1066,9 @@ export function ModelProvider({
   }, []);
 
   const persistStageStatusNow = useCallback((name: string, status: string) => {
-    void patchState({ stageStatusOverrides: { [name]: status } }).then(result => {
+    const patch = { stageStatusOverrides: { [name]: status } };
+    beaconPatchState(patch);
+    void patchState(patch, { keepalive: true }).then(result => {
       if (!result.ok) {
         setSyncStatusRef.current("offline");
         return;
@@ -1082,7 +1084,9 @@ export function ModelProvider({
   }, [clearDirtyMapKey]);
 
   const persistSubtaskStageNow = useCallback((key: string, status: string) => {
-    void patchState({ subtaskStages: { [key]: status } }).then(result => {
+    const patch = { subtaskStages: { [key]: status } };
+    beaconPatchState(patch);
+    void patchState(patch, { keepalive: true }).then(result => {
       if (!result.ok) {
         setSyncStatusRef.current("offline");
         return;
@@ -1770,6 +1774,7 @@ export function ModelProvider({
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: nextDone } : t) }));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextDone ? "active" : "planned" }));
+    persistSubtaskStageNow(key, nextDone ? "active" : "planned");
     if (!nextDone && approvedSubtasks.includes(key)) {
       markLocalWrite("approvedSubtasks");
       setApprovedSubtasks(prev => prev.filter(k => k !== key));

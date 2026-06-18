@@ -263,7 +263,7 @@ export function validateStageKey(stage: unknown): string | null {
   if (typeof stage !== "string") return "stage must be a string";
   const s = stage.trim();
   if (s.length === 0) return "stage must not be empty";
-  if (s.length > 80) return "stage exceeds 80 char limit";
+  if (s.length > 240) return "stage exceeds 240 char limit";
   if (FORBIDDEN_KEY_PATTERN.test(s)) return `stage "${s}" contains forbidden characters`;
   return null;
 }
