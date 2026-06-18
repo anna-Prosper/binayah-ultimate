@@ -528,6 +528,7 @@ export function ModelProvider({
       workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
       notifReads, notifDismissed, notifReadIds, databases,
+      subtaskStages, stageNameOverrides,
     };
     if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
     lsFlushTimerRef.current = setTimeout(() => {
@@ -548,6 +549,7 @@ export function ModelProvider({
     workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
     notifReads, notifDismissed, notifReadIds, databases,
+    subtaskStages, stageNameOverrides,
   ]);
 
   // One-time workspace migration
