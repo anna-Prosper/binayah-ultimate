@@ -996,7 +996,11 @@ export function ModelProvider({
   const onWriteSuccess = useCallback((sent: PatchEnvelope) => {
     if (sent.stageStatusOverrides && dirtyMapKeysRef.current.stageStatusOverrides) {
       for (const key of Object.keys(sent.stageStatusOverrides)) {
-        dirtyMapKeysRef.current.stageStatusOverrides.delete(key);
+        const sentValue = sent.stageStatusOverrides[key];
+        const currentValue = stateMirrorRef.current.stageStatusOverrides[key];
+        if (currentValue === sentValue) {
+          dirtyMapKeysRef.current.stageStatusOverrides.delete(key);
+        }
       }
       if (dirtyMapKeysRef.current.stageStatusOverrides.size === 0) {
         delete dirtyMapKeysRef.current.stageStatusOverrides;
@@ -2116,6 +2120,7 @@ export function ModelProvider({
     const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
+    setTimeout(() => writeNowRef.current?.(), 0);
     if (parsed && prevStatus !== nextStatus) {
       const becameActive = nextStatus === "active";
       const leftActive = prevStatus === "active" && nextStatus !== "active";
@@ -2156,6 +2161,7 @@ export function ModelProvider({
     const next = normalizeStageStatus(status);
     markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
+    setTimeout(() => writeNowRef.current?.(), 0);
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
@@ -2165,6 +2171,7 @@ export function ModelProvider({
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
+    setTimeout(() => writeNowRef.current?.(), 0);
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
