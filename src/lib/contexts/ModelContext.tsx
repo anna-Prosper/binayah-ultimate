@@ -665,11 +665,11 @@ export function ModelProvider({
   // re-creating mergePatch on every render while still observing fresh values.
   const stateMirrorRef = useRef({
     owners, stageStatusOverrides, stageDueDates, stagePriorities,
-    stageDescOverrides, subtaskDescOverrides,
+    stageDescOverrides, subtaskStages, subtaskDescOverrides,
   });
   useEffect(() => {
-    stateMirrorRef.current = { owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskDescOverrides };
-  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskDescOverrides]);
+    stateMirrorRef.current = { owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides };
+  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides]);
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
@@ -1057,6 +1057,45 @@ export function ModelProvider({
   // Alias so handlers can signal offline state (argument ignored — always sets offline)
   const setSyncStatus: (status: string) => void = useCallback(() => setOffline(), [setOffline]);
   setSyncStatusRef.current = setSyncStatus;
+
+  const clearDirtyMapKey = useCallback((slice: string, key: string) => {
+    const keys = dirtyMapKeysRef.current[slice];
+    if (!keys) return;
+    keys.delete(key);
+    if (keys.size === 0) delete dirtyMapKeysRef.current[slice];
+  }, []);
+
+  const persistStageStatusNow = useCallback((name: string, status: string) => {
+    void patchState({ stageStatusOverrides: { [name]: status } }).then(result => {
+      if (!result.ok) {
+        setSyncStatusRef.current("offline");
+        return;
+      }
+      serverKeysRef.current.stageStatusOverrides = new Set([
+        ...(serverKeysRef.current.stageStatusOverrides ?? []),
+        name,
+      ]);
+      if (stateMirrorRef.current.stageStatusOverrides[name] === status) {
+        clearDirtyMapKey("stageStatusOverrides", name);
+      }
+    });
+  }, [clearDirtyMapKey]);
+
+  const persistSubtaskStageNow = useCallback((key: string, status: string) => {
+    void patchState({ subtaskStages: { [key]: status } }).then(result => {
+      if (!result.ok) {
+        setSyncStatusRef.current("offline");
+        return;
+      }
+      serverKeysRef.current.subtaskStages = new Set([
+        ...(serverKeysRef.current.subtaskStages ?? []),
+        key,
+      ]);
+      if (stateMirrorRef.current.subtaskStages[key] === status) {
+        clearDirtyMapKey("subtaskStages", key);
+      }
+    });
+  }, [clearDirtyMapKey]);
 
   useEffect(() => {
     if (timelineSeededRef.current || syncStatus === "hydrating" || timelineEvents.length > 0 || !currentUser) return;
@@ -2120,7 +2159,7 @@ export function ModelProvider({
     const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
-    setTimeout(() => writeNowRef.current?.(), 0);
+    persistSubtaskStageNow(key, nextStatus);
     if (parsed && prevStatus !== nextStatus) {
       const becameActive = nextStatus === "active";
       const leftActive = prevStatus === "active" && nextStatus !== "active";
@@ -2161,7 +2200,7 @@ export function ModelProvider({
     const next = normalizeStageStatus(status);
     markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
-    setTimeout(() => writeNowRef.current?.(), 0);
+    persistStageStatusNow(name, next);
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
@@ -2171,7 +2210,7 @@ export function ModelProvider({
     const next = STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
     markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
-    setTimeout(() => writeNowRef.current?.(), 0);
+    persistStageStatusNow(name, next);
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
 
