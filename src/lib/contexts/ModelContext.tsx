@@ -2182,6 +2182,7 @@ export function ModelProvider({
     const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
     markLocalWrite("subtaskStages");
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
+    lsSet("subtaskStages", { ...subtaskStages, [key]: nextStatus });
     persistSubtaskStageNow(key, nextStatus);
     if (parsed && prevStatus !== nextStatus) {
       const becameActive = nextStatus === "active";
@@ -2223,6 +2224,7 @@ export function ModelProvider({
     const next = normalizeStageStatus(status);
     markLocalWrite("stageStatusOverrides", name);
     setStageStatusOverrides(prev => ({ ...prev, [name]: next }));
+    lsSet("stageStatusOverrides", { ...stageStatusOverrides, [name]: next });
     persistStageStatusNow(name, next);
     logActivity("status", name, `→ ${next}`, ADMIN_IDS);
   };
