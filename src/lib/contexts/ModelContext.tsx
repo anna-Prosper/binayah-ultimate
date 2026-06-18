@@ -937,7 +937,7 @@ export function ModelProvider({
     const deletes: Record<string, string[]> = {};
     // MAP slices: by key name.
     for (const slice of MAP_SLICES) {
-      if (slice === "stageStatusOverrides") continue;
+      if (slice === "stageStatusOverrides" || slice === "subtaskStages") continue;
       const localVal = state[slice];
       if (!localVal || typeof localVal !== "object" || Array.isArray(localVal)) continue;
       const localKeys = new Set(Object.keys(localVal as Record<string, unknown>));

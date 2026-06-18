@@ -203,6 +203,20 @@ export async function PATCH(req: NextRequest) {
     delete (cleanPatch as Record<string, unknown>).subtaskStages;
     logApi(ROUTE, "ignored_bulk_subtask_statuses");
   }
+  const deletesEnvelope = (cleanPatch as { _deletes?: DeletesEnvelope })._deletes;
+  if (deletesEnvelope && typeof deletesEnvelope === "object" && !Array.isArray(deletesEnvelope)) {
+    if ("stageStatusOverrides" in deletesEnvelope) {
+      delete deletesEnvelope.stageStatusOverrides;
+      logApi(ROUTE, "ignored_stage_status_deletes");
+    }
+    if ("subtaskStages" in deletesEnvelope) {
+      delete deletesEnvelope.subtaskStages;
+      logApi(ROUTE, "ignored_subtask_status_deletes");
+    }
+    if (Object.keys(deletesEnvelope).length === 0) {
+      delete (cleanPatch as Record<string, unknown>)._deletes;
+    }
+  }
 
   // Zod structural validation — catches wrong types, enum violations, length
   // overflows, and unknown top-level keys before any DB work.
