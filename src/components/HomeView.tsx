@@ -819,8 +819,14 @@ export default function HomeView({
     );
     const priorityRank = (priority?: string) => priority === "NOW" ? 0 : priority === "HIGH" ? 1 : (priority === "MED" || priority === "MEDIUM") ? 2 : 3;
     const assignableStatus = (status: string) => status === "planned" || status === "in-progress";
+    const isSyntheticDefaultParent = (item: typeof openItems[number]) => {
+      if (item.kind !== "task") return false;
+      const key = item.key.trim().toLowerCase();
+      const title = item.title.trim().toLowerCase();
+      return key.startsWith("default-parent-") || key === "default" || title === "default";
+    };
     const unownedItems = openItems
-      .filter(item => item.owners.length === 0 && assignableStatus(item.status))
+      .filter(item => item.owners.length === 0 && assignableStatus(item.status) && !isSyntheticDefaultParent(item))
       .sort((a, b) => priorityRank(a.priority) - priorityRank(b.priority));
     const firstName = me.name.split(" ")[0].toLowerCase();
     const mentionNeedles = [`@${firstName}`, `@${currentUser.toLowerCase()}`];
