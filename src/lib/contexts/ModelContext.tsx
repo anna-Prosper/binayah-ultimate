@@ -827,12 +827,28 @@ export function ModelProvider({
     if (s.commentReactions) {
       setCommentReactions(s.commentReactions as Record<string, Record<string, string[]>>);
     }
-    if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) setStageStatusOverrides(s.stageStatusOverrides);
+    if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) {
+      if (isInitialHydrateRef.current) {
+        // On initial hydrate, merge server state into local, giving local precedence.
+        // The user's keepalive PATCH may still be in-flight when fetchState runs after
+        // a reload, so the server transiently returns the old value. Full-replacing
+        // here would flash the stale status until the next poll corrects it (~10s).
+        setStageStatusOverrides(prev => ({ ...s.stageStatusOverrides!, ...prev }));
+      } else {
+        setStageStatusOverrides(s.stageStatusOverrides);
+      }
+    }
     if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
     if (s.stageDueDates && !isProtected("stageDueDates")) setStageDueDates(s.stageDueDates);
     if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities && !isProtected("stagePriorities")) setStagePriorities((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities);
     if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
-    if (s.subtaskStages && !isProtected("subtaskStages")) setSubtaskStages(s.subtaskStages);
+    if (s.subtaskStages && !isProtected("subtaskStages")) {
+      if (isInitialHydrateRef.current) {
+        setSubtaskStages(prev => ({ ...s.subtaskStages!, ...prev }));
+      } else {
+        setSubtaskStages(s.subtaskStages);
+      }
+    }
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides")) setSubtaskDescOverrides(s.subtaskDescOverrides as Record<string, string>);
     if (s.subtaskDueDates && !isProtected("subtaskDueDates")) setSubtaskDueDates(s.subtaskDueDates as Record<string, string>);
     if (s.pipeDescOverrides && !isProtected("pipeDescOverrides")) setPipeDescOverrides(s.pipeDescOverrides);
