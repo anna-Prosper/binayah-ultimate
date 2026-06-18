@@ -26,7 +26,6 @@ import {
   X,
 } from "lucide-react";
 import { useModel } from "@/lib/contexts/ModelContext";
-import { useIsMobile } from "@/hooks/useIsMobile";
 import type { UsefulLinkIcon, UsefulLinkItem } from "@/lib/data";
 
 type LinkFormState = {
@@ -93,6 +92,31 @@ const blankForm: LinkFormState = {
 
 const CREATE_SECTION_VALUE = "__create_section__";
 
+function normalizeHref(href: string) {
+  const trimmed = href.trim();
+  if (!trimmed) return "";
+  if (/^(https?:|mailto:|tel:|\/)/i.test(trimmed)) return trimmed;
+  return `https://${trimmed}`;
+}
+
+function linkMatchesQuery(item: UsefulLinkItem, query: string) {
+  const q = query.trim().toLowerCase();
+  if (!q) return true;
+  return [
+    item.group,
+    item.eyebrow,
+    item.title,
+    item.label,
+    item.href,
+    item.badge,
+    item.description,
+    item.credentials?.username,
+    item.credentials?.email,
+  ]
+    .filter(Boolean)
+    .some(value => String(value).toLowerCase().includes(q));
+}
+
 function formFromItem(item: UsefulLinkItem): LinkFormState {
   return {
     group: item.group,
@@ -111,13 +135,13 @@ function formFromItem(item: UsefulLinkItem): LinkFormState {
 
 export default function UsefulLinksView() {
   const { t, usefulLinks, addUsefulLink, updateUsefulLink, deleteUsefulLink } = useModel();
-  const isMobile = useIsMobile(720);
   const [editing, setEditing] = useState<UsefulLinkItem | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+  const [query, setQuery] = useState("");
 
   const groups = useMemo(() => {
     const map = new Map<string, { title: string; eyebrow: string; items: UsefulLinkItem[] }>();
-    for (const item of usefulLinks) {
+    for (const item of usefulLinks.filter(link => linkMatchesQuery(link, query))) {
       const key = `${item.group}::${item.eyebrow}`;
       if (!map.has(key)) map.set(key, { title: item.group, eyebrow: item.eyebrow, items: [] });
       map.get(key)?.items.push(item);
@@ -126,9 +150,10 @@ export default function UsefulLinksView() {
       ...group,
       items: [...group.items].sort((a, b) => a.id - b.id),
     }));
-  }, [usefulLinks]);
+  }, [query, usefulLinks]);
 
   const totalLinks = usefulLinks.length;
+  const visibleLinks = groups.reduce((sum, group) => sum + group.items.length, 0);
 
   const openAdd = () => {
     setEditing(null);
@@ -140,23 +165,37 @@ export default function UsefulLinksView() {
   };
 
   return (
-    <main style={{ padding: isMobile ? "14px 8px 24px" : "22px 28px 34px", color: t.text, maxWidth: 1220, margin: "0 auto", width: "100%" }}>
-      <header style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0, 1fr) auto", alignItems: "end", gap: isMobile ? 12 : 16, marginBottom: 20 }}>
+    <main style={{ padding: "22px 28px 34px", color: t.text, maxWidth: 1220, margin: "0 auto", width: "100%" }}>
+      <header style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", alignItems: "end", gap: 16, marginBottom: 20 }}>
         <div>
           <div style={{ color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, fontWeight: 900, letterSpacing: 1, textTransform: "uppercase" }}>
             Binayah Hub
           </div>
-          <h1 style={{ margin: "5px 0 5px", fontSize: isMobile ? 23 : 28, lineHeight: 1.1, letterSpacing: 0, color: t.text }}>
+          <h1 style={{ margin: "5px 0 5px", fontSize: 28, lineHeight: 1.1, letterSpacing: 0, color: t.text }}>
             Internal Tools & Automation
           </h1>
           <p style={{ margin: 0, color: t.textMuted, fontSize: 14, lineHeight: 1.45, maxWidth: 620 }}>
             Streamline operations with purpose-built tools for the Binayah team.
           </p>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <label style={{ position: "relative", display: "inline-flex", alignItems: "center", minWidth: 240, flex: "1 1 240px", maxWidth: 320 }}>
+            <Search size={15} style={{ position: "absolute", left: 10, color: t.textDim, pointerEvents: "none" }} />
+            <input
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="search links"
+              style={{ width: "100%", border: `1px solid ${t.border}`, background: t.bgCard, color: t.text, borderRadius: 8, padding: "9px 34px 9px 33px", outline: "none", fontFamily: "var(--font-dm-mono), monospace", fontSize: 12, fontWeight: 800 }}
+            />
+            {query && (
+              <button type="button" onClick={() => setQuery("")} aria-label="Clear search" style={{ position: "absolute", right: 6, width: 24, height: 24, border: "none", background: "transparent", color: t.textDim, display: "inline-grid", placeItems: "center", cursor: "pointer" }}>
+                <X size={14} />
+              </button>
+            )}
+          </label>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 8, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", fontSize: 12 }}>
             <ExternalLink size={15} />
-            {totalLinks} links
+            {query ? `${visibleLinks} of ${totalLinks}` : totalLinks} links
           </span>
           <button
             type="button"
@@ -186,7 +225,7 @@ export default function UsefulLinksView() {
         ))}
         {groups.length === 0 && (
           <div style={{ border: `1px dashed ${t.border}`, borderRadius: 8, padding: 28, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace" }}>
-            // no useful links yet
+            {query ? `// no links matching "${query}"` : "// no useful links yet"}
           </div>
         )}
       </div>
@@ -204,7 +243,7 @@ export default function UsefulLinksView() {
               eyebrow: form.eyebrow,
               title: form.title,
               label: form.label || undefined,
-              href: form.href,
+              href: normalizeHref(form.href),
               icon: form.icon,
               badge: form.badge || undefined,
               description: form.description || undefined,
@@ -307,7 +346,6 @@ function UsefulLinkCard({ item, onEdit, onDelete }: { item: UsefulLinkItem; onEd
 
 function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | null; onClose: () => void; onSubmit: (form: LinkFormState) => void }) {
   const { t, usefulLinks } = useModel();
-  const isMobile = useIsMobile(720);
   const [form, setForm] = useState<LinkFormState>(() => item ? formFromItem(item) : blankForm);
   const [showPassword, setShowPassword] = useState(false);
   const sections = useMemo(() => {
@@ -334,7 +372,7 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 70, background: "rgba(12, 8, 18, 0.45)", display: "grid", placeItems: "center", padding: 16 }} onClick={onClose}>
-      <form onSubmit={submit} onClick={e => e.stopPropagation()} style={{ width: "min(720px, 100%)", maxHeight: "min(820px, calc(100vh - 32px))", overflow: "auto", background: t.bgCard, color: t.text, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 24px 70px rgba(0,0,0,0.28)", padding: isMobile ? 14 : 18 }}>
+      <form onSubmit={submit} onClick={e => e.stopPropagation()} style={{ width: "min(720px, 100%)", maxHeight: "min(820px, calc(100vh - 32px))", overflow: "auto", background: t.bgCard, color: t.text, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 24px 70px rgba(0,0,0,0.28)", padding: 18 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: 14 }}>
           <div>
             <div style={labelStyle}>{item ? "edit useful link" : "new useful link"}</div>
@@ -345,7 +383,7 @@ function UsefulLinkForm({ item, onClose, onSubmit }: { item: UsefulLinkItem | nu
           </button>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(2, minmax(0, 1fr))", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 12 }}>
           <Field label="title" labelStyle={labelStyle}>
             <input required value={form.title} onChange={e => update("title", e.target.value)} style={inputStyle} placeholder="Tool name" />
           </Field>
