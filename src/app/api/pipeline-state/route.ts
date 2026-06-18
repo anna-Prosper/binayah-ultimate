@@ -185,6 +185,25 @@ export async function PATCH(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { _pipelineId, ...cleanPatch } = patch;
 
+  // Status is high-contention and user-visible: stale tabs often send a broad
+  // autosave envelope with an old `stageStatusOverrides`/`subtaskStages` map.
+  // If we accept those inside bulk saves, a teammate's old tab can move a card
+  // back to planned after another user already moved it. Only focused status
+  // writes may mutate status; broad autosaves persist every other slice.
+  const patchKeysWithoutMeta = Object.keys(cleanPatch).filter(k => k !== "updatedAt");
+  const isFocusedStageStatusPatch =
+    patchKeysWithoutMeta.length === 1 && patchKeysWithoutMeta[0] === "stageStatusOverrides";
+  const isFocusedSubtaskStatusPatch =
+    patchKeysWithoutMeta.length === 1 && patchKeysWithoutMeta[0] === "subtaskStages";
+  if ("stageStatusOverrides" in cleanPatch && !isFocusedStageStatusPatch) {
+    delete (cleanPatch as Record<string, unknown>).stageStatusOverrides;
+    logApi(ROUTE, "ignored_bulk_stage_status_overrides");
+  }
+  if ("subtaskStages" in cleanPatch && !isFocusedSubtaskStatusPatch) {
+    delete (cleanPatch as Record<string, unknown>).subtaskStages;
+    logApi(ROUTE, "ignored_bulk_subtask_statuses");
+  }
+
   // Zod structural validation — catches wrong types, enum violations, length
   // overflows, and unknown top-level keys before any DB work.
   const zodResult = PatchBodySchema.safeParse(cleanPatch);
