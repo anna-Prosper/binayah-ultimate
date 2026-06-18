@@ -5,6 +5,7 @@
 import { USERS_DEFAULT } from "@/lib/data";
 import { getEmailsForUser } from "@/lib/auth";
 import { sendStageEmail } from "@/lib/email";
+import { cleanHumanText, compactSubject, quoteText } from "@/lib/notificationFormat";
 
 /** Resolve @handles in text → array of user IDs. */
 export function parseMentions(text: string): string[] {
@@ -24,7 +25,7 @@ export function parseMentions(text: string): string[] {
 const APP_URL = process.env.NEXTAUTH_URL || "https://dashboard-gamification.vercel.app";
 
 function escapeHtml(s: string): string {
-  return s
+  return cleanHumanText(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -46,8 +47,8 @@ export async function notifyMentions(
   const mentioned = parseMentions(text);
   if (mentioned.length === 0) return;
   const sender = USERS_DEFAULT.find(u => u.id === senderUserId);
-  const senderName = sender?.name || senderUserId;
-  const safeText = escapeHtml(text).slice(0, 600);
+  const senderName = cleanHumanText(sender?.name || senderUserId);
+  const safeText = escapeHtml(quoteText(text, 600));
   const contextLine = context === "comment" && stageName
     ? `in a comment on <strong>${escapeHtml(stageName)}</strong>`
     : "in the team chat";
@@ -77,9 +78,9 @@ export async function notifyMentions(
   </body>
   </html>`;
 
-  const subject = context === "comment" && stageName
+  const subject = compactSubject(context === "comment" && stageName
     ? `${senderName} mentioned you in a comment on "${stageName}"`
-    : `${senderName} mentioned you in chat`;
+    : `${senderName} mentioned you in chat`);
 
   await Promise.allSettled(
     mentioned.flatMap(uid => {

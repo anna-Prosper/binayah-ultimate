@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
 import { validateText } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { USERS_DEFAULT } from "@/lib/data";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const ROUTE = "/api/call-summary";
@@ -50,13 +51,20 @@ export async function POST(req: NextRequest) {
   const pipelineList = (pipelines as Pipeline[])
     .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.filter(stage => !stage.startsWith("default-parent-")).slice(0, 8).join(", ")}`)
     .join("\n");
+  const teamList = USERS_DEFAULT
+    .filter(u => !u.id.startsWith("guest"))
+    .map(u => u.name)
+    .join(", ");
 
   const systemPrompt = `You are a project management assistant for Binayah Properties, a Dubai real estate tech company.
 
 Extract concrete action items and tasks from the call summary below. For each task:
-1. Write a short, specific title (≤ 10 words)
+1. Write a short, specific title (≤ 10 words). If one exact teammate is responsible, append their exact name in parentheses, e.g. "(Anna)" or "(Abdallah)".
 2. Pick the most relevant pipeline from the list provided
 3. If the pipeline has a matching existing parent task, suggest that stage — otherwise set stageName to null so the task uses the hidden default parent
+
+Valid assignee names are only: ${teamList}
+Do not use "(Binayah)", "(team)", "(developer)", or company/group names as assignees. If no exact teammate is responsible, omit parentheses.
 
 Respond ONLY with valid JSON — an array of task objects. No markdown, no explanation.
 

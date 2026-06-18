@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
 const ALLOWED_KEYS = new Set([
   "emailNotifications",
   "inAppNotifications",
+  "whatsappNotifications",
   "notifyMention",
   "notifyApproved",
   "notifyAssigned",

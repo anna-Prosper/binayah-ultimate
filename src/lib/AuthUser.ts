@@ -7,6 +7,7 @@ export interface IAuthUser extends Document {
   // Master switch — if false, no emails of any kind (immediate or digest)
   emailNotifications: boolean;
   inAppNotifications: boolean;
+  whatsappNotifications: boolean;
   // Per-event opt-outs (default true). All keys are optional —
   // a missing field is treated as true for backwards compatibility.
   notifyMention?: boolean;
@@ -46,6 +47,7 @@ const AuthUserSchema = new Schema<IAuthUser>({
   fixedUserId: { type: String, required: true },
   emailNotifications: { type: Boolean, default: true },
   inAppNotifications: { type: Boolean, default: true },
+  whatsappNotifications: { type: Boolean, default: true },
   notifyMention: { type: Boolean, default: true },
   notifyApproved: { type: Boolean, default: true },
   notifyAssigned: { type: Boolean, default: true },

@@ -74,7 +74,15 @@ export interface RecipientPlan {
   digest: string[];
 }
 
-const OWNED_WORK_EVENTS = new Set<EventType>(["active", "approved", "subtask_approved", "pipeline_completed"]);
+const OWNED_WORK_EVENTS = new Set<EventType>([
+  "active",
+  "approved",
+  "subtask_approved",
+  "pipeline_completed",
+  "commented",
+  "status_change",
+  "blocked",
+]);
 
 export function getRecipients(
   ctx: RecipientContext,
@@ -93,26 +101,29 @@ export function getRecipients(
     const isAgent = !!ws && ws.members.includes(userId) && !isOperator;
     const isClaimerOrAssignee =
       ctx.claimers.includes(userId) || ctx.assignees.includes(userId);
+    const isClaimOwner = ctx.eventType === "claimed" && ctx.claimers.includes(userId);
     const isMentioned = ctx.mentioned.includes(userId);
     const isNewlyAssigned = (ctx.newlyAssigned ?? []).includes(userId);
     const isDirectAssignment = ctx.eventType === "assigned" && isNewlyAssigned;
+    const isNewBugAssignment = ctx.eventType === "bug" && isNewlyAssigned;
     const isOwnedWorkEvent = OWNED_WORK_EVENTS.has(ctx.eventType) && isClaimerOrAssignee;
     if (userId === ctx.actorId && !isMentioned) continue;
+    if (isClaimOwner && !isMentioned) continue;
 
     let notify = false;
     let urgent = false;
 
     if (isRoot) {
       notify = true;
-      urgent = isMentioned || isDirectAssignment || isOwnedWorkEvent;
+      urgent = isMentioned || isDirectAssignment || isNewBugAssignment || isOwnedWorkEvent;
     } else if (isOperator) {
       notify = true;
-      urgent = isMentioned || isDirectAssignment || isOwnedWorkEvent;
+      urgent = isMentioned || isDirectAssignment || isNewBugAssignment || isOwnedWorkEvent;
     } else if (isAgent) {
       // Agents only get events related to them
       if (isMentioned) {
         notify = true; urgent = true;
-      } else if (isDirectAssignment) {
+      } else if (isDirectAssignment || isNewBugAssignment) {
         notify = true; urgent = true;
       } else if (isClaimerOrAssignee) {
         notify = true;

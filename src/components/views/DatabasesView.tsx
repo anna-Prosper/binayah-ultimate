@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
-import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
+import type { WorkspaceDb, DbColumn } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import { Plus, Trash2, ExternalLink, ChevronDown, Table2 } from "lucide-react";

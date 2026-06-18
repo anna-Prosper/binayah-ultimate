@@ -10,6 +10,9 @@ const schema = new mongoose.Schema({
   // /api/zoom/meetings reads so they don't reappear in the pending list.
   // Per-user state is unnecessary: any dismissal is a workspace-wide decision.
   dismissedProposalIds: { type: [Number], default: [] },
+  // Stable keys survive forced resyncs where proposal IDs are regenerated.
+  // Format: sourceUUID::normalized-title.
+  dismissedProposalKeys: { type: [String], default: [] },
   updatedAt: { type: Date, default: Date.now },
 });
 

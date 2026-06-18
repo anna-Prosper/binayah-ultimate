@@ -2,6 +2,12 @@ import { type SubtaskItem } from "@/lib/data";
 
 export const DEFAULT_SUBTASK_POINTS = 5;
 
+function positiveOrDefault(value: number | undefined, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) && value > 0
+    ? value
+    : fallback;
+}
+
 /**
  * Subtask-ledger model:
  *   - Stage WITH live subtasks: sum of their points (pure ledger).
@@ -22,13 +28,14 @@ export function deriveStageDisplayPoints(
     s => !archivedSubtaskKeys.has(`${stageName}::${s.id}`)
   );
   if (live.length > 0) {
-    return live.reduce((sum, s) => sum + (s.points ?? DEFAULT_SUBTASK_POINTS), 0);
+    return live.reduce((sum, s) => sum + positiveOrDefault(s.points, DEFAULT_SUBTASK_POINTS), 0);
   }
   // Leaf stage — use override (set by LLM on creation, or by user) or default
-  if (stagePointsOverride[stageName] !== undefined) {
-    return stagePointsOverride[stageName];
+  const override = stagePointsOverride[stageName];
+  if (positiveOrDefault(override, 0) > 0) {
+    return override;
   }
-  return stageDefaultPoints;
+  return positiveOrDefault(stageDefaultPoints, DEFAULT_SUBTASK_POINTS);
 }
 
 /** Back-compat alias — same logic without override (used for "natural" sum displays). */

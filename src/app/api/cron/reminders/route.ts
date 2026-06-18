@@ -4,9 +4,11 @@ import PipelineState from "@/lib/PipelineState";
 import AuthUser from "@/lib/AuthUser";
 import { getEmailsForUser } from "@/lib/auth";
 import { sendStageEmail } from "@/lib/email";
+import { getWhatsAppRecipientForUser, sendWhatsAppText } from "@/lib/whatsapp";
 import { USERS_DEFAULT, type ReminderItem } from "@/lib/data";
 import { buildUnsubscribeToken } from "@/app/api/unsubscribe/route";
 import { logApi } from "@/lib/log";
+import { cleanHumanText, compactSubject, quoteText } from "@/lib/notificationFormat";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -15,7 +17,7 @@ const ROUTE = "/api/cron/reminders";
 const WORKSPACE = { workspaceId: "main" };
 
 function escapeHtml(input: string) {
-  return input.replace(/[&<>"']/g, ch => ({
+  return cleanHumanText(input).replace(/[&<>"']/g, ch => ({
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -33,9 +35,9 @@ function reminderEmail(reminder: ReminderItem, creatorName: string, appUrl: stri
     minute: "2-digit",
   });
   const title = escapeHtml(reminder.title);
-  const body = escapeHtml(reminder.body || "No note.");
+  const body = escapeHtml(quoteText(reminder.body || "No note.", 700));
   return {
-    subject: `[Binayah Dashboard] reminder: ${reminder.title}`,
+    subject: compactSubject(`[Binayah Dashboard] reminder: ${reminder.title}`),
     html: `
       <div style="font-family:Arial,sans-serif;background:#f8f4ff;padding:24px;color:#18072f">
         <div style="max-width:560px;margin:0 auto;background:#fff;border:1px solid #eadcff;border-radius:14px;padding:20px">
@@ -51,6 +53,28 @@ function reminderEmail(reminder: ReminderItem, creatorName: string, appUrl: stri
       </div>
     `,
   };
+}
+
+function reminderWhatsAppText(reminder: ReminderItem, creatorName: string, appUrl: string) {
+  const due = new Date(reminder.remindAt).toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+  return [
+    "Binayah Dashboard",
+    "",
+    "Reminder",
+    `Title: ${cleanHumanText(reminder.title)}`,
+    reminder.body ? `Note: ${quoteText(reminder.body, 700)}` : "",
+    `Due: ${due}`,
+    `Created by: ${cleanHumanText(creatorName)}`,
+    "",
+    "Open dashboard",
+    appUrl,
+  ].filter(Boolean).join("\n");
 }
 
 export async function GET(req: NextRequest) {
@@ -79,25 +103,33 @@ export async function GET(req: NextRequest) {
     for (const recipientId of reminder.recipientIds) {
       if (emailedTo.has(recipientId)) continue;
       try {
-        const authUser = await AuthUser.findOne({ fixedUserId: recipientId }).lean() as { emailNotifications?: boolean; notifyReminder?: boolean; notifyOther?: boolean } | null;
+        const authUser = await AuthUser.findOne({ fixedUserId: recipientId }).lean() as { emailNotifications?: boolean; whatsappNotifications?: boolean; notifyReminder?: boolean; notifyOther?: boolean } | null;
         const oldOtherOptOut = authUser?.notifyReminder === undefined && authUser?.notifyOther === false;
-        if (authUser?.emailNotifications === false || authUser?.notifyReminder === false || oldOtherOptOut) {
+        if (authUser?.notifyReminder === false || oldOtherOptOut) {
           emailedTo.add(recipientId);
           changed = true;
           continue;
         }
         const emails = getEmailsForUser(recipientId);
-        if (emails.length === 0) {
-          emailedTo.add(recipientId);
-          changed = true;
-          continue;
+        const whatsappTo = getWhatsAppRecipientForUser(recipientId);
+        let delivered = false;
+        if (emails.length > 0 && authUser?.emailNotifications !== false) {
+          const tmpl = reminderEmail(reminder, creatorName, appUrl, `${appUrl}/api/unsubscribe?t=${buildUnsubscribeToken(recipientId)}`);
+          for (const email of emails) {
+            await sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html });
+          }
+          delivered = true;
         }
-        const tmpl = reminderEmail(reminder, creatorName, appUrl, `${appUrl}/api/unsubscribe?t=${buildUnsubscribeToken(recipientId)}`);
-        for (const email of emails) {
-          await sendStageEmail({ to: email, subject: tmpl.subject, html: tmpl.html });
+        if (whatsappTo && authUser?.whatsappNotifications !== false) {
+          const result = await sendWhatsAppText(whatsappTo, reminderWhatsAppText(reminder, creatorName, appUrl));
+          if (!result.ok) {
+            console.error("[cron/reminders] whatsapp failed for", recipientId, result.error);
+          } else {
+            delivered = true;
+          }
         }
         emailedTo.add(recipientId);
-        sent++;
+        if (delivered) sent++;
         changed = true;
       } catch (err) {
         failed++;

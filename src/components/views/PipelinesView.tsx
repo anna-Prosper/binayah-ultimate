@@ -270,10 +270,12 @@ export default function PipelinesView({
                         ) : (
                           <span style={{ fontSize: 15, fontWeight: 900, color: t.text }}>{pipeName}</span>
                         )}
-                        <span
-                          style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}
-                          data-tooltip={archivedPStages.length > 0 ? `${activePStages.length} active · ${archivedPStages.length} completed` : `${allPStages.length} stages`}
-                        >{activePStages.length}{archivedPStages.length > 0 ? <span style={{ opacity: 0.5 }}>+{archivedPStages.length}✓</span> : null}</span>
+                        {activePStages.length > 0 && (
+                          <span
+                            style={{ fontSize: 11, color: pC, background: pC + "12", padding: "0 7px", borderRadius: 8, fontWeight: 700 }}
+                            data-tooltip={archivedPStages.length > 0 ? `${activePStages.length} active · ${archivedPStages.length} completed` : `${allPStages.length} stages`}
+                          >{activePStages.length}{archivedPStages.length > 0 ? <span style={{ opacity: 0.5 }}>+{archivedPStages.length}✓</span> : null}</span>
+                        )}
                         {isAllLive && (
                           <span style={{ fontSize: 10, fontWeight: 800, color: t.green, background: t.green + "18", border: `1px solid ${t.green}44`, padding: "1px 7px", borderRadius: 8, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: "0.05em", display: "inline-flex", alignItems: "center", gap: 3 }}>
                             <span style={{ width: 5, height: 5, borderRadius: "50%", background: t.green, display: "inline-block", animation: "claimPulse 1.5s ease-in-out infinite" }} />

@@ -222,15 +222,16 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
     void doWrite();
   }, [doWrite]);
 
-  // beforeunload: if there are unflushed changes, fire sendBeacon synchronously.
+  // beforeunload: if there are unflushed changes, fire a keepalive PATCH.
   // Without this, three scenarios lose data:
   //   1. debounce armed but not yet fired — timeout dies with the page
   //   2. writeNow fired but request in-flight — browsers cancel pending XHR/fetch
   //      on navigation; the request never reaches the server
   //   3. retry sleeping after transient failure — same as (2)
-  // sendBeacon is fire-and-forget, queued by the browser even after unload, and
-  // is the standard escape hatch for "save-before-leave". The server's PATCH
-  // merge is idempotent so a duplicate (with an in-flight request) is harmless.
+  // fetch with keepalive:true is queued by the browser even after unload (like
+  // sendBeacon) but correctly sends PATCH with JSON headers. sendBeacon only
+  // supports POST, so the PATCH route would 405 and the change would be silently
+  // lost. The server's PATCH merge is idempotent so a duplicate is harmless.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const onBeforeUnload = () => {
@@ -242,11 +243,12 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
       }
       try {
         const sent = getPatch();
-        const blob = new Blob(
-          [JSON.stringify({ ...sent, updatedAt: Date.now() })],
-          { type: "application/json" }
-        );
-        navigator.sendBeacon?.("/api/pipeline-state", blob);
+        fetch("/api/pipeline-state", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...sent, updatedAt: Date.now() }),
+          keepalive: true,
+        }).catch(() => { /* fire-and-forget */ });
       } catch { /* swallow — unload context, no UI to surface to */ }
     };
     window.addEventListener("beforeunload", onBeforeUnload);

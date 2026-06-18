@@ -3,11 +3,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { connectMongo } from "@/lib/mongo";
 import ChatMessage from "@/lib/ChatMessage";
+import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateText } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 import { chatBus } from "@/lib/chatBus";
 import { notifyMentions } from "@/lib/mentions";
+import { sendNotifications } from "@/lib/sendNotifications";
 
 export const dynamic = "force-dynamic";
 const ROUTE = "/api/pipeline-state/messages";
@@ -101,11 +103,33 @@ export async function POST(req: NextRequest) {
   logApi(ROUTE, "success");
   // Emit to SSE subscribers so all connected clients receive the message instantly
   chatBus.emit("message", { ...msg, userId: authoredUserId, workspaceId, threadId, attachments });
-  // Fire-and-forget: email mentioned users (Gmail SMTP)
-  const text = (msg.text as string) || "";
-  const senderId = authoredUserId;
-  if (text && senderId) {
-    notifyMentions(text, senderId).catch(e => console.warn("[chat-mention] notifyMentions failed:", e));
-  }
-  return NextResponse.json({ ok: true });
-}
+	  // Fire-and-forget: email mentioned users (Gmail SMTP)
+	  const text = (msg.text as string) || "";
+	  const senderId = authoredUserId;
+	  if (text && senderId) {
+	    notifyMentions(text, senderId).catch(e => console.warn("[chat-mention] notifyMentions failed:", e));
+	  }
+	  try {
+	    const stateDoc = await PipelineState.findOne({ workspaceId: "main" }).lean() as { state?: { workspaces?: Array<{ id: string; name: string; captains: string[]; members: string[]; pipelineIds: string[] }> } } | null;
+	    const workspaces = stateDoc?.state?.workspaces ?? [];
+	    const ws = workspaces.find(w => w.id === workspaceId);
+	    const dmRecipients = threadId.startsWith("dm:")
+	      ? threadId.split(":").filter(id => id && id !== "dm" && id !== authoredUserId)
+	      : [];
+	    void sendNotifications({
+	      eventType: threadId.startsWith("dm:") ? "dm" : "chat",
+	      stageKey: threadId.startsWith("dm:") ? "Direct message" : "Team chat",
+	      pipelineName: threadId.startsWith("dm:") ? "Direct Messages" : "Team Chat",
+	      workspaceId,
+	      workspaceName: ws?.name ?? "",
+	      workspaces,
+	      actorId: authoredUserId,
+	      mentioned: dmRecipients,
+	      detail: text || `${attachments.length} attachment${attachments.length === 1 ? "" : "s"}`,
+	      commentText: text,
+	    });
+	  } catch (e) {
+	    console.warn("[chat-notify] sendNotifications failed:", e);
+	  }
+	  return NextResponse.json({ ok: true });
+	}

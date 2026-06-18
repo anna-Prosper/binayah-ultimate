@@ -13,6 +13,7 @@ interface NotificationPrefsProps {
 type PrefsState = {
   emailNotifications: boolean;
   inAppNotifications: boolean;
+  whatsappNotifications: boolean;
   notifyMention: boolean;
   notifyApproved: boolean;
   notifyAssigned: boolean;
@@ -63,6 +64,7 @@ const ROWS: { emailKey: keyof PrefsState; appKey: keyof PrefsState; label: strin
 const PREF_DEFAULTS: PrefsState = {
   emailNotifications: true,
   inAppNotifications: true,
+  whatsappNotifications: true,
   notifyMention: true, notifyApproved: true, notifyAssigned: true, notifyClaim: true, notifyStatus: true, notifyComment: true, notifySubtask: true,
   notifyReminder: true, notifyRequest: true, notifyDue: true, notifyChat: true, notifyDm: true, notifyBug: true, notifyOther: true,
   inAppMention: true, inAppApproved: true, inAppAssigned: true, inAppClaim: true, inAppStatus: true, inAppComment: true, inAppSubtask: true,
@@ -124,6 +126,12 @@ export default function NotificationPrefs({ t, targetUserId, targetName, default
           {targetName ? `${targetName} in-app` : "in-app notifications"}
         </span>
         <Toggle on={prefs.inAppNotifications} onChange={v => update("inAppNotifications", v)} disabled={saving === "inAppNotifications"} t={t} />
+      </div>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", letterSpacing: 0.5 }}>
+          {targetName ? `${targetName} WhatsApp` : "WhatsApp alerts"}
+        </span>
+        <Toggle on={prefs.whatsappNotifications} onChange={v => update("whatsappNotifications", v)} disabled={saving === "whatsappNotifications"} t={t} />
       </div>
 
       {(!emailOff || !inAppOff) && (

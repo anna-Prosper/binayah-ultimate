@@ -1,5 +1,6 @@
 // Email templates — inline styles only (email clients strip <style> and CSS vars).
 // Brand palette hardcoded as hex. All user-supplied strings pass through escHtml.
+import { cleanHumanText, compactSubject, humanList, quoteText } from "@/lib/notificationFormat";
 
 const PAGE_BG = "#f6f3fb";
 const CARD_BG = "#ffffff";
@@ -12,6 +13,10 @@ const ACCENT2 = "#2563eb";
 const BORDER = "#eadff4";
 const GREEN = "#17803d";
 const AMBER = "#b45309";
+
+function cleanLabel(input?: string): string {
+  return cleanHumanText(input);
+}
 
 function baseLayout(bodyContent: string, unsubscribeUrl: string): string {
   return `<!DOCTYPE html>
@@ -80,11 +85,12 @@ function eyebrow(label: string, color: string = ACCENT): string {
 }
 
 function title(text: string): string {
-  return `<h1 style="font-size:24px;line-height:1.22;color:${TEXT};font-weight:800;margin:0 0 6px 0;word-break:break-word;">${escHtml(text)}</h1>`;
+  return `<h1 style="font-size:24px;line-height:1.22;color:${TEXT};font-weight:800;margin:0 0 6px 0;word-break:break-word;">${escHtml(cleanLabel(text))}</h1>`;
 }
 
 function meta(pipelineName: string): string {
-  return `<p style="font-size:13px;color:${TEXT_MUTED};margin:0 0 22px 0;">Pipeline: <strong style="color:${TEXT};">${escHtml(pipelineName)}</strong></p>`;
+  const pipeline = cleanLabel(pipelineName);
+  return pipeline ? `<p style="font-size:13px;color:${TEXT_MUTED};margin:0 0 22px 0;">Pipeline: <strong style="color:${TEXT};">${escHtml(pipeline)}</strong></p>` : "";
 }
 
 function paragraph(text: string): string {
@@ -97,54 +103,67 @@ function quote(text: string, color: string = ACCENT): string {
 
 interface BaseOpts {
   stageName: string;
+  urlStageName?: string;
   pipelineName: string;
   actorName: string;
   appUrl: string;
   unsubscribeUrl: string;
+  detail?: string;
+  commentText?: string;
+}
+
+function taskUrl(opts: BaseOpts): string {
+  return stageUrl(opts.appUrl, opts.pipelineName, opts.urlStageName || opts.stageName);
 }
 
 export function claimEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
   const body = `
     ${eyebrow("Stage claimed")}
-    ${title(opts.stageName)}
+    ${title(stageName)}
     ${meta(opts.pipelineName)}
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> claimed this stage.`)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "View stage")}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> claimed this stage.`)}
+    ${ctaLink(taskUrl(opts), "View stage")}
   `;
   return {
-    subject: `[Binayah Dashboard] ${opts.stageName} is claimed by ${opts.actorName}`,
+    subject: compactSubject(`[Binayah Dashboard] ${stageName} is claimed by ${actorName}`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
 
 interface ActiveOpts extends BaseOpts { points: number; }
 export function activeEmailTemplate(opts: ActiveOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
   const body = `
     ${eyebrow("Stage is live", GREEN)}
-    ${title(opts.stageName)}
+    ${title(stageName)}
     ${meta(opts.pipelineName)}
     <p style="font-size:22px;font-weight:900;color:${GREEN};margin:0 0 8px 0;">+${opts.points} points earned</p>
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> moved this work to live.`)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "Open dashboard", GREEN)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> moved this work to live.`)}
+    ${ctaLink(taskUrl(opts), "Open dashboard", GREEN)}
   `;
   return {
-    subject: `[Binayah Dashboard] ${opts.stageName} is now live`,
+    subject: compactSubject(`[Binayah Dashboard] ${stageName} is now live`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
 
 interface ApprovedOpts extends BaseOpts { points: number; }
 export function approvedEmailTemplate(opts: ApprovedOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
   const body = `
     ${eyebrow("Approved", GREEN)}
-    ${title(opts.stageName)}
+    ${title(stageName)}
     ${meta(opts.pipelineName)}
     <p style="font-size:22px;font-weight:900;color:${GREEN};margin:0 0 8px 0;">+${opts.points} points confirmed</p>
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> approved this work.`)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "View stage", GREEN)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> approved this work.`)}
+    ${ctaLink(taskUrl(opts), "View stage", GREEN)}
   `;
   return {
-    subject: `[Binayah Dashboard] ${opts.stageName} approved (+${opts.points}pts)`,
+    subject: compactSubject(`[Binayah Dashboard] ${stageName} approved (+${opts.points}pts)`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
@@ -154,17 +173,19 @@ interface SubtaskApprovedOpts extends BaseOpts {
   points?: number;
 }
 export function subtaskApprovedEmailTemplate(opts: SubtaskApprovedOpts): { subject: string; html: string } {
-  const readableTitle = opts.detail?.replace(/^subtask\s+/i, "") || opts.stageName;
+  const readableTitle = cleanLabel(opts.detail?.replace(/^subtask\s+/i, "") || opts.stageName);
+  const pipelineName = cleanLabel(opts.pipelineName);
+  const actorName = cleanLabel(opts.actorName);
   const body = `
     ${eyebrow("Subtask approved", GREEN)}
     ${title(readableTitle)}
-    ${meta(opts.pipelineName)}
+    ${meta(pipelineName)}
     ${opts.points ? `<p style="font-size:22px;font-weight:900;color:${GREEN};margin:0 0 8px 0;">+${opts.points} points earned</p>` : ""}
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> approved this subtask.`)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "Open dashboard", GREEN)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> approved this subtask.`)}
+    ${ctaLink(taskUrl(opts), "Open dashboard", GREEN)}
   `;
   return {
-    subject: `[Binayah Dashboard] subtask approved in ${opts.pipelineName}${opts.points ? ` (+${opts.points}pts)` : ""}`,
+    subject: compactSubject(`[Binayah Dashboard] subtask approved in ${pipelineName}${opts.points ? ` (+${opts.points}pts)` : ""}`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
@@ -176,29 +197,106 @@ interface PipelineCompletedOpts {
   unsubscribeUrl: string;
 }
 export function pipelineCompletedEmailTemplate(opts: PipelineCompletedOpts): { subject: string; html: string } {
+  const pipelineName = cleanLabel(opts.pipelineName);
   const body = `
     ${eyebrow("Pipeline complete", ACCENT2)}
-    ${title(opts.pipelineName)}
+    ${title(pipelineName)}
     <p style="font-size:22px;font-weight:900;color:${ACCENT2};margin:0 0 12px 0;">+${opts.bonusPoints} bonus points shared</p>
     ${paragraph("Every stage in this pipeline has been approved. The completion bonus is split among the owners.")}
     ${ctaLink(opts.appUrl, "Open dashboard", ACCENT2)}
   `;
   return {
-    subject: `[Binayah Dashboard] ${opts.pipelineName} complete (+${opts.bonusPoints}pts bonus)`,
+    subject: compactSubject(`[Binayah Dashboard] ${pipelineName} complete (+${opts.bonusPoints}pts bonus)`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
 
 export function assignedEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
   const body = `
     ${eyebrow("Assigned to you", ACCENT2)}
-    ${title(opts.stageName)}
+    ${title(stageName)}
     ${meta(opts.pipelineName)}
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> assigned this to you.`)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "View assignment", ACCENT2)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> assigned this task to you. It is now on your board and will count as your work until it is reassigned or completed.`)}
+    ${opts.detail ? quote(escHtml(opts.detail), ACCENT2) : ""}
+    ${ctaLink(taskUrl(opts), "View assignment", ACCENT2)}
   `;
   return {
-    subject: `[Binayah Dashboard] you were assigned: ${opts.stageName}`,
+    subject: compactSubject(`[Binayah Dashboard] assigned to you: ${stageName}`),
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
+export function bugEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
+  const body = `
+    ${eyebrow("Bug assigned", AMBER)}
+    ${title(stageName)}
+    ${meta(opts.pipelineName)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> assigned this bug/test item to you.`)}
+    ${opts.detail ? quote(escHtml(opts.detail), AMBER) : ""}
+    ${ctaLink(`${opts.appUrl}/bugs`, "Open bug tracker", AMBER)}
+  `;
+  return {
+    subject: compactSubject(`[Binayah Dashboard] bug assigned: ${stageName}`),
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
+export function commentEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
+  const text = escHtml(quoteText(opts.commentText || opts.detail || "New comment"));
+  const body = `
+    ${eyebrow("New comment", ACCENT)}
+    ${title(stageName)}
+    ${meta(opts.pipelineName)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> commented on a task you own.`)}
+    ${quote(text, ACCENT)}
+    ${ctaLink(taskUrl(opts), "Open task")}
+  `;
+  return {
+    subject: compactSubject(`[Binayah Dashboard] new comment on ${stageName}`),
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
+export function statusEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const detail = escHtml(quoteText(opts.detail || "Status changed"));
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
+  const isBlocked = /blocked/i.test(detail);
+  const color = isBlocked ? AMBER : ACCENT2;
+  const body = `
+    ${eyebrow(isBlocked ? "Task blocked" : "Task updated", color)}
+    ${title(stageName)}
+    ${meta(opts.pipelineName)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> updated a task you own.`)}
+    ${quote(detail, color)}
+    ${ctaLink(taskUrl(opts), "Review update", color)}
+  `;
+  return {
+    subject: compactSubject(`[Binayah Dashboard] ${stageName} updated`),
+    html: baseLayout(body, opts.unsubscribeUrl),
+  };
+}
+
+export function messageEmailTemplate(opts: BaseOpts): { subject: string; html: string } {
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
+  const text = escHtml(quoteText(opts.commentText || opts.detail || "New message"));
+  const body = `
+    ${eyebrow("New message", ACCENT2)}
+    ${title(stageName)}
+    ${meta(opts.pipelineName)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> sent you a message.`)}
+    ${quote(text, ACCENT2)}
+    ${ctaLink(`${opts.appUrl}/chat`, "Open chat", ACCENT2)}
+  `;
+  return {
+    subject: compactSubject(`[Binayah Dashboard] new message from ${actorName}`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
@@ -208,17 +306,19 @@ interface MentionOpts extends BaseOpts {
   commentText: string;
 }
 export function mentionEmailTemplate(opts: MentionOpts): { subject: string; html: string } {
-  const safeText = escHtml(opts.commentText.slice(0, 400));
+  const stageName = cleanLabel(opts.stageName);
+  const actorName = cleanLabel(opts.actorName);
+  const safeText = escHtml(quoteText(opts.commentText, 400));
   const body = `
     ${eyebrow("You were mentioned", AMBER)}
-    ${title(opts.stageName)}
+    ${title(stageName)}
     ${meta(opts.pipelineName)}
-    ${paragraph(`<strong style="color:${TEXT};">${escHtml(opts.actorName)}</strong> mentioned you:`)}
+    ${paragraph(`<strong style="color:${TEXT};">${escHtml(actorName)}</strong> mentioned you:`)}
     ${quote(safeText, AMBER)}
-    ${ctaLink(stageUrl(opts.appUrl, opts.pipelineName, opts.stageName), "Reply in dashboard", AMBER)}
+    ${ctaLink(taskUrl(opts), "Reply in dashboard", AMBER)}
   `;
   return {
-    subject: `[Binayah Dashboard] ${opts.actorName} mentioned you in ${opts.stageName}`,
+    subject: compactSubject(`[Binayah Dashboard] ${actorName} mentioned you in ${stageName}`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
@@ -246,10 +346,10 @@ export function digestEmailTemplate(opts: DigestOpts): { subject: string; html: 
       <tr>
         <td style="border-bottom:1px solid ${BORDER};padding:12px 0;">
           <p style="font-size:14px;color:${lineColor};margin:0;line-height:1.45;">
-            ${escHtml(r.detail)}
+            ${escHtml(cleanLabel(r.detail))}
           </p>
           <p style="font-size:12px;color:${TEXT_DIM};margin:4px 0 0 0;">
-            ${escHtml(r.workspaceName)} · ${escHtml(r.pipelineName)}${r.points ? ` · +${r.points}pts` : ""}
+            ${escHtml(humanList([r.workspaceName, r.pipelineName, r.points ? `+${r.points}pts` : ""]))}
           </p>
         </td>
       </tr>`;
@@ -263,13 +363,13 @@ export function digestEmailTemplate(opts: DigestOpts): { subject: string; html: 
     ${ctaLink(opts.appUrl, "Open dashboard")}
   `;
   return {
-    subject: `[Binayah Dashboard] daily digest — ${opts.rows.length} update${opts.rows.length === 1 ? "" : "s"}`,
+    subject: compactSubject(`[Binayah Dashboard] daily digest — ${opts.rows.length} update${opts.rows.length === 1 ? "" : "s"}`),
     html: baseLayout(body, opts.unsubscribeUrl),
   };
 }
 
 function escHtml(s: string): string {
-  return s
+  return cleanLabel(s)
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")

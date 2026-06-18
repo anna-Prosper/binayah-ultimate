@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { AtSign, Trash2 } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -32,6 +32,28 @@ function relativeTime(date: string | Date): string {
   return `${Math.floor(diff / 86_400_000)}d ago`;
 }
 
+const MAX_BROWSER_UPLOAD_BYTES = 10 * 1024 * 1024;
+const DIRECT_UPLOAD_THRESHOLD_BYTES = 4 * 1024 * 1024;
+const ALLOWED_UPLOAD_EXTENSIONS = new Set(["png", "jpg", "jpeg", "webp", "gif", "svg", "pdf", "txt", "md", "csv", "json", "docx", "xlsx", "zip"]);
+
+function canUploadFile(file: File): string | null {
+  if (file.size > MAX_BROWSER_UPLOAD_BYTES) return `// file too large — max ${Math.round(MAX_BROWSER_UPLOAD_BYTES / 1024 / 1024)}MB`;
+  const ext = file.name.split(".").pop()?.toLowerCase() || "";
+  if (!ALLOWED_UPLOAD_EXTENSIONS.has(ext)) return `// unsupported file type: .${ext || "unknown"}`;
+  return null;
+}
+
+async function postFileToS3(upload: { url: string; fields: Record<string, string> }, file: File): Promise<void> {
+  const form = new FormData();
+  Object.entries(upload.fields).forEach(([name, value]) => form.append(name, value));
+  form.append("file", file);
+  await fetch(upload.url, {
+    method: "POST",
+    mode: "no-cors",
+    body: form,
+  });
+}
+
 interface DocListItem {
   _id: string;
   title: string;
@@ -39,6 +61,13 @@ interface DocListItem {
   updatedBy: string | null;
   pipelineId: string | null;
   updatedAt: string;
+}
+
+interface DocSearchItem {
+  _id: string;
+  title: string;
+  pipelineId: string | null;
+  plaintext: string;
 }
 
 interface DocAttachment {
@@ -116,6 +145,9 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   const [loadingDoc, setLoadingDoc] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [filterPipeline, setFilterPipeline] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchDocs, setSearchDocs] = useState<Record<string, DocSearchItem>>({});
+  const [loadingSearch, setLoadingSearch] = useState(false);
   // Mobile: show list or editor
   const [mobileView, setMobileView] = useState<"list" | "editor">("list");
   // Attachment upload
@@ -157,6 +189,22 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   useEffect(() => {
     fetchList(filterPipeline);
   }, [fetchList, filterPipeline]);
+
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) return;
+    let alive = true;
+    setLoadingSearch(true);
+    fetch("/api/documents?includeContent=true")
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { docs?: DocSearchItem[] } | null) => {
+        if (!alive || !data?.docs) return;
+        setSearchDocs(Object.fromEntries(data.docs.map(doc => [doc._id, doc])));
+      })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoadingSearch(false); });
+    return () => { alive = false; };
+  }, [searchQuery]);
 
   // Open a document externally when initialDocId prop changes (from Cmd+K routing)
   useEffect(() => {
@@ -288,14 +336,54 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   // Attachment upload + delete handlers
   const uploadAttachment = useCallback(async (file: File) => {
     if (!activeId) return;
+    const preflightError = canUploadFile(file);
+    if (preflightError) {
+      showToast(preflightError, t.red);
+      return;
+    }
     setUploadingFile(true);
     try {
+      if (file.size > DIRECT_UPLOAD_THRESHOLD_BYTES) {
+        const presignRes = await fetch(`/api/documents/${activeId}/attachments/presign`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, type: file.type || "application/octet-stream", size: file.size }),
+        });
+        if (!presignRes.ok) {
+          const err = await presignRes.json().catch(() => ({}));
+          showToast(err.error || `// upload failed (${presignRes.status})`, t.red);
+          return;
+        }
+        const data = await presignRes.json() as { upload: { key: string; url: string; fields: Record<string, string>; publicUrl: string; contentType: string } };
+        await postFileToS3(data.upload, file);
+        const completeRes = await fetch(`/api/documents/${activeId}/attachments`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            key: data.upload.key,
+            url: data.upload.publicUrl,
+            name: file.name,
+            contentType: data.upload.contentType,
+            size: file.size,
+          }),
+        });
+        if (!completeRes.ok) {
+          const err = await completeRes.json().catch(() => ({}));
+          showToast(err.error || `// upload saved file but failed to attach (${completeRes.status})`, t.red);
+          return;
+        }
+        const done = await completeRes.json();
+        setActiveDoc(prev => prev ? { ...prev, attachments: [...(prev.attachments || []), done.attachment] } : prev);
+        showToast(`// uploaded ${file.name}`, t.green);
+        return;
+      }
+
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch(`/api/documents/${activeId}/attachments`, { method: "POST", body: fd });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        showToast(err.error || "// upload failed", t.red);
+        showToast(err.error || `// upload failed (${res.status})`, t.red);
         return;
       }
       const data = await res.json();
@@ -410,11 +498,22 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
   // Always apply workspace filter: show untagged docs + docs whose pipeline is in this workspace.
   // When workspacePipelineIds is an empty array (workspace has no pipelines), only untagged docs show.
   // When workspacePipelineIds is undefined (no workspace context), show everything.
-  const filteredDocs = workspacePipelineIds
-    ? workspacePipelineIds.length === 0
-      ? []
-      : docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
-    : docs;
+  const filteredDocs = useMemo(() => (
+    workspacePipelineIds
+      ? workspacePipelineIds.length === 0
+        ? []
+        : docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
+      : docs
+  ), [docs, workspacePipelineIds]);
+  const visibleDocs = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return filteredDocs;
+    return filteredDocs.filter(doc => {
+      const searchDoc = searchDocs[doc._id];
+      const haystack = `${doc.title || ""} ${searchDoc?.title || ""} ${searchDoc?.plaintext || ""}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [filteredDocs, searchDocs, searchQuery]);
 
   // Skeleton row
   const SkeletonRow = () => (
@@ -462,6 +561,48 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
         >
           + new doc
         </button>
+      </div>
+
+      {/* Search */}
+      <div style={{ padding: "8px 12px", borderBottom: `1px solid ${t.border}` }}>
+        <div style={{ position: "relative" }}>
+          <input
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="search documents..."
+            aria-label="Search documents"
+            style={{
+              width: "100%",
+              background: t.bgCard,
+              border: `1px solid ${searchQuery ? t.accent + "66" : t.border}`,
+              borderRadius: 10,
+              padding: "7px 28px 7px 10px",
+              outline: "none",
+              color: t.text,
+              fontSize: 12,
+              fontFamily: "var(--font-geist-mono, monospace)",
+              boxSizing: "border-box",
+            }}
+          />
+          {searchQuery ? (
+            <button
+              type="button"
+              onClick={() => setSearchQuery("")}
+              aria-label="Clear document search"
+              data-tooltip="Clear search"
+              style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 14, lineHeight: 1, padding: 3 }}
+            >
+              ×
+            </button>
+          ) : (
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", color: t.textDim, fontSize: 12, fontFamily: "var(--font-geist-mono, monospace)", pointerEvents: "none" }}>⌕</span>
+          )}
+        </div>
+        {searchQuery.trim() && (
+          <div style={{ marginTop: 5, fontSize: 10, color: t.textDim, fontFamily: "var(--font-geist-mono, monospace)" }}>
+            {loadingSearch ? "searching content..." : `${visibleDocs.length} match${visibleDocs.length === 1 ? "" : "es"}`}
+          </div>
+        )}
       </div>
 
       {/* Pipeline filter pills */}
@@ -521,29 +662,31 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
       <div style={{ flex: 1, overflowY: "auto" }}>
         {loadingList ? (
           <>{[0, 1, 2, 3].map(i => <SkeletonRow key={i} />)}</>
-        ) : filteredDocs.length === 0 ? (
+        ) : visibleDocs.length === 0 ? (
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "40px 20px", gap: 8 }}>
             <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-geist-mono, monospace)", textAlign: "center", lineHeight: 1.6 }}>
-              // no docs yet — forge one
+              {searchQuery.trim() ? "// no matching docs" : "// no docs yet — forge one"}
             </span>
-            <button
-              onClick={createDoc}
-              style={{
-                background: t.accent + "22",
-                border: `1px solid ${t.accent + "55"}`,
-                borderRadius: 12,
-                padding: "8px 16px",
-                cursor: "pointer",
-                fontSize: 13,
-                color: t.accent,
-                fontWeight: 700,
-                fontFamily: "var(--font-geist-mono, monospace)",
-              }}
-            >
-              + new document
-            </button>
+            {!searchQuery.trim() && (
+              <button
+                onClick={createDoc}
+                style={{
+                  background: t.accent + "22",
+                  border: `1px solid ${t.accent + "55"}`,
+                  borderRadius: 12,
+                  padding: "8px 16px",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  color: t.accent,
+                  fontWeight: 700,
+                  fontFamily: "var(--font-geist-mono, monospace)",
+                }}
+              >
+                + new document
+              </button>
+            )}
           </div>
-        ) : filteredDocs.map(doc => {
+        ) : visibleDocs.map(doc => {
           const isActive = activeId === doc._id;
           const creator = users.find(u => u.id === doc.createdBy);
           const pipe = allPipelines.find(p => p.id === doc.pipelineId);
@@ -835,6 +978,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   <input
                     ref={fileInputRef}
                     type="file"
+                    accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.svg,.txt,.md,.csv,.json,.docx,.xlsx,.zip,application/pdf,image/*,text/plain,text/markdown,text/csv,application/json,application/zip"
                     style={{ display: "none" }}
                     onChange={e => {
                       const file = e.target.files?.[0];

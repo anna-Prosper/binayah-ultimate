@@ -3,7 +3,7 @@ import { getRecentZoomRecordings, getZoomPastMeetings, getZoomSummaryByUUID, typ
 import { connectMongo } from "@/lib/mongo";
 import ZoomCallCache from "@/lib/ZoomCallCache";
 import { logApi } from "@/lib/log";
-import { pipelineData } from "@/lib/data";
+import { pipelineData, USERS_DEFAULT } from "@/lib/data";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 
@@ -31,6 +31,15 @@ type CachedProposal = {
   stageName: string | null; sourceMeeting: string; sourceDate: string; sourceUUID?: string;
 };
 type CachedSummary = { uuid: string; topic: string; startTime: string; summary: string };
+function proposalKey(p: Pick<CachedProposal, "sourceUUID" | "sourceMeeting" | "sourceDate" | "title">): string {
+  const source = p.sourceUUID || `${p.sourceMeeting || ""}:${p.sourceDate || ""}`;
+  const title = (p.title || "").toLowerCase().replace(/\s+/g, " ").trim();
+  return `${source}::${title}`;
+}
+
+function filterDismissedProposals(proposals: CachedProposal[], ids: Set<number>, keys: Set<string>): CachedProposal[] {
+  return proposals.filter(p => !ids.has(p.id) && !keys.has(proposalKey(p)));
+}
 
 function normalizeStageName(stageName: string | null | undefined): string | null {
   if (!stageName || stageName.startsWith("default-parent-")) return null;
@@ -61,6 +70,10 @@ async function extractTasksFromSummary(
     const pipelineList = pipelineData
       .map(p => `- ${p.name} (id: ${p.id}) — stages: ${p.stages.join(", ")}`)
       .join("\n");
+    const teamList = USERS_DEFAULT
+      .filter(u => !u.id.startsWith("guest"))
+      .map(u => u.name)
+      .join(", ");
 
     const res = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -75,12 +88,15 @@ async function extractTasksFromSummary(
 Extract EVERY action item and next step from the meeting summary. Do NOT skip, merge, or summarize any tasks.
 
 For each task:
-- "title": rewrite as a clear, actionable task in ≤15 words. If assigned to someone specific, add "(Assignee)" at the end. Example: "Set up CRM lead tracking locally (Aakarshit)"
+- "title": rewrite as a clear, actionable task in ≤15 words. If assigned to one specific teammate, add their exact name in parentheses at the end. Example: "Set up CRM lead tracking locally (Aakarshit)"
 - "pipelineId": best matching pipeline id
 - "pipelineName": matching pipeline name
 - "stageName": exact stage name if it closely matches one in that pipeline, otherwise null
 
 Rules:
+- Valid assignee names are only: ${teamList}
+- Use "(Anna)" for Anna, "(Abdallah)" for Abdallah, and so on.
+- Do not use "(Binayah)", "(team)", "(developer)", or company/group names as assignees. If no exact teammate is responsible, omit parentheses.
 - One JSON object per bullet point / action item — never merge two tasks into one
 - If a bullet has multiple distinct actions, split them into separate tasks
 - Keep technical specifics (tool names, formats, people mentioned)
@@ -163,18 +179,22 @@ function limitHomeData(meetings: CachedMeeting[], proposals: CachedProposal[], s
 
 // Incremental: only process UUIDs not yet in processedUUIDs
 async function syncNewMeetings(
-  existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] } | null
+  existingCache: { meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] } | null,
+  opts: { forceAll?: boolean } = {}
 ): Promise<{ meetings: CachedMeeting[]; proposals: CachedProposal[]; summaries: CachedSummary[]; processedUUIDs: string[] }> {
-  const processedUUIDs = new Set(existingCache?.processedUUIDs ?? []);
   const existingMeetings: CachedMeeting[] = existingCache?.meetings ?? latestArchiveMeetings(existingCache?.summaries ?? []);
   const existingSummaries: CachedSummary[] = existingCache?.summaries ?? [];
+  const summaryUUIDs = new Set(existingSummaries.map(s => s.uuid));
+  const processedUUIDs = new Set((existingCache?.processedUUIDs ?? []).filter(uuid => summaryUUIDs.has(uuid)));
   const existingProposals: CachedProposal[] = withProposalUUIDs(existingCache?.proposals ?? [], existingMeetings);
 
   const candidates = await getZoomCandidates();
 
-  // Only process UUIDs we haven't seen before
-  const newCandidates = candidates.filter(m => !processedUUIDs.has(m.uuid));
-  logApi(ROUTE, "incremental_sync", { total: candidates.length, new: newCandidates.length });
+  // Only skip UUIDs that already have a cached summary. Older builds marked some
+  // meetings as processed before Zoom AI Companion summaries were ready; those
+  // must be retried or they disappear permanently.
+  const newCandidates = opts.forceAll ? candidates : candidates.filter(m => !processedUUIDs.has(m.uuid));
+  logApi(ROUTE, opts.forceAll ? "force_sync" : "incremental_sync", { total: candidates.length, new: newCandidates.length });
 
   if (newCandidates.length === 0) {
     const allMeetings = latestArchiveMeetings(existingSummaries.length ? existingSummaries : existingMeetings.map(m => ({ uuid: m.uuid, topic: m.topic, startTime: m.startTime, summary: "" })));
@@ -258,14 +278,16 @@ export async function GET(req: NextRequest) {
     summaries: CachedSummary[];
     processedUUIDs: string[];
     dismissedProposalIds?: number[];
+    dismissedProposalKeys?: string[];
     updatedAt: Date;
   } | null;
 
   const dismissedSet = new Set(cache?.dismissedProposalIds ?? []);
+  const dismissedKeys = new Set(cache?.dismissedProposalKeys ?? []);
   const isStale = !cache || (Date.now() - new Date(cache.updatedAt).getTime() > CACHE_TTL_MS);
 
   if (!isStale && cache?.meetings?.length) {
-    const visibleProposals = (cache.proposals ?? []).filter(p => !dismissedSet.has(p.id));
+    const visibleProposals = filterDismissedProposals(cache.proposals ?? [], dismissedSet, dismissedKeys);
     const { homeMeetings, homeProposals } = limitHomeData(cache.meetings, visibleProposals, cache.summaries ?? []);
     return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries: cache.summaries ?? [], cached: true, updatedAt: cache.updatedAt });
   }
@@ -277,7 +299,7 @@ export async function GET(req: NextRequest) {
     { upsert: true }
   );
 
-  const visibleProposals = proposals.filter(p => !dismissedSet.has(p.id));
+  const visibleProposals = filterDismissedProposals(proposals, dismissedSet, dismissedKeys);
   const { homeMeetings, homeProposals } = limitHomeData(meetings, visibleProposals, summaries);
   return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries, cached: false, updatedAt: new Date() });
 }
@@ -298,10 +320,14 @@ export async function POST(req: NextRequest) {
     proposals: CachedProposal[];
     summaries: CachedSummary[];
     processedUUIDs: string[];
+    dismissedProposalIds?: number[];
+    dismissedProposalKeys?: string[];
     updatedAt: Date;
   } | null;
+  const dismissedSet = new Set(cache?.dismissedProposalIds ?? []);
+  const dismissedKeys = new Set(cache?.dismissedProposalKeys ?? []);
 
-  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cache);
+  const { meetings, proposals, summaries, processedUUIDs } = await syncNewMeetings(cache, { forceAll });
 
   await ZoomCallCache.findOneAndUpdate(
     { key: "main" },
@@ -309,6 +335,7 @@ export async function POST(req: NextRequest) {
     { upsert: true }
   );
 
-  const { homeMeetings, homeProposals } = limitHomeData(meetings, proposals, summaries);
+  const visibleProposals = filterDismissedProposals(proposals, dismissedSet, dismissedKeys);
+  const { homeMeetings, homeProposals } = limitHomeData(meetings, visibleProposals, summaries);
   return NextResponse.json({ ok: true, meetings: homeMeetings, proposals: homeProposals, summaries, cached: false, updatedAt: new Date(), forced: forceAll });
 }

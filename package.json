@@ -10,10 +10,14 @@
     "test": "jest --no-coverage",
     "test:coverage": "jest --coverage",
     "test:behavioral": "playwright test --config=playwright.config.ts",
-    "test:behavioral:local": "BASE_URL=http://localhost:3000 playwright test --config=playwright.config.ts"
+    "test:behavioral:local": "BASE_URL=http://localhost:3000 playwright test --config=playwright.config.ts",
+    "dr:list": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts list",
+    "dr:backup": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts backup"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
+    "@aws-sdk/s3-presigned-post": "^3.1045.0",
+    "@aws-sdk/s3-request-presigner": "^3.1045.0",
     "@sentry/nextjs": "^10.51.0",
     "@tailwindcss/postcss": "^4",
     "@tiptap/pm": "^2.27.2",
@@ -46,6 +50,7 @@
     "eslint-config-next": "16.2.3",
     "jest": "^30.3.0",
     "ts-jest": "^29.4.9",
-    "ts-node": "^10.9.2"
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0"
   }
 }

@@ -2,7 +2,10 @@ import type { NextConfig } from "next";
 import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Keep large icon packages tree-shaken and route chunks smaller.
+  experimental: {
+    optimizePackageImports: ["lucide-react"],
+  },
 };
 
 // Sentry is gated on the DSN env var being set — safe to include the plugin

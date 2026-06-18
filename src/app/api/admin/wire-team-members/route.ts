@@ -11,18 +11,19 @@ export const runtime = "nodejs";
 const ROUTE = "/api/admin/wire-team-members";
 const WORKSPACE = { workspaceId: "main" };
 
-// One-shot helper to wire the WP/SEO/content team into the digital-marketing
+// One-shot helper to wire the WP/SEO/content team into the Binayah Properties
 // workspace. Idempotent: re-running it leaves state unchanged if the users are
 // already members. Also strips them from war-room (Binayah AI) if they slipped
 // in there via the seed-heal pass.
 const TEAM_USER_IDS = ["shyam", "zahaib", "deepshikha", "nida"];
 const WAR_ROOM_ID = "war-room"; // "Binayah AI" — explicitly NOT where these users go
 
-// Match digital-marketing workspace by id OR name (covers "Digital Marketing",
+// Match Binayah Properties workspace by id OR name (covers legacy "Digital Marketing",
 // "Digital Media", or whatever variant exists). Case-insensitive substring on name.
 function isDigitalMarketingWorkspace(w: { id?: string; name?: string }): boolean {
   if (w.id === "digital-marketing" || w.id === "digital-media") return true;
   const name = (w.name || "").toLowerCase();
+  if (name.includes("binayah") && name.includes("propert")) return true;
   return name.includes("digital") && (name.includes("market") || name.includes("media"));
 }
 
@@ -65,9 +66,9 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
   if (!digitalWs) {
     return NextResponse.json({
       ok: false,
-      error: "No digital-marketing workspace found",
+      error: "No Binayah Properties workspace found",
       availableWorkspaces: allWorkspaceNames,
-      hint: "Create a workspace whose name contains 'Digital' and 'Marketing'/'Media', then re-run.",
+      hint: "Create a workspace named 'Binayah Properties', then re-run.",
     }, { status: 404 });
   }
 
@@ -94,7 +95,7 @@ async function run(req: NextRequest, apply: boolean): Promise<NextResponse> {
     return NextResponse.json({ ok: true, applied: false, dryRun: true, plan });
   }
 
-  // Apply: add to digital-marketing, remove from war-room.
+  // Apply: add to Binayah Properties, remove from war-room.
   const newWorkspaces = workspaces.map(w => {
     if (w.id === digitalWs.id) {
       return {
