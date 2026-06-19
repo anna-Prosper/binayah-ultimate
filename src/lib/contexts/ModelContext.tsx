@@ -500,11 +500,19 @@ export function ModelProvider({
   }, []);
   const persistPipeDescOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, string>>>>((next) => {
     markLocalWrite("pipeDescOverrides");
-    setPipeDescOverrides(next);
+    setPipeDescOverrides(prev => {
+      const val = typeof next === "function" ? next(prev) : next;
+      lsSet("pipeDescOverrides", val);
+      return val;
+    });
   }, [markLocalWrite]);
   const persistPipeMetaOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, { name?: string; priority?: string }>>>>((next) => {
     markLocalWrite("pipeMetaOverrides");
-    setPipeMetaOverrides(next);
+    setPipeMetaOverrides(prev => {
+      const val = typeof next === "function" ? next(prev) : next;
+      lsSet("pipeMetaOverrides", val);
+      return val;
+    });
   }, [markLocalWrite]);
   const isProtected = (slice: string) => {
     const t = localWritesRef.current[slice];
@@ -840,21 +848,38 @@ export function ModelProvider({
         setStageStatusOverrides(s.stageStatusOverrides);
       }
     }
-    if (s.stageDescOverrides && !isProtected("stageDescOverrides")) setStageDescOverrides(s.stageDescOverrides);
-    if (s.stageDueDates && !isProtected("stageDueDates")) setStageDueDates(s.stageDueDates);
-    if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities && !isProtected("stagePriorities")) setStagePriorities((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities);
-    if (s.stageNameOverrides && !isProtected("stageNameOverrides")) setStageNameOverrides(s.stageNameOverrides);
-    if (s.subtaskStages && !isProtected("subtaskStages")) {
+    // Helper: on initial hydrate, merge server-into-local giving local precedence
+    // so a keepalive PATCH that hasn't landed yet doesn't flash the old value.
+    // On subsequent polls, server wins (normal behaviour).
+    const mergeMapOnHydrate = <T extends Record<string, unknown>>(
+      serverVal: T,
+      setter: (fn: (prev: T) => T) => void,
+      directSetter: (val: T) => void,
+    ) => {
       if (isInitialHydrateRef.current) {
-        setSubtaskStages(prev => ({ ...s.subtaskStages!, ...prev }));
+        setter(prev => ({ ...serverVal, ...prev }));
       } else {
-        setSubtaskStages(s.subtaskStages);
+        directSetter(serverVal);
       }
-    }
-    if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides")) setSubtaskDescOverrides(s.subtaskDescOverrides as Record<string, string>);
-    if (s.subtaskDueDates && !isProtected("subtaskDueDates")) setSubtaskDueDates(s.subtaskDueDates as Record<string, string>);
-    if (s.pipeDescOverrides && !isProtected("pipeDescOverrides")) setPipeDescOverrides(s.pipeDescOverrides);
-    if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides")) setPipeMetaOverrides(s.pipeMetaOverrides as Record<string, { name?: string; priority?: string }>);
+    };
+    if (s.stageDescOverrides && !isProtected("stageDescOverrides"))
+      mergeMapOnHydrate(s.stageDescOverrides as Record<string, unknown>, setStageDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageDescOverrides(v as Record<string, string>));
+    if (s.stageDueDates && !isProtected("stageDueDates"))
+      mergeMapOnHydrate(s.stageDueDates as Record<string, unknown>, setStageDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageDueDates(v as Record<string, string>));
+    if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities && !isProtected("stagePriorities"))
+      mergeMapOnHydrate((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities as Record<string, unknown>, setStagePriorities as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePriorities(v as Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">));
+    if (s.stageNameOverrides && !isProtected("stageNameOverrides"))
+      mergeMapOnHydrate(s.stageNameOverrides as Record<string, unknown>, setStageNameOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageNameOverrides(v as Record<string, string>));
+    if (s.subtaskStages && !isProtected("subtaskStages"))
+      mergeMapOnHydrate(s.subtaskStages as Record<string, unknown>, setSubtaskStages as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskStages(v as Record<string, string>));
+    if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides"))
+      mergeMapOnHydrate(s.subtaskDescOverrides as Record<string, unknown>, setSubtaskDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDescOverrides(v as Record<string, string>));
+    if (s.subtaskDueDates && !isProtected("subtaskDueDates"))
+      mergeMapOnHydrate(s.subtaskDueDates as Record<string, unknown>, setSubtaskDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDueDates(v as Record<string, string>));
+    if (s.pipeDescOverrides && !isProtected("pipeDescOverrides"))
+      mergeMapOnHydrate(s.pipeDescOverrides as Record<string, unknown>, setPipeDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeDescOverrides(v as Record<string, string>));
+    if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides"))
+      mergeMapOnHydrate(s.pipeMetaOverrides as Record<string, unknown>, setPipeMetaOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeMetaOverrides(v as Record<string, { name?: string; priority?: string }>));
     if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
     if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
     if (s.users && !isProtected("users")) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
@@ -865,7 +890,8 @@ export function ModelProvider({
     if (s.archivedStages) setArchivedStages(prev => Array.from(new Set([...prev, ...(s.archivedStages as string[])])));
     if (s.archivedPipelines) setArchivedPipelines(prev => Array.from(new Set([...prev, ...(s.archivedPipelines as string[])])));
     if (s.archivedSubtasks) setArchivedSubtasks(prev => Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])));
-    if (s.stagePointsOverride && !isProtected("stagePointsOverride")) setStagePointsOverrideState(s.stagePointsOverride as Record<string, number>);
+    if (s.stagePointsOverride && !isProtected("stagePointsOverride"))
+      mergeMapOnHydrate(s.stagePointsOverride as Record<string, unknown>, setStagePointsOverrideState as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePointsOverrideState(v as Record<string, number>));
     if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
     if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
     if (s.approvedPipelines && !isProtected("approvedPipelines")) setApprovedPipelines(s.approvedPipelines as string[]);
@@ -2116,25 +2142,24 @@ export function ModelProvider({
     stateMirrorRef.current.stageDescOverrides = { ...stateMirrorRef.current.stageDescOverrides, [name]: val };
     markLocalWrite("stageDescOverrides");
     setStageDescOverrides(prev => ({ ...prev, [name]: val }));
+    lsSet("stageDescOverrides", { ...stageDescOverrides, [name]: val });
     notifyDescriptionMentions(name, val, previous, stageNameOverrides[name] || name);
   };
   const setStageDueDate = (name: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
     markLocalWrite("stageDueDates");
-    setStageDueDates(prev => {
-      const next = { ...prev };
-      if (!val) delete next[name]; else next[name] = val;
-      return next;
-    });
+    const nextStageDueDates = { ...stageDueDates };
+    if (!val) delete nextStageDueDates[name]; else nextStageDueDates[name] = val;
+    setStageDueDates(nextStageDueDates);
+    lsSet("stageDueDates", nextStageDueDates);
   };
   const setStagePriority = (stageId: string, val: "NOW" | "HIGH" | "MEDIUM" | "LOW" | null) => {
     if (requestInsteadOfMutate("edit", stageId, "set priority", val ? `Set priority for "${stageId}" to ${val}.` : `Clear priority for "${stageId}".`, { requestedValue: val })) return;
     markLocalWrite("stagePriorities");
-    setStagePriorities(prev => {
-      const next = { ...prev };
-      if (!val) delete next[stageId]; else next[stageId] = val;
-      return next;
-    });
+    const nextStagePriorities = { ...stagePriorities };
+    if (!val) delete nextStagePriorities[stageId]; else nextStagePriorities[stageId] = val;
+    setStagePriorities(nextStagePriorities);
+    lsSet("stagePriorities", nextStagePriorities);
   };
   const setSubtaskDescOverride = (key: string, desc: string | null) => {
     if (requestInsteadOfMutate("edit", key, "edit subtask description", `Change description for "${key}" to:\n\n${desc || "(empty)"}`, { requestedValue: desc || "" })) return;
@@ -2142,7 +2167,10 @@ export function ModelProvider({
     const previous = stateMirrorRef.current.subtaskDescOverrides[key] || "";
     stateMirrorRef.current.subtaskDescOverrides = { ...stateMirrorRef.current.subtaskDescOverrides, [key]: nextDesc };
     markLocalWrite("subtaskDescOverrides");
-    setSubtaskDescOverrides(prev => { const next = { ...prev }; if (desc === null) delete next[key]; else next[key] = desc; return next; });
+    const nextSubtaskDescOverrides = { ...subtaskDescOverrides };
+    if (desc === null) delete nextSubtaskDescOverrides[key]; else nextSubtaskDescOverrides[key] = desc;
+    setSubtaskDescOverrides(nextSubtaskDescOverrides);
+    lsSet("subtaskDescOverrides", nextSubtaskDescOverrides);
     const parsed = SubtaskKey.isValid(key) ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]) : null;
     const sub = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId) : null;
     notifyDescriptionMentions(key, nextDesc, previous, sub?.text || key);
@@ -2150,23 +2178,23 @@ export function ModelProvider({
   const setSubtaskDueDate = (key: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", key, "set subtask due date", val ? `Set due date for "${key}" to ${val}.` : `Clear due date for "${key}".`, { requestedValue: val })) return;
     markLocalWrite("subtaskDueDates");
-    setSubtaskDueDates(prev => {
-      const next = { ...prev };
-      if (!val) delete next[key]; else next[key] = val;
-      return next;
-    });
+    const nextSubtaskDueDates = { ...subtaskDueDates };
+    if (!val) delete nextSubtaskDueDates[key]; else nextSubtaskDueDates[key] = val;
+    setSubtaskDueDates(nextSubtaskDueDates);
+    lsSet("subtaskDueDates", nextSubtaskDueDates);
   };
   const setStageNameOverride = (name: string, val: string) => {
     if (requestInsteadOfMutate("edit", name, "rename task", `Rename "${name}" to "${val}".`, { requestedValue: val })) return;
-    markLocalWrite("stageNameOverrides"); setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+    markLocalWrite("stageNameOverrides");
+    setStageNameOverrides(prev => ({ ...prev, [name]: val }));
+    lsSet("stageNameOverrides", { ...stageNameOverrides, [name]: val });
   };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
     markLocalWrite("stagePointsOverride");
-    setStagePointsOverrideState(prev => {
-      const next = { ...prev };
-      if (pts === null) { delete next[stageId]; } else { next[stageId] = pts; }
-      return next;
-    });
+    const nextStagePointsOverride = { ...stagePointsOverride };
+    if (pts === null) { delete nextStagePointsOverride[stageId]; } else { nextStagePointsOverride[stageId] = pts; }
+    setStagePointsOverrideState(nextStagePointsOverride);
+    lsSet("stagePointsOverride", nextStagePointsOverride);
   };
   // Couples subtask kanban status with sub.done + approval:
   //   - Setting status to "active" marks sub.done = true (entering pending state).
