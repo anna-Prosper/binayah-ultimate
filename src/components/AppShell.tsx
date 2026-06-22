@@ -479,7 +479,7 @@ function ShellInner({
         {activeNavItem !== "home" && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ display: "inline-flex", alignItems: "center", color: t.accent }}><Bot size={20} /></span>
-            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>Binayah AI</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: t.text, letterSpacing: -0.3 }}>{currentWorkspace?.name ?? "Binayah AI"}</div>
             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
               <div style={{ width: 6, height: 6, borderRadius: "50%", background: syncStatus === "live" ? t.green : syncStatus === "hydrating" ? t.amber : t.red, transition: "all 0.3s" }} data-tooltip={`sync: ${syncStatus}`} />
               <span style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{allPipelines.length} pipelines · {allStages.length} stages{syncStatus === "offline" ? " · offline" : ""}</span>

@@ -589,6 +589,23 @@ export function ModelProvider({
       return changed ? next : prev;
     });
   }, [markLocalWrite]);
+  // Migrate: ensure "Binayah Properties" workspace always has all pipeline IDs
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWorkspaces(prev => {
+      const allIds = [...pipelineData.map(p => p.id), ...customPipelines.map(p => p.id)];
+      let changed = false;
+      const next = prev.map(w => {
+        if (w.name !== "Binayah Properties") return w;
+        const missing = allIds.filter(id => !w.pipelineIds.includes(id));
+        if (missing.length === 0) return w;
+        changed = true;
+        return { ...w, pipelineIds: [...w.pipelineIds, ...missing] };
+      });
+      if (changed) markLocalWrite("workspaces");
+      return changed ? next : prev;
+    });
+  }, [customPipelines, markLocalWrite]);
 
   const timelineSeededRef = useRef(false);
 

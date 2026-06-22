@@ -496,13 +496,10 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     ? pipelineData.filter(p => workspacePipelineIds.includes(p.id))
     : pipelineData;
   // Always apply workspace filter: show untagged docs + docs whose pipeline is in this workspace.
-  // When workspacePipelineIds is an empty array (workspace has no pipelines), only untagged docs show.
   // When workspacePipelineIds is undefined (no workspace context), show everything.
   const filteredDocs = useMemo(() => (
     workspacePipelineIds
-      ? workspacePipelineIds.length === 0
-        ? []
-        : docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
+      ? docs.filter(doc => !doc.pipelineId || workspacePipelineIds.includes(doc.pipelineId))
       : docs
   ), [docs, workspacePipelineIds]);
   const visibleDocs = useMemo(() => {
