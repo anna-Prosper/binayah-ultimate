@@ -3853,6 +3853,7 @@ export const NOTION_DB_SEEDS = [
       { "id": "exp_amount",  "name": "Amount",       "type": "text",   "width": 120 },
       { "id": "exp_status",  "name": "Status",       "type": "status", "width": 110,
         "options": ["Active", "Inactive", "Trial", "Pending"] },
+      { "id": "exp_login",   "name": "Login",        "type": "text",   "width": 200 },
       { "id": "exp_notes",   "name": "Notes",        "type": "text",   "width": 300 }
     ],
     "dedupe": ["exp_service", "exp_date"],
@@ -3882,7 +3883,9 @@ export const NOTION_DB_SEEDS = [
       { "exp_date": "",           "exp_service": "Render",            "exp_billing": "Pending",           "exp_type": "",                          "exp_url": "",                                               "exp_amount": "",            "exp_status": "Pending",  "exp_notes": "" },
       { "exp_date": "2026-06-02", "exp_service": "Claude AI API",     "exp_billing": "Credits",           "exp_type": "AI Agent",                  "exp_url": "https://claude.ai/",                             "exp_amount": "$10.00",      "exp_status": "Active",   "exp_notes": "" },
       { "exp_date": "2026-06-01", "exp_service": "Meta",              "exp_billing": "Pay as you go",     "exp_type": "Whatsapp Business API",     "exp_url": "https://business.facebook.com/",                 "exp_amount": "Pay as you go","exp_status": "Active",  "exp_notes": "For bulk whatsapp and leads notifications" },
-      { "exp_date": "2026-06-09", "exp_service": "Password Binaya",   "exp_billing": "Monthly",           "exp_type": "Store Login Credentials",   "exp_url": "https://my.1password.com/",                      "exp_amount": "$24.95",      "exp_status": "Active",   "exp_notes": "Password manager" }
+      { "exp_date": "2026-06-09", "exp_service": "Password Binaya",   "exp_billing": "Monthly",           "exp_type": "Store Login Credentials",   "exp_url": "https://my.1password.com/",                      "exp_amount": "$24.95",      "exp_status": "Active",   "exp_notes": "Password manager" },
+      { "exp_date": "2026-06-23", "exp_service": "Replicate",         "exp_billing": "Credits",           "exp_type": "Image Upscaling",           "exp_url": "https://replicate.com/",                         "exp_amount": "Pay as you go","exp_status": "Active",   "exp_notes": "" },
+      { "exp_date": "2026-06-24", "exp_service": "Higgsfield",        "exp_billing": "Monthly",           "exp_type": "Generative AI",             "exp_url": "https://higgsfield.ai/",                         "exp_amount": "$30",         "exp_status": "Active",   "exp_notes": "" }
     ]
   }
 ] satisfies NotionDbSeed[];

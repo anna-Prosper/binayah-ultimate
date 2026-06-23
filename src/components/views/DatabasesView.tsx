@@ -717,8 +717,9 @@ function TableView({
     const dateCol = db.columns.find(c => c.type === "date");
     if (!dateCol) return [...filteredRows].sort((a, b) => b.createdAt - a.createdAt);
     return [...filteredRows].sort((a, b) => {
-      const da = new Date(a.values[dateCol.id] || "").getTime() || 0;
-      const db2 = new Date(b.values[dateCol.id] || "").getTime() || 0;
+      // Rows with no date use createdAt so new undated rows stay at the top
+      const da = new Date(a.values[dateCol.id] || "").getTime() || a.createdAt;
+      const db2 = new Date(b.values[dateCol.id] || "").getTime() || b.createdAt;
       return db2 - da || b.createdAt - a.createdAt;
     });
   })();
