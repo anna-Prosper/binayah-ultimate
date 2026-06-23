@@ -168,6 +168,7 @@ export default function TasksView(props: Props) {
     setStageStatusDirect: setStageStatus, approveStage, assignTask,
     stageNameOverrides, setStageNameOverride, stageDueDates, setStageDueDate, stagePriorities, subtaskStages, setSubtaskStage, subtaskDueDates, setSubtaskDueDate,
     archivedStages, archivedSubtasks, stagePointsOverride,
+    setStageDescOverride, setSubtaskDescOverride,
     addComment: modelAddComment, deleteComment, editComment,
     addSubtask: modelAddSubtask,
     addCustomStage: modelAddCustomStage,
@@ -252,6 +253,7 @@ export default function TasksView(props: Props) {
   const [newSubPipeTitle, setNewSubPipeTitle] = useState<string>("");
   const [newSubParentStage, setNewSubParentStage] = useState<string>(""); // "" = no parent (task-level)
   const [newSubParentTitle, setNewSubParentTitle] = useState<string>(""); // create new parent stage, then add title as subtask
+  const [newSubDesc, setNewSubDesc] = useState("");
   const [createAtTop, setCreateAtTop] = useState(false);
 
   // Workspace context: explicit prop > user pick > auto-pick if only 1 available
@@ -268,7 +270,7 @@ export default function TasksView(props: Props) {
     : "";
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); setCreateAtTop(false);
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); setNewSubDesc(""); setCreateAtTop(false);
   }, []);
 
   const createPipelineAndUse = useCallback(() => {
@@ -313,6 +315,7 @@ export default function TasksView(props: Props) {
       if (taskId !== null) {
         const key = `${parentStageId}::${taskId}`;
         if (newSubDueDate) setSubtaskDueDate(key, newSubDueDate);
+        if (newSubDesc.trim()) setSubtaskDescOverride(key, newSubDesc.trim());
         if (colStatus !== "planned") setSubtaskStage(key, colStatus);
         if (newSubAssigneeId) assignTask(key, newSubAssigneeId);
         else if (currentUser) handleClaim(key);
@@ -324,6 +327,7 @@ export default function TasksView(props: Props) {
       if (stageName) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
         if (newSubDueDate) setStageDueDate(stageName, newSubDueDate);
+        if (newSubDesc.trim()) setStageDescOverride(stageName, newSubDesc.trim());
         if (newSubAssigneeId) assignTask(stageName, newSubAssigneeId);
         else if (currentUser) handleClaim(stageName);
         if (formWsId) {
@@ -336,7 +340,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubDueDate, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setSubtaskDueDate, setSubtaskStage, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubDesc, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setStageDescOverride, setSubtaskDueDate, setSubtaskStage, setSubtaskDescOverride, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -854,6 +858,13 @@ export default function TasksView(props: Props) {
             }}
             style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "8px 10px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 0 }}
           />
+          <textarea
+            value={newSubDesc}
+            onChange={e => setNewSubDesc(e.target.value)}
+            placeholder="description (optional)..."
+            rows={2}
+            style={{ gridColumn: "1 / -1", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "7px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", resize: "vertical", minHeight: 52, width: "100%", boxSizing: "border-box" }}
+          />
           <select
             value={newTaskCol}
             onChange={e => setNewTaskCol(e.target.value)}
@@ -1073,6 +1084,14 @@ export default function TasksView(props: Props) {
                         data-no-close
 	                        style={{ background: t.bgCard, border: `1px solid ${t.accent}55`, borderRadius: 8, padding: "6px 8px", fontSize: 13, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
 	                      />
+                      <textarea
+                        value={newSubDesc}
+                        onChange={e => setNewSubDesc(e.target.value)}
+                        placeholder="description (optional)..."
+                        rows={2}
+                        data-no-close
+                        style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", resize: "vertical", width: "100%", minHeight: 48, boxSizing: "border-box" }}
+                      />
 	                      <input
 	                        type="date"
 	                        value={newSubDueDate}
