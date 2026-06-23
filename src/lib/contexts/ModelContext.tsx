@@ -1221,6 +1221,7 @@ export function ModelProvider({
       projectsupdate: ["projectupdate", "projects"],
       backlinksupdate: ["backlinks"],
       deepshikhacontentupdate: ["contentupdate", "deepshikhaupdate"],
+      expenses: ["expense", "subscriptions", "subscription"],
     };
 
     projectUpdateSeededRef.current = true;
@@ -1307,11 +1308,12 @@ export function ModelProvider({
           ...(statusCol ? [{ id: "view_status", name: "By Status", filterCol: statusCol.id, filterVal: "" }] : []),
         ];
         const forcePropertyWorkspace = seedName === "backlinksupdate";
+        const forceAiWorkspace = seedName === "expenses";
         const nextDb: WorkspaceDb = {
           ...baseDb,
           name: existingIndex >= 0 ? baseDb.name : seed.name,
           icon: baseDb.icon || seed.icon,
-          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : (baseDb.workspaceId || propertyWorkspaceId),
+          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : forceAiWorkspace ? DEFAULT_WORKSPACE_ID : (baseDb.workspaceId || propertyWorkspaceId),
           columns: allColumns,
           rows: dedupedRows,
           views,

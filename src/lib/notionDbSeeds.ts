@@ -3840,5 +3840,49 @@ export const NOTION_DB_SEEDS = [
       }
     ],
     "idBase": 1704231224583
+  },
+  {
+    "name": "Expenses",
+    "icon": "💳",
+    "columns": [
+      { "id": "exp_date",    "name": "Date",         "type": "date",   "width": 120 },
+      { "id": "exp_service", "name": "Service Name", "type": "text",   "width": 160 },
+      { "id": "exp_billing", "name": "Billing",      "type": "text",   "width": 140 },
+      { "id": "exp_type",    "name": "Service Type", "type": "text",   "width": 180 },
+      { "id": "exp_url",     "name": "Website",      "type": "url",    "width": 260 },
+      { "id": "exp_amount",  "name": "Amount",       "type": "text",   "width": 120 },
+      { "id": "exp_status",  "name": "Status",       "type": "status", "width": 110,
+        "options": ["Active", "Inactive", "Trial", "Pending"] },
+      { "id": "exp_notes",   "name": "Notes",        "type": "text",   "width": 300 }
+    ],
+    "dedupe": ["exp_service", "exp_date"],
+    "idBase": 1750636800000,
+    "rows": [
+      { "exp_date": "2026-04-04", "exp_service": "PolyTranslate AI",  "exp_billing": "Monthly",           "exp_type": "WordPress Plugin",          "exp_url": "https://wordpress.org/plugins/polytranslate-ai/", "exp_amount": "$3",          "exp_status": "Active",   "exp_notes": "Multilang Translation plugin for Binayah.com" },
+      { "exp_date": "2026-04-01", "exp_service": "BrightData",        "exp_billing": "Pay as you go",     "exp_type": "AI Agent",                  "exp_url": "https://brightdata.com/",                        "exp_amount": "$5",          "exp_status": "Active",   "exp_notes": "Scrapper" },
+      { "exp_date": "2026-02-04", "exp_service": "Claude AI",         "exp_billing": "Monthly",           "exp_type": "AI Agent",                  "exp_url": "https://claude.ai/",                             "exp_amount": "$20",         "exp_status": "Active",   "exp_notes": "Claude subscription" },
+      { "exp_date": "2026-03-07", "exp_service": "News API",          "exp_billing": "5K Tokens",         "exp_type": "News API",                  "exp_url": "https://newsapi.ai/login",                       "exp_amount": "$90",         "exp_status": "Active",   "exp_notes": "API for News" },
+      { "exp_date": "2026-04-02", "exp_service": "Kie API",           "exp_billing": "1K Credits",        "exp_type": "Image Generation",          "exp_url": "https://kie.ai/",                                "exp_amount": "$5",          "exp_status": "Active",   "exp_notes": "Image generation" },
+      { "exp_date": "2026-03-27", "exp_service": "Hostinger",         "exp_billing": "Monthly",           "exp_type": "VPS Hosting",               "exp_url": "https://hostinger.com/",                         "exp_amount": "$30",         "exp_status": "Active",   "exp_notes": "Hosting for CRM" },
+      { "exp_date": "2026-04-04", "exp_service": "Krispcall",         "exp_billing": "Monthly",           "exp_type": "Virtual Number",            "exp_url": "https://krispcall.com/",                         "exp_amount": "$35",         "exp_status": "Active",   "exp_notes": "Virtual Numbers Subscription" },
+      { "exp_date": "2026-04-10", "exp_service": "Wanotifier",        "exp_billing": "Monthly",           "exp_type": "Whatsapp Platform",         "exp_url": "https://wanotifier.com/",                        "exp_amount": "$99",         "exp_status": "Active",   "exp_notes": "Whatsapp Marketing" },
+      { "exp_date": "2026-04-01", "exp_service": "Whatchipmp",        "exp_billing": "Monthly",           "exp_type": "Whatsapp Platform",         "exp_url": "https://whatchimp.com/",                         "exp_amount": "Not Active",  "exp_status": "Inactive", "exp_notes": "Whatsapp Marketing" },
+      { "exp_date": "2026-04-03", "exp_service": "Kendal",            "exp_billing": "Monthly",           "exp_type": "Whatsapp Platform",         "exp_url": "https://app.kendal.ai/",                         "exp_amount": "Trial",       "exp_status": "Trial",    "exp_notes": "Whatsapp Marketing" },
+      { "exp_date": "2026-01-04", "exp_service": "Digital Ocean",     "exp_billing": "Monthly",           "exp_type": "CRM Hosting",               "exp_url": "https://cloud.digitalocean.com/",                "exp_amount": "$355.11",     "exp_status": "Active",   "exp_notes": "CRM Hosting" },
+      { "exp_date": "2026-04-14", "exp_service": "Fixed.net",         "exp_billing": "Monthly",           "exp_type": "Web Hosting",               "exp_url": "https://my.fixed.net",                           "exp_amount": "£248",        "exp_status": "Active",   "exp_notes": "Webhosting for Binayah.com" },
+      { "exp_date": "2026-04-07", "exp_service": "Gemini",            "exp_billing": "",                  "exp_type": "Real Images",               "exp_url": "https://ai.google.dev/",                         "exp_amount": "",            "exp_status": "Active",   "exp_notes": "" },
+      { "exp_date": "2026-04-07", "exp_service": "Serper",            "exp_billing": "$0 / 50K Credits",  "exp_type": "SEO Audit",                 "exp_url": "https://serper.dev/",                            "exp_amount": "$50",         "exp_status": "Active",   "exp_notes": "" },
+      { "exp_date": "2026-03-20", "exp_service": "SemRush",           "exp_billing": "Monthly",           "exp_type": "SEO Audit",                 "exp_url": "https://www.semrush.com/",                       "exp_amount": "Trial Period", "exp_status": "Trial",   "exp_notes": "For SEO audit and comparison" },
+      { "exp_date": "2026-03-18", "exp_service": "AWS",               "exp_billing": "Pay as you go",     "exp_type": "Hosting New CRM DB",        "exp_url": "https://aws.amazon.com/",                        "exp_amount": "Pay as you go","exp_status": "Active",  "exp_notes": "Hosting new CRM database" },
+      { "exp_date": "2026-04-07", "exp_service": "MongoDB",           "exp_billing": "$5",                "exp_type": "Database Hosting",          "exp_url": "https://cloud.mongodb.com/",                     "exp_amount": "Pay as you go","exp_status": "Active",  "exp_notes": "" },
+      { "exp_date": "",           "exp_service": "Github",            "exp_billing": "",                  "exp_type": "Version Control",           "exp_url": "https://github.com/",                            "exp_amount": "",            "exp_status": "Active",   "exp_notes": "" },
+      { "exp_date": "2026-01-03", "exp_service": "Mailgun",           "exp_billing": "Monthly",           "exp_type": "Email Marketing",           "exp_url": "https://www.mailgun.com/",                       "exp_amount": "$15",         "exp_status": "Inactive", "exp_notes": "For email marketing" },
+      { "exp_date": "2026-03-09", "exp_service": "1Password",         "exp_billing": "Monthly",           "exp_type": "Login / API Details Storage","exp_url": "https://my.1password.com/",                     "exp_amount": "$24.95",      "exp_status": "Active",   "exp_notes": "For storing login credentials, API credentials etc." },
+      { "exp_date": "2026-04-07", "exp_service": "Open Router",       "exp_billing": "10 USD",            "exp_type": "API for Translation",       "exp_url": "https://openrouter.ai/",                         "exp_amount": "$10",         "exp_status": "Active",   "exp_notes": "API key for binayah.com multilang" },
+      { "exp_date": "",           "exp_service": "Render",            "exp_billing": "Pending",           "exp_type": "",                          "exp_url": "",                                               "exp_amount": "",            "exp_status": "Pending",  "exp_notes": "" },
+      { "exp_date": "2026-06-02", "exp_service": "Claude AI API",     "exp_billing": "Credits",           "exp_type": "AI Agent",                  "exp_url": "https://claude.ai/",                             "exp_amount": "$10.00",      "exp_status": "Active",   "exp_notes": "" },
+      { "exp_date": "2026-06-01", "exp_service": "Meta",              "exp_billing": "Pay as you go",     "exp_type": "Whatsapp Business API",     "exp_url": "https://business.facebook.com/",                 "exp_amount": "Pay as you go","exp_status": "Active",  "exp_notes": "For bulk whatsapp and leads notifications" },
+      { "exp_date": "2026-06-09", "exp_service": "Password Binaya",   "exp_billing": "Monthly",           "exp_type": "Store Login Credentials",   "exp_url": "https://my.1password.com/",                      "exp_amount": "$24.95",      "exp_status": "Active",   "exp_notes": "Password manager" }
+    ]
   }
 ] satisfies NotionDbSeed[];
