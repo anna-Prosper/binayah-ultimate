@@ -607,6 +607,23 @@ export function ModelProvider({
     });
   }, [customPipelines, markLocalWrite]);
 
+  // Remove revoked users from workspace member lists.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const revoked = new Set(["nida", "zahaib"]);
+    setWorkspaces(prev => {
+      let changed = false;
+      const next = prev.map(w => {
+        const filtered = (w.members ?? []).filter(id => !revoked.has(id));
+        if (filtered.length === (w.members ?? []).length) return w;
+        changed = true;
+        return { ...w, members: filtered };
+      });
+      if (changed) markLocalWrite("workspaces");
+      return changed ? next : prev;
+    });
+  }, [markLocalWrite]);
+
   const timelineSeededRef = useRef(false);
 
   // Self-heal + legacy migration:

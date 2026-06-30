@@ -6,6 +6,9 @@ import { connectMongo } from "@/lib/mongo";
 import AuthUser from "@/lib/AuthUser";
 import { ADMIN_IDS, resolveEffectiveUserId } from "@/lib/data";
 
+// ─── Revoked accounts — login blocked, existing JWTs invalidated ──────────────
+const REVOKED_USER_IDS = new Set(["nida", "zahaib"]);
+
 // ─── Admin email → fixedUserId whitelist ──────────────────────────────────────
 // Hardcoded (not solely env-var driven) per spec — multiple emails map to same user.
 export const ADMIN_EMAIL_MAP: Record<string, string> = {
@@ -18,9 +21,7 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "abdallahkalyar@gmail.com": "abdallah",
   // WordPress + content + SEO team
   "shyam.m.bhundiya@gmail.com": "shyam",
-  "zahaib.tariq123@gmail.com": "zahaib",
   "deepskarn15@gmail.com": "deepshikha",
-  "nidasp1122@gmail.com": "nida",
   // TEMP users — remove when no longer needed
   "guest1@binayah.com": "guest1",
   "guest2@binayah.com": "guest2",
@@ -35,9 +36,7 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   prajeesh: "pm@binayah.com",
   abdallah: "ak@binayah.com",
   shyam: "shyam.m.bhundiya@gmail.com",
-  zahaib: "zahaib.tariq123@gmail.com",
   deepshikha: "deepskarn15@gmail.com",
-  nida: "nidasp1122@gmail.com",
   // TEMP users
   guest1: "guest1@binayah.com",
   guest2: "guest2@binayah.com",
@@ -165,12 +164,13 @@ export const authOptions: NextAuthOptions = {
     },
 
     async session({ session, token }) {
-      if (token.fixedUserId) {
-        session.user.fixedUserId = token.fixedUserId as string;
-      } else if (session.user?.email) {
+      const fid = token.fixedUserId as string | undefined;
+      if (fid && !REVOKED_USER_IDS.has(fid)) {
+        session.user.fixedUserId = fid;
+      } else if (!fid && session.user?.email) {
         // Defense in depth: derive at session-build time if token didn't have it.
         const derived = ADMIN_EMAIL_MAP[session.user.email.toLowerCase()];
-        if (derived) session.user.fixedUserId = derived;
+        if (derived && !REVOKED_USER_IDS.has(derived)) session.user.fixedUserId = derived;
       }
       return session;
     },

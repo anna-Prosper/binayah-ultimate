@@ -39,9 +39,7 @@ export const USERS_DEFAULT = [
   {id:"abdallah",name:"Abdallah",role:"The Backbone",avatar:"",color:"#d4a000"}, // mustard — was #ffcc00 (invisible on white)
   {id:"prajeesh",name:"Prajeesh",role:"The PM",avatar:"",color:"#0891b2"},      // teal — was #22d3ee
   {id:"shyam",name:"Shyam",role:"WP Sensei",avatar:"",color:"#8b5cf6"},          // violet — senior WordPress dev
-  {id:"zahaib",name:"Zahaib",role:"Code Knight",avatar:"",color:"#dc2626"},      // crimson — WordPress dev
   {id:"deepshikha",name:"Deepshikha",role:"SEO Sniper",avatar:"",color:"#059669"}, // emerald — SEO
-  {id:"nida",name:"Nida",role:"The Wordsmith",avatar:"",color:"#db2777"},        // magenta — content
   {id:"guest1",name:"Guest",role:"Agent",avatar:"",color:"#6366f1"},
   {id:"guest2",name:"Exec Guest",role:"Executive",avatar:"",color:"#ec4899"},
 ];
