@@ -3888,4 +3888,111 @@ export const NOTION_DB_SEEDS = [
       { "exp_date": "2026-06-24", "exp_service": "Higgsfield",        "exp_billing": "Monthly",           "exp_type": "Generative AI",             "exp_url": "https://higgsfield.ai/",                         "exp_amount": "$30",         "exp_status": "Active",   "exp_notes": "" }
     ]
   }
+  ,{
+    "name": "Campaigns",
+    "icon": "🎯",
+    "idBase": 1760000000000,
+    "dedupe": ["camp_name"],
+    "columns": [
+      { "id": "camp_name",    "name": "Campaign",    "type": "text",   "width": 230 },
+      { "id": "camp_channel", "name": "Channel",     "type": "status", "width": 110, "options": ["Social", "Email", "SEO", "Paid", "PR", "Events"] },
+      { "id": "camp_status",  "name": "Status",      "type": "status", "width": 110, "options": ["Planning", "Active", "Paused", "Complete"] },
+      { "id": "camp_start",   "name": "Start",       "type": "date",   "width": 120 },
+      { "id": "camp_end",     "name": "End",         "type": "date",   "width": 120 },
+      { "id": "camp_budget",  "name": "Budget AED",  "type": "text",   "width": 120 },
+      { "id": "camp_spent",   "name": "Spent AED",   "type": "text",   "width": 120 },
+      { "id": "camp_owner",   "name": "Owner",       "type": "user",   "width": 130 },
+      { "id": "camp_goal",    "name": "Goal",        "type": "text",   "width": 240 },
+      { "id": "camp_notes",   "name": "Notes",       "type": "text",   "width": 260 }
+    ],
+    "rows": [
+      { "camp_name": "Ramadan Digital Push",          "camp_channel": "Email",  "camp_status": "Complete", "camp_start": "2026-03-01", "camp_end": "2026-04-15", "camp_budget": "15,000", "camp_spent": "14,200", "camp_owner": "anna",     "camp_goal": "500 qualified leads",                         "camp_notes": "Combined email + social. Performed above target." },
+      { "camp_name": "Property Finder Listing Boost", "camp_channel": "Paid",   "camp_status": "Active",   "camp_start": "2026-06-01", "camp_end": "2026-07-31", "camp_budget": "8,000",  "camp_spent": "4,100",  "camp_owner": "ahsan",    "camp_goal": "150 inquiries via PF",                        "camp_notes": "CPC tracking on PF dashboard. Review mid-July." },
+      { "camp_name": "Instagram Content Q3",          "camp_channel": "Social", "camp_status": "Active",   "camp_start": "2026-07-01", "camp_end": "2026-09-30", "camp_budget": "5,000",  "camp_spent": "0",      "camp_owner": "anna",     "camp_goal": "Grow to 12K followers, 4% avg engagement",    "camp_notes": "Reels-first strategy. Shyam leads copy." },
+      { "camp_name": "Binayah Blog SEO Push",         "camp_channel": "SEO",    "camp_status": "Active",   "camp_start": "2026-05-01", "camp_end": "2026-07-31", "camp_budget": "3,000",  "camp_spent": "1,500",  "camp_owner": "shyam",    "camp_goal": "50 keywords in top 10, +30% organic traffic", "camp_notes": "Focus: JVC, Marina, Business Bay landing pages." },
+      { "camp_name": "Bayut Sponsored Listings Q3",   "camp_channel": "Paid",   "camp_status": "Planning", "camp_start": "2026-07-15", "camp_end": "2026-09-30", "camp_budget": "6,000",  "camp_spent": "0",      "camp_owner": "ahsan",    "camp_goal": "200 inquiries via Bayut",                     "camp_notes": "Awaiting contract sign-off from Bayut account manager." }
+    ]
+  }
+  ,{
+    "name": "Content Calendar",
+    "icon": "📅",
+    "idBase": 1760100000000,
+    "dedupe": ["cont_title", "cont_date"],
+    "columns": [
+      { "id": "cont_title",    "name": "Title",        "type": "text",   "width": 260 },
+      { "id": "cont_type",     "name": "Type",         "type": "status", "width": 100, "options": ["Blog", "Reel", "Story", "Email", "Ad", "Video", "Listing"] },
+      { "id": "cont_platform", "name": "Platform",     "type": "status", "width": 120, "options": ["Instagram", "LinkedIn", "Website", "Email", "YouTube"] },
+      { "id": "cont_date",     "name": "Publish Date", "type": "date",   "width": 120 },
+      { "id": "cont_status",   "name": "Status",       "type": "status", "width": 110, "options": ["Idea", "Draft", "Review", "Scheduled", "Live", "Archived"] },
+      { "id": "cont_author",   "name": "Author",       "type": "user",   "width": 130 },
+      { "id": "cont_url",      "name": "URL",          "type": "url",    "width": 220 },
+      { "id": "cont_notes",    "name": "Notes",        "type": "text",   "width": 200 }
+    ],
+    "rows": [
+      { "cont_title": "Dubai Real Estate: How AI Is Changing the Market", "cont_type": "Blog",  "cont_platform": "Website",   "cont_date": "2026-06-15", "cont_status": "Live",      "cont_author": "shyam", "cont_url": "https://www.binayah.com/blog/ai-changing-dubai-real-estate/", "cont_notes": "Top performer — 1.2K sessions in first week." },
+      { "cont_title": "Binayah AI Pipeline Showcase",                     "cont_type": "Reel",  "cont_platform": "Instagram", "cont_date": "2026-06-20", "cont_status": "Live",      "cont_author": "anna",  "cont_url": "",                                                           "cont_notes": "4.8% engagement rate. Save rate unusually high." },
+      { "cont_title": "Monthly Newsletter — June 2026",                   "cont_type": "Email", "cont_platform": "Email",     "cont_date": "2026-06-30", "cont_status": "Live",      "cont_author": "anna",  "cont_url": "",                                                           "cont_notes": "42% open rate. 7 direct replies." },
+      { "cont_title": "5 Reasons to Invest in Dubai Now",                 "cont_type": "Blog",  "cont_platform": "Website",   "cont_date": "2026-07-01", "cont_status": "Scheduled", "cont_author": "shyam", "cont_url": "",                                                           "cont_notes": "Target: 'invest in Dubai 2026' keyword." },
+      { "cont_title": "JVC Market Update — Q2 2026",                      "cont_type": "Video", "cont_platform": "YouTube",   "cont_date": "2026-07-05", "cont_status": "Scheduled", "cont_author": "ahsan", "cont_url": "",                                                           "cont_notes": "Script ready. Recording booked for Jul 3." },
+      { "cont_title": "Property Finder Partnership Story",                 "cont_type": "Story", "cont_platform": "Instagram", "cont_date": "2026-07-07", "cont_status": "Scheduled", "cont_author": "anna",  "cont_url": "",                                                           "cont_notes": "Coordinate with PF comms team before posting." },
+      { "cont_title": "Q3 Instagram Grid Relaunch",                       "cont_type": "Reel",  "cont_platform": "Instagram", "cont_date": "2026-07-10", "cont_status": "Draft",     "cont_author": "anna",  "cont_url": "",                                                           "cont_notes": "New visual identity rollout. 6-part series." },
+      { "cont_title": "SEMrush Rankings Explainer",                       "cont_type": "Blog",  "cont_platform": "Website",   "cont_date": "2026-07-18", "cont_status": "Idea",      "cont_author": "shyam", "cont_url": "",                                                           "cont_notes": "Use our live ranking data as proof points." }
+    ]
+  }
+  ,{
+    "name": "Leads",
+    "icon": "🧲",
+    "idBase": 1760200000000,
+    "dedupe": ["lead_name", "lead_date"],
+    "columns": [
+      { "id": "lead_name",     "name": "Name",              "type": "text",   "width": 180 },
+      { "id": "lead_source",   "name": "Source",            "type": "status", "width": 140, "options": ["Property Finder", "Bayut", "Instagram", "Website", "Referral", "Walk-in", "Cold Call"] },
+      { "id": "lead_date",     "name": "Date",              "type": "date",   "width": 120 },
+      { "id": "lead_status",   "name": "Status",            "type": "status", "width": 110, "options": ["New", "Contacted", "Qualified", "Proposal", "Won", "Lost"] },
+      { "id": "lead_assigned", "name": "Assigned to",       "type": "user",   "width": 130 },
+      { "id": "lead_property", "name": "Property Interest", "type": "text",   "width": 200 },
+      { "id": "lead_budget",   "name": "Budget AED",        "type": "text",   "width": 130 },
+      { "id": "lead_phone",    "name": "Phone",             "type": "text",   "width": 140 },
+      { "id": "lead_notes",    "name": "Notes",             "type": "text",   "width": 230 }
+    ],
+    "rows": [
+      { "lead_name": "Mohammed Al Rashidi", "lead_source": "Property Finder", "lead_date": "2026-06-10", "lead_status": "Qualified", "lead_assigned": "prajeesh", "lead_property": "2BR JVC",              "lead_budget": "750K–1M",   "lead_phone": "+971 50 123 4567", "lead_notes": "Cash buyer. Wants ready unit. Follow up Thu." },
+      { "lead_name": "Sarah Johnson",       "lead_source": "Instagram",        "lead_date": "2026-06-12", "lead_status": "Contacted", "lead_assigned": "abdallah", "lead_property": "Studio Downtown",      "lead_budget": "600K–800K", "lead_phone": "+44 7700 900123",  "lead_notes": "Relocating from UK. Viewing request pending." },
+      { "lead_name": "Amit Patel",          "lead_source": "Bayut",            "lead_date": "2026-06-15", "lead_status": "New",       "lead_assigned": "prajeesh", "lead_property": "3BR Dubai Hills",     "lead_budget": "1.5M–2M",   "lead_phone": "+971 55 234 5678", "lead_notes": "Off-plan preferred. Asked about Emaar launches." },
+      { "lead_name": "Lisa Chen",           "lead_source": "Website",          "lead_date": "2026-06-18", "lead_status": "Proposal",  "lead_assigned": "prajeesh", "lead_property": "2BR Business Bay",    "lead_budget": "1.2M–1.5M", "lead_phone": "+852 9123 4567",   "lead_notes": "Investment purchase. Sent 3 options. Response expected by Fri." },
+      { "lead_name": "Omar Al Farouk",      "lead_source": "Referral",         "lead_date": "2026-06-20", "lead_status": "Won",       "lead_assigned": "abdallah", "lead_property": "1BR JBR",             "lead_budget": "900K",      "lead_phone": "+971 50 345 6789", "lead_notes": "Closed! Referred by Abdullah Kalyar. Commission noted." },
+      { "lead_name": "Ravi Shankar",        "lead_source": "Walk-in",          "lead_date": "2026-06-22", "lead_status": "Lost",      "lead_assigned": "prajeesh", "lead_property": "2BR Marina",          "lead_budget": "1M–1.3M",   "lead_phone": "+91 98765 43210",  "lead_notes": "Went with competitor. Budget mismatch on service fee." },
+      { "lead_name": "Emma Williams",       "lead_source": "Instagram",        "lead_date": "2026-06-25", "lead_status": "Qualified", "lead_assigned": "abdallah", "lead_property": "Studio JVC",          "lead_budget": "500K–650K", "lead_phone": "+61 400 123 456",  "lead_notes": "First-time buyer. Needs financing guide. Very warm." },
+      { "lead_name": "Khalid Al Mansouri",  "lead_source": "Property Finder",  "lead_date": "2026-06-28", "lead_status": "Contacted", "lead_assigned": "prajeesh", "lead_property": "4BR Palm Jumeirah",  "lead_budget": "3M+",       "lead_phone": "+971 50 456 7890", "lead_notes": "HNW. Schedule private viewing. Serious buyer." },
+      { "lead_name": "Yana Petrov",         "lead_source": "Cold Call",        "lead_date": "2026-06-30", "lead_status": "New",       "lead_assigned": "abdallah", "lead_property": "2BR Creek Harbour",   "lead_budget": "1.1M–1.4M", "lead_phone": "+7 916 123 4567",  "lead_notes": "Russian investor. Looking for rental yield 6%+." },
+      { "lead_name": "David Okafor",        "lead_source": "Website",          "lead_date": "2026-07-01", "lead_status": "New",       "lead_assigned": "prajeesh", "lead_property": "1BR Business Bay",    "lead_budget": "700K–900K", "lead_phone": "+234 802 345 678", "lead_notes": "Via contact form. New to Dubai market. Educate first." }
+    ]
+  }
+  ,{
+    "name": "Monthly Metrics",
+    "icon": "📊",
+    "idBase": 1760300000000,
+    "dedupe": ["met_month", "met_channel"],
+    "columns": [
+      { "id": "met_month",       "name": "Month",          "type": "date",   "width": 120 },
+      { "id": "met_channel",     "name": "Channel",        "type": "status", "width": 110, "options": ["Social", "Email", "SEO", "Paid", "Events", "Total"] },
+      { "id": "met_platform",    "name": "Platform",       "type": "text",   "width": 140 },
+      { "id": "met_impressions", "name": "Impressions",    "type": "text",   "width": 120 },
+      { "id": "met_clicks",      "name": "Clicks / Opens", "type": "text",   "width": 110 },
+      { "id": "met_leads",       "name": "Leads",          "type": "text",   "width": 80  },
+      { "id": "met_spend",       "name": "Spend AED",      "type": "text",   "width": 110 },
+      { "id": "met_cpl",         "name": "CPL AED",        "type": "text",   "width": 100 },
+      { "id": "met_notes",       "name": "Notes",          "type": "text",   "width": 230 }
+    ],
+    "rows": [
+      { "met_month": "2026-04-01", "met_channel": "Social", "met_platform": "Instagram",       "met_impressions": "45,200", "met_clicks": "1,180", "met_leads": "8",  "met_spend": "2,000", "met_cpl": "250", "met_notes": "Ramadan content peak. Story views up 40%." },
+      { "met_month": "2026-04-01", "met_channel": "Email",  "met_platform": "Mailgun",         "met_impressions": "2,100",  "met_clicks": "320",   "met_leads": "4",  "met_spend": "0",     "met_cpl": "0",   "met_notes": "42% open rate. April newsletter." },
+      { "met_month": "2026-04-01", "met_channel": "SEO",    "met_platform": "Google",          "met_impressions": "18,400", "met_clicks": "640",   "met_leads": "3",  "met_spend": "0",     "met_cpl": "0",   "met_notes": "JVC landing page ranked #7 for first time." },
+      { "met_month": "2026-04-01", "met_channel": "Paid",   "met_platform": "Property Finder", "met_impressions": "12,000", "met_clicks": "480",   "met_leads": "12", "met_spend": "4,000", "met_cpl": "333", "met_notes": "Premium listing tier active. Good CTR." },
+      { "met_month": "2026-05-01", "met_channel": "Social", "met_platform": "Instagram",       "met_impressions": "52,000", "met_clicks": "1,520", "met_leads": "11", "met_spend": "2,000", "met_cpl": "182", "met_notes": "AI pipeline reel went semi-viral (31K reach)." },
+      { "met_month": "2026-05-01", "met_channel": "SEO",    "met_platform": "Google",          "met_impressions": "21,000", "met_clicks": "720",   "met_leads": "5",  "met_spend": "0",     "met_cpl": "0",   "met_notes": "Blog content compounding. +14% MoM." },
+      { "met_month": "2026-06-01", "met_channel": "Social", "met_platform": "Instagram",       "met_impressions": "67,400", "met_clicks": "2,140", "met_leads": "14", "met_spend": "2,500", "met_cpl": "179", "met_notes": "Best month yet. Q3 grid launch next month." },
+      { "met_month": "2026-06-01", "met_channel": "Paid",   "met_platform": "Property Finder", "met_impressions": "15,200", "met_clicks": "620",   "met_leads": "18", "met_spend": "5,000", "met_cpl": "278", "met_notes": "Boosted PF spend for June. Strong lead quality." }
+    ]
+  }
 ] satisfies NotionDbSeed[];

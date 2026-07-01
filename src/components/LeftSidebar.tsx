@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo, Link2, CalendarDays } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo, Link2, CalendarDays, Megaphone } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "my-tasks" | "timeline" | "links" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases";
+export type NavItem = "home" | "my-tasks" | "timeline" | "links" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases" | "marketing";
 
 export interface SidebarPipeline {
   id: string;
@@ -59,6 +59,7 @@ export const NAV_HREFS: Record<NavItem, string> = {
   calls: "/calls",
   archive: "/archive",
   databases: "/databases",
+  marketing: "/marketing",
 };
 
 export function navItemFromPathname(pathname: string): NavItem {
@@ -75,6 +76,7 @@ export function navItemFromPathname(pathname: string): NavItem {
   if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/calls")) return "calls";
   if (pathname.startsWith("/databases")) return "databases";
+  if (pathname.startsWith("/marketing")) return "marketing";
   return "home";
 }
 
@@ -85,6 +87,7 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "notes",      label: "notes"      },
   { id: "bugs",       label: "testing"    },
   { id: "databases",  label: "databases"  },
+  { id: "marketing",  label: "marketing"  },
   { id: "activity",   label: "activity"   },
   { id: "timeline",   label: "timeline"   },
   { id: "archive",    label: "archive"    },
@@ -102,6 +105,7 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   notes: <StickyNote size={15} strokeWidth={1.8} />,
   bugs: <Bug size={15} strokeWidth={1.8} />,
   databases: <Table2 size={15} strokeWidth={1.8} />,
+  marketing: <Megaphone size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
   archive: <Archive size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,

@@ -607,6 +607,20 @@ export function ModelProvider({
     });
   }, [customPipelines, markLocalWrite]);
 
+  // Ensure the marketing workspace exists.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    setWorkspaces(prev => {
+      if (prev.some(w => w.id === "marketing")) return prev;
+      const marketingWs: Workspace = {
+        id: "marketing", name: "Marketing Hub", icon: "📣", colorKey: "green",
+        members: [...ADMIN_IDS], captains: [...ADMIN_IDS], pipelineIds: [],
+      };
+      markLocalWrite("workspaces");
+      return [...prev, marketingWs];
+    });
+  }, [markLocalWrite]);
+
   // Remove revoked users from workspace member lists.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1239,6 +1253,10 @@ export function ModelProvider({
       backlinksupdate: ["backlinks"],
       deepshikhacontentupdate: ["contentupdate", "deepshikhaupdate"],
       expenses: ["expense", "subscriptions", "subscription"],
+      campaigns: ["campaign"],
+      contentcalendar: ["contentcal", "editorial"],
+      leads: ["lead", "inquiries", "inquiry"],
+      monthlymetrics: ["metrics", "analytics"],
     };
 
     projectUpdateSeededRef.current = true;
@@ -1326,11 +1344,13 @@ export function ModelProvider({
         ];
         const forcePropertyWorkspace = seedName === "backlinksupdate";
         const forceAiWorkspace = seedName === "expenses";
+        const marketingSeedNames = new Set(["campaigns", "contentcalendar", "leads", "monthlymetrics"]);
+        const forceMarketingWorkspace = marketingSeedNames.has(seedName);
         const nextDb: WorkspaceDb = {
           ...baseDb,
           name: existingIndex >= 0 ? baseDb.name : seed.name,
           icon: baseDb.icon || seed.icon,
-          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : forceAiWorkspace ? DEFAULT_WORKSPACE_ID : (baseDb.workspaceId || propertyWorkspaceId),
+          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : forceAiWorkspace ? DEFAULT_WORKSPACE_ID : forceMarketingWorkspace ? "marketing" : (baseDb.workspaceId || propertyWorkspaceId),
           columns: allColumns,
           rows: dedupedRows,
           views,
