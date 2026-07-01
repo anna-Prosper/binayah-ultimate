@@ -622,38 +622,6 @@ export function ModelProvider({
     });
   }, [markLocalWrite]);
 
-  // Seed the 4 marketing databases independently — runs even if projectUpdateSeededRef is already true.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (syncStatus !== "live" || marketingSeededRef.current) return;
-    if (databases.some(db => db.workspaceId === "marketing")) { marketingSeededRef.current = true; return; }
-    marketingSeededRef.current = true;
-    const normalize = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
-    const marketingNames = new Set(["campaigns", "contentcalendar", "leads", "monthlymetrics"]);
-    const marketingSeeds = NOTION_DB_SEEDS.filter(s => marketingNames.has(normalize(s.name)));
-    if (marketingSeeds.length === 0) return;
-    const now = Date.now();
-    setDatabases(prev => {
-      let changed = false;
-      const next = [...prev];
-      for (const seed of marketingSeeds) {
-        if (next.some(db => normalize(db.name) === normalize(seed.name))) continue;
-        const dateCol = seed.columns.find(c => c.type === "date");
-        const statusCol = seed.columns.find(c => c.type === "status");
-        const views = [
-          { id: "view_all", name: "All rows" },
-          ...(dateCol ? [{ id: "view_date", name: "By Date", filterCol: dateCol.id, filterVal: "" }] : []),
-          ...(statusCol ? [{ id: "view_status", name: "By Status", filterCol: statusCol.id, filterVal: "" }] : []),
-        ];
-        const rows = seed.rows.map((r, i) => ({ id: seed.idBase + i + 1, createdAt: now, createdBy: "anna", values: r as Record<string, string> }));
-        next.unshift({ id: seed.idBase, workspaceId: "marketing", name: seed.name, icon: seed.icon, columns: seed.columns, rows, views, createdAt: now, createdBy: "anna" });
-        changed = true;
-      }
-      if (changed) markLocalWrite("databases");
-      return changed ? next : prev;
-    });
-  }, [databases, markLocalWrite, syncStatus]);
-
   // Remove revoked users from workspace member lists.
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1406,6 +1374,38 @@ export function ModelProvider({
       return prev;
     });
   }, [currentUser, currentWorkspaceId, databases, markLocalWrite, syncStatus, workspaces]);
+
+  // Seed the 4 marketing databases independently — runs even if projectUpdateSeededRef is already true.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (syncStatus !== "live" || marketingSeededRef.current) return;
+    if (databases.some(db => db.workspaceId === "marketing")) { marketingSeededRef.current = true; return; }
+    marketingSeededRef.current = true;
+    const normalize = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const marketingNames = new Set(["campaigns", "contentcalendar", "leads", "monthlymetrics"]);
+    const marketingSeeds = NOTION_DB_SEEDS.filter(s => marketingNames.has(normalize(s.name)));
+    if (marketingSeeds.length === 0) return;
+    const now = Date.now();
+    setDatabases(prev => {
+      let changed = false;
+      const next = [...prev];
+      for (const seed of marketingSeeds) {
+        if (next.some(db => normalize(db.name) === normalize(seed.name))) continue;
+        const dateCol = seed.columns.find(c => c.type === "date");
+        const statusCol = seed.columns.find(c => c.type === "status");
+        const views = [
+          { id: "view_all", name: "All rows" },
+          ...(dateCol ? [{ id: "view_date", name: "By Date", filterCol: dateCol.id, filterVal: "" }] : []),
+          ...(statusCol ? [{ id: "view_status", name: "By Status", filterCol: statusCol.id, filterVal: "" }] : []),
+        ];
+        const rows = seed.rows.map((r, i) => ({ id: seed.idBase + i + 1, createdAt: now, createdBy: "anna", values: r as Record<string, string> }));
+        next.unshift({ id: seed.idBase, workspaceId: "marketing", name: seed.name, icon: seed.icon, columns: seed.columns, rows, views, createdAt: now, createdBy: "anna" });
+        changed = true;
+      }
+      if (changed) markLocalWrite("databases");
+      return changed ? next : prev;
+    });
+  }, [databases, markLocalWrite, syncStatus]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
