@@ -118,8 +118,9 @@ export async function POST(req: NextRequest) {
     added.push(`${seed.name} → ${workspaceId}`);
   }
 
-  // AI Backlinks (empty DB in war-room)
-  if (!existingNames.has("backlinks")) {
+  // AI Backlinks (empty DB in war-room — separate from the Binayah Properties Backlinks)
+  const hasWarRoomBacklinks = existing.some(d => normalize(d.name) === "backlinks" && d.workspaceId === DEFAULT_WORKSPACE_ID);
+  if (!hasWarRoomBacklinks) {
     toAdd.push({
       id: 1760400000000,
       workspaceId: DEFAULT_WORKSPACE_ID,
