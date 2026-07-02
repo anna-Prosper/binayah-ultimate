@@ -1262,6 +1262,7 @@ export function ModelProvider({
     };
 
     projectUpdateSeededRef.current = true;
+    const marketingOnlySeeds = new Set(["campaigns", "contentcalendar", "leads", "monthlymetrics"]);
     setDatabases(prev => {
       const propertyWorkspaceId = propertyWs?.id || currentWorkspaceId || DEFAULT_WORKSPACE_ID;
       const now = Date.now();
@@ -1270,6 +1271,9 @@ export function ModelProvider({
 
       for (const seed of NOTION_DB_SEEDS) {
         const seedName = normalize(seed.name);
+        // Marketing DBs are seeded exclusively by the dedicated marketingSeededRef effect below.
+        // Skipping here prevents the main seeding from overwriting user edits on every page load.
+        if (marketingOnlySeeds.has(seedName)) continue;
         const possibleNames = new Set([seedName, ...(seedAliases[seedName] || [])]);
         const existingIndex = next.findIndex(db => possibleNames.has(normalize(db.name)));
         const baseDb: WorkspaceDb = existingIndex >= 0 ? next[existingIndex] : {
@@ -1346,13 +1350,11 @@ export function ModelProvider({
         ];
         const forcePropertyWorkspace = seedName === "backlinksupdate";
         const forceAiWorkspace = seedName === "expenses";
-        const marketingSeedNames = new Set(["campaigns", "contentcalendar", "leads", "monthlymetrics"]);
-        const forceMarketingWorkspace = marketingSeedNames.has(seedName);
         const nextDb: WorkspaceDb = {
           ...baseDb,
           name: existingIndex >= 0 ? baseDb.name : seed.name,
           icon: baseDb.icon || seed.icon,
-          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : forceAiWorkspace ? DEFAULT_WORKSPACE_ID : forceMarketingWorkspace ? "marketing" : (baseDb.workspaceId || propertyWorkspaceId),
+          workspaceId: forcePropertyWorkspace ? propertyWorkspaceId : forceAiWorkspace ? DEFAULT_WORKSPACE_ID : (baseDb.workspaceId || propertyWorkspaceId),
           columns: allColumns,
           rows: dedupedRows,
           views,
@@ -1443,6 +1445,9 @@ export function ModelProvider({
       if (changed) markLocalWrite("databases");
       return changed ? next : prev;
     });
+    // Bypass the 1.5s debounce so the initial seeded data reaches the server
+    // immediately — prevents a quick reload from losing the marketing databases.
+    setTimeout(() => writeNowRef.current?.(), 0);
   }, [databases, markLocalWrite, syncStatus]);
 
   useEffect(() => {
