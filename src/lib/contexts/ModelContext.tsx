@@ -378,6 +378,7 @@ export function ModelProvider({
   const [databases, setDatabases] = useState<WorkspaceDb[]>(() => lsGet("databases", []));
   const projectUpdateSeededRef = useRef(false);
   const marketingSeededRef = useRef(false);
+  const aiBacklinksSeededRef = useRef(false);
   const usefulLinksSeededRef = useRef(false);
   const workspaceContentMigrationRef = useRef(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
@@ -1374,6 +1375,43 @@ export function ModelProvider({
       return prev;
     });
   }, [currentUser, currentWorkspaceId, databases, markLocalWrite, syncStatus, workspaces]);
+
+  // Create an empty Backlinks DB in the Binayah AI (war-room) workspace.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (syncStatus !== "live" || aiBacklinksSeededRef.current) return;
+    const normalize = (n: string) => n.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const exists = databases.some(db => db.workspaceId === DEFAULT_WORKSPACE_ID && normalize(db.name) === "backlinks");
+    if (exists) { aiBacklinksSeededRef.current = true; return; }
+    aiBacklinksSeededRef.current = true;
+    const now = Date.now();
+    const backlinksDb: WorkspaceDb = {
+      id: 1760400000000,
+      workspaceId: DEFAULT_WORKSPACE_ID,
+      name: "Backlinks",
+      icon: "🔗",
+      columns: [
+        { id: "backlink",          name: "Backlink",          type: "url",    width: 320 },
+        { id: "property",          name: "Property",          type: "url",    width: 280 },
+        { id: "anchor_text",       name: "Anchor Text",       type: "text",   width: 220 },
+        { id: "date_added",        name: "Date Added",        type: "date",   width: 140 },
+        { id: "domain_authority",  name: "Domain Authority",  type: "number", width: 130 },
+        { id: "status",            name: "Status",            type: "status", width: 120, options: ["Active", "Pending"] },
+      ],
+      rows: [],
+      views: [
+        { id: "view_all",    name: "All rows" },
+        { id: "view_date",   name: "By Date",   filterCol: "date_added", filterVal: "" },
+        { id: "view_status", name: "By Status", filterCol: "status",     filterVal: "" },
+      ],
+      createdAt: now,
+      createdBy: "anna",
+    };
+    setDatabases(prev => {
+      markLocalWrite("databases");
+      return [backlinksDb, ...prev];
+    });
+  }, [databases, markLocalWrite, syncStatus]);
 
   // Seed the 4 marketing databases independently — runs even if projectUpdateSeededRef is already true.
   useEffect(() => {
