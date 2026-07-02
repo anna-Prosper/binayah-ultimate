@@ -15,6 +15,8 @@ import { NOTION_DB_SEEDS } from "@/lib/notionDbSeeds";
 import { getServerSession } from "next-auth/next";
 import { authOptions, isRootAdminFromSession } from "@/lib/auth";
 
+const MIGRATION_KEY = process.env.ADMIN_SECRET ?? "";
+
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
@@ -35,6 +37,12 @@ const WORKSPACE_FORCE: Record<string, string> = {
   monthlymetrics: "marketing",
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function isAuthorized(req: NextRequest, session: any) {
+  const key = req.headers.get("x-admin-secret") ?? "";
+  return isRootAdminFromSession(session) || (MIGRATION_KEY && key === MIGRATION_KEY);
+}
+
 async function getState() {
   await connectMongo();
   const doc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
@@ -43,9 +51,7 @@ async function getState() {
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!isRootAdminFromSession(session)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorized(req, session)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   const state = await getState();
   const dbs = (state.databases as { id: number; name: string; workspaceId?: string; rows?: unknown[] }[] | undefined) ?? [];
   return NextResponse.json({
@@ -56,9 +62,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
-  if (!isRootAdminFromSession(session)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!isAuthorized(req, session)) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const state = await getState();
   const existing = (state.databases as { id: number; name: string; workspaceId?: string }[] | undefined) ?? [];
