@@ -15,7 +15,7 @@ import { NOTION_DB_SEEDS } from "@/lib/notionDbSeeds";
 import { getServerSession } from "next-auth/next";
 import { authOptions, isRootAdminFromSession } from "@/lib/auth";
 
-const MIGRATION_KEY = process.env.ADMIN_SECRET ?? "";
+const MIGRATION_KEY = process.env.CRON_SECRET ?? process.env.ADMIN_SECRET ?? "";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
