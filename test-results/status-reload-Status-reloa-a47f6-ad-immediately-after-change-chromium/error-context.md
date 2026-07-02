@@ -6,8 +6,8 @@
 
 # Test info
 
-- Name: cards.spec.ts >> Card interactions >> pencil opens TaskCard edit mode → all four fields editable simultaneously
-- Location: tests/behavioral/cards.spec.ts:16:7
+- Name: status-reload.spec.ts >> Status reload persistence >> subtask status survives hard reload immediately after change
+- Location: tests/behavioral/status-reload.spec.ts:58:7
 
 # Error details
 
@@ -21,7 +21,7 @@ waiting for navigation until "domcontentloaded"
 # Page snapshot
 
 ```yaml
-- generic [active] [ref=e1]:
+- generic [ref=e1]:
   - generic [ref=e2]:
     - generic [ref=e3]:
       - generic [ref=e4]:
@@ -38,12 +38,12 @@ waiting for navigation until "domcontentloaded"
           - img [ref=e22]
           - text: hide email form
       - generic [ref=e25]:
-        - textbox "email" [ref=e26]: dev@prosper-fi.com
-        - textbox "your password" [ref=e27]: testpass1234
+        - textbox "email" [active] [ref=e26]: anna@prosper-fi.com
+        - textbox "your password" [ref=e27]
         - generic [ref=e28]:
           - button "first time? set a password →" [ref=e29] [cursor=pointer]
-          - button "sign in" [ref=e30] [cursor=pointer]
-        - generic [ref=e31]: // dev@prosper-fi.com isn't on the access list. ping the admin.
+          - button "sign in" [disabled] [ref=e30]
+        - generic [ref=e31]: // access denied — wrong email or password
     - generic: binayah ultimate · v3 · 2026
   - alert [ref=e32]
 ```
