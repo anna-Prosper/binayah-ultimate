@@ -135,12 +135,72 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  if (healedWorkspaces) {
-    await PipelineState.findOneAndUpdate(
-      WORKSPACE,
-      { $set: { "state.workspaces": healedWorkspaces, updatedAt: new Date() } }
-    );
-    state = { ...state, workspaces: healedWorkspaces };
+  // Self-heal (c): re-home orphaned default-parent subtask stages. A subtask's
+  // parentStageId of the form "default-parent-<pipelineId>-N" only renders if that
+  // key is registered in customStages[pipelineId] (TasksView silently drops any
+  // subtask whose parent stage isn't found in a pipeline). Stage renumbering or a
+  // lost customStages write can leave a real task pointing at an unregistered slot,
+  // making it vanish from the board. Re-register the slot so the task always shows.
+  const subtasksMap = (state.subtasks && typeof state.subtasks === "object" && !Array.isArray(state.subtasks))
+    ? (state.subtasks as Record<string, unknown[]>)
+    : {};
+  const customStagesMap = (state.customStages && typeof state.customStages === "object" && !Array.isArray(state.customStages))
+    ? (state.customStages as Record<string, string[]>)
+    : {};
+  const customPipes = Array.isArray(state.customPipelines)
+    ? (state.customPipelines as Array<{ id: string }>)
+    : [];
+  // Longest id first so e.g. "notion-landing-pages" wins over a shorter "notion".
+  const knownPipeIds = [...pipelineData.map(p => p.id), ...customPipes.map(p => p.id)]
+    .filter((v, i, a) => a.indexOf(v) === i)
+    .sort((a, b) => b.length - a.length);
+
+  const stageAddToSet: Record<string, { $each: string[] }> = {};
+  const stageOverrideSet: Record<string, unknown> = {};
+  const nameOv = (state.stageNameOverrides && typeof state.stageNameOverrides === "object")
+    ? (state.stageNameOverrides as Record<string, string>) : {};
+  const statusOv = (state.stageStatusOverrides && typeof state.stageStatusOverrides === "object")
+    ? (state.stageStatusOverrides as Record<string, string>) : {};
+  const healedStages: string[] = [];
+
+  for (const parentStageId of Object.keys(subtasksMap)) {
+    const list = subtasksMap[parentStageId];
+    if (!Array.isArray(list) || list.length === 0) continue;
+    if (!parentStageId.startsWith("default-parent-")) continue;
+    const pid = knownPipeIds.find(id =>
+      parentStageId === `default-parent-${id}` || parentStageId.startsWith(`default-parent-${id}-`));
+    if (!pid) continue;
+    if ((customStagesMap[pid] || []).includes(parentStageId)) continue; // already registered
+    const path = `state.customStages.${pid}`;
+    (stageAddToSet[path] ??= { $each: [] }).$each.push(parentStageId);
+    // Match how the "add task" flow configures a fresh default-parent stage.
+    if (!nameOv[parentStageId]) stageOverrideSet[`state.stageNameOverrides.${parentStageId}`] = "All";
+    if (!statusOv[parentStageId]) stageOverrideSet[`state.stageStatusOverrides.${parentStageId}`] = "planned";
+    healedStages.push(parentStageId);
+  }
+  const stagesHealed = healedStages.length > 0;
+  if (stagesHealed) logApi(ROUTE, "self_heal_orphan_stages", { stages: healedStages.slice(0, 20), count: healedStages.length });
+
+  if (healedWorkspaces || stagesHealed) {
+    const setObj: Record<string, unknown> = { updatedAt: new Date(), ...stageOverrideSet };
+    if (healedWorkspaces) setObj["state.workspaces"] = healedWorkspaces;
+    const update: Record<string, unknown> = { $set: setObj };
+    if (stagesHealed) update.$addToSet = stageAddToSet;
+    await PipelineState.findOneAndUpdate(WORKSPACE, update);
+    if (healedWorkspaces) state = { ...state, workspaces: healedWorkspaces };
+    if (stagesHealed) {
+      const nextCustomStages: Record<string, string[]> = { ...customStagesMap };
+      for (const s of healedStages) {
+        const pid = knownPipeIds.find(id => s === `default-parent-${id}` || s.startsWith(`default-parent-${id}-`))!;
+        nextCustomStages[pid] = [...(nextCustomStages[pid] || []), s];
+      }
+      state = {
+        ...state,
+        customStages: nextCustomStages,
+        stageNameOverrides: { ...nameOv, ...Object.fromEntries(healedStages.filter(s => !nameOv[s]).map(s => [s, "All"])) },
+        stageStatusOverrides: { ...statusOv, ...Object.fromEntries(healedStages.filter(s => !statusOv[s]).map(s => [s, "planned"])) },
+      };
+    }
   }
 
   // If client is up-to-date, return 304
