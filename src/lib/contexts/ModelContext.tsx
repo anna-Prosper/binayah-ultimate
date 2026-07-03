@@ -408,6 +408,14 @@ export function ModelProvider({
   // change batches with a poll merge in the same React commit.
   const userActionCounterRef = useRef(0);
   const lastWrittenActionRef = useRef(0);
+  // Set by high-value actions (task/stage creation, approvals) that need their
+  // write flushed immediately instead of on the 1.5s debounce. Consumed by the
+  // autosave effect below, which runs AFTER React commits the state change — so
+  // writeNow reads the fresh, committed state. The old `setTimeout(writeNow, 0)`
+  // pattern could fire before commit and ship a stale envelope, dropping the
+  // just-added slice (e.g. a new customStages entry) → the task flash-disappears
+  // until the server self-heal re-registers its stage.
+  const flushImmediatelyRef = useRef(false);
   const knownCommentsRef = useRef<Record<string, number>>({});
   const prevClaimsRef = useRef<Record<string, string[]>>({});
   const prevReactionsRef = useRef<Record<string, Record<string, string[]>>>({});
@@ -1255,7 +1263,7 @@ export function ModelProvider({
     }));
     markLocalWrite("timelineEvents");
     setTimelineEvents(seed);
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
   }, [currentUser, markLocalWrite, syncStatus, timelineEvents.length]);
 
   useEffect(() => {
@@ -1270,7 +1278,7 @@ export function ModelProvider({
     }));
     markLocalWrite("usefulLinks");
     setUsefulLinks(seed);
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
   }, [currentUser, markLocalWrite, syncStatus, usefulLinks.length]);
 
 
@@ -1304,7 +1312,7 @@ export function ModelProvider({
       });
       if (bugChanged) {
         markLocalWrite("bugs");
-        setTimeout(() => writeNowRef.current?.(), 0);
+        flushImmediatelyRef.current = true;
         return next;
       }
       return prev;
@@ -1354,7 +1362,7 @@ export function ModelProvider({
       const dbChanged = backlinkDbs.length !== 1 || base.workspaceId !== propertyWs.id || rows.length !== base.rows.length;
       if (dbChanged) {
         markLocalWrite("databases");
-        setTimeout(() => writeNowRef.current?.(), 0);
+        flushImmediatelyRef.current = true;
         return next;
       }
       return prev;
@@ -1370,7 +1378,14 @@ export function ModelProvider({
   useEffect(() => {
     if (userActionCounterRef.current === lastWrittenActionRef.current) return;
     lastWrittenActionRef.current = userActionCounterRef.current;
-    scheduleWrite();
+    // This effect runs after commit, so writeNow/scheduleWrite read fresh state.
+    // High-value actions set flushImmediatelyRef to skip the debounce.
+    if (flushImmediatelyRef.current) {
+      flushImmediatelyRef.current = false;
+      writeNow();
+    } else {
+      scheduleWrite();
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
 
@@ -2235,7 +2250,7 @@ export function ModelProvider({
     logActivity("status", name, "→ approved");
     // Flush immediately — approvals are high-value; don't risk losing them to a
     // reload before the 1.5s debounce fires (see beforeunload keepalive limits).
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
 
     // Pipeline-completion check — award the +25% bonus the moment the LAST
     // stage of a pipeline is approved. Idempotent (gated by approvedPipelines).
@@ -2272,7 +2287,7 @@ export function ModelProvider({
     logActivity("status", subText || key, "→ approved");
     // Flush immediately — don't risk losing the approval to a reload before the
     // 1.5s debounce fires (the beforeunload keepalive can't carry the full state).
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
   };
 
   const addCustomStage = (pid: string, val: string) => {
@@ -2303,7 +2318,7 @@ export function ModelProvider({
     // briefly, but the next sync poll overwrites it with the server's stale
     // copy). Fire on next tick so the setCustomStages state update has committed
     // before getPatch() reads the latest state.
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
   };
 
   // Inbox sentinel — used inline (also exported at module top for cross-file imports)
@@ -2324,7 +2339,7 @@ export function ModelProvider({
     }));
     logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
     // Push immediately — see addCustomStage rationale.
-    setTimeout(() => writeNowRef.current?.(), 0);
+    flushImmediatelyRef.current = true;
     // Fire-and-forget LLM points suggestion
     fetch("/api/suggest-points", {
       method: "POST",
