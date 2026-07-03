@@ -8,11 +8,12 @@ export type SyncStatus = "hydrating" | "live" | "offline" | "error";
 interface UseSyncOptions {
   onPatch: (patch: SharedState) => void;  // ModelContext calls this to merge incoming state
   getPatch: () => PatchEnvelope;           // ModelContext provides current state for debounced write
+  getUnloadPatch?: () => PatchEnvelope | null; // minimal (dirty-only) payload for the beforeunload keepalive flush — must fit the 64KB keepalive cap
   onWriteSuccess?: (sent: PatchEnvelope) => void; // fires after a successful PATCH so caller can prune pending-deletes
   intervalMs?: number;                      // default 5000
 }
 
-export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_POLL_INTERVAL_MS }: UseSyncOptions) {
+export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, intervalMs = SYNC_POLL_INTERVAL_MS }: UseSyncOptions) {
   const [status, setStatus] = useState<SyncStatus>("hydrating");
   const isInitializedRef = useRef(false);
   // Hydration gate — scheduleWrite is a no-op until first fetchState resolves.
@@ -242,7 +243,11 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
         debounceRef.current = null;
       }
       try {
-        const sent = getPatch();
+        // Prefer the minimal dirty-only payload — the full envelope (~700KB)
+        // exceeds the 64KB keepalive cap and the browser drops it. If no
+        // minimal builder is provided, fall back to the full patch.
+        const sent = getUnloadPatch ? getUnloadPatch() : getPatch();
+        if (!sent) return; // nothing recently changed — nothing to flush
         fetch("/api/pipeline-state", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -253,7 +258,7 @@ export function useSync({ onPatch, getPatch, onWriteSuccess, intervalMs = SYNC_P
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [getPatch]);
+  }, [getPatch, getUnloadPatch]);
 
   const setOffline = useCallback(() => setStatus("offline"), []);
 

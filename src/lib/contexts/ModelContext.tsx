@@ -1139,7 +1139,40 @@ export function ModelProvider({
     }
   }, [MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
 
-  const { status: syncStatus, scheduleWrite, writeNow, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, onWriteSuccess });
+  // Minimal payload for the beforeunload keepalive flush. The full envelope is
+  // ~700KB+ (the `databases` slice alone is ~470KB), but a keepalive fetch body
+  // is capped at 64KB by the browser — so sending the whole state on unload
+  // silently fails and the user's just-made change (e.g. an approval) is lost,
+  // reappearing on reload. Send only slices written in the last protection
+  // window, minus a few large low-priority ones, so the flush fits and lands.
+  const UNLOAD_SKIP_SLICES = useMemo(() => new Set([
+    "databases", "activityLog", "notifReadIds", "notifReads", "notifDismissed",
+    "comments", "commentReactions", "chatMessages", "notificationEvents",
+  ]), []);
+  const getUnloadPatch = useCallback((): PatchEnvelope | null => {
+    const now = Date.now();
+    const dirty = new Set(
+      Object.entries(localWritesRef.current)
+        .filter(([slice, ts]) => now - ts < LOCAL_WRITE_PROTECT_MS && !UNLOAD_SKIP_SLICES.has(slice))
+        .map(([slice]) => slice)
+    );
+    if (dirty.size === 0) return null;
+    const full = getCurrentState() as Record<string, unknown>;
+    const out: Record<string, unknown> = { updatedAt: Date.now() };
+    for (const [k, v] of Object.entries(full)) {
+      if (k === "_deletes" || k === "updatedAt") continue;
+      if (dirty.has(k)) out[k] = v;
+    }
+    const fd = full._deletes as Record<string, string[]> | undefined;
+    if (fd) {
+      const nd: Record<string, string[]> = {};
+      for (const [slice, keys] of Object.entries(fd)) if (dirty.has(slice)) nd[slice] = keys;
+      if (Object.keys(nd).length > 0) out._deletes = nd;
+    }
+    return out as PatchEnvelope;
+  }, [getCurrentState, UNLOAD_SKIP_SLICES, LOCAL_WRITE_PROTECT_MS]);
+
+  const { status: syncStatus, scheduleWrite, writeNow, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, getUnloadPatch, onWriteSuccess });
   // Stash in a ref so handlers defined before scheduleWrite/writeNow are stable
   // can still trigger an immediate flush (e.g. addCustomStage closes over this).
   const writeNowRef = useRef(writeNow);
@@ -2200,6 +2233,9 @@ export function ModelProvider({
     markLocalWrite("approvedStages");
     setApprovedStages(nextApprovedStages);
     logActivity("status", name, "→ approved");
+    // Flush immediately — approvals are high-value; don't risk losing them to a
+    // reload before the 1.5s debounce fires (see beforeunload keepalive limits).
+    setTimeout(() => writeNowRef.current?.(), 0);
 
     // Pipeline-completion check — award the +25% bonus the moment the LAST
     // stage of a pipeline is approved. Idempotent (gated by approvedPipelines).
@@ -2234,6 +2270,9 @@ export function ModelProvider({
     const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
     const subText = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text : undefined;
     logActivity("status", subText || key, "→ approved");
+    // Flush immediately — don't risk losing the approval to a reload before the
+    // 1.5s debounce fires (the beforeunload keepalive can't carry the full state).
+    setTimeout(() => writeNowRef.current?.(), 0);
   };
 
   const addCustomStage = (pid: string, val: string) => {
