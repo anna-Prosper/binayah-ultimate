@@ -266,7 +266,7 @@ export const PatchBodySchema = z.object({
       name: z.string().max(80),
       filterCol: z.string().max(40).optional(),
       filterVal: z.string().max(120).optional(),
-    })).max(10),
+    })).max(10).optional(),
     createdAt: z.number(),
     createdBy: z.string().max(80),
   })).optional(),

@@ -844,7 +844,14 @@ export function ModelProvider({
     if (s.reminders && !isProtected("reminders")) setReminders(s.reminders as ReminderItem[]);
     if (s.timelineEvents && !isProtected("timelineEvents")) setTimelineEvents(s.timelineEvents as TimelineEvent[]);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if ((s as any).databases && !isProtected("databases")) setDatabases((s as any).databases as WorkspaceDb[]);
+    if ((s as any).databases && !isProtected("databases")) {
+      // Normalize: ensure every DB has a views array (older/migrated DBs may lack it)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const normalized = ((s as any).databases as WorkspaceDb[]).map(db =>
+        db.views ? db : { ...db, views: [] }
+      );
+      setDatabases(normalized);
+    }
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
     if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
@@ -1040,7 +1047,7 @@ export function ModelProvider({
       notifReads,
       notifDismissed,
       notifReadIds,
-      databases,
+      databases: databases.map(db => db.views ? db : { ...db, views: [] }),
     };
     const dirtyStatusKeys = dirtyMapKeysRef.current.stageStatusOverrides;
     if (dirtyStatusKeys?.size) {
@@ -2725,6 +2732,7 @@ export function ModelProvider({
 
   const updateDbRow = useCallback((dbId: number, rowId: number, values: Record<string, string>) => {
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true; // cell edit is a discrete committed change — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
       return { ...db, rows: db.rows.map(r => r.id === rowId ? { ...r, values: { ...r.values, ...values } } : r) };
