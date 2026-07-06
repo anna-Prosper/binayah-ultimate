@@ -8,7 +8,7 @@ import { T } from "@/lib/themes";
 import { type ActivityItem, type TimelineEvent, type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
-import { useModel } from "@/lib/contexts/ModelContext";
+import { useModel, INBOX_PIPELINE_ID_CONST } from "@/lib/contexts/ModelContext";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { truncate, timeAgo, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
 import { ExecutiveRequestsPanel } from "@/components/panels/ExecutiveRequestsPanel";
@@ -743,6 +743,17 @@ export default function HomeView({
       : myWorkspaces;
     const isOperatorScope = isRoot || scopedWorkspaces.some(w => w.captains.includes(currentUser));
     const roleLabel = isRoot ? "root" : isOperatorScope ? "operator" : isExec ? "exec" : "agent";
+
+    // Unparented "Inbox" tasks live under the virtual __inbox__ pipeline, which
+    // isn't in allPipelinesGlobal — so the visiblePipelines loop above skips them,
+    // and Inbox items pending approval never reach the overview buckets (even
+    // though their cards show an approve button in the tasks view). Add the Inbox
+    // stages here so they surface. They map to no real pipeline → shown as "Inbox".
+    if (scopedWorkspaces.some(w => (w.pipelineIds || []).includes(INBOX_PIPELINE_ID_CONST))) {
+      for (const stage of customStages[INBOX_PIPELINE_ID_CONST] || []) {
+        if (!isArchivedStageId(stage)) visibleStageIds.add(stage);
+      }
+    }
 
     const stageItems = Array.from(visibleStageIds).map(stageId => {
       const pipeline = stageToPipeline.get(stageId);
