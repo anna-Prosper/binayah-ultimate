@@ -494,8 +494,10 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
               .map(([uuid, meta]) => ({ uuid, ...meta }))
               .sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime());
 
-            // Apply workspace series filter — if filters are set, only show matching topics
-            const sortedCalls = (callSeriesFilters.length > 0
+            // Workspace-scoped: a specific workspace shows ONLY its pinned series
+            // (empty if none pinned — no cross-workspace call leakage). The "All"
+            // view (no active workspace) shows every call.
+            const sortedCalls = (activeWs
               ? allSortedCalls.filter(c => callSeriesFilters.includes(c.topic))
               : allSortedCalls
             ).slice(0, 7);
@@ -503,10 +505,13 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
             // All unique topics across every call ever seen (for the pin UI)
             const allTopics = Array.from(new Set(allSortedCalls.map(c => c.topic)));
 
-            if (syncing && sortedCalls.length === 0) {
+            if (syncing && allSortedCalls.length === 0) {
               return <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono }}>syncing Zoom calls and extracting tasks…</div>;
             }
-            if (sortedCalls.length === 0) {
+            // Only bail out entirely when there is nothing to show AND no workspace
+            // to pin a series within. A selected workspace always renders the pin UI
+            // below, even when no calls match, so the user can pin its series.
+            if (allSortedCalls.length === 0 && !activeWs) {
               return <div style={{ fontSize: 12, color: t.textMuted }}>Tasks from your latest Zoom calls will appear here. Hit ↺ resync to pull now.</div>;
             }
 
@@ -576,6 +581,13 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
                         Select a workspace tab on home to pin series to it.
                       </div>
                     )}
+                  </div>
+                )}
+                {sortedCalls.length === 0 && (
+                  <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono, padding: "2px" }}>
+                    {callSeriesFilters.length === 0
+                      ? "No series pinned to this workspace yet — pin one above (or “+ add series name”) to show its calls."
+                      : "No calls yet for this workspace’s pinned series."}
                   </div>
                 )}
                 {sortedCalls.map(call => {
