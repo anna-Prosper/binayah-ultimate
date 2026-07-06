@@ -579,7 +579,7 @@ export default function HomeView({
   viewingUser, setViewingUser, onChangeAvatar,
 }: Props) {
   const {
-    claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, getPoints: modelGetPoints,
+    claims, comments, approvedStages, approvedSubtasks, approvedPipelines, customStages, inboxStageWorkspace, getPoints: modelGetPoints,
     owners, assignments, subtasks, subtaskStages, stageDueDates, subtaskDueDates, stageNameOverrides, activityLog, chatMessages,
     archivedStages, archivedSubtasks, archivedPipelines,
     reminders, addReminder, dismissReminder,
@@ -749,9 +749,15 @@ export default function HomeView({
     // and Inbox items pending approval never reach the overview buckets (even
     // though their cards show an approve button in the tasks view). Add the Inbox
     // stages here so they surface. They map to no real pipeline → shown as "Inbox".
-    if (scopedWorkspaces.some(w => (w.pipelineIds || []).includes(INBOX_PIPELINE_ID_CONST))) {
+    {
+      const scopedWsIdSet = new Set(scopedWorkspaces.map(w => w.id));
+      const scopedHasInboxPipe = scopedWorkspaces.some(w => (w.pipelineIds || []).includes(INBOX_PIPELINE_ID_CONST));
       for (const stage of customStages[INBOX_PIPELINE_ID_CONST] || []) {
-        if (!isArchivedStageId(stage)) visibleStageIds.add(stage);
+        if (isArchivedStageId(stage)) continue;
+        const ws = inboxStageWorkspace[stage];
+        // Tagged Inbox tasks only surface in their own workspace's scope; untagged
+        // (legacy) tasks fall back to any scoped workspace that carries the Inbox.
+        if (ws ? scopedWsIdSet.has(ws) : scopedHasInboxPipe) visibleStageIds.add(stage);
       }
     }
 

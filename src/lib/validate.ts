@@ -102,6 +102,8 @@ export const PATCH_KEY_WHITELIST = new Set([
   "archivedSubtasks",
   "stagePointsOverride",
   "stagePriorities",
+  // Maps an Inbox stage id -> workspace id (per-workspace Inbox scoping).
+  "inboxStageWorkspace",
   "execProposals",
   "databases",
   // Per-user notification read state — userId → last-read timestamp.
@@ -140,6 +142,7 @@ export const MAP_SLICE_KEYS = new Set([
   "pipeDescOverrides",
   "pipeMetaOverrides",
   "customStages",
+  "inboxStageWorkspace",
   "subtasks",
   "reactions",
   // Per-user maps — keys are userIds, values are scalars/arrays. Per-key merge so
