@@ -621,7 +621,13 @@ export default function HomeView({
   // Pipelines visible based on homeWsFilter:
   // null = all pipelines linked to any of user's workspaces
   // set = only pipelines linked to that specific workspace
+  const isRootAdmin = ADMIN_IDS.includes(currentUser);
   const visiblePipelines = useMemo(() => {
+    // Root admins see every non-archived pipeline in every view — they need to
+    // approve work from any team member regardless of workspace linkage.
+    if (isRootAdmin && !homeWsFilter) {
+      return allPipelinesGlobal.filter(p => !archivedPipelines.includes(p.id));
+    }
     const ids = new Set<string>();
     if (homeWsFilter) {
       const ws = myWorkspaces.find(w => w.id === homeWsFilter);
@@ -649,7 +655,7 @@ export default function HomeView({
       }
     }
     return allPipelinesGlobal.filter(p => ids.has(p.id) && !archivedPipelines.includes(p.id));
-  }, [myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks, archivedPipelines]);
+  }, [isRootAdmin, myWorkspaces, allPipelinesGlobal, homeWsFilter, currentUser, claims, assignments, owners, customStages, subtasks, archivedPipelines]);
 
   const greeting = `gm, ${me.name.toLowerCase()} 🫡`;
 
@@ -754,6 +760,9 @@ export default function HomeView({
       const scopedHasInboxPipe = scopedWorkspaces.some(w => (w.pipelineIds || []).includes(INBOX_PIPELINE_ID_CONST));
       for (const stage of customStages[INBOX_PIPELINE_ID_CONST] || []) {
         if (isArchivedStageId(stage)) continue;
+        // Root admins see ALL inbox stages so done subtasks from any team member
+        // surface in the approval queue regardless of workspace tagging.
+        if (isRoot) { visibleStageIds.add(stage); continue; }
         const ws = inboxStageWorkspace[stage];
         // Tagged Inbox tasks only surface in their own workspace's scope; untagged
         // (legacy) tasks fall back to any scoped workspace that carries the Inbox.
