@@ -2548,6 +2548,8 @@ export function ModelProvider({
       notes: input.notes?.trim().slice(0, 1200) || undefined,
       responsibleId: input.responsibleId || undefined,
       url: input.url?.trim().slice(0, 500) || undefined,
+      // Tag to the current workspace so each workspace has its own roadmap.
+      workspaceId: currentWorkspaceId || DEFAULT_WORKSPACE_ID,
       createdBy: currentUser,
       createdAt: now,
       updatedAt: now,
@@ -2563,7 +2565,7 @@ export function ModelProvider({
       }
     });
     showToast("// timeline event added", t.green);
-  }, [currentUser, protectLocalSlice, setSyncStatus, showToast, t.amber, t.green]);
+  }, [currentUser, currentWorkspaceId, protectLocalSlice, setSyncStatus, showToast, t.amber, t.green]);
 
   const updateTimelineEvent = useCallback((id: number, patch: Partial<Pick<TimelineEvent, "title" | "group" | "status" | "tier" | "date" | "label" | "notes" | "responsibleId" | "url">>) => {
     const existing = timelineEvents.find(event => event.id === id);

@@ -5,7 +5,7 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Bell, CalendarDays, ExternalLink, Flag, Mail, X, Key, Zap } from "lucide-react";
 import { T } from "@/lib/themes";
-import { type ActivityItem, type TimelineEvent, type UserType, type Workspace, ADMIN_IDS, EXEC_IDS } from "@/lib/data";
+import { type ActivityItem, type TimelineEvent, type UserType, type Workspace, ADMIN_IDS, EXEC_IDS, DEFAULT_WORKSPACE_ID } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
 import UserPopup from "@/components/ui/UserPopup";
 import { useModel, INBOX_PIPELINE_ID_CONST } from "@/lib/contexts/ModelContext";
@@ -1153,9 +1153,18 @@ export default function HomeView({
   ]);
 
   const homeRoadmapEvents = useMemo(() => {
-    const base = timelineEvents.filter(event => isCaptainOfAny || event.responsibleId === currentUser);
+    // Each workspace has its own roadmap. In a specific workspace show only its
+    // events (untagged legacy events fall back to Binayah AI); in the "All" view
+    // show events from workspaces the viewer belongs to.
+    const memberWsIds = new Set(myWorkspaces.map(w => w.id));
+    const base = timelineEvents.filter(event => {
+      if (!(isCaptainOfAny || event.responsibleId === currentUser)) return false;
+      const ws = event.workspaceId;
+      if (homeWsFilter) return ws ? ws === homeWsFilter : homeWsFilter === DEFAULT_WORKSPACE_ID;
+      return !ws || memberWsIds.has(ws);
+    });
     return [...base].sort(sortRoadmapEvents);
-  }, [currentUser, isCaptainOfAny, timelineEvents]);
+  }, [currentUser, isCaptainOfAny, timelineEvents, homeWsFilter, myWorkspaces]);
 
   return (
     <div>
