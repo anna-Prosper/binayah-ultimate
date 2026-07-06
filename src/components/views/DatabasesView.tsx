@@ -1022,17 +1022,67 @@ function CalendarView({
         })}
       </div>
 
-      {/* Unscheduled tray */}
-      {unscheduled.length > 0 && (
-        <div style={{ marginTop: 16, border: `1px dashed ${t.border}`, borderRadius: 10, padding: 10, background: t.bgSoft }}>
-          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted, marginBottom: 8 }}>
-            unscheduled · {unscheduled.length} <span style={{ fontWeight: 400, textTransform: "none", color: t.textDim }}>— drag onto a day to schedule</span>
+      {/* Unscheduled tray — items without a publish date. Each row can be
+          scheduled inline (date picker) or dragged onto a day. */}
+      {unscheduled.length > 0 && (() => {
+        const typeCol = db.columns.find(c => c.type === "status" && c.id !== statusCol?.id && c.id !== platformCol?.id);
+        return (
+          <div style={{ marginTop: 16, border: `1px dashed ${t.border}`, borderRadius: 12, padding: 12, background: t.bgSoft }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted, marginBottom: 10 }}>
+              <CalendarDays size={13} style={{ color: t.accent }} />
+              unscheduled · {unscheduled.length}
+              <span style={{ fontWeight: 400, textTransform: "none", color: t.textDim }}>— set a date or drag onto a day</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
+              {unscheduled.map(r => {
+                const color = statusCol ? statusColor(r.values[statusCol.id] || "", t) : t.accent;
+                const icon = platformCol ? platformIcon(r.values[platformCol.id] || "") : "";
+                const title = r.values[titleCol.id] || "(untitled)";
+                const typeVal = typeCol ? r.values[typeCol.id] : "";
+                const statusVal = statusCol ? r.values[statusCol.id] : "";
+                return (
+                  <div
+                    key={r.id}
+                    draggable={canEdit}
+                    onDragStart={() => setDragId(r.id)}
+                    onDragEnd={() => { setDragId(null); setDragOver(null); }}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 8,
+                      background: t.bgCard, border: `1px solid ${t.border}`, borderLeft: `3px solid ${color}`,
+                      borderRadius: 8, padding: "7px 10px", minWidth: 0,
+                    }}
+                  >
+                    {icon && <span style={{ flexShrink: 0 }}>{icon}</span>}
+                    <span
+                      onClick={() => openEdit(r)}
+                      title={title}
+                      style={{ fontSize: 13, color: t.text, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, minWidth: 60 }}
+                    >
+                      {title}
+                    </span>
+                    {typeVal && (
+                      <span style={{ flexShrink: 0, fontSize: 10, color: t.textMuted, background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>{typeVal}</span>
+                    )}
+                    {statusVal && (
+                      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: statusColor(statusVal, t), background: statusColor(statusVal, t) + "1f", borderRadius: 6, padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>{statusVal}</span>
+                    )}
+                    <div style={{ flex: 1 }} />
+                    {canEdit && (
+                      <input
+                        type="date"
+                        value=""
+                        onChange={e => { if (e.target.value) onUpdateRow(r.id, { [dateCol.id]: e.target.value }); }}
+                        title="Schedule this entry"
+                        style={{ flexShrink: 0, background: t.surface, color: t.textMuted, border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 6px", fontSize: 11, outline: "none", fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", maxWidth: 140 }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {unscheduled.map(r => <div key={r.id} style={{ maxWidth: 220 }}>{chip(r)}</div>)}
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Legend */}
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14, fontSize: 10, color: t.textMuted }}>
