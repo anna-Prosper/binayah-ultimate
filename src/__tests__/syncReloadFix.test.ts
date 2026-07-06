@@ -26,8 +26,8 @@ function mergeMapOnHydrate<T extends Record<string, unknown>>(
 }
 
 describe("mergeMapOnHydrate", () => {
-  const server = { taskA: "planned", taskB: "in-progress" };
-  const local  = { taskA: "in-progress", taskC: "active" };
+  const server: Record<string, string> = { taskA: "planned", taskB: "in-progress" };
+  const local:  Record<string, string> = { taskA: "in-progress", taskC: "active" };
 
   test("on initial hydrate: local keys win over server", () => {
     const merged = mergeMapOnHydrate(true, server, local);
@@ -59,9 +59,9 @@ describe("mergeMapOnHydrate", () => {
 // the lsSet call must happen synchronously at the time of the setter call,
 // not after the 300ms debounce.
 
-type Storage = Record<string, unknown>;
+type MockStorage = Record<string, unknown>;
 
-function makeSetters(storage: Storage) {
+function makeSetters(storage: MockStorage) {
   // Mirrors the relevant section of each fixed setter.
   const state = {
     stageStatusOverrides: {} as Record<string, string>,
@@ -96,7 +96,7 @@ function makeSetters(storage: Storage) {
 
 describe("Immediate lsSet on setter calls", () => {
   test("setStageStatusDirect writes stageStatusOverrides to storage synchronously", () => {
-    const storage: Storage = {};
+    const storage: MockStorage = {};
     const { setStageStatusDirect } = makeSetters(storage);
 
     expect(storage["stageStatusOverrides"]).toBeUndefined();
@@ -106,7 +106,7 @@ describe("Immediate lsSet on setter calls", () => {
   });
 
   test("setSubtaskStage writes subtaskStages to storage synchronously", () => {
-    const storage: Storage = {};
+    const storage: MockStorage = {};
     const { setSubtaskStage } = makeSetters(storage);
 
     setSubtaskStage("stageX::1", "active");
@@ -114,7 +114,7 @@ describe("Immediate lsSet on setter calls", () => {
   });
 
   test("setStageDueDate writes new value synchronously", () => {
-    const storage: Storage = {};
+    const storage: MockStorage = {};
     const { setStageDueDate } = makeSetters(storage);
 
     setStageDueDate("taskA", "2026-07-01");
@@ -122,7 +122,7 @@ describe("Immediate lsSet on setter calls", () => {
   });
 
   test("setStageDueDate deletes key synchronously when val is null", () => {
-    const storage: Storage = {};
+    const storage: MockStorage = {};
     const { setStageDueDate } = makeSetters(storage);
 
     setStageDueDate("taskA", "2026-07-01");
@@ -131,7 +131,7 @@ describe("Immediate lsSet on setter calls", () => {
   });
 
   test("multiple setter calls accumulate correctly in storage", () => {
-    const storage: Storage = {};
+    const storage: MockStorage = {};
     const { setStageStatusDirect } = makeSetters(storage);
 
     setStageStatusDirect("taskA", "in-progress");
@@ -148,7 +148,7 @@ describe("Immediate lsSet on setter calls", () => {
 describe("Combined reload scenario", () => {
   test("change → reload → hydrate: task stays in-progress", () => {
     // Step 1: user changes task to in-progress
-    const localStorage: Storage = {};
+    const localStorage: MockStorage = {};
     const { setStageStatusDirect } = makeSetters(localStorage);
     setStageStatusDirect("taskA", "in-progress");
 
@@ -167,7 +167,7 @@ describe("Combined reload scenario", () => {
   });
 
   test("after initial hydration: server update from another device applies", () => {
-    const localStorage: Storage = { stageStatusOverrides: { taskA: "in-progress" } };
+    const localStorage: MockStorage = { stageStatusOverrides: { taskA: "in-progress" } };
     const prevFromStorage = localStorage["stageStatusOverrides"] as Record<string, string>;
 
     // A poll (not initial hydrate) comes back with another device's update

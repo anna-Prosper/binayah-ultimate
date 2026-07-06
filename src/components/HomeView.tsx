@@ -1148,7 +1148,7 @@ export default function HomeView({
     };
   }, [
     activityLog, approvedPipelines, approvedStages, approvedSubtasks, archivedStages, archivedSubtasks, assignments, chatMessages, claims, comments, currentUser,
-    customStages, execProposals, getStatus, homeWsFilter, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, stageNameOverrides, subtaskDueDates,
+    customStages, execProposals, getStatus, homeWsFilter, inboxStageWorkspace, me.name, myWorkspaces, owners, overviewNow, pipeMetaOverrides, stageDueDates, stageNameOverrides, subtaskDueDates,
     subtaskStages, subtasks, users, visiblePipelines,
   ]);
 

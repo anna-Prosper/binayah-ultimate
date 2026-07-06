@@ -176,9 +176,6 @@ export function ZoomIntegrationPanel({ t, isAdmin, workspaceId }: { t: T; isAdmi
     (!workspacePipelineIds || workspacePipelineIds.has(pipe.id))
   );
 
-  // Which topics are pinned to which workspace (for display when no specific ws selected)
-  const allPinnedByWs = workspaces.map(w => ({ ws: w, pins: w.callSeriesFilters ?? [] }));
-
   // When a specific workspace is selected, filter down to its series
   const callSeriesFilters: string[] = activeWs?.callSeriesFilters ?? [];
 

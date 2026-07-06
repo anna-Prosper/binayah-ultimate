@@ -581,7 +581,7 @@ export default function Stage({
     } else {
       setMentionDropdown(null);
     }
-  }, [name, pendingNewComments, flushPendingComments, users]);
+  }, [name, pendingNewComments, flushPendingComments, workspaceUsers]);
 
   const insertMention = useCallback((user: UserType) => {
     const firstName = user.name.split(" ")[0];
