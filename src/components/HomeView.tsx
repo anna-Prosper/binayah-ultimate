@@ -797,7 +797,7 @@ export default function HomeView({
           title: sub.text,
           pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
           pipelineId: parent?.id || "",
-          status: subtaskStages[key] || "planned",
+          status: subtaskStages[key] || (sub.done ? "active" : "planned"),
           owners: itemOwnerIds(key),
           priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
           dueDate: subtaskDueDates[key],
@@ -835,7 +835,7 @@ export default function HomeView({
     const newOwned = freshActivity.filter(a => myItems.some(item => item.key === a.target)).slice(0, 6);
     const reviewItems = allItems.filter(item =>
       (item.kind === "task" && item.status === "active" && !item.approved) ||
-      (item.kind === "subtask" && item.done && !item.approved)
+      (item.kind === "subtask" && (item.done || item.status === "active") && !item.approved)
     );
     const blockedItems = openItems.filter(item => item.status === "blocked");
     const hotItems = openItems.filter(item =>
