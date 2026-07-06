@@ -479,8 +479,10 @@ export default function TasksView(props: Props) {
         let pipelineName = "";
         let pipelineColor = "";
         for (const p of pipelines) {
-          const pCustom = customStages[p.id] || [];
-          const pStages = [...(p.stages || []), ...pCustom];
+          // Use the pipeline's workspace-scoped stage list (allStages). For the
+          // virtual Inbox pipeline this is the per-workspace subset, so subtasks
+          // of another workspace's Inbox tasks don't leak onto this board.
+          const pStages = (p as { allStages?: string[] }).allStages || [...(p.stages || []), ...(customStages[p.id] || [])];
           if (pStages.includes(parentStageId)) {
             pipelineId = p.id;
             pipelineIcon = p.icon;
