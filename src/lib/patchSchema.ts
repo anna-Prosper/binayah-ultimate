@@ -130,6 +130,8 @@ export const PatchBodySchema = z.object({
   // Custom structure
   customStages: z.record(z.string(), z.array(z.string())).optional(),
   customPipelines: z.array(z.unknown()).optional(),
+  // Inbox stage id → workspace id (per-workspace Inbox scoping)
+  inboxStageWorkspace: z.record(z.string(), z.string()).optional(),
 
   // Reactions (nested maps)
   reactions: z.record(z.string(), z.record(z.string(), z.array(z.string()))).optional(),

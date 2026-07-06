@@ -176,6 +176,7 @@ export default function TasksView(props: Props) {
     addUnparentedStage,
     migrateSubtask,
     workspaces, setWorkspaces,
+    inboxStageWorkspace,
   } = useModel();
   const { copied, setCopied } = useEphemeral();
 
@@ -323,7 +324,7 @@ export default function TasksView(props: Props) {
     } else {
       // Orphan task. Goes to inbox pipeline. If a workspace is in scope, ensure
       // inbox pipeline is in that workspace's pipelineIds so user sees it later.
-      const stageName = await addUnparentedStage(title);
+      const stageName = await addUnparentedStage(title, formWsId);
       if (stageName) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
         if (newSubDueDate) setStageDueDate(stageName, newSubDueDate);
@@ -375,7 +376,16 @@ export default function TasksView(props: Props) {
 
   // Virtual "inbox" pipeline — only rendered if it has unparented stages.
   // Lets user-created tasks live without a real pipeline until they're assigned one.
-  const inboxStages = customStages[INBOX_PIPELINE_ID] || [];
+  // Inbox tasks are scoped per-workspace via inboxStageWorkspace: in a specific
+  // workspace show only that workspace's Inbox tasks; in the "All" view show Inbox
+  // tasks from workspaces the viewer belongs to. Untagged (legacy) tasks show only
+  // in the "All" view so they never leak into a specific workspace.
+  const memberWsIds = new Set((availableWorkspaces || []).map(w => w.id));
+  const inboxStages = (customStages[INBOX_PIPELINE_ID] || []).filter(st => {
+    const ws = inboxStageWorkspace[st];
+    if (currentWorkspaceId) return ws === currentWorkspaceId;
+    return !ws || memberWsIds.has(ws);
+  });
   if (inboxStages.length > 0) {
     pipelines.unshift({
       id: INBOX_PIPELINE_ID,

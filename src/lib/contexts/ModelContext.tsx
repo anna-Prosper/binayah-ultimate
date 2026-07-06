@@ -80,6 +80,9 @@ interface ModelContextValue {
   setStageDueDate: (name: string, val: string | null) => void;
   stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">;
   setStagePriority: (stageId: string, val: "NOW" | "HIGH" | "MEDIUM" | "LOW" | null) => void;
+  // Maps an unparented "Inbox" stage id -> the workspace it belongs to, so Inbox
+  // tasks are scoped per-workspace instead of shown globally to everyone.
+  inboxStageWorkspace: Record<string, string>;
   stageNameOverrides: Record<string, string>;
   stagePointsOverride: Record<string, number>;
   setStagePointsOverride: (stageId: string, pts: number | null) => void;
@@ -204,7 +207,7 @@ interface ModelContextValue {
   approveSubtask: (key: string) => void;
   addCustomStage: (pid: string, val: string) => void;
   addCustomPipeline: (form: { name: string; desc: string; icon: string; colorKey: string; priority: string }, workspaceId?: string) => string | null;
-  addUnparentedStage: (title: string) => Promise<string | null>;
+  addUnparentedStage: (title: string, workspaceId?: string | null) => Promise<string | null>;
   moveStageToPipeline: (stageName: string, fromPid: string, toPid: string) => void;
   cyclePriority: (pid: string, cur: string) => void;
   addStageImage: (sid: string, dataUrl: string) => void;
@@ -339,6 +342,7 @@ export function ModelProvider({
   const [stageDescOverrides, setStageDescOverrides] = useState<Record<string, string>>(() => lsGet("stageDescOverrides", {}));
   const [stageDueDates, setStageDueDates] = useState<Record<string, string>>(() => lsGet("stageDueDates", {}));
   const [stagePriorities, setStagePriorities] = useState<Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">>(() => lsGet("stagePriorities", {}));
+  const [inboxStageWorkspace, setInboxStageWorkspace] = useState<Record<string, string>>(() => lsGet("inboxStageWorkspace", {}));
   const [stageNameOverrides, setStageNameOverrides] = useState<Record<string, string>>(() => lsGet("stageNameOverrides", {}));
   const [subtaskStages, setSubtaskStages] = useState<Record<string, string>>(() => lsGet("subtaskStages", {}));
   const [subtaskDescOverrides, setSubtaskDescOverrides] = useState<Record<string, string>>(() => lsGet("subtaskDescOverrides", {}));
@@ -439,7 +443,7 @@ export function ModelProvider({
     "stageNameOverrides", "stagePriorities", "stagePointsOverride",
     "subtaskStages", "subtaskDescOverrides", "subtaskDueDates",
     "pipeDescOverrides", "pipeMetaOverrides", "customStages",
-    "notifReads", "notifDismissed", "notifReadIds",
+    "notifReads", "notifDismissed", "notifReadIds", "inboxStageWorkspace",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
     "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases",
@@ -556,7 +560,7 @@ export function ModelProvider({
       workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
       notifReads, notifDismissed, notifReadIds, databases,
-      subtaskStages, stageNameOverrides,
+      subtaskStages, stageNameOverrides, inboxStageWorkspace,
     };
     if (lsFlushTimerRef.current) clearTimeout(lsFlushTimerRef.current);
     lsFlushTimerRef.current = setTimeout(() => {
@@ -577,7 +581,7 @@ export function ModelProvider({
     workspaces, archivedStages, archivedPipelines, archivedSubtasks,
     activityLog, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, stagePointsOverride,
     notifReads, notifDismissed, notifReadIds, databases,
-    subtaskStages, stageNameOverrides,
+    subtaskStages, stageNameOverrides, inboxStageWorkspace,
   ]);
 
   // One-time workspace migration
@@ -938,6 +942,8 @@ export function ModelProvider({
       mergeMapOnHydrate((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities as Record<string, unknown>, setStagePriorities as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePriorities(v as Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">));
     if (s.stageNameOverrides && !isProtected("stageNameOverrides"))
       mergeMapOnHydrate(s.stageNameOverrides as Record<string, unknown>, setStageNameOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageNameOverrides(v as Record<string, string>));
+    if ((s as { inboxStageWorkspace?: Record<string, string> }).inboxStageWorkspace && !isProtected("inboxStageWorkspace"))
+      mergeMapOnHydrate((s as { inboxStageWorkspace: Record<string, string> }).inboxStageWorkspace as Record<string, unknown>, setInboxStageWorkspace as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setInboxStageWorkspace(v as Record<string, string>));
     if (s.subtaskStages && !isProtected("subtaskStages"))
       mergeMapOnHydrate(s.subtaskStages as Record<string, unknown>, setSubtaskStages as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskStages(v as Record<string, string>));
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides"))
@@ -1030,6 +1036,7 @@ export function ModelProvider({
       users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
       stagePointsOverride,
       stagePriorities,
+      inboxStageWorkspace,
       notifReads,
       notifDismissed,
       notifReadIds,
@@ -1120,7 +1127,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, notifReads, notifDismissed, notifReadIds, databases, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
+       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
 
   // After a successful PATCH, the server's truth now matches what we sent —
   // record those memberships as the new server-known set so we don't re-send
@@ -1430,7 +1437,7 @@ export function ModelProvider({
       scheduleWrite();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, inboxStageWorkspace, workspaces, notifReads, notifDismissed, notifReadIds, databases]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -2370,7 +2377,7 @@ export function ModelProvider({
   // Add a task with no parent pipeline. Calls /api/suggest-points with the title to derive
   // an LLM-suggested point value, stored as stagePointsOverride. Optimistic — if the LLM
   // call fails the stage still gets created with the default point fallback.
-  const addUnparentedStage = useCallback(async (title: string): Promise<string | null> => {
+  const addUnparentedStage = useCallback(async (title: string, workspaceId?: string | null): Promise<string | null> => {
     // See addCustomStage — strip Mongo-forbidden characters from the stage name.
     const trimmed = title.trim().replace(/[.$]/g, "_");
     if (!trimmed) return null;
@@ -2380,6 +2387,11 @@ export function ModelProvider({
       ...prev,
       [INBOX_PIPELINE_ID]: [...(prev[INBOX_PIPELINE_ID] || []), trimmed],
     }));
+    // Tag the Inbox task to a workspace so it's only visible to that workspace's
+    // members (falls back to the default workspace when none is provided).
+    const tagWs = workspaceId || DEFAULT_WORKSPACE_ID;
+    markLocalWrite("inboxStageWorkspace");
+    setInboxStageWorkspace(prev => ({ ...prev, [trimmed]: tagWs }));
     logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
     // Push immediately — see addCustomStage rationale.
     flushImmediatelyRef.current = true;
@@ -2801,7 +2813,7 @@ export function ModelProvider({
     commentReactions, handleCommentReact,
     notifReads, notifDismissed, notifReadIds, markAllNotifsRead, markNotifRead, dismissNotif,
     pendingNewComments, flushPendingComments,
-    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, stageNameOverrides,
+    stageStatusOverrides, approvedStages, approvedSubtasks, approvedPipelines, stageDescOverrides, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, inboxStageWorkspace, stageNameOverrides,
     stagePointsOverride, setStagePointsOverride,
     subtaskStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, pipeDescOverrides, setPipeDescOverrides: persistPipeDescOverrides, pipeMetaOverrides, setPipeMetaOverrides: persistPipeMetaOverrides,
     customStages, customPipelines, workspaces, setWorkspaces, activityLog,
