@@ -5,7 +5,7 @@ import { CalendarDays, CheckCircle2, Columns3, Flag, Layers, Link2, ListChecks, 
 import { AvatarC } from "@/components/ui/Avatar";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { ADMIN_IDS, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier } from "@/lib/data";
+import { ADMIN_IDS, DEFAULT_WORKSPACE_ID, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier } from "@/lib/data";
 
 type TimelineViewMode = "schedule" | "line" | "board" | "done";
 
@@ -74,7 +74,7 @@ function hostLabel(url?: string) {
 }
 
 export default function TimelineView() {
-  const { t, users, currentUser, workspaces, timelineEvents, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useModel();
+  const { t, users, currentUser, workspaces, currentWorkspaceId, timelineEvents, addTimelineEvent, updateTimelineEvent, deleteTimelineEvent } = useModel();
   const isMobile = useIsMobile(760);
   const mono = "var(--font-dm-mono), monospace";
   const [mode, setMode] = useState<TimelineViewMode>("schedule");
@@ -84,8 +84,14 @@ export default function TimelineView() {
 
   const canSeeAll = !!currentUser && (ADMIN_IDS.includes(currentUser) || workspaces.some(workspace => workspace.captains.includes(currentUser)));
   const visibleTimelineEvents = useMemo(() => (
-    canSeeAll ? timelineEvents : timelineEvents.filter(event => event.responsibleId === currentUser)
-  ), [canSeeAll, currentUser, timelineEvents]);
+    timelineEvents.filter(event => {
+      if (!(canSeeAll || event.responsibleId === currentUser)) return false;
+      // Roadmap is per-workspace: in a specific workspace show only its events
+      // (untagged legacy events fall back to Binayah AI); "All" shows everything.
+      if (!currentWorkspaceId) return true;
+      return event.workspaceId ? event.workspaceId === currentWorkspaceId : currentWorkspaceId === DEFAULT_WORKSPACE_ID;
+    })
+  ), [canSeeAll, currentUser, timelineEvents, currentWorkspaceId]);
   const events = useMemo(() => [...visibleTimelineEvents].sort(sortEvents), [visibleTimelineEvents]);
   const done = events.filter(item => item.status === "done");
   const active = events.filter(item => item.status !== "done");

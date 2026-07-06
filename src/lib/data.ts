@@ -41,6 +41,7 @@ export const USERS_DEFAULT = [
   {id:"shyam",name:"Shyam",role:"WP Sensei",avatar:"",color:"#8b5cf6"},          // violet — senior WordPress dev
   {id:"abhishek",name:"Abhishek",role:"The Operator",avatar:"",color:"#dc6b19"},   // burnt orange — data entry, SEO, platform management
   {id:"deepshikha",name:"Deepshikha",role:"SEO Sniper",avatar:"",color:"#059669"}, // emerald — SEO
+  {id:"yasmine",name:"Yasmine",role:"Viral Alchemist",avatar:"",color:"#db2777"}, // rose — SMM specialist (Marketing Hub)
   {id:"guest1",name:"Guest",role:"Agent",avatar:"",color:"#6366f1"},
   {id:"guest2",name:"Exec Guest",role:"Executive",avatar:"",color:"#ec4899"},
 ];
@@ -388,6 +389,7 @@ export interface TimelineEvent {
   notes?: string;
   responsibleId?: string;
   url?: string;
+  workspaceId?: string; // which workspace's roadmap this belongs to
   createdBy: string;
   createdAt: number;
   updatedAt: number;

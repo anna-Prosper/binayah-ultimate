@@ -23,6 +23,7 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   // WordPress + content + SEO team
   "shyam.m.bhundiya@gmail.com": "shyam",
   "deepskarn15@gmail.com": "deepshikha",
+  "yasmine@binayah.ae": "yasmine",
   // TEMP users — remove when no longer needed
   "guest1@binayah.com": "guest1",
   "guest2@binayah.com": "guest2",
@@ -39,6 +40,7 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   abhishek: "abhishek@binayah.ae",
   shyam: "shyam.m.bhundiya@gmail.com",
   deepshikha: "deepskarn15@gmail.com",
+  yasmine: "yasmine@binayah.ae",
   // TEMP users
   guest1: "guest1@binayah.com",
   guest2: "guest2@binayah.com",
