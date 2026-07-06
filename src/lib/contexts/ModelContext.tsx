@@ -451,6 +451,11 @@ export function ModelProvider({
   const serverKeysRef = useRef<Record<string, Set<string>>>({});
   // Track subtask members per stage as `${stage}::${id}` so we can detect deletes.
   const serverSubtaskKeysRef = useRef<Set<string>>(new Set());
+  // Track database rows the server knows as `${dbId}::${rowId}`. Databases now
+  // merge row-by-row on the server (keep-existing), so a row REMOVAL only
+  // propagates via an explicit `_deletes` key — this ref lets us diff local vs
+  // server rows to compute those keys, exactly like serverSubtaskKeysRef.
+  const serverDbRowKeysRef = useRef<Set<string>>(new Set());
 
   const recordServerKeys = useCallback((s: Partial<SharedState>) => {
     for (const slice of MAP_SLICES) {
@@ -490,6 +495,15 @@ export function ModelProvider({
       serverSubtaskKeysRef.current = set;
       // Stage-level keys for `subtasks` map — needed if user removes the whole stage.
       serverKeysRef.current.subtasks = new Set(Object.keys(s.subtasks));
+    }
+
+    // Databases: per (dbId, rowId) so a stale tab can't drop another tab's row.
+    if (Array.isArray((s as Record<string, unknown>).databases)) {
+      const set = new Set<string>();
+      for (const db of (s as { databases: { id: number | string; rows?: { id: number | string }[] }[] }).databases) {
+        if (Array.isArray(db.rows)) for (const r of db.rows) set.add(`${db.id}::${r.id}`);
+      }
+      serverDbRowKeysRef.current = set;
     }
   }, [MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
   const markLocalWrite = useCallback((slice: string, key?: string) => {
@@ -1079,6 +1093,26 @@ export function ModelProvider({
       for (const k of serverSubtaskKeysRef.current) if (!localSet.has(k)) removed.push(k);
       if (removed.length > 0) deletes.subtasks = removed;
     }
+    // Databases (inner-array rows): track `${dbId}::${rowId}` so a removed row
+    // propagates now that the server keeps existing rows on merge. Whole-database
+    // removals are already covered by the ARRAY_BY_ID pass above (bare dbId).
+    {
+      const localRowKeys = new Set<string>();
+      const localDbIds = new Set<string>();
+      const dbs = state.databases as { id: number | string; rows?: { id: number | string }[] }[] | undefined;
+      if (Array.isArray(dbs)) for (const db of dbs) {
+        localDbIds.add(String(db.id));
+        if (Array.isArray(db.rows)) for (const r of db.rows) localRowKeys.add(`${db.id}::${r.id}`);
+      }
+      const removed: string[] = [];
+      for (const k of serverDbRowKeysRef.current) {
+        const dbId = k.slice(0, k.indexOf("::"));
+        // Skip rows of a database that was removed wholesale (handled above).
+        if (!localDbIds.has(dbId)) continue;
+        if (!localRowKeys.has(k)) removed.push(k);
+      }
+      if (removed.length > 0) deletes.databases = [...(deletes.databases ?? []), ...removed];
+    }
     const envelope: PatchEnvelope = state as PatchEnvelope;
     if (Object.keys(deletes).length > 0) envelope._deletes = deletes;
     return envelope;
@@ -1133,6 +1167,15 @@ export function ModelProvider({
         if (Array.isArray(list)) for (const item of list) set.add(`${stage}::${item.id}`);
       }
       serverSubtaskKeysRef.current = set;
+    }
+    // Rebuild known db-row keys from what we sent (deleted rows are already absent,
+    // so this captures the post-write truth; others' rows are re-learned on poll).
+    if (Array.isArray((sent as Record<string, unknown>).databases)) {
+      const set = new Set<string>();
+      for (const db of (sent as { databases: { id: number | string; rows?: { id: number | string }[] }[] }).databases) {
+        if (Array.isArray(db.rows)) for (const r of db.rows) set.add(`${db.id}::${r.id}`);
+      }
+      serverDbRowKeysRef.current = set;
     }
     if (sent._deletes) {
       for (const [slice, keys] of Object.entries(sent._deletes)) {
