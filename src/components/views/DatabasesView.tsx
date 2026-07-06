@@ -2,10 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
-import type { WorkspaceDb, DbColumn } from "@/lib/data";
+import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2 } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗","💾","🧾","📌","📍","🔐","💼","🏢","🌐","🎯","⚡","🔬","🔍","📡","🧪","🏗️","🤖","🎨","✅","⏰","🟢","🔴","🟡","🟣","💎","🚀","🧠","🔥"];
@@ -16,12 +16,53 @@ interface Props {
   openDbName?: string;
 }
 
-// Status pill color mapping
+// Status pill color mapping — maps the common status vocabularies (content
+// pipeline, task states) onto theme tokens. Unknown values fall back to muted so
+// non-status chips (e.g. Type / Platform columns) stay visually neutral.
 function statusColor(value: string, t: ReturnType<typeof useModel>["t"]) {
-  const v = value.toLowerCase();
-  if (v === "active" || v === "published" || v === "new") return t.green;
-  if (v === "pending" || v === "draft" || v === "old") return t.textMuted;
+  const v = value.trim().toLowerCase();
+  if (["active", "live", "published", "posted", "done", "complete", "completed", "shipped", "new"].includes(v)) return t.green;
+  if (["scheduled", "planned", "ready", "approved", "queued", "in-progress", "in progress"].includes(v)) return t.cyan;
+  if (["draft", "pending", "wip", "writing"].includes(v)) return t.amber;
+  if (["review", "in-review", "in review", "revision", "revisions"].includes(v)) return t.orange;
+  if (["blocked", "cancelled", "canceled", "rejected"].includes(v)) return t.red;
+  if (["archived", "old", "someday"].includes(v)) return t.slate;
   return t.textMuted;
+}
+
+// Emoji glyph for a platform / channel value — shown on calendar chips so the
+// medium is scannable at a glance.
+function platformIcon(value: string): string {
+  const v = value.trim().toLowerCase();
+  if (!v) return "";
+  if (v.includes("instagram") || v === "ig") return "📸";
+  if (v.includes("youtube") || v === "yt") return "▶️";
+  if (v.includes("tiktok")) return "🎵";
+  if (v.includes("linkedin")) return "💼";
+  if (v.includes("facebook") || v === "fb") return "📘";
+  if (v.includes("twitter") || v === "x") return "𝕏";
+  if (v.includes("reddit")) return "👽";
+  if (v.includes("whatsapp")) return "💬";
+  if (v.includes("email") || v.includes("newsletter") || v.includes("mail")) return "✉️";
+  if (v.includes("blog") || v.includes("website") || v.includes("web")) return "🌐";
+  return "•";
+}
+
+// Pick the columns that drive the calendar rendering. Heuristic by type + name so
+// it works for any date-bearing table, not just the Content Calendar.
+function pickCalendarCols(columns: DbColumn[]) {
+  const dateCol = columns.find(c => c.type === "date");
+  const statusCol =
+    columns.find(c => c.type === "status" && /status|stage|state/.test(c.name.toLowerCase())) ||
+    columns.find(c => c.type === "status");
+  const platformCol = columns.find(
+    c => c.type === "status" && c.id !== statusCol?.id && /platform|channel|network/.test(c.name.toLowerCase())
+  );
+  const titleCol =
+    columns.find(c => c.type === "text" && /title|name|task|item|content/.test(c.name.toLowerCase())) ||
+    columns.find(c => c.type === "text") ||
+    columns[0];
+  return { dateCol, statusCol, platformCol, titleCol };
 }
 
 function formatDate(value: string): string {
@@ -662,11 +703,317 @@ function CreateDbModal({
 }
 
 // Main table view
+// Editable detail card for a single row — used by the calendar for both creating
+// a new entry (with a date prefilled) and editing an existing one. Renders one
+// field per column, typed to the column kind.
+function RowDetailCard({
+  columns,
+  initial,
+  users,
+  t,
+  mode,
+  onSave,
+  onDelete,
+  onClose,
+}: {
+  columns: DbColumn[];
+  initial: Record<string, string>;
+  users: ReturnType<typeof useModel>["users"];
+  t: ReturnType<typeof useModel>["t"];
+  mode: "create" | "edit";
+  onSave: (values: Record<string, string>) => void;
+  onDelete?: () => void;
+  onClose: () => void;
+}) {
+  const [vals, setVals] = useState<Record<string, string>>(initial);
+  const set = (id: string, v: string) => setVals(p => ({ ...p, [id]: v }));
+  const inputStyle: React.CSSProperties = {
+    background: t.surface, color: t.text, border: `1px solid ${t.border}`,
+    borderRadius: 8, padding: "7px 9px", fontSize: 13, outline: "none",
+    fontFamily: "inherit", width: "100%", boxSizing: "border-box",
+  };
+  const field = (col: DbColumn) => {
+    const v = vals[col.id] || "";
+    if (col.type === "status") {
+      return (
+        <select value={v} onChange={e => set(col.id, e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+          <option value="">—</option>
+          {(col.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+        </select>
+      );
+    }
+    if (col.type === "user") {
+      return (
+        <select value={v} onChange={e => set(col.id, e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
+          <option value="">— None</option>
+          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      );
+    }
+    if (col.type === "date") {
+      return <input type="date" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
+    }
+    if (col.type === "number") {
+      return <input type="number" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
+    }
+    if (col.type === "text" && /note|desc|summary|body/.test(col.name.toLowerCase())) {
+      return <textarea value={v} onChange={e => set(col.id, e.target.value)} rows={2} style={{ ...inputStyle, resize: "vertical", minHeight: 52 }} />;
+    }
+    return <input value={v} onChange={e => set(col.id, e.target.value)} placeholder={col.type === "url" ? "https://…" : ""} style={inputStyle} />;
+  };
+  return (
+    <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onMouseDown={e => e.stopPropagation()} data-no-close style={{ width: "min(440px, 100%)", maxHeight: "85vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, boxShadow: t.shadowLg, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: t.accent }}>{mode === "create" ? "new entry" : "edit entry"}</span>
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
+        </div>
+        {columns.map(col => (
+          <label key={col.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted }}>{col.name}</span>
+            {field(col)}
+          </label>
+        ))}
+        <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+          <button onClick={() => onSave(vals)} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, flex: 1 }}>save</button>
+          {mode === "edit" && onDelete && (
+            <button onClick={onDelete} style={{ background: "transparent", border: `1px solid ${t.red}55`, borderRadius: 8, padding: "8px 12px", color: t.red, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>delete</button>
+          )}
+          <button onClick={onClose} style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 12px", color: t.textDim, cursor: "pointer", fontSize: 12 }}>cancel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Month-grid calendar layout for date-bearing databases. Content pieces render as
+// color chips (by status) with a platform glyph on their publish date; click a day
+// to add, click a chip to edit, drag a chip to reschedule.
+function CalendarView({
+  db,
+  rows,
+  users,
+  currentUser,
+  t,
+  canEdit,
+  onAddRow,
+  onUpdateRow,
+  onDeleteRow,
+  isMobile,
+}: {
+  db: WorkspaceDb;
+  rows: DbRow[];
+  users: ReturnType<typeof useModel>["users"];
+  currentUser: string | null;
+  t: ReturnType<typeof useModel>["t"];
+  canEdit: boolean;
+  onAddRow: (values?: Record<string, string>) => void;
+  onUpdateRow: (rowId: number, values: Record<string, string>) => void;
+  onDeleteRow: (rowId: number) => void;
+  isMobile: boolean;
+}) {
+  const { dateCol, statusCol, platformCol, titleCol } = pickCalendarCols(db.columns);
+  const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
+  const [detail, setDetail] = useState<{ mode: "create" | "edit"; row?: DbRow; initial: Record<string, string> } | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
+
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const todayStr = ymd(new Date());
+
+  if (!dateCol || !titleCol) {
+    return <div style={{ padding: 40, textAlign: "center", color: t.textDim, fontSize: 13 }}>This table needs a date column to use the calendar.</div>;
+  }
+
+  const rowsByDay = new Map<string, DbRow[]>();
+  const unscheduled: DbRow[] = [];
+  for (const r of rows) {
+    const ds = (r.values[dateCol.id] || "").slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(ds)) {
+      const list = rowsByDay.get(ds); if (list) list.push(r); else rowsByDay.set(ds, [r]);
+    } else unscheduled.push(r);
+  }
+
+  const first = new Date(cursor.y, cursor.m, 1);
+  const startOff = (first.getDay() + 6) % 7; // Monday-first
+  const cells = Array.from({ length: 42 }, (_, i) => new Date(cursor.y, cursor.m, 1 - startOff + i));
+  const monthLabel = first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+  const maxVisible = isMobile ? 2 : 3;
+
+  const openEdit = (r: DbRow) => setDetail({ mode: "edit", row: r, initial: { ...r.values } });
+  const openCreate = (dateStr: string) => {
+    if (!canEdit) return;
+    const init: Record<string, string> = { [dateCol.id]: dateStr };
+    const authorCol = db.columns.find(c => c.type === "user");
+    if (authorCol && currentUser) init[authorCol.id] = currentUser;
+    setDetail({ mode: "create", initial: init });
+  };
+
+  const chip = (r: DbRow, opts?: { block?: boolean }) => {
+    const color = statusCol ? statusColor(r.values[statusCol.id] || "", t) : t.accent;
+    const icon = platformCol ? platformIcon(r.values[platformCol.id] || "") : "";
+    const title = r.values[titleCol.id] || "(untitled)";
+    return (
+      <div
+        key={r.id}
+        draggable={canEdit}
+        onDragStart={() => setDragId(r.id)}
+        onDragEnd={() => { setDragId(null); setDragOver(null); }}
+        onClick={e => { e.stopPropagation(); openEdit(r); }}
+        title={title}
+        style={{
+          display: "flex", alignItems: "center", gap: 4,
+          background: color + "22", borderLeft: `3px solid ${color}`,
+          borderRadius: 5, padding: "2px 5px", fontSize: 11, lineHeight: 1.3,
+          color: t.text, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden",
+          width: opts?.block ? "100%" : undefined,
+        }}
+      >
+        {icon && <span style={{ flexShrink: 0 }}>{icon}</span>}
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ padding: isMobile ? 8 : 12, height: "100%", overflow: "auto" }}>
+      {/* Month nav */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
+        <button onClick={() => setCursor(c => { const m = c.m - 1; return m < 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m }; })}
+          style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: 5, color: t.textMuted, cursor: "pointer", display: "flex" }}>
+          <ChevronLeft size={16} />
+        </button>
+        <button onClick={() => setCursor(c => { const m = c.m + 1; return m > 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m }; })}
+          style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: 5, color: t.textMuted, cursor: "pointer", display: "flex" }}>
+          <ChevronRight size={16} />
+        </button>
+        <span style={{ fontSize: 16, fontWeight: 800, color: t.text, minWidth: 150 }}>{monthLabel}</span>
+        <button onClick={() => { const d = new Date(); setCursor({ y: d.getFullYear(), m: d.getMonth() }); }}
+          style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 12px", color: t.accent, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
+          today
+        </button>
+      </div>
+
+      {/* Weekday header */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, minWidth: isMobile ? 640 : undefined, marginBottom: 6 }}>
+        {weekdays.map(w => (
+          <div key={w} style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: t.textMuted, textAlign: "center", padding: "2px 0" }}>{w}</div>
+        ))}
+      </div>
+
+      {/* Grid */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, minWidth: isMobile ? 640 : undefined }}>
+        {cells.map((d, i) => {
+          const ds = ymd(d);
+          const inMonth = d.getMonth() === cursor.m;
+          const isToday = ds === todayStr;
+          const dayRows = rowsByDay.get(ds) || [];
+          return (
+            <div
+              key={i}
+              onClick={() => openCreate(ds)}
+              onDragOver={e => { if (dragId != null) { e.preventDefault(); setDragOver(ds); } }}
+              onDragLeave={() => setDragOver(o => (o === ds ? null : o))}
+              onDrop={() => { if (dragId != null) { onUpdateRow(dragId, { [dateCol.id]: ds }); setDragId(null); setDragOver(null); } }}
+              style={{
+                minHeight: isMobile ? 78 : 108,
+                background: dragOver === ds ? t.accent + "18" : inMonth ? t.bgCard : t.bgSoft,
+                border: `1px solid ${dragOver === ds ? t.accent : t.border}`,
+                borderRadius: 8, padding: 5, display: "flex", flexDirection: "column", gap: 3,
+                cursor: canEdit ? "pointer" : "default", opacity: inMonth ? 1 : 0.5,
+                boxShadow: isToday ? `inset 0 0 0 1.5px ${t.accent}` : "none",
+              }}
+            >
+              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                <span style={{
+                  fontSize: 11, fontWeight: isToday ? 800 : 600,
+                  color: isToday ? "#fff" : inMonth ? t.textMuted : t.textDim,
+                  background: isToday ? t.accent : "transparent",
+                  borderRadius: 999, minWidth: 18, height: 18, display: "inline-flex",
+                  alignItems: "center", justifyContent: "center", padding: "0 5px",
+                }}>{d.getDate()}</span>
+              </div>
+              {dayRows.slice(0, maxVisible).map(r => chip(r))}
+              {dayRows.length > maxVisible && (
+                <span onClick={e => { e.stopPropagation(); setExpandedDay(ds); }}
+                  style={{ fontSize: 10, color: t.accent, cursor: "pointer", fontWeight: 700, paddingLeft: 2 }}>
+                  +{dayRows.length - maxVisible} more
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Unscheduled tray */}
+      {unscheduled.length > 0 && (
+        <div style={{ marginTop: 16, border: `1px dashed ${t.border}`, borderRadius: 10, padding: 10, background: t.bgSoft }}>
+          <div style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted, marginBottom: 8 }}>
+            unscheduled · {unscheduled.length} <span style={{ fontWeight: 400, textTransform: "none", color: t.textDim }}>— drag onto a day to schedule</span>
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {unscheduled.map(r => <div key={r.id} style={{ maxWidth: 220 }}>{chip(r)}</div>)}
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14, fontSize: 10, color: t.textMuted }}>
+        {statusCol && [...new Set((statusCol.options || []))].map(s => (
+          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+            <span style={{ width: 8, height: 8, borderRadius: 2, background: statusColor(s, t) }} /> {s}
+          </span>
+        ))}
+      </div>
+
+      {/* Expanded-day popover */}
+      {expandedDay && (
+        <div onMouseDown={() => setExpandedDay(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 2900, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onMouseDown={e => e.stopPropagation()} data-no-close style={{ width: "min(360px, 100%)", maxHeight: "80vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, boxShadow: t.shadowLg, padding: 16, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 2 }}>
+              <span style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{formatDate(expandedDay)}</span>
+              <button onClick={() => setExpandedDay(null)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 15 }}>✕</button>
+            </div>
+            {(rowsByDay.get(expandedDay) || []).map(r => chip(r, { block: true }))}
+            {canEdit && (
+              <button onClick={() => { const day = expandedDay; setExpandedDay(null); openCreate(day); }}
+                style={{ marginTop: 4, background: "transparent", border: `1px dashed ${t.border}`, borderRadius: 8, padding: "7px", color: t.textMuted, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
+                <Plus size={12} /> add entry
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Create / edit detail */}
+      {detail && (
+        <RowDetailCard
+          columns={db.columns}
+          initial={detail.initial}
+          users={users}
+          t={t}
+          mode={detail.mode}
+          onSave={values => {
+            if (detail.mode === "edit" && detail.row) onUpdateRow(detail.row.id, values);
+            else onAddRow(values);
+            setDetail(null);
+          }}
+          onDelete={detail.mode === "edit" && detail.row ? () => { onDeleteRow(detail.row!.id); setDetail(null); } : undefined}
+          onClose={() => setDetail(null)}
+        />
+      )}
+    </div>
+  );
+}
+
 function TableView({
   db,
   t,
   users,
   memberUsers,
+  currentUser,
   canEdit,
   onUpdateRow,
   onDeleteRow,
@@ -679,14 +1026,28 @@ function TableView({
   t: ReturnType<typeof useModel>["t"];
   users: ReturnType<typeof useModel>["users"];
   memberUsers: ReturnType<typeof useModel>["users"];
+  currentUser: string | null;
   canEdit: boolean;
   onUpdateRow: (rowId: number, values: Record<string, string>) => void;
   onDeleteRow: (rowId: number) => void;
-  onAddRow: () => void;
+  onAddRow: (values?: Record<string, string>) => void;
   onAddColumn: (col: Omit<DbColumn, "id">) => void;
   onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
   isMobile: boolean;
 }) {
+  const hasDateCol = db.columns.some(c => c.type === "date");
+  const [layout, setLayout] = useState<"table" | "calendar">(() => {
+    if (typeof window !== "undefined") {
+      const saved = window.localStorage.getItem(`db_layout_${db.id}`);
+      if (saved === "table" || saved === "calendar") return saved;
+    }
+    return hasDateCol ? "calendar" : "table";
+  });
+  const chooseLayout = (l: "table" | "calendar") => {
+    setLayout(l);
+    if (typeof window !== "undefined") window.localStorage.setItem(`db_layout_${db.id}`, l);
+  };
+  const effectiveLayout = hasDateCol ? layout : "table";
   const [activeView, setActiveView] = useState(db.views[0]?.id || "view_all");
   const [editingCell, setEditingCell] = useState<{ rowId: number; colId: string } | null>(null);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
@@ -861,6 +1222,20 @@ function TableView({
           ))}
         </div>
 
+        {hasDateCol && (
+          <div style={{ display: "flex", gap: 2, marginLeft: 6, background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: 2 }}>
+            {([["table", "table", <Table2 key="t" size={12} />], ["calendar", "calendar", <CalendarDays key="c" size={12} />]] as const).map(([key, label, ic]) => {
+              const on = effectiveLayout === key;
+              return (
+                <button key={key} onClick={() => chooseLayout(key)}
+                  style={{ display: "flex", alignItems: "center", gap: 4, background: on ? t.accent + "22" : "transparent", border: on ? `1px solid ${t.accent}44` : "1px solid transparent", borderRadius: 6, padding: "3px 9px", fontSize: 11, fontWeight: on ? 700 : 500, color: on ? t.accent : t.textMuted, cursor: "pointer" }}>
+                  {ic} {label}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div style={{ flex: 1, display: isMobile ? "none" : "block" }} />
 
         {canEdit && (
@@ -878,7 +1253,7 @@ function TableView({
               <Plus size={11} /> add column
             </button>
             <button
-              onClick={onAddRow}
+              onClick={() => onAddRow()}
               style={{
                 background: t.accent, border: "none",
                 borderRadius: 4, padding: "4px 12px", fontSize: 11,
@@ -893,7 +1268,23 @@ function TableView({
         )}
       </div>
 
-      {/* Table */}
+      {effectiveLayout === "calendar" ? (
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <CalendarView
+            db={db}
+            rows={sortedRows}
+            users={memberUsers}
+            currentUser={currentUser}
+            t={t}
+            canEdit={canEdit}
+            onAddRow={onAddRow}
+            onUpdateRow={onUpdateRow}
+            onDeleteRow={onDeleteRow}
+            isMobile={isMobile}
+          />
+        </div>
+      ) : (
+      /* Table */
       <div style={{ flex: 1, overflow: "auto" }}>
         {db.columns.length === 0 ? (
           <div style={{
@@ -1077,7 +1468,7 @@ function TableView({
                 <tr>
                   <td
                     colSpan={db.columns.length + 1}
-                    onClick={onAddRow}
+                    onClick={() => onAddRow()}
                     style={{
                       padding: "7px 12px",
                       color: t.textDim,
@@ -1098,6 +1489,7 @@ function TableView({
           </table>
         )}
       </div>
+      )}
 
       {showAddCol && (
         <AddColumnModal
@@ -1234,14 +1626,17 @@ export default function DatabasesView({ currentWorkspaceId, openDbName }: Props)
           t={t}
           users={users}
           memberUsers={memberUsers}
+          currentUser={currentUser}
           canEdit={canEdit}
           onUpdateRow={(rowId, values) => updateDbRow(selectedDb.id, rowId, values)}
           onDeleteRow={rowId => deleteDbRow(selectedDb.id, rowId)}
-          onAddRow={() => {
+          onAddRow={extra => {
             // Auto-fill the first user/author column with the creator so new rows
-            // are attributed without a manual pick.
+            // are attributed without a manual pick. `extra` carries calendar-supplied
+            // values (e.g. the clicked day's date, edited fields).
             const authorCol = selectedDb.columns.find(c => c.type === "user");
-            addDbRow(selectedDb.id, authorCol && currentUser ? { [authorCol.id]: currentUser } : {});
+            const base = authorCol && currentUser ? { [authorCol.id]: currentUser } : {};
+            addDbRow(selectedDb.id, { ...base, ...(extra || {}) });
           }}
           onAddColumn={col => addDbColumn(selectedDb.id, col)}
           onUpdateDb={patch => handleUpdateDb(selectedDb.id, patch)}
