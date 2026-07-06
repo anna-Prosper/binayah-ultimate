@@ -1105,6 +1105,25 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   } = useModel();
 
   const [selectedDbId, setSelectedDbId] = useState<number | null>(null);
+  // Persist the open database in the URL (?db=<id>) so a reload keeps you in the
+  // same table instead of dropping back to the full list. Restore on mount
+  // (client-only to avoid a hydration mismatch); mirror every change to the URL.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dbParam = new URLSearchParams(window.location.search).get("db");
+    if (dbParam) {
+      const id = Number(dbParam);
+      if (!Number.isNaN(id)) setSelectedDbId(id);
+    }
+  }, []);
+  const selectDb = useCallback((id: number | null) => {
+    setSelectedDbId(id);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (id === null) url.searchParams.delete("db");
+    else url.searchParams.set("db", String(id));
+    window.history.replaceState(null, "", url.toString());
+  }, []);
   const [showCreate, setShowCreate] = useState(false);
   const [hoveredItem, setHoveredItem] = useState<number | null>(null);
   const [confirmDeleteDbId, setConfirmDeleteDbId] = useState<number | null>(null);
@@ -1145,7 +1164,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
           flexShrink: 0,
         }}>
           <button
-            onClick={() => setSelectedDbId(null)}
+            onClick={() => selectDb(null)}
             style={{
               background: "transparent", border: "none",
               color: t.textMuted, cursor: "pointer", fontSize: 11,
@@ -1164,7 +1183,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
             <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11 }}>
               <span style={{ color: t.textMuted }}>delete this database?</span>
               <button
-                onClick={() => { deleteDatabase(selectedDb.id); setSelectedDbId(null); setConfirmDeleteDbId(null); }}
+                onClick={() => { deleteDatabase(selectedDb.id); selectDb(null); setConfirmDeleteDbId(null); }}
                 style={{ background: t.red + "22", border: `1px solid ${t.red}44`, color: t.red, cursor: "pointer", fontSize: 11, padding: "2px 8px", borderRadius: 4, fontWeight: 700 }}
               >yes, delete</button>
               <button
@@ -1267,7 +1286,7 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
           {wsDbs.map(db => (
             <div
               key={db.id}
-              onClick={() => setSelectedDbId(db.id)}
+              onClick={() => selectDb(db.id)}
               onMouseEnter={() => setHoveredItem(db.id)}
               onMouseLeave={() => setHoveredItem(null)}
               style={{
