@@ -469,6 +469,8 @@ function ShellInner({
         hiddenNavItems={[
           ...(canSeeCalls ? [] : ["calls" as NavItem]),
           ...((currentWorkspace?.hiddenTabs ?? []) as NavItem[]),
+          // Marketing DB tabs live only inside the Marketing Hub workspace.
+          ...(currentWorkspaceId === "marketing" ? [] : (["campaigns", "content-calendar", "leads", "monthly-metrics"] as NavItem[])),
         ]}
       />
     </div>
@@ -528,7 +530,7 @@ function ShellInner({
   ] satisfies { id: NavItem; label: string; icon: React.ReactNode; action: () => void }[]).filter(item => {
     if (item.id === "bugs" && currentWorkspace?.hiddenTabs?.includes("bugs")) return false;
     if (item.id === "databases" && currentWorkspace?.hiddenTabs?.includes("databases")) return false;
-    if (item.id === "campaigns" && currentWorkspace?.hiddenTabs?.includes("campaigns")) return false;
+    if (item.id === "campaigns" && (currentWorkspaceId !== "marketing" || currentWorkspace?.hiddenTabs?.includes("campaigns"))) return false;
     if (item.id === "documents" && currentWorkspace?.hiddenTabs?.includes("documents")) return false;
     if (item.id === "notes" && currentWorkspace?.hiddenTabs?.includes("notes")) return false;
     return true;

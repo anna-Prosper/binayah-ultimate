@@ -82,16 +82,26 @@ interface ManageProps extends BaseProps {
 
 type Rank = "root" | "operator" | "agent";
 
-const ALL_TABS = [
+// Every workspace-scoped sidebar tab is toggleable. Order mirrors the sidebar.
+const BASE_TABS = [
   { id: "pipelines", label: "pipelines" },
   { id: "documents", label: "documents" },
   { id: "notes", label: "notes" },
   { id: "bugs", label: "testing" },
   { id: "databases", label: "databases" },
   { id: "activity", label: "activity" },
+  { id: "timeline", label: "timeline" },
   { id: "archive", label: "archive" },
   { id: "chat", label: "chat" },
   { id: "calls", label: "calls" },
+];
+// Marketing DB tabs exist only in the Marketing Hub workspace, so only offer their
+// toggles there — showing them elsewhere would be dead switches.
+const MARKETING_TABS = [
+  { id: "campaigns", label: "campaigns" },
+  { id: "content-calendar", label: "content calendar" },
+  { id: "leads", label: "leads" },
+  { id: "monthly-metrics", label: "monthly metrics" },
 ];
 
 export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMember, onRemoveMember, onSetRank, onDelete, onUpdateHiddenTabs, onClose }: ManageProps) {
@@ -112,6 +122,7 @@ export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMe
   const [showAdd, setShowAdd] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [hiddenTabs, setHiddenTabs] = useState<string[]>(workspace.hiddenTabs || []);
+  const ALL_TABS = workspace.id === "marketing" ? [...BASE_TABS, ...MARKETING_TABS] : BASE_TABS;
 
   return (
     <ModalShell t={t} onClose={onClose}>
