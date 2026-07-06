@@ -850,7 +850,24 @@ export function ModelProvider({
       const normalized = ((s as any).databases as WorkspaceDb[]).map(db =>
         db.views ? db : { ...db, views: [] }
       );
-      setDatabases(normalized);
+      // Merge rather than wholesale-replace: a poll response computed before our
+      // just-added row was persisted would otherwise drop that row locally (it only
+      // reappears on reload). Keep local-only rows/DBs that are recent enough to be
+      // un-synced adds; older local-only items are treated as remote deletions.
+      const DB_GRACE_MS = 120_000;
+      const nowTs = Date.now();
+      setDatabases(local => {
+        const serverIds = new Set(normalized.map(d => d.id));
+        const merged = normalized.map(sdb => {
+          const ldb = local.find(d => d.id === sdb.id);
+          if (!ldb) return sdb;
+          const srvRowIds = new Set(sdb.rows.map(r => r.id));
+          const pendingRows = ldb.rows.filter(r => !srvRowIds.has(r.id) && nowTs - (r.createdAt ?? 0) < DB_GRACE_MS);
+          return pendingRows.length ? { ...sdb, rows: [...sdb.rows, ...pendingRows] } : sdb;
+        });
+        const pendingDbs = local.filter(d => !serverIds.has(d.id) && nowTs - (typeof d.id === "number" ? d.id : 0) < DB_GRACE_MS);
+        return pendingDbs.length ? [...merged, ...pendingDbs] : merged;
+      });
     }
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
