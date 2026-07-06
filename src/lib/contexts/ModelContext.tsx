@@ -1784,11 +1784,11 @@ export function ModelProvider({
     });
   };
 
-  const MAX_SUBTASKS = 20; const MAX_SUBTASK_LEN = 200;
+  const MAX_SUBTASKS = 20; const MAX_SUBTASK_LEN = 500;
   const addSubtask = (sid: string, val: string, clearInput: () => void): number | null => {
     if (!val || !currentUser) return null;
     const trimmed = val.trim();
-    if (trimmed.length > MAX_SUBTASK_LEN) { showToast("// subtask too long — max 200 chars", t.red); return null; }
+    if (trimmed.length > MAX_SUBTASK_LEN) { showToast(`// subtask too long — max ${MAX_SUBTASK_LEN} chars`, t.red); return null; }
     if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast("// max 20 subtasks per stage", t.amber); return null; }
     const taskId = Date.now();
     markLocalWrite("subtasks");
