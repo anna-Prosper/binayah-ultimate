@@ -731,9 +731,12 @@ export default function HomeView({
     };
     for (const p of visiblePipelines) {
       for (const stage of [...p.stages, ...(customStages[p.id] || [])]) {
-        if (isArchivedStageId(stage)) continue;
-        visibleStageIds.add(stage);
+        // Map every stage to its pipeline (even archived ones) so subtasks under an
+        // archived parent holder can still resolve a pipeline name / id below.
         stageToPipeline.set(stage, p);
+        if (isArchivedStageId(stage)) continue;
+        // Archived stages are excluded from stage-level (task) items only.
+        visibleStageIds.add(stage);
       }
     }
 
@@ -787,17 +790,28 @@ export default function HomeView({
       };
     });
     const subtaskItems = Object.entries(subtasks || {}).flatMap(([parentStageId, list]) => {
-      if (!visibleStageIds.has(parentStageId)) return [];
+      const parentVisible = visibleStageIds.has(parentStageId);
       const parent = stageToPipeline.get(parentStageId);
+      // A subtask's synthetic parent holder stage (default-parent-*) can be archived while
+      // the subtask itself is still a live, done-but-unapproved item awaiting review — those
+      // must still reach the approval queue. So when the parent stage isn't in the normal
+      // visible set, we still consider its subtasks as long as (a) the parent belongs to a
+      // visible pipeline, or (b) the viewer is root (who reviews every team member's work).
+      // Non-visible parents only surface their *pending-approval* subtasks (below), so we
+      // never resurface planned subtasks that live under a deliberately-archived stage.
+      if (!parentVisible && !parent && !isRoot) return [];
       return list.flatMap(sub => {
         const key = `${parentStageId}::${sub.id}`;
         if (isArchivedSubtaskId(key, sub.text)) return [];
+        const status = subtaskStages[key] || (sub.done ? "active" : "planned");
+        const pendingApproval = (sub.done || status === "active") && !approvedSubtasks.includes(key);
+        if (!parentVisible && !pendingApproval) return [];
         return {
           key,
           title: sub.text,
           pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
           pipelineId: parent?.id || "",
-          status: subtaskStages[key] || (sub.done ? "active" : "planned"),
+          status,
           owners: itemOwnerIds(key),
           priority: parent ? pipeMetaOverrides[parent.id]?.priority : undefined,
           dueDate: subtaskDueDates[key],
