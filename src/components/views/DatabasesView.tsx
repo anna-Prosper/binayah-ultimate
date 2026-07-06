@@ -86,6 +86,7 @@ function UserCellPill({
 function UserCellEditor({
   value,
   users,
+  optionUsers,
   t,
   onSave,
   onCancel,
@@ -94,6 +95,10 @@ function UserCellEditor({
 }: {
   value: string;
   users: ReturnType<typeof useModel>["users"];
+  // Users offered in the dropdown (scoped to workspace members). Falls back to
+  // the full `users` list, which is also used to resolve the currently-selected
+  // author for display even if they are no longer a member.
+  optionUsers?: ReturnType<typeof useModel>["users"];
   t: ReturnType<typeof useModel>["t"];
   onSave: (v: string) => void;
   onCancel: () => void;
@@ -103,6 +108,7 @@ function UserCellEditor({
   const [val, setVal] = useState(value);
   const pickerRef = useRef<HTMLDivElement | null>(null);
   const selectedUser = findDbUser(users, val);
+  const listUsers = optionUsers ?? users;
 
   useEffect(() => {
     const handlePointer = (event: MouseEvent) => {
@@ -191,7 +197,7 @@ function UserCellEditor({
           <span style={{ width: 20, height: 20, borderRadius: "50%", border: `1px dashed ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>—</span>
           <span>None</span>
         </button>
-        {users.map(u => {
+        {listUsers.map(u => {
           const active = selectedUser?.id === u.id || val === u.id;
           return (
             <button
@@ -318,6 +324,7 @@ function CellEditor({
   col,
   value,
   users,
+  memberUsers,
   t,
   onSave,
   onCancel,
@@ -325,6 +332,7 @@ function CellEditor({
   col: DbColumn;
   value: string;
   users: ReturnType<typeof useModel>["users"];
+  memberUsers?: ReturnType<typeof useModel>["users"];
   t: ReturnType<typeof useModel>["t"];
   onSave: (v: string) => void;
   onCancel: () => void;
@@ -374,6 +382,7 @@ function CellEditor({
       <UserCellEditor
         value={val}
         users={users}
+        optionUsers={memberUsers}
         t={t}
         onSave={onSave}
         onCancel={onCancel}
@@ -657,6 +666,7 @@ function TableView({
   db,
   t,
   users,
+  memberUsers,
   canEdit,
   onUpdateRow,
   onDeleteRow,
@@ -668,6 +678,7 @@ function TableView({
   db: WorkspaceDb;
   t: ReturnType<typeof useModel>["t"];
   users: ReturnType<typeof useModel>["users"];
+  memberUsers: ReturnType<typeof useModel>["users"];
   canEdit: boolean;
   onUpdateRow: (rowId: number, values: Record<string, string>) => void;
   onDeleteRow: (rowId: number) => void;
@@ -1016,6 +1027,7 @@ function TableView({
                             col={col}
                             value={row.values[col.id] || ""}
                             users={users}
+                            memberUsers={memberUsers}
                             t={t}
                             onSave={v => handleCellSave(row.id, col.id, v)}
                             onCancel={() => setEditingCell(null)}
@@ -1141,6 +1153,12 @@ export default function DatabasesView({ currentWorkspaceId, openDbName }: Props)
     currentWorkspace?.members.includes(currentUser) === true ||
     currentWorkspace?.captains.includes(currentUser) === true
   );
+  // Author/user columns should offer this workspace's members (in the global user
+  // order), not every user in the org. Falls back to all users if membership is
+  // unknown. Existing author pills still resolve against the full `users` list.
+  const memberUsers = currentWorkspace?.members?.length
+    ? users.filter(u => currentWorkspace.members.includes(u.id))
+    : users;
   const wsDbs = databases.filter(db => db.workspaceId === wsId);
   const selectedDb = wsDbs.find(db => db.id === selectedDbId) || null;
 
@@ -1215,10 +1233,16 @@ export default function DatabasesView({ currentWorkspaceId, openDbName }: Props)
           db={selectedDb}
           t={t}
           users={users}
+          memberUsers={memberUsers}
           canEdit={canEdit}
           onUpdateRow={(rowId, values) => updateDbRow(selectedDb.id, rowId, values)}
           onDeleteRow={rowId => deleteDbRow(selectedDb.id, rowId)}
-          onAddRow={() => addDbRow(selectedDb.id)}
+          onAddRow={() => {
+            // Auto-fill the first user/author column with the creator so new rows
+            // are attributed without a manual pick.
+            const authorCol = selectedDb.columns.find(c => c.type === "user");
+            addDbRow(selectedDb.id, authorCol && currentUser ? { [authorCol.id]: currentUser } : {});
+          }}
           onAddColumn={col => addDbColumn(selectedDb.id, col)}
           onUpdateDb={patch => handleUpdateDb(selectedDb.id, patch)}
           isMobile={isMobile}
