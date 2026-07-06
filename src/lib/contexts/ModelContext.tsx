@@ -2681,6 +2681,7 @@ export function ModelProvider({
       createdBy: currentUser,
     };
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true; // discrete action — persist now, don't risk a quick reload
     setDatabases(prev => [db, ...prev]);
   }, [currentUser, markLocalWrite]);
 
@@ -2691,6 +2692,7 @@ export function ModelProvider({
 
   const deleteDatabase = useCallback((id: number) => {
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true;
     setDatabases(prev => prev.filter(db => db.id !== id));
   }, [markLocalWrite]);
 
@@ -2703,6 +2705,7 @@ export function ModelProvider({
       createdAt: Date.now(),
     };
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true; // adding a row is discrete — persist now
     setDatabases(prev => prev.map(db => db.id === dbId ? { ...db, rows: [...db.rows, row] } : db));
   }, [currentUser, markLocalWrite]);
 
@@ -2716,6 +2719,7 @@ export function ModelProvider({
 
   const deleteDbRow = useCallback((dbId: number, rowId: number) => {
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true; // deleting a row is discrete — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
       return { ...db, rows: db.rows.filter(r => r.id !== rowId) };
@@ -2725,6 +2729,7 @@ export function ModelProvider({
   const addDbColumn = useCallback((dbId: number, col: Omit<DbColumn, "id">) => {
     const id = `col_${Date.now()}`;
     markLocalWrite("databases");
+    flushImmediatelyRef.current = true; // adding a column is discrete — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
       return { ...db, columns: [...db.columns, { ...col, id }] };
