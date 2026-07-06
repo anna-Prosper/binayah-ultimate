@@ -370,9 +370,10 @@ function ShellInner({
     [workspaces],
   );
   const canSeeCalls = !!currentUser && (isExec || !!binayahAiWorkspace?.members.includes(currentUser));
+  const isRoot = !!currentUser && ADMIN_IDS.includes(currentUser);
   const myWorkspaces = useMemo(
-    () => workspaces.filter(w => currentUser ? (isExec || w.members.includes(currentUser)) : true),
-    [currentUser, isExec, workspaces],
+    () => workspaces.filter(w => currentUser ? (isRoot || isExec || w.members.includes(currentUser)) : true),
+    [currentUser, isRoot, isExec, workspaces],
   );
 
   // If user lands on /calls without permission, bounce home
