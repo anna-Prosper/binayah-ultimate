@@ -5,6 +5,10 @@ const config: Config = {
   testEnvironment: "node",
   // Only run files in __tests__ dirs or *.test.ts files (skip Next.js app code).
   testMatch: ["**/__tests__/**/*.test.ts", "**/*.test.ts"],
+  // Ignore leftover git worktrees (.claude/worktrees) and build output — they
+  // carry stale test copies that collide (jest-haste) and run outdated assertions.
+  testPathIgnorePatterns: ["/node_modules/", "/.claude/", "/.next/"],
+  modulePathIgnorePatterns: ["/.claude/worktrees/"],
   // Don't transform node_modules; do transform our src.
   transformIgnorePatterns: ["/node_modules/"],
   moduleNameMapper: {

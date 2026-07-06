@@ -90,9 +90,9 @@ describe("validateSubtasks", () => {
     expect(validateSubtasks({ "Stage A": items })).toMatch(/exceeds max/);
   });
 
-  it("rejects subtask text exceeding 200 chars", () => {
-    const items = [{ id: 1, text: "x".repeat(201), done: false, by: "anna" }];
-    expect(validateSubtasks({ "Stage A": items })).toMatch(/200 char/);
+  it("rejects subtask text exceeding 500 chars", () => {
+    const items = [{ id: 1, text: "x".repeat(501), done: false, by: "anna" }];
+    expect(validateSubtasks({ "Stage A": items })).toMatch(/500 char/);
   });
 });
 
