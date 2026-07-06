@@ -702,7 +702,66 @@ function CreateDbModal({
   );
 }
 
-// Main table view
+// Rich single-select for the detail card — renders a leading glyph (avatar, status
+// color dot, or platform icon) per option. Native <select> can't render those, so
+// this is a custom in-flow dropdown (expands the form rather than overlaying, which
+// avoids clipping inside the scrollable modal).
+function PickerField({
+  value,
+  options,
+  t,
+  renderLeft,
+  onChange,
+}: {
+  value: string;
+  options: { value: string; label: string }[];
+  t: ReturnType<typeof useModel>["t"];
+  renderLeft?: (value: string) => React.ReactNode;
+  onChange: (v: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const current = options.find(o => o.value === value);
+  return (
+    <div data-no-close>
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: t.surface, color: t.text, border: `1px solid ${open ? t.accent : t.border}`,
+          borderRadius: 8, padding: "7px 9px", fontSize: 13, outline: "none", width: "100%",
+          boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between",
+          gap: 8, cursor: "pointer", fontFamily: "inherit",
+        }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          {renderLeft?.(value)}
+          <span style={{ color: current?.value ? t.text : t.textDim, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{current?.label ?? "—"}</span>
+        </span>
+        <ChevronDown size={13} style={{ color: t.textDim, flexShrink: 0, transform: open ? "rotate(180deg)" : "none", transition: "transform .15s" }} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 4, border: `1px solid ${t.border}`, borderRadius: 8, background: t.bgCard, boxShadow: t.shadow, padding: 4, maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 1 }}>
+          {options.map(o => {
+            const on = o.value === value;
+            return (
+              <button
+                key={o.value || "__none"}
+                type="button"
+                onClick={() => { onChange(o.value); setOpen(false); }}
+                style={{ display: "flex", alignItems: "center", gap: 8, background: on ? t.accent + "18" : "transparent", border: "none", borderRadius: 6, padding: "6px 8px", color: on ? t.accent : t.text, cursor: "pointer", fontSize: 13, textAlign: "left", fontWeight: on ? 700 : 500, width: "100%" }}
+              >
+                {renderLeft?.(o.value)}
+                <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{o.label}</span>
+                {on && <span style={{ color: t.accent }}>✓</span>}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Editable detail card for a single row — used by the calendar for both creating
 // a new entry (with a date prefilled) and editing an existing one. Renders one
 // field per column, typed to the column kind.
@@ -735,19 +794,35 @@ function RowDetailCard({
   const field = (col: DbColumn) => {
     const v = vals[col.id] || "";
     if (col.type === "status") {
+      // Platform-type status columns get a leading platform glyph; other status
+      // columns get a status color dot.
+      const isPlatform = /platform|channel|network/.test(col.name.toLowerCase());
       return (
-        <select value={v} onChange={e => set(col.id, e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-          <option value="">—</option>
-          {(col.options || []).map(o => <option key={o} value={o}>{o}</option>)}
-        </select>
+        <PickerField
+          value={v}
+          options={[{ value: "", label: "—" }, ...(col.options || []).map(o => ({ value: o, label: o }))]}
+          t={t}
+          renderLeft={isPlatform
+            ? (val) => (val ? <span style={{ width: 18, textAlign: "center", flexShrink: 0 }}>{platformIcon(val)}</span> : null)
+            : (val) => <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: val ? statusColor(val, t) : t.border, display: "inline-block" }} />}
+          onChange={x => set(col.id, x)}
+        />
       );
     }
     if (col.type === "user") {
       return (
-        <select value={v} onChange={e => set(col.id, e.target.value)} style={{ ...inputStyle, cursor: "pointer" }}>
-          <option value="">— None</option>
-          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-        </select>
+        <PickerField
+          value={v}
+          options={[{ value: "", label: "None" }, ...users.map(u => ({ value: u.id, label: u.name }))]}
+          t={t}
+          renderLeft={(val) => {
+            const u = users.find(x => x.id === val);
+            return u
+              ? <AvatarC user={u} size={18} />
+              : <span style={{ width: 18, height: 18, borderRadius: "50%", border: `1px dashed ${t.border}`, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 10, color: t.textDim, flexShrink: 0 }}>—</span>;
+          }}
+          onChange={x => set(col.id, x)}
+        />
       );
     }
     if (col.type === "date") {
