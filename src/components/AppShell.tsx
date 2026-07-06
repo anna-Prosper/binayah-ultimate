@@ -21,7 +21,7 @@ import { TooltipPortal } from "@/components/ui/TooltipPortal";
 import dynamic from "next/dynamic";
 import LeftSidebar, { type NavItem, navItemFromPathname } from "@/components/LeftSidebar";
 import { ChromeShell } from "@/components/ChromeShell";
-import { MessageSquare, Bell, RotateCcw, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon, Home, ListTodo, Bug, Table2, Link2, FileText, StickyNote, Megaphone } from "lucide-react";
+import { MessageSquare, Bell, RotateCcw, Bot, Zap, Handshake, Eye, X, Settings as SettingsIcon, Home, ListTodo, Bug, Table2, Link2, FileText, StickyNote, Target } from "lucide-react";
 const AvatarStep6 = dynamic(() => import("@/components/Onboarding").then(m => m.AvatarStep6), { ssr: false, loading: () => null });
 const FloatingBg = dynamic(() => import("@/components/Onboarding").then(m => m.FloatingBg), { ssr: false, loading: () => null });
 const WelcomeModal = dynamic(() => import("@/components/WelcomeModal"), { ssr: false, loading: () => null });
@@ -520,14 +520,14 @@ function ShellInner({
     { id: "notes", label: "Notes", icon: <StickyNote size={17} strokeWidth={1.9} />, action: () => router.push("/notes") },
     { id: "bugs", label: "Bugs", icon: <Bug size={17} strokeWidth={1.9} />, action: () => router.push("/bugs") },
     { id: "databases", label: "DBs", icon: <Table2 size={17} strokeWidth={1.9} />, action: () => router.push("/databases") },
-    { id: "marketing", label: "Mktg", icon: <Megaphone size={17} strokeWidth={1.9} />, action: () => router.push("/marketing") },
+    { id: "campaigns", label: "Campaigns", icon: <Target size={17} strokeWidth={1.9} />, action: () => router.push("/campaigns") },
     { id: "links", label: "Links", icon: <Link2 size={17} strokeWidth={1.9} />, action: () => router.push("/links") },
     { id: "activity", label: "Alerts", icon: <Bell size={17} strokeWidth={1.9} />, action: () => { router.push("/activity"); setShowActivity(true); setLastSeenActivity(activityLog.length); } },
     { id: "chat", label: "Chat", icon: <MessageSquare size={17} strokeWidth={1.9} />, action: () => { router.push("/chat"); setChatDefaultTab("team"); setShowChat(true); setChatNotif(null); } },
   ] satisfies { id: NavItem; label: string; icon: React.ReactNode; action: () => void }[]).filter(item => {
     if (item.id === "bugs" && currentWorkspace?.hiddenTabs?.includes("bugs")) return false;
     if (item.id === "databases" && currentWorkspace?.hiddenTabs?.includes("databases")) return false;
-    if (item.id === "marketing" && currentWorkspace?.hiddenTabs?.includes("marketing")) return false;
+    if (item.id === "campaigns" && currentWorkspace?.hiddenTabs?.includes("campaigns")) return false;
     if (item.id === "documents" && currentWorkspace?.hiddenTabs?.includes("documents")) return false;
     if (item.id === "notes" && currentWorkspace?.hiddenTabs?.includes("notes")) return false;
     return true;

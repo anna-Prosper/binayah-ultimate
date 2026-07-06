@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo, Link2, CalendarDays, Megaphone } from "lucide-react";
+import { Home, Zap, FileText, Activity, MessageSquare, Phone, Settings, StickyNote, Bug, Archive, Table2, ListTodo, Link2, CalendarDays, Target, Users2, BarChart2 } from "lucide-react";
 import { T } from "@/lib/themes";
 
-export type NavItem = "home" | "my-tasks" | "timeline" | "links" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases" | "marketing";
+export type NavItem = "home" | "my-tasks" | "timeline" | "links" | "now" | "pipelines" | "documents" | "notes" | "bugs" | "activity" | "chat" | "calls" | "archive" | "databases" | "campaigns" | "content-calendar" | "leads" | "monthly-metrics";
 
 export interface SidebarPipeline {
   id: string;
@@ -59,7 +59,10 @@ export const NAV_HREFS: Record<NavItem, string> = {
   calls: "/calls",
   archive: "/archive",
   databases: "/databases",
-  marketing: "/marketing",
+  campaigns: "/campaigns",
+  "content-calendar": "/content-calendar",
+  leads: "/leads",
+  "monthly-metrics": "/monthly-metrics",
 };
 
 export function navItemFromPathname(pathname: string): NavItem {
@@ -76,7 +79,10 @@ export function navItemFromPathname(pathname: string): NavItem {
   if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/calls")) return "calls";
   if (pathname.startsWith("/databases")) return "databases";
-  if (pathname.startsWith("/marketing")) return "marketing";
+  if (pathname.startsWith("/campaigns")) return "campaigns";
+  if (pathname.startsWith("/content-calendar")) return "content-calendar";
+  if (pathname.startsWith("/leads")) return "leads";
+  if (pathname.startsWith("/monthly-metrics")) return "monthly-metrics";
   return "home";
 }
 
@@ -86,9 +92,12 @@ const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "documents",  label: "documents"  },
   { id: "notes",      label: "notes"      },
   { id: "bugs",       label: "testing"    },
-  { id: "databases",  label: "databases"  },
-  { id: "marketing",  label: "marketing"  },
-  { id: "activity",   label: "activity"   },
+  { id: "databases",       label: "databases"       },
+  { id: "campaigns",       label: "campaigns"       },
+  { id: "content-calendar", label: "content calendar" },
+  { id: "leads",           label: "leads"           },
+  { id: "monthly-metrics", label: "monthly metrics" },
+  { id: "activity",        label: "activity"        },
   { id: "timeline",   label: "timeline"   },
   { id: "archive",    label: "archive"    },
   { id: "chat",       label: "chat"       },
@@ -105,7 +114,10 @@ const NAV_ICONS: Record<string, React.ReactNode> = {
   notes: <StickyNote size={15} strokeWidth={1.8} />,
   bugs: <Bug size={15} strokeWidth={1.8} />,
   databases: <Table2 size={15} strokeWidth={1.8} />,
-  marketing: <Megaphone size={15} strokeWidth={1.8} />,
+  campaigns: <Target size={15} strokeWidth={1.8} />,
+  "content-calendar": <CalendarDays size={15} strokeWidth={1.8} />,
+  leads: <Users2 size={15} strokeWidth={1.8} />,
+  "monthly-metrics": <BarChart2 size={15} strokeWidth={1.8} />,
   activity: <Activity size={15} strokeWidth={1.8} />,
   archive: <Archive size={15} strokeWidth={1.8} />,
   chat: <MessageSquare size={15} strokeWidth={1.8} />,

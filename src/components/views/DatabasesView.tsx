@@ -12,6 +12,8 @@ const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗"
 
 interface Props {
   currentWorkspaceId: string | null;
+  /** If set, auto-opens the database with this name on mount (skips the list view). */
+  openDbName?: string;
 }
 
 // Status pill color mapping
@@ -1096,7 +1098,7 @@ function TableView({
   );
 }
 
-export default function DatabasesView({ currentWorkspaceId }: Props) {
+export default function DatabasesView({ currentWorkspaceId, openDbName }: Props) {
   const {
     t, users, databases,
     createDatabase, updateDatabase, deleteDatabase,
@@ -1141,6 +1143,13 @@ export default function DatabasesView({ currentWorkspaceId }: Props) {
   );
   const wsDbs = databases.filter(db => db.workspaceId === wsId);
   const selectedDb = wsDbs.find(db => db.id === selectedDbId) || null;
+
+  // Auto-open a specific DB by name when navigating from a dedicated nav tab
+  useEffect(() => {
+    if (!openDbName || selectedDbId !== null || wsDbs.length === 0) return;
+    const target = wsDbs.find(db => db.name.toLowerCase() === openDbName.toLowerCase());
+    if (target) selectDb(target.id);
+  }, [openDbName, wsDbs, selectedDbId, selectDb]);
 
   const handleCreate = useCallback((name: string, icon: string) => {
     createDatabase(wsId, name, icon);
