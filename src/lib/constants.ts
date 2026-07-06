@@ -35,7 +35,7 @@ export const MS_PER_DAY = 86_400_000;
 export const MAX_SUBTASKS_PER_STAGE = 20;
 
 /** Max characters per subtask text. */
-export const MAX_SUBTASK_TEXT_LEN = 200;
+export const MAX_SUBTASK_TEXT_LEN = 500;
 
 /** Max characters in note/bug body fields. */
 export const MAX_BODY_TEXT_LEN = 5_000;
