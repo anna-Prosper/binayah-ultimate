@@ -158,3 +158,61 @@ describe("non-classified slices (users, workspaces)", () => {
     expect(next.users).toEqual([{ id: "usama" }]);
   });
 });
+
+// ── Databases: row-level merge (guards against multi-user row clobber) ─────────
+
+describe("databases row-level merge", () => {
+  const db = (rows: { id: number; v: string }[], extra: object = {}) => ({
+    id: 1, name: "Content", columns: [{ id: "c1", name: "V" }], rows, ...extra,
+  });
+
+  it("a stale tab missing new rows does NOT erase them (the Deepshikha bug)", () => {
+    // Server has 3 rows (someone just added row 3). Stale tab still has rows 1-2.
+    const current = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "new" }])] };
+    const patch = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }])] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { rows: { id: number }[] }[] };
+    expect(next.databases[0].rows.map(r => r.id)).toEqual([1, 2, 3]);
+  });
+
+  it("concurrent additions from two tabs both survive", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }, { id: 9, v: "tabA-add" }])] };
+    const patch = { databases: [db([{ id: 1, v: "a" }, { id: 8, v: "tabB-add" }])] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { rows: { id: number }[] }[] };
+    expect(next.databases[0].rows.map(r => r.id).sort()).toEqual([1, 8, 9]);
+  });
+
+  it("editing a row's cell updates in place, preserving order", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "c" }])] };
+    const patch = { databases: [db([{ id: 2, v: "EDITED" }])] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { rows: { id: number; v: string }[] }[] };
+    expect(next.databases[0].rows).toEqual([{ id: 1, v: "a" }, { id: 2, v: "EDITED" }, { id: 3, v: "c" }]);
+  });
+
+  it("row removal propagates via _deletes (dbId::rowId)", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "c" }])] };
+    const patch = { databases: [db([{ id: 1, v: "a" }, { id: 3, v: "c" }])] };
+    const next = mergeStateWithPatch(current, patch, { databases: ["1::2"] }) as { databases: { rows: { id: number }[] }[] };
+    expect(next.databases[0].rows.map(r => r.id)).toEqual([1, 3]);
+  });
+
+  it("whole-database removal via bare id in _deletes", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }]), { id: 2, name: "Other", rows: [] }] };
+    const patch = { databases: [] as unknown[] };
+    const next = mergeStateWithPatch(current, patch, { databases: ["2"] }) as { databases: { id: number }[] };
+    expect(next.databases.map(d => d.id)).toEqual([1]);
+  });
+
+  it("a new database is added wholesale", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }])] };
+    const patch = { databases: [{ id: 5, name: "Brand New", columns: [], rows: [{ id: 1, v: "x" }] }] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { id: number }[] };
+    expect(next.databases.map(d => d.id).sort()).toEqual([1, 5]);
+  });
+
+  it("does not blank columns when patch omits them", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }])] };
+    const patch = { databases: [{ id: 1, name: "Content", rows: [{ id: 1, v: "a2" }] }] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { columns: unknown[] }[] };
+    expect(next.databases[0].columns).toEqual([{ id: "c1", name: "V" }]);
+  });
+});

@@ -69,6 +69,56 @@ function mergeReactionsMap(
   return out;
 }
 
+/**
+ * Merge the `databases` slice by database id AND by row/column id inside each
+ * database. Databases are ARRAY_BY_ID items, but their `rows` array is edited
+ * concurrently by multiple users. Wholesale-replacing a database by id (the old
+ * mergeArrayById behaviour) let any stale tab's save overwrite rows another user
+ * had just added — silent, unrecoverable data loss. Here we keep every existing
+ * row/column whose id the patch doesn't mention, so disjoint edits never clobber.
+ * Row/column REMOVALS must flow through `_deletes` (keys `${dbId}::${rowId}`),
+ * exactly like subtasks — a merge alone can never delete.
+ */
+type DbLike = { id: number | string; rows?: ItemWithId[]; columns?: ItemWithId[] } & Record<string, unknown>;
+function mergeItemsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWithId[] {
+  const existingById = new Map(existing.map(r => [String(r.id), r]));
+  const incomingById = new Map(incoming.map(r => [String(r.id), r]));
+  // Preserve existing order; update values in place for ids present in the patch.
+  const merged: ItemWithId[] = existing.map(r => incomingById.get(String(r.id)) ?? r);
+  // Append incoming items that are new (not already present).
+  for (const r of incoming) if (!existingById.has(String(r.id))) merged.push(r);
+  return merged;
+}
+function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
+  const out: DbLike[] = [...current];
+  const idxById = new Map<string, number>();
+  out.forEach((d, i) => idxById.set(String(d.id), i));
+  for (const incoming of patch) {
+    const key = String(incoming.id);
+    const existingIdx = idxById.get(key);
+    if (existingIdx === undefined) {
+      idxById.set(key, out.length);
+      out.push(incoming);
+      continue;
+    }
+    const existing = out[existingIdx];
+    const existingRows = Array.isArray(existing.rows) ? existing.rows : [];
+    const incomingRows = Array.isArray(incoming.rows) ? incoming.rows : [];
+    const existingCols = Array.isArray(existing.columns) ? existing.columns : [];
+    const incomingCols = Array.isArray(incoming.columns) ? incoming.columns : [];
+    out[existingIdx] = {
+      ...existing,
+      ...incoming,
+      rows: mergeItemsById(existingRows, incomingRows),
+      // Only merge columns when the patch carries them; never blank them out.
+      columns: incomingCols.length || existingCols.length
+        ? mergeItemsById(existingCols, incomingCols)
+        : existing.columns,
+    };
+  }
+  return out;
+}
+
 function mergeMapSlice(
   current: Record<string, unknown>,
   patch: Record<string, unknown>,
@@ -123,6 +173,26 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
       continue;
     }
 
+    // Special: databases accepts `${dbId}::${rowId}` to drop a single row (mirrors
+    // subtasks), or a bare `${dbId}` to drop a whole database.
+    if (field === "databases") {
+      const dbs = Array.isArray(out.databases) ? [...(out.databases as DbLike[])] : [];
+      const dropWholeDb = new Set<string>();
+      for (const key of keys) {
+        const str = String(key);
+        const sep = str.indexOf("::");
+        if (sep === -1) { dropWholeDb.add(str); continue; }
+        const dbId = str.slice(0, sep);
+        const rowId = str.slice(sep + 2);
+        const idx = dbs.findIndex(d => String(d.id) === dbId);
+        if (idx === -1) continue;
+        const rows = Array.isArray(dbs[idx].rows) ? dbs[idx].rows as ItemWithId[] : [];
+        dbs[idx] = { ...dbs[idx], rows: rows.filter(r => String(r.id) !== rowId) };
+      }
+      out.databases = dbs.filter(d => !dropWholeDb.has(String(d.id)));
+      continue;
+    }
+
     if (MAP_SLICE_KEYS.has(field)) {
       const map = isObject(out[field]) ? { ...(out[field] as Record<string, unknown>) } : {};
       for (const key of keys) {
@@ -173,6 +243,12 @@ export function mergeStateWithPatch(
     if (k === "reactions" && isObject(v)) {
       const cur = isObject(next.reactions) ? next.reactions as Record<string, Record<string, string[]>> : {};
       next.reactions = mergeReactionsMap(cur, v);
+      continue;
+    }
+    // Special-case: databases needs inner-row/column merge by id (not whole-db replace).
+    if (k === "databases" && Array.isArray(v)) {
+      const cur = Array.isArray(next.databases) ? next.databases as DbLike[] : [];
+      next.databases = mergeDatabasesById(cur, v as DbLike[]);
       continue;
     }
     if (MAP_SLICE_KEYS.has(k) && isObject(v)) {
