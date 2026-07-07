@@ -5,7 +5,10 @@ import { useModel } from "@/lib/contexts/ModelContext";
 import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash } from "lucide-react";
+// Brand/platform logos — lucide (this version) has no brand icons, so these come
+// from Font Awesome's brand set via react-icons.
+import { FaInstagram, FaYoutube, FaLinkedin, FaFacebook, FaXTwitter, FaTiktok, FaReddit, FaWhatsapp } from "react-icons/fa6";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗","💾","🧾","📌","📍","🔐","💼","🏢","🌐","🎯","⚡","🔬","🔍","📡","🧪","🏗️","🤖","🎨","✅","⏰","🟢","🔴","🟡","🟣","💎","🚀","🧠","🔥"];
@@ -30,22 +33,25 @@ function statusColor(value: string, t: ReturnType<typeof useModel>["t"]) {
   return t.textMuted;
 }
 
-// Emoji glyph for a platform / channel value — shown on calendar chips so the
-// medium is scannable at a glance.
-function platformIcon(value: string): string {
+// Lucide icon for a platform / channel value — shown on calendar chips so the
+// medium is scannable at a glance. Uses the same icon set as the rest of the
+// dashboard (no emoji). Returns null for empty values.
+function PlatformIcon({ value, size = 14, color }: { value: string; size?: number; color?: string }) {
   const v = value.trim().toLowerCase();
-  if (!v) return "";
-  if (v.includes("instagram") || v === "ig") return "📸";
-  if (v.includes("youtube") || v === "yt") return "▶️";
-  if (v.includes("tiktok")) return "🎵";
-  if (v.includes("linkedin")) return "💼";
-  if (v.includes("facebook") || v === "fb") return "📘";
-  if (v.includes("twitter") || v === "x") return "𝕏";
-  if (v.includes("reddit")) return "👽";
-  if (v.includes("whatsapp")) return "💬";
-  if (v.includes("email") || v.includes("newsletter") || v.includes("mail")) return "✉️";
-  if (v.includes("blog") || v.includes("website") || v.includes("web")) return "🌐";
-  return "•";
+  if (!v) return null;
+  const brand = { size, color };
+  if (v.includes("instagram") || v === "ig") return <FaInstagram {...brand} />;
+  if (v.includes("youtube") || v === "yt") return <FaYoutube {...brand} />;
+  if (v.includes("tiktok")) return <FaTiktok {...brand} />;
+  if (v.includes("linkedin")) return <FaLinkedin {...brand} />;
+  if (v.includes("facebook") || v === "fb") return <FaFacebook {...brand} />;
+  if (v.includes("twitter") || v === "x") return <FaXTwitter {...brand} />;
+  if (v.includes("reddit")) return <FaReddit {...brand} />;
+  if (v.includes("whatsapp")) return <FaWhatsapp {...brand} />;
+  // Website / email are well covered by the dashboard's own lucide set.
+  if (v.includes("email") || v.includes("newsletter") || v.includes("mail")) return <Mail size={size} color={color} strokeWidth={2} />;
+  if (v.includes("blog") || v.includes("website") || v.includes("web")) return <Globe size={size} color={color} strokeWidth={2} />;
+  return <Hash size={size} color={color} strokeWidth={2} />;
 }
 
 // Pick the columns that drive the calendar rendering. Heuristic by type + name so
@@ -803,7 +809,7 @@ function RowDetailCard({
           options={[{ value: "", label: "—" }, ...(col.options || []).map(o => ({ value: o, label: o }))]}
           t={t}
           renderLeft={isPlatform
-            ? (val) => (val ? <span style={{ width: 18, textAlign: "center", flexShrink: 0 }}>{platformIcon(val)}</span> : null)
+            ? (val) => (val ? <span style={{ display: "inline-flex", width: 18, justifyContent: "center", flexShrink: 0, color: t.textSec }}><PlatformIcon value={val} size={15} /></span> : null)
             : (val) => <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: val ? statusColor(val, t) : t.border, display: "inline-block" }} />}
           onChange={x => set(col.id, x)}
         />
@@ -928,7 +934,7 @@ function CalendarView({
 
   const chip = (r: DbRow, opts?: { block?: boolean }) => {
     const color = statusCol ? statusColor(r.values[statusCol.id] || "", t) : t.accent;
-    const icon = platformCol ? platformIcon(r.values[platformCol.id] || "") : "";
+    const platformVal = platformCol ? r.values[platformCol.id] || "" : "";
     const title = r.values[titleCol.id] || "(untitled)";
     return (
       <div
@@ -946,7 +952,7 @@ function CalendarView({
           width: opts?.block ? "100%" : undefined,
         }}
       >
-        {icon && <span style={{ flexShrink: 0 }}>{icon}</span>}
+        {platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
       </div>
     );
@@ -1036,7 +1042,7 @@ function CalendarView({
             <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 260, overflowY: "auto" }}>
               {unscheduled.map(r => {
                 const color = statusCol ? statusColor(r.values[statusCol.id] || "", t) : t.accent;
-                const icon = platformCol ? platformIcon(r.values[platformCol.id] || "") : "";
+                const platformVal = platformCol ? r.values[platformCol.id] || "" : "";
                 const title = r.values[titleCol.id] || "(untitled)";
                 const typeVal = typeCol ? r.values[typeCol.id] : "";
                 const statusVal = statusCol ? r.values[statusCol.id] : "";
@@ -1052,7 +1058,7 @@ function CalendarView({
                       borderRadius: 8, padding: "7px 10px", minWidth: 0,
                     }}
                   >
-                    {icon && <span style={{ flexShrink: 0 }}>{icon}</span>}
+                    {platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color: t.textSec }}><PlatformIcon value={platformVal} size={14} /></span>}
                     <span
                       onClick={() => openEdit(r)}
                       title={title}
