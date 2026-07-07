@@ -461,37 +461,49 @@ export function ModelProvider({
   // server rows to compute those keys, exactly like serverSubtaskKeysRef.
   const serverDbRowKeysRef = useRef<Set<string>>(new Set());
 
-  const recordServerKeys = useCallback((s: Partial<SharedState>) => {
+  // `protectedSlice` marks slices that mergePatch did NOT apply to local state
+  // (a recent local write is protecting them). We must NOT record server keys for
+  // those, because local doesn't reflect the server for them — recording would let
+  // the next delete-diff see "server has these, local doesn't" and emit a spurious
+  // delete-everything, wiping the slice. Skipping keeps serverKeysRef untouched
+  // until a later poll actually applies the slice (protection window expired).
+  const recordServerKeys = useCallback((s: Partial<SharedState>, protectedSlice?: (slice: string) => boolean) => {
+    const skip = (slice: string) => protectedSlice?.(slice) === true;
     for (const slice of MAP_SLICES) {
+      if (skip(slice)) continue;
       const v = (s as Record<string, unknown>)[slice];
       if (v && typeof v === "object" && !Array.isArray(v)) {
         serverKeysRef.current[slice] = new Set(Object.keys(v as Record<string, unknown>));
       }
     }
     for (const slice of ARRAY_BY_ID_SLICES) {
+      if (skip(slice)) continue;
       const v = (s as Record<string, unknown>)[slice];
       if (Array.isArray(v)) {
         serverKeysRef.current[slice] = new Set((v as { id: number | string }[]).map(i => String(i.id)));
       }
     }
     for (const slice of SET_SLICES) {
+      if (skip(slice)) continue;
       const v = (s as Record<string, unknown>)[slice];
       if (Array.isArray(v)) {
         serverKeysRef.current[slice] = new Set(v as string[]);
       }
     }
-    // owners merges legacy claims/assignments — record their keys too.
-    const ownerKeys = new Set<string>(serverKeysRef.current.owners ?? []);
-    for (const legacy of ["claims", "assignments"] as const) {
-      const v = (s as Record<string, unknown>)[legacy];
-      if (v && typeof v === "object" && !Array.isArray(v)) {
-        for (const k of Object.keys(v as Record<string, unknown>)) ownerKeys.add(k);
+    // owners merges legacy claims/assignments — record their keys too (unless protected).
+    if (!skip("owners")) {
+      const ownerKeys = new Set<string>(serverKeysRef.current.owners ?? []);
+      for (const legacy of ["claims", "assignments"] as const) {
+        const v = (s as Record<string, unknown>)[legacy];
+        if (v && typeof v === "object" && !Array.isArray(v)) {
+          for (const k of Object.keys(v as Record<string, unknown>)) ownerKeys.add(k);
+        }
       }
+      if (ownerKeys.size > 0) serverKeysRef.current.owners = ownerKeys;
     }
-    if (ownerKeys.size > 0) serverKeysRef.current.owners = ownerKeys;
 
     // Subtasks: per (stage, subtaskId) so a stale tab can't drop another tab's add.
-    if (s.subtasks && typeof s.subtasks === "object") {
+    if (!skip("subtasks") && s.subtasks && typeof s.subtasks === "object") {
       const set = new Set<string>();
       for (const [stage, list] of Object.entries(s.subtasks as Record<string, { id: number }[]>)) {
         if (Array.isArray(list)) for (const item of list) set.add(`${stage}::${item.id}`);
@@ -502,7 +514,7 @@ export function ModelProvider({
     }
 
     // Databases: per (dbId, rowId) so a stale tab can't drop another tab's row.
-    if (Array.isArray((s as Record<string, unknown>).databases)) {
+    if (!skip("databases") && Array.isArray((s as Record<string, unknown>).databases)) {
       const set = new Set<string>();
       for (const db of (s as { databases: { id: number | string; rows?: { id: number | string }[] }[] }).databases) {
         if (Array.isArray(db.rows)) for (const r of db.rows) set.add(`${db.id}::${r.id}`);
@@ -755,9 +767,17 @@ export function ModelProvider({
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
+    // The FIRST hydrate is authoritative. Any "local write protection" recorded so
+    // far comes from mount-time init effects (e.g. ensuring the marketing
+    // workspace), not real user edits — so clear it. Otherwise a protected slice is
+    // skipped below, local keeps its empty/partial init value, and the next sync
+    // pushes that partial state back and WIPES the server for that slice.
+    if (isInitialHydrateRef.current) localWritesRef.current = {};
     // Snapshot what keys exist on the server right now — used to detect
-    // local deletions on the next scheduleWrite.
-    recordServerKeys(s);
+    // local deletions on the next scheduleWrite. Skip protected slices: those
+    // aren't applied to local below, so recording their server keys would make
+    // the next delete-diff wipe them.
+    recordServerKeys(s, isProtected);
 
     // Conflict detection: if any protected slice has incoming server keys whose
     // values differ from our local values, a teammate edited the same place
