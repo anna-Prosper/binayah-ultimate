@@ -89,14 +89,12 @@ export function navItemFromPathname(pathname: string): NavItem {
 // Home is rendered separately at the top
 const WORKSPACE_NAV_ITEMS: { id: NavItem; label: string }[] = [
   { id: "pipelines",  label: "pipelines"  },
+  { id: "content-calendar", label: "content calendar" },
   { id: "documents",  label: "documents"  },
   { id: "notes",      label: "notes"      },
   { id: "bugs",       label: "testing"    },
   { id: "databases",       label: "databases"       },
   { id: "campaigns",       label: "campaigns"       },
-  { id: "content-calendar", label: "content calendar" },
-  { id: "leads",           label: "leads"           },
-  { id: "monthly-metrics", label: "monthly metrics" },
   { id: "activity",        label: "activity"        },
   { id: "timeline",   label: "timeline"   },
   { id: "archive",    label: "archive"    },

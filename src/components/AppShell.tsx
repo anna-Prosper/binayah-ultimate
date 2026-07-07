@@ -469,8 +469,8 @@ function ShellInner({
         hiddenNavItems={[
           ...(canSeeCalls ? [] : ["calls" as NavItem]),
           ...((currentWorkspace?.hiddenTabs ?? []) as NavItem[]),
-          // Marketing DB tabs live only inside the Marketing Hub workspace.
-          ...(currentWorkspaceId === "marketing" ? [] : (["campaigns", "content-calendar", "leads", "monthly-metrics"] as NavItem[])),
+          // Marketing tabs live only inside the Marketing Hub workspace.
+          ...(currentWorkspaceId === "marketing" ? [] : (["campaigns", "content-calendar"] as NavItem[])),
         ]}
       />
     </div>

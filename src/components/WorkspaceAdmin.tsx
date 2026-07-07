@@ -100,8 +100,6 @@ const BASE_TABS = [
 const MARKETING_TABS = [
   { id: "campaigns", label: "campaigns" },
   { id: "content-calendar", label: "content calendar" },
-  { id: "leads", label: "leads" },
-  { id: "monthly-metrics", label: "monthly metrics" },
 ];
 
 export function ManageWorkspaceModal({ t, users, workspace, currentUser, onAddMember, onRemoveMember, onSetRank, onDelete, onUpdateHiddenTabs, onClose }: ManageProps) {
