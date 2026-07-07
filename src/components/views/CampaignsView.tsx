@@ -47,6 +47,8 @@ export default function CampaignsView() {
   const ws = workspaces.find(w => w.id === WS_ID);
   const canEdit = !!currentUser && (ADMIN_IDS.includes(currentUser) || ws?.members.includes(currentUser) === true || ws?.captains.includes(currentUser) === true);
   const [editing, setEditing] = useState<{ mode: "create" | "edit"; row?: DbRow } | null>(null);
+  const [dragId, setDragId] = useState<number | null>(null);
+  const [dragOver, setDragOver] = useState<string | null>(null);
 
   const rows = useMemo(() => db?.rows ?? [], [db]);
   const stats = useMemo(() => {
@@ -113,7 +115,11 @@ export default function CampaignsView() {
           const col = rows.filter(r => (r.values[C.status] || "Planning").toLowerCase() === status.toLowerCase());
           const sc = statusColor(status, t);
           return (
-            <div key={status} style={{ background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 14, padding: 10, minHeight: 120 }}>
+            <div key={status}
+              onDragOver={e => { if (dragId != null) { e.preventDefault(); setDragOver(status); } }}
+              onDragLeave={() => setDragOver(o => (o === status ? null : o))}
+              onDrop={() => { if (dragId != null) { updateDbRow(db.id, dragId, { [C.status]: status }); setDragId(null); setDragOver(null); } }}
+              style={{ background: dragOver === status ? t.accent + "12" : t.bgSoft, border: `1px solid ${dragOver === status ? t.accent : t.border}`, borderRadius: 14, padding: 10, minHeight: 120, transition: "background .12s ease, border-color .12s ease" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10, paddingLeft: 2 }}>
                 <span style={{ width: 9, height: 9, borderRadius: "50%", background: sc }} />
                 <span style={{ fontSize: 12, fontWeight: 800, color: t.text, textTransform: "uppercase", letterSpacing: "0.04em" }}>{status}</span>
@@ -129,8 +135,13 @@ export default function CampaignsView() {
                   const owner = users.find(u => u.id === r.values[C.owner]);
                   const cc = channelColor(channel, t);
                   return (
-                    <div key={r.id} onClick={() => canEdit && setEditing({ mode: "edit", row: r })}
-                      style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderLeft: `3px solid ${sc}`, borderRadius: 10, padding: 11, cursor: canEdit ? "pointer" : "default", display: "flex", flexDirection: "column", gap: 8 }}>
+                    <div key={r.id}
+                      draggable={canEdit}
+                      onDragStart={() => setDragId(r.id)}
+                      onDragEnd={() => { setDragId(null); setDragOver(null); }}
+                      onClick={() => canEdit && setEditing({ mode: "edit", row: r })}
+                      title={canEdit ? "Click to edit · drag to change status" : undefined}
+                      style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderLeft: `3px solid ${sc}`, borderRadius: 10, padding: 11, cursor: canEdit ? "pointer" : "default", opacity: dragId === r.id ? 0.5 : 1, display: "flex", flexDirection: "column", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 6 }}>
                         <span style={{ fontSize: 13, fontWeight: 700, color: t.text, flex: 1, lineHeight: 1.3 }}>{r.values[C.name] || "(untitled)"}</span>
                         {owner && <AvatarC user={owner} size={22} />}
