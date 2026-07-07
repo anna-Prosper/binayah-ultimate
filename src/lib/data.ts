@@ -535,7 +535,7 @@ export function normalizeStageStatus(status: string | null | undefined): StageSt
 export interface DbColumn {
   id: string;   // e.g. "col_1234"
   name: string;
-  type: "text" | "url" | "date" | "status" | "user" | "number";
+  type: "text" | "url" | "date" | "time" | "status" | "user" | "number";
   width?: number;
   options?: string[]; // for status columns
 }
