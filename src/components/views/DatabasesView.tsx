@@ -13,6 +13,10 @@ import { useIsMobile } from "@/hooks/useIsMobile";
 
 const DB_EMOJIS = ["🗃️","📊","📋","📁","🗂️","📈","📉","🔗","💾","🧾","📌","📍","🔐","💼","🏢","🌐","🎯","⚡","🔬","🔍","📡","🧪","🏗️","🤖","🎨","✅","⏰","🟢","🔴","🟡","🟣","💎","🚀","🧠","🔥"];
 
+// A shoot is a production event with its own lifecycle, distinct from content
+// publication states. These drive the status dropdown for shoot entries.
+const SHOOT_STATUSES = ["Planned", "Confirmed", "Shot", "Done"];
+
 interface Props {
   currentWorkspaceId: string | null;
   /** If set, auto-opens the database with this name on mount (skips the list view). */
@@ -24,9 +28,10 @@ interface Props {
 function statusColorOrNull(value: string, t: ReturnType<typeof useModel>["t"]): string | null {
   const v = value.trim().toLowerCase();
   if (["active", "live", "published", "posted", "done", "complete", "completed", "shipped", "new"].includes(v)) return t.green;
-  if (["scheduled", "planned", "ready", "approved", "queued", "in-progress", "in progress"].includes(v)) return t.cyan;
-  if (["draft", "pending", "wip", "writing"].includes(v)) return t.amber;
+  if (["scheduled", "ready", "approved", "queued", "in-progress", "in progress", "confirmed"].includes(v)) return t.cyan;
+  if (["draft", "pending", "wip", "writing", "planned"].includes(v)) return t.amber;
   if (["review", "in-review", "in review", "revision", "revisions"].includes(v)) return t.orange;
+  if (["shot", "captured", "filming", "recording", "editing"].includes(v)) return t.purple;
   if (["blocked", "cancelled", "canceled", "rejected"].includes(v)) return t.red;
   if (["archived", "old", "someday"].includes(v)) return t.slate;
   if (["idea", "concept", "backlog", "todo"].includes(v)) return t.textMuted;
@@ -848,12 +853,15 @@ function RowDetailCard({
     const v = vals[col.id] || "";
     if (col.type === "status") {
       // Platform-type status columns get a leading platform glyph; other status
-      // columns get a status color dot.
+      // columns get a status color dot. A shoot's status column offers shoot-stage
+      // options (production lifecycle) rather than the content publication states.
       const isPlatform = /platform|channel|network/.test(col.name.toLowerCase());
+      const isShootStatus = isShootEntry && col.id === cc.statusCol?.id;
+      const opts = isShootStatus ? SHOOT_STATUSES : (col.options || []);
       return (
         <PickerField
           value={v}
-          options={[{ value: "", label: "—" }, ...(col.options || []).map(o => ({ value: o, label: o }))]}
+          options={[{ value: "", label: "—" }, ...opts.map(o => ({ value: o, label: o }))]}
           t={t}
           renderLeft={isPlatform
             ? (val) => (val ? <span style={{ display: "inline-flex", width: 18, justifyContent: "center", flexShrink: 0, color: t.textSec }}><PlatformIcon value={val} size={15} /></span> : null)
