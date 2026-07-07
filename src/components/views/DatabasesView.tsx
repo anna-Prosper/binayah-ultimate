@@ -1183,6 +1183,8 @@ function CalendarView({
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
+  const [hoverDay, setHoverDay] = useState<string | null>(null);
+  const [hoverChip, setHoverChip] = useState<number | null>(null);
 
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const todayStr = ymd(new Date());
@@ -1260,14 +1262,19 @@ function CalendarView({
         draggable={canEdit}
         onDragStart={() => setDragId(r.id)}
         onDragEnd={() => { setDragId(null); setDragOver(null); }}
+        onMouseEnter={() => setHoverChip(r.id)}
+        onMouseLeave={() => setHoverChip(c => (c === r.id ? null : c))}
         onClick={e => { e.stopPropagation(); openEdit(r); }}
         title={time ? `${formatTime(time)} · ${title}` : title}
         style={{
           display: "flex", alignItems: "center", gap: 4,
-          background: color + "22", borderLeft: `3px solid ${color}`,
-          borderRadius: 5, padding: "2px 5px", fontSize: 11, lineHeight: 1.3,
+          background: color + (hoverChip === r.id ? "33" : "22"),
+          borderLeft: `3px solid ${color}`,
+          borderRadius: 6, padding: "3px 6px", fontSize: 11, lineHeight: 1.3,
           color: t.text, cursor: "pointer", whiteSpace: "nowrap", overflow: "hidden",
           width: opts?.block ? "100%" : undefined,
+          boxShadow: hoverChip === r.id ? `0 1px 5px ${color}44` : "none",
+          transition: "background .1s ease, box-shadow .1s ease",
         }}
       >
         {shoot
@@ -1324,19 +1331,25 @@ function CalendarView({
             <div
               key={i}
               onClick={() => openCreate(ds)}
+              onMouseEnter={() => canEdit && setHoverDay(ds)}
+              onMouseLeave={() => setHoverDay(o => (o === ds ? null : o))}
               onDragOver={e => { if (dragId != null) { e.preventDefault(); setDragOver(ds); } }}
               onDragLeave={() => setDragOver(o => (o === ds ? null : o))}
               onDrop={() => { if (dragId != null) { onUpdateRow(dragId, { [dateCol.id]: ds }); setDragId(null); setDragOver(null); } }}
               style={{
-                minHeight: isMobile ? 78 : 108,
-                background: dragOver === ds ? t.accent + "18" : inMonth ? t.bgCard : t.bgSoft,
-                border: `1px solid ${dragOver === ds ? t.accent : t.border}`,
-                borderRadius: 8, padding: 5, display: "flex", flexDirection: "column", gap: 3,
-                cursor: canEdit ? "pointer" : "default", opacity: inMonth ? 1 : 0.5,
+                minHeight: isMobile ? 80 : 110,
+                background: dragOver === ds ? t.accent + "22" : hoverDay === ds ? (t.bgHover || t.bgSoft) : inMonth ? t.bgCard : t.bgSoft,
+                border: `1px solid ${dragOver === ds ? t.accent : hoverDay === ds ? t.accent + "66" : t.border}`,
+                borderRadius: 10, padding: 6, display: "flex", flexDirection: "column", gap: 3,
+                cursor: canEdit ? "pointer" : "default", opacity: inMonth ? 1 : 0.45,
                 boxShadow: isToday ? `inset 0 0 0 1.5px ${t.accent}` : "none",
+                transition: "background .12s ease, border-color .12s ease",
               }}
             >
-              <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", minHeight: 18 }}>
+                {canEdit && hoverDay === ds && dayRows.length === 0
+                  ? <Plus size={13} style={{ color: t.accent }} />
+                  : <span />}
                 <span style={{
                   fontSize: 11, fontWeight: isToday ? 800 : 600,
                   color: isToday ? "#fff" : inMonth ? t.textMuted : t.textDim,
@@ -1412,13 +1425,9 @@ function CalendarView({
                     )}
                     <div style={{ flex: 1 }} />
                     {canEdit && (
-                      <input
-                        type="date"
-                        value=""
-                        onChange={e => { if (e.target.value) onUpdateRow(r.id, { [dateCol.id]: e.target.value }); }}
-                        title="Schedule this entry"
-                        style={{ flexShrink: 0, background: t.surface, color: t.textMuted, border: `1px solid ${t.border}`, borderRadius: 6, padding: "3px 6px", fontSize: 11, outline: "none", fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", maxWidth: 140 }}
-                      />
+                      <div style={{ flexShrink: 0, width: 150 }}>
+                        <DatePickerField value="" t={t} onChange={ds => { if (ds) onUpdateRow(r.id, { [dateCol.id]: ds }); }} />
+                      </div>
                     )}
                   </div>
                 );
@@ -1429,13 +1438,16 @@ function CalendarView({
       })()}
 
       {/* Legend */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginTop: 14, fontSize: 10, color: t.textMuted }}>
-        {statusCol && [...new Set((statusCol.options || []))].map(s => (
-          <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <span style={{ width: 8, height: 8, borderRadius: 2, background: statusColor(s, t) }} /> {s}
-          </span>
-        ))}
-      </div>
+      {statusCol && (
+        <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, marginTop: 16, paddingTop: 12, borderTop: `1px solid ${t.border}`, fontSize: 10, fontWeight: 600, color: t.textMuted }}>
+          <span style={{ textTransform: "uppercase", letterSpacing: "0.06em", color: t.textDim }}>status</span>
+          {[...new Set((statusCol.options || []))].map(s => (
+            <span key={s} style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
+              <span style={{ width: 9, height: 9, borderRadius: "50%", background: statusColor(s, t) }} /> {s}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Expanded-day popover */}
       {expandedDay && (
