@@ -163,6 +163,11 @@ export const ARRAY_BY_ID_SLICE_KEYS = new Set([
   "usefulLinks",
   "customPipelines",
   "databases",
+  // Identity-critical lists: merge by id (keep-existing) instead of wholesale
+  // replace, so a stale/partial client can never shrink them. Real removals go
+  // through an explicit _deletes (guarded by the mass-delete backstop).
+  "workspaces",
+  "users",
 ]);
 
 /** Set-like arrays (string lists treated as a set). Merged via union;

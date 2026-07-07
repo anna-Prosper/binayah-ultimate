@@ -446,7 +446,7 @@ export function ModelProvider({
     "notifReads", "notifDismissed", "notifReadIds", "inboxStageWorkspace",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
-    "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases",
+    "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases", "workspaces",
   ] as const, []);
   const SET_SLICES = useMemo(() => [
     "approvedStages", "approvedSubtasks", "approvedPipelines",
