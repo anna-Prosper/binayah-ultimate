@@ -238,8 +238,8 @@ interface ModelContextValue {
   createDatabase: (workspaceId: string, name: string, icon: string) => void;
   updateDatabase: (id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
   deleteDatabase: (id: number) => void;
-  addDbRow: (dbId: number, values?: Record<string, string>) => void;
-  updateDbRow: (dbId: number, rowId: number, values: Record<string, string>) => void;
+  addDbRow: (dbId: number, values?: Record<string, string>, attachments?: import("@/lib/data").DbAttachment[]) => void;
+  updateDbRow: (dbId: number, rowId: number, values: Record<string, string>, attachments?: import("@/lib/data").DbAttachment[]) => void;
   deleteDbRow: (dbId: number, rowId: number) => void;
   addDbColumn: (dbId: number, col: Omit<DbColumn, "id">) => void;
 
@@ -2734,25 +2734,26 @@ export function ModelProvider({
     setDatabases(prev => prev.filter(db => db.id !== id));
   }, [markLocalWrite]);
 
-  const addDbRow = useCallback((dbId: number, values: Record<string, string> = {}) => {
+  const addDbRow = useCallback((dbId: number, values: Record<string, string> = {}, attachments?: import("@/lib/data").DbAttachment[]) => {
     if (!currentUser) return;
     const row: import("@/lib/data").DbRow = {
       id: Date.now(),
       values,
       createdBy: currentUser,
       createdAt: Date.now(),
+      ...(attachments && attachments.length ? { attachments } : {}),
     };
     markLocalWrite("databases");
     flushImmediatelyRef.current = true; // adding a row is discrete — persist now
     setDatabases(prev => prev.map(db => db.id === dbId ? { ...db, rows: [...db.rows, row] } : db));
   }, [currentUser, markLocalWrite]);
 
-  const updateDbRow = useCallback((dbId: number, rowId: number, values: Record<string, string>) => {
+  const updateDbRow = useCallback((dbId: number, rowId: number, values: Record<string, string>, attachments?: import("@/lib/data").DbAttachment[]) => {
     markLocalWrite("databases");
     flushImmediatelyRef.current = true; // cell edit is a discrete committed change — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
-      return { ...db, rows: db.rows.map(r => r.id === rowId ? { ...r, values: { ...r.values, ...values } } : r) };
+      return { ...db, rows: db.rows.map(r => r.id === rowId ? { ...r, values: { ...r.values, ...values }, ...(attachments ? { attachments } : {}) } : r) };
     }));
   }, [markLocalWrite]);
 

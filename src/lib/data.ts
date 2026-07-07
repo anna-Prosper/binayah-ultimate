@@ -540,11 +540,23 @@ export interface DbColumn {
   options?: string[]; // for status columns
 }
 
+// Attachment on a database row — a link or an uploaded file/image (S3).
+// contentType "link" marks a bare URL (no upload); otherwise it's a MIME type.
+export interface DbAttachment {
+  id: string;
+  url: string;
+  name: string;
+  contentType: string;
+  size: number;
+  uploadedAt: number;
+}
+
 export interface DbRow {
   id: number;   // timestamp as id
   values: Record<string, string>; // columnId → value
   createdBy: string;
   createdAt: number;
+  attachments?: DbAttachment[];
 }
 
 export interface WorkspaceDb {

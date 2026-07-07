@@ -2,10 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
-import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
+import type { WorkspaceDb, DbColumn, DbRow, DbAttachment } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera, Paperclip, Upload, Link2, FileText, X } from "lucide-react";
 // Brand/platform logos — lucide (this version) has no brand icons, so these come
 // from Font Awesome's brand set via react-icons.
 import { FaInstagram, FaYoutube, FaLinkedin, FaFacebook, FaXTwitter, FaTiktok, FaReddit, FaWhatsapp } from "react-icons/fa6";
@@ -820,12 +820,206 @@ function PickerField({
   );
 }
 
+// On-brand date picker — a compact month grid in an in-flow popover (so it never
+// clips inside the scrollable detail card). Replaces the OS-native date control.
+function DatePickerField({ value, t, onChange }: { value: string; t: ReturnType<typeof useModel>["t"]; onChange: (v: string) => void }) {
+  const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(value || "");
+  const [open, setOpen] = useState(false);
+  const [cur, setCur] = useState(() => {
+    const base = valid ? new Date(value + "T00:00:00") : new Date();
+    return { y: base.getFullYear(), m: base.getMonth() };
+  });
+  const todayStr = ymd(new Date());
+  const first = new Date(cur.y, cur.m, 1);
+  const off = (first.getDay() + 6) % 7;
+  const cells = Array.from({ length: 42 }, (_, i) => new Date(cur.y, cur.m, 1 - off + i));
+  const monthLabel = first.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const navBtn = { background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: 3, color: t.textMuted, cursor: "pointer", display: "flex" } as const;
+  return (
+    <div data-no-close>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ background: t.surface, color: valid ? t.text : t.textDim, border: `1px solid ${open ? t.accent : t.border}`, borderRadius: 8, padding: "7px 9px", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: "inherit" }}>
+        <span>{valid ? formatDate(value) : "set date"}</span>
+        <CalendarDays size={14} style={{ color: t.textMuted }} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 4, border: `1px solid ${t.border}`, borderRadius: 10, background: t.bgCard, boxShadow: t.shadow, padding: 8 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+            <button type="button" onClick={() => setCur(c => { const m = c.m - 1; return m < 0 ? { y: c.y - 1, m: 11 } : { y: c.y, m }; })} style={navBtn}><ChevronLeft size={14} /></button>
+            <span style={{ fontSize: 12, fontWeight: 800, color: t.text }}>{monthLabel}</span>
+            <button type="button" onClick={() => setCur(c => { const m = c.m + 1; return m > 11 ? { y: c.y + 1, m: 0 } : { y: c.y, m }; })} style={navBtn}><ChevronRight size={14} /></button>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 2 }}>
+            {["M", "T", "W", "T", "F", "S", "S"].map((w, i) => (
+              <div key={i} style={{ fontSize: 9, fontWeight: 700, color: t.textMuted, textAlign: "center", padding: "2px 0" }}>{w}</div>
+            ))}
+            {cells.map((d, i) => {
+              const ds = ymd(d);
+              const inM = d.getMonth() === cur.m;
+              const isSel = valid && ds === value;
+              const isToday = ds === todayStr;
+              return (
+                <button key={i} type="button" onClick={() => { onChange(ds); setOpen(false); }}
+                  style={{ aspectRatio: "1", border: "none", borderRadius: 6, cursor: "pointer", fontSize: 12,
+                    background: isSel ? t.accent : "transparent", color: isSel ? "#fff" : inM ? t.text : t.textDim,
+                    fontWeight: isSel || isToday ? 800 : 500, boxShadow: !isSel && isToday ? `inset 0 0 0 1.5px ${t.accent}` : "none" }}>
+                  {d.getDate()}
+                </button>
+              );
+            })}
+          </div>
+          {valid && (
+            <button type="button" onClick={() => { onChange(""); setOpen(false); }}
+              style={{ marginTop: 6, width: "100%", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px", color: t.textMuted, cursor: "pointer", fontSize: 11 }}>clear</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// On-brand time picker — hour / minute (5-min steps) / AM-PM columns. Stores 24h
+// "HH:MM". Replaces the OS-native time control.
+function TimePickerField({ value, t, onChange }: { value: string; t: ReturnType<typeof useModel>["t"]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const m = /^(\d{1,2}):(\d{2})/.exec(value || "");
+  const h24 = m ? parseInt(m[1], 10) : null;
+  const minV = m ? parseInt(m[2], 10) : null;
+  const ap: "AM" | "PM" = h24 != null && h24 >= 12 ? "PM" : "AM";
+  const h12 = h24 != null ? (h24 % 12 || 12) : null;
+  const compose = (hh: number, mm: number, a: "AM" | "PM") => { let H = hh % 12; if (a === "PM") H += 12; return `${String(H).padStart(2, "0")}:${String(mm).padStart(2, "0")}`; };
+  const cur = { h: h12 ?? 12, m: minV ?? 0, a: ap };
+  const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+  const mins = Array.from({ length: 12 }, (_, i) => i * 5);
+  const colStyle = { flex: 1, maxHeight: 168, overflowY: "auto" as const, display: "flex", flexDirection: "column" as const, gap: 2, padding: 2 };
+  const item = (on: boolean) => ({ border: "none", borderRadius: 6, padding: "6px 0", cursor: "pointer", fontSize: 13, textAlign: "center" as const, fontFamily: "var(--font-dm-mono), monospace", background: on ? t.accent : "transparent", color: on ? "#fff" : t.text, fontWeight: on ? 800 : 500 });
+  return (
+    <div data-no-close>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ background: t.surface, color: value ? t.text : t.textDim, border: `1px solid ${open ? t.accent : t.border}`, borderRadius: 8, padding: "7px 9px", fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box", display: "flex", alignItems: "center", justifyContent: "space-between", cursor: "pointer", fontFamily: "inherit" }}>
+        <span>{value ? formatTime(value) : "set time"}</span>
+        <Clock size={14} style={{ color: t.textMuted }} />
+      </button>
+      {open && (
+        <div style={{ marginTop: 4, border: `1px solid ${t.border}`, borderRadius: 10, background: t.bgCard, boxShadow: t.shadow, padding: 4, display: "flex", gap: 4 }}>
+          <div style={colStyle}>
+            {hours.map(h => <button key={h} type="button" onClick={() => onChange(compose(h, cur.m, cur.a))} style={item(h === cur.h && value !== "")}>{String(h).padStart(2, "0")}</button>)}
+          </div>
+          <div style={colStyle}>
+            {mins.map(mm => <button key={mm} type="button" onClick={() => onChange(compose(cur.h, mm, cur.a))} style={item(mm === cur.m && value !== "")}>:{String(mm).padStart(2, "0")}</button>)}
+          </div>
+          <div style={{ ...colStyle, maxHeight: undefined }}>
+            {(["AM", "PM"] as const).map(a => <button key={a} type="button" onClick={() => onChange(compose(cur.h, cur.m, a))} style={item(a === cur.a && value !== "")}>{a}</button>)}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Attachments editor — add links, or upload files/images (to S3 via
+// /api/databases/upload). Images render as thumbnails; links and files as chips.
+function AttachmentsEditor({ attachments, t, canEdit, onChange }: {
+  attachments: DbAttachment[];
+  t: ReturnType<typeof useModel>["t"];
+  canEdit: boolean;
+  onChange: (a: DbAttachment[]) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkVal, setLinkVal] = useState("");
+  const [err, setErr] = useState("");
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const remove = (id: string) => onChange(attachments.filter(a => a.id !== id));
+  const addLink = () => {
+    const raw = linkVal.trim();
+    if (!raw) return;
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const id = `lnk-${attachments.length}-${raw.replace(/\W+/g, "").slice(0, 12)}`;
+    onChange([...attachments, { id, url, name: raw, contentType: "link", size: 0, uploadedAt: 0 }]);
+    setLinkVal(""); setLinkOpen(false);
+  };
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true); setErr("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch("/api/databases/upload", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "upload failed");
+      onChange([...attachments, data.attachment as DbAttachment]);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  };
+  const btn = { display: "flex", alignItems: "center", gap: 5, background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 10px", color: t.textMuted, cursor: "pointer", fontSize: 12 } as const;
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      {attachments.length > 0 && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+          {attachments.map(a => {
+            const isImg = a.contentType.startsWith("image/");
+            return (
+              <div key={a.id} style={{ position: "relative", display: "flex", alignItems: "center", gap: 6, background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 8, padding: isImg ? 4 : "5px 8px", maxWidth: 200 }}>
+                {isImg ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <a href={a.url} target="_blank" rel="noopener noreferrer"><img src={a.url} alt={a.name} style={{ width: 56, height: 56, objectFit: "cover", borderRadius: 5, display: "block" }} /></a>
+                ) : (
+                  <a href={a.url} target="_blank" rel="noopener noreferrer" style={{ display: "flex", alignItems: "center", gap: 6, color: t.accent, textDecoration: "none", fontSize: 12, minWidth: 0 }}>
+                    {a.contentType === "link" ? <Link2 size={13} style={{ flexShrink: 0 }} /> : <FileText size={13} style={{ flexShrink: 0 }} />}
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                  </a>
+                )}
+                {canEdit && (
+                  <button type="button" onClick={() => remove(a.id)} title="Remove"
+                    style={{ position: isImg ? "absolute" : "static", top: 2, right: 2, background: isImg ? t.bgCard : "transparent", border: "none", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", color: t.red, flexShrink: 0 }}>
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {canEdit && (
+        <>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={uploading} style={{ ...btn, opacity: uploading ? 0.6 : 1 }}>
+              <Upload size={13} /> {uploading ? "uploading…" : "upload file / image"}
+            </button>
+            <button type="button" onClick={() => setLinkOpen(o => !o)} style={btn}>
+              <Link2 size={13} /> add link
+            </button>
+            <input ref={fileRef} type="file" onChange={onFile} style={{ display: "none" }} accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.csv,.txt,.zip" />
+          </div>
+          {linkOpen && (
+            <div style={{ display: "flex", gap: 6 }}>
+              <input autoFocus value={linkVal} onChange={e => setLinkVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") addLink(); if (e.key === "Escape") setLinkOpen(false); }}
+                placeholder="https://…" style={{ flex: 1, background: t.surface, color: t.text, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 9px", fontSize: 12, outline: "none" }} />
+              <button type="button" onClick={addLink} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "6px 12px", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>add</button>
+            </div>
+          )}
+          {err && <span style={{ fontSize: 11, color: t.red }}>{err}</span>}
+        </>
+      )}
+      {!canEdit && attachments.length === 0 && <span style={{ fontSize: 12, color: t.textDim }}>—</span>}
+    </div>
+  );
+}
+
 // Editable detail card for a single row — used by the calendar for both creating
 // a new entry (with a date prefilled) and editing an existing one. Renders one
 // field per column, typed to the column kind.
 function RowDetailCard({
   columns,
   initial,
+  initialAttachments,
   users,
   t,
   mode,
@@ -835,14 +1029,16 @@ function RowDetailCard({
 }: {
   columns: DbColumn[];
   initial: Record<string, string>;
+  initialAttachments?: DbAttachment[];
   users: ReturnType<typeof useModel>["users"];
   t: ReturnType<typeof useModel>["t"];
   mode: "create" | "edit";
-  onSave: (values: Record<string, string>) => void;
+  onSave: (values: Record<string, string>, attachments: DbAttachment[]) => void;
   onDelete?: () => void;
   onClose: () => void;
 }) {
   const [vals, setVals] = useState<Record<string, string>>(initial);
+  const [attachments, setAttachments] = useState<DbAttachment[]>(initialAttachments || []);
   const set = (id: string, v: string) => setVals(p => ({ ...p, [id]: v }));
   const inputStyle: React.CSSProperties = {
     background: t.surface, color: t.text, border: `1px solid ${t.border}`,
@@ -887,10 +1083,10 @@ function RowDetailCard({
       );
     }
     if (col.type === "date") {
-      return <input type="date" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
+      return <DatePickerField value={v} t={t} onChange={x => set(col.id, x)} />;
     }
     if (col.type === "time") {
-      return <input type="time" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
+      return <TimePickerField value={v} t={t} onChange={x => set(col.id, x)} />;
     }
     if (col.type === "number") {
       return <input type="number" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
@@ -935,8 +1131,14 @@ function RowDetailCard({
             {field(col)}
           </label>
         ))}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted }}>
+            <Paperclip size={11} /> attachments
+          </span>
+          <AttachmentsEditor attachments={attachments} t={t} canEdit onChange={setAttachments} />
+        </div>
         <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
-          <button onClick={() => onSave(vals)} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, flex: 1 }}>save</button>
+          <button onClick={() => onSave(vals, attachments)} style={{ background: t.accent, border: "none", borderRadius: 8, padding: "8px 16px", color: "#fff", cursor: "pointer", fontSize: 12, fontWeight: 700, flex: 1 }}>save</button>
           {mode === "edit" && onDelete && (
             <button onClick={onDelete} style={{ background: "transparent", border: `1px solid ${t.red}55`, borderRadius: 8, padding: "8px 12px", color: t.red, cursor: "pointer", fontSize: 12, fontWeight: 600 }}>delete</button>
           )}
@@ -969,8 +1171,8 @@ function CalendarView({
   currentUser: string | null;
   t: ReturnType<typeof useModel>["t"];
   canEdit: boolean;
-  onAddRow: (values?: Record<string, string>) => void;
-  onUpdateRow: (rowId: number, values: Record<string, string>) => void;
+  onAddRow: (values?: Record<string, string>, attachments?: DbAttachment[]) => void;
+  onUpdateRow: (rowId: number, values: Record<string, string>, attachments?: DbAttachment[]) => void;
   onDeleteRow: (rowId: number) => void;
   onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
   isMobile: boolean;
@@ -1073,6 +1275,7 @@ function CalendarView({
           : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
         {time && <span style={{ flexShrink: 0, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10 }}>{formatTime(time)}</span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+        {!!r.attachments?.length && <Paperclip size={10} style={{ flexShrink: 0, marginLeft: "auto", color: t.textMuted }} />}
       </div>
     );
   };
@@ -1258,12 +1461,13 @@ function CalendarView({
         <RowDetailCard
           columns={db.columns}
           initial={detail.initial}
+          initialAttachments={detail.row?.attachments}
           users={users}
           t={t}
           mode={detail.mode}
-          onSave={values => {
-            if (detail.mode === "edit" && detail.row) onUpdateRow(detail.row.id, values);
-            else onAddRow(values);
+          onSave={(values, attachments) => {
+            if (detail.mode === "edit" && detail.row) onUpdateRow(detail.row.id, values, attachments);
+            else onAddRow(values, attachments);
             setDetail(null);
           }}
           onDelete={detail.mode === "edit" && detail.row ? () => { onDeleteRow(detail.row!.id); setDetail(null); } : undefined}
@@ -1294,9 +1498,9 @@ function TableView({
   memberUsers: ReturnType<typeof useModel>["users"];
   currentUser: string | null;
   canEdit: boolean;
-  onUpdateRow: (rowId: number, values: Record<string, string>) => void;
+  onUpdateRow: (rowId: number, values: Record<string, string>, attachments?: DbAttachment[]) => void;
   onDeleteRow: (rowId: number) => void;
-  onAddRow: (values?: Record<string, string>) => void;
+  onAddRow: (values?: Record<string, string>, attachments?: DbAttachment[]) => void;
   onAddColumn: (col: Omit<DbColumn, "id">) => void;
   onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
   isMobile: boolean;
@@ -1895,15 +2099,15 @@ export default function DatabasesView({ currentWorkspaceId, openDbName }: Props)
           memberUsers={memberUsers}
           currentUser={currentUser}
           canEdit={canEdit}
-          onUpdateRow={(rowId, values) => updateDbRow(selectedDb.id, rowId, values)}
+          onUpdateRow={(rowId, values, attachments) => updateDbRow(selectedDb.id, rowId, values, attachments)}
           onDeleteRow={rowId => deleteDbRow(selectedDb.id, rowId)}
-          onAddRow={extra => {
+          onAddRow={(extra, attachments) => {
             // Auto-fill the first user/author column with the creator so new rows
             // are attributed without a manual pick. `extra` carries calendar-supplied
             // values (e.g. the clicked day's date, edited fields).
             const authorCol = selectedDb.columns.find(c => c.type === "user");
             const base = authorCol && currentUser ? { [authorCol.id]: currentUser } : {};
-            addDbRow(selectedDb.id, { ...base, ...(extra || {}) });
+            addDbRow(selectedDb.id, { ...base, ...(extra || {}) }, attachments);
           }}
           onAddColumn={col => addDbColumn(selectedDb.id, col)}
           onUpdateDb={patch => handleUpdateDb(selectedDb.id, patch)}
