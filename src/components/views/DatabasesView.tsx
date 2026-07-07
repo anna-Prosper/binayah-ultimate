@@ -5,7 +5,7 @@ import { useModel } from "@/lib/contexts/ModelContext";
 import type { WorkspaceDb, DbColumn, DbRow, DbAttachment } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera, Paperclip, Upload, Link2, FileText, X } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera, Paperclip, Upload, Link2, FileText, X, Pencil } from "lucide-react";
 // Brand/platform logos — lucide (this version) has no brand icons, so these come
 // from Font Awesome's brand set via react-icons.
 import { FaInstagram, FaYoutube, FaLinkedin, FaFacebook, FaXTwitter, FaTiktok, FaReddit, FaWhatsapp } from "react-icons/fa6";
@@ -1396,20 +1396,18 @@ function CalendarView({
                     draggable={canEdit}
                     onDragStart={() => setDragId(r.id)}
                     onDragEnd={() => { setDragId(null); setDragOver(null); }}
+                    onClick={() => openEdit(r)}
+                    title="Click to edit"
                     style={{
                       display: "flex", alignItems: "center", gap: 8,
                       background: t.bgCard, border: `1px solid ${t.border}`, borderLeft: `3px solid ${color}`,
-                      borderRadius: 8, padding: "7px 10px", minWidth: 0,
+                      borderRadius: 8, padding: "7px 10px", minWidth: 0, cursor: "pointer",
                     }}
                   >
                     {shoot
                       ? <Camera size={14} style={{ flexShrink: 0, color: t.textSec }} />
                       : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color: t.textSec }}><PlatformIcon value={platformVal} size={14} /></span>}
-                    <span
-                      onClick={() => openEdit(r)}
-                      title={title}
-                      style={{ fontSize: 13, color: t.text, cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, minWidth: 60 }}
-                    >
+                    <span style={{ fontSize: 13, color: t.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 600, minWidth: 60 }}>
                       {title}
                     </span>
                     {time && (
@@ -1425,9 +1423,15 @@ function CalendarView({
                     )}
                     <div style={{ flex: 1 }} />
                     {canEdit && (
-                      <div style={{ flexShrink: 0, width: 150 }}>
-                        <DatePickerField value="" t={t} onChange={ds => { if (ds) onUpdateRow(r.id, { [dateCol.id]: ds }); }} />
-                      </div>
+                      <>
+                        <button type="button" onClick={e => { e.stopPropagation(); openEdit(r); }} title="Edit"
+                          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", background: "transparent", border: `1px solid ${t.border}`, borderRadius: 7, width: 28, height: 28, color: t.textMuted, cursor: "pointer" }}>
+                          <Pencil size={13} />
+                        </button>
+                        <div style={{ flexShrink: 0, width: 150 }} onClick={e => e.stopPropagation()}>
+                          <DatePickerField value="" t={t} onChange={ds => { if (ds) onUpdateRow(r.id, { [dateCol.id]: ds }); }} />
+                        </div>
+                      </>
                     )}
                   </div>
                 );
