@@ -1,6 +1,6 @@
 "use client";
 import dynamic from "next/dynamic";
-const DatabasesView = dynamic(() => import("@/components/views/DatabasesView"), { ssr: false });
+const CampaignsView = dynamic(() => import("@/components/views/CampaignsView"), { ssr: false });
 export default function CampaignsPage() {
-  return <DatabasesView currentWorkspaceId="marketing" openDbName="Campaigns" />;
+  return <CampaignsView />;
 }
