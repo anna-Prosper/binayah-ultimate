@@ -5,7 +5,7 @@ import { useModel } from "@/lib/contexts/ModelContext";
 import type { WorkspaceDb, DbColumn, DbRow } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera } from "lucide-react";
 // Brand/platform logos — lucide (this version) has no brand icons, so these come
 // from Font Awesome's brand set via react-icons.
 import { FaInstagram, FaYoutube, FaLinkedin, FaFacebook, FaXTwitter, FaTiktok, FaReddit, FaWhatsapp } from "react-icons/fa6";
@@ -58,17 +58,22 @@ function PlatformIcon({ value, size = 14, color }: { value: string; size?: numbe
 // it works for any date-bearing table, not just the Content Calendar.
 function pickCalendarCols(columns: DbColumn[]) {
   const dateCol = columns.find(c => c.type === "date");
+  const timeCol = columns.find(c => c.type === "time");
   const statusCol =
     columns.find(c => c.type === "status" && /status|stage|state/.test(c.name.toLowerCase())) ||
     columns.find(c => c.type === "status");
   const platformCol = columns.find(
     c => c.type === "status" && c.id !== statusCol?.id && /platform|channel|network/.test(c.name.toLowerCase())
   );
+  // The "kind" column (Type/Format) — used to flag shoots and to store the Shoot option.
+  const typeCol = columns.find(
+    c => c.type === "status" && c.id !== statusCol?.id && c.id !== platformCol?.id && /type|format|kind/.test(c.name.toLowerCase())
+  ) || columns.find(c => c.type === "status" && c.id !== statusCol?.id && c.id !== platformCol?.id);
   const titleCol =
     columns.find(c => c.type === "text" && /title|name|task|item|content/.test(c.name.toLowerCase())) ||
     columns.find(c => c.type === "text") ||
     columns[0];
-  return { dateCol, statusCol, platformCol, titleCol };
+  return { dateCol, timeCol, statusCol, platformCol, typeCol, titleCol };
 }
 
 function formatDate(value: string): string {
@@ -76,6 +81,16 @@ function formatDate(value: string): string {
   const d = new Date(value);
   if (isNaN(d.getTime())) return value;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// "HH:MM" (24h) → "H:MM AM/PM". Leaves unparseable values as-is.
+function formatTime(value: string): string {
+  const m = /^(\d{1,2}):(\d{2})/.exec((value || "").trim());
+  if (!m) return value || "";
+  let h = parseInt(m[1], 10);
+  const ap = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${m[2]} ${ap}`;
 }
 
 function truncateUrl(url: string): string {
@@ -344,6 +359,16 @@ function CellView({
       </span>
     );
   }
+  if (col.type === "time") {
+    return (
+      <span
+        onClick={onEdit}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, color: value ? t.text : t.textDim, cursor: "pointer", fontSize: 12, fontFamily: "var(--font-dm-mono), monospace" }}
+      >
+        {value ? <><Clock size={11} style={{ color: t.textMuted }} /> {formatTime(value)}</> : "—"}
+      </span>
+    );
+  }
   if (col.type === "user") {
     return <UserCellPill user={findDbUser(users, value)} value={value} t={t} onClick={onEdit} />;
   }
@@ -439,11 +464,11 @@ function CellEditor({
     );
   }
 
-  if (col.type === "date") {
+  if (col.type === "date" || col.type === "time") {
     return (
       <input
         ref={r => { inputRef.current = r; }}
-        type="date"
+        type={col.type}
         value={val}
         onChange={e => setVal(e.target.value)}
         onBlur={commit}
@@ -546,6 +571,7 @@ function AddColumnModal({
               <option value="text">text</option>
               <option value="url">url</option>
               <option value="date">date</option>
+              <option value="time">time</option>
               <option value="status">status</option>
               <option value="user">user</option>
               <option value="number">number</option>
@@ -834,6 +860,9 @@ function RowDetailCard({
     if (col.type === "date") {
       return <input type="date" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
     }
+    if (col.type === "time") {
+      return <input type="time" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
+    }
     if (col.type === "number") {
       return <input type="number" value={v} onChange={e => set(col.id, e.target.value)} style={inputStyle} />;
     }
@@ -880,6 +909,7 @@ function CalendarView({
   onAddRow,
   onUpdateRow,
   onDeleteRow,
+  onUpdateDb,
   isMobile,
 }: {
   db: WorkspaceDb;
@@ -891,9 +921,10 @@ function CalendarView({
   onAddRow: (values?: Record<string, string>) => void;
   onUpdateRow: (rowId: number, values: Record<string, string>) => void;
   onDeleteRow: (rowId: number) => void;
+  onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
   isMobile: boolean;
 }) {
-  const { dateCol, statusCol, platformCol, titleCol } = pickCalendarCols(db.columns);
+  const { dateCol, timeCol, statusCol, platformCol, typeCol, titleCol } = pickCalendarCols(db.columns);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [detail, setDetail] = useState<{ mode: "create" | "edit"; row?: DbRow; initial: Record<string, string> } | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
@@ -906,6 +937,38 @@ function CalendarView({
   if (!dateCol || !titleCol) {
     return <div style={{ padding: 40, textAlign: "center", color: t.textDim, fontSize: 13 }}>This table needs a date column to use the calendar.</div>;
   }
+
+  const isShoot = (r: DbRow) => (typeCol ? (r.values[typeCol.id] || "").toLowerCase() === "shoot" : false) || (timeCol ? !!r.values[timeCol.id] : false);
+  const rowTime = (r: DbRow) => (timeCol ? r.values[timeCol.id] || "" : "");
+  // Timed entries (shoots) sort to the top of a day, ascending by time.
+  const byTime = (a: DbRow, b: DbRow) => {
+    const ta = rowTime(a), tb = rowTime(b);
+    if (ta && tb) return ta.localeCompare(tb);
+    if (ta) return -1;
+    if (tb) return 1;
+    return 0;
+  };
+
+  // Add a shoot: provision a Time column (and a Shoot option on the type column) if
+  // missing, then open the create card typed as a shoot. No date → it lands in the
+  // pool; set a day + time to place it on the calendar.
+  const addShoot = () => {
+    if (!canEdit) return;
+    let cols = db.columns;
+    if (!timeCol) {
+      // Stable id — only added when the table has no time column yet.
+      cols = [...cols, { id: "col_time", name: "Time", type: "time" }];
+    }
+    if (typeCol && !(typeCol.options || []).includes("Shoot")) {
+      cols = cols.map(c => c.id === typeCol.id ? { ...c, options: [...(c.options || []), "Shoot"] } : c);
+    }
+    if (cols !== db.columns) onUpdateDb({ columns: cols });
+    const init: Record<string, string> = {};
+    if (typeCol) init[typeCol.id] = "Shoot";
+    const authorCol = db.columns.find(c => c.type === "user");
+    if (authorCol && currentUser) init[authorCol.id] = currentUser;
+    setDetail({ mode: "create", initial: init });
+  };
 
   const rowsByDay = new Map<string, DbRow[]>();
   const unscheduled: DbRow[] = [];
@@ -936,6 +999,8 @@ function CalendarView({
     const color = statusCol ? statusColor(r.values[statusCol.id] || "", t) : t.accent;
     const platformVal = platformCol ? r.values[platformCol.id] || "" : "";
     const title = r.values[titleCol.id] || "(untitled)";
+    const shoot = isShoot(r);
+    const time = rowTime(r);
     return (
       <div
         key={r.id}
@@ -943,7 +1008,7 @@ function CalendarView({
         onDragStart={() => setDragId(r.id)}
         onDragEnd={() => { setDragId(null); setDragOver(null); }}
         onClick={e => { e.stopPropagation(); openEdit(r); }}
-        title={title}
+        title={time ? `${formatTime(time)} · ${title}` : title}
         style={{
           display: "flex", alignItems: "center", gap: 4,
           background: color + "22", borderLeft: `3px solid ${color}`,
@@ -952,7 +1017,10 @@ function CalendarView({
           width: opts?.block ? "100%" : undefined,
         }}
       >
-        {platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
+        {shoot
+          ? <Camera size={12} style={{ flexShrink: 0, color }} />
+          : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
+        {time && <span style={{ flexShrink: 0, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10 }}>{formatTime(time)}</span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
       </div>
     );
@@ -975,6 +1043,13 @@ function CalendarView({
           style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "4px 12px", color: t.accent, cursor: "pointer", fontSize: 12, fontWeight: 700 }}>
           today
         </button>
+        <div style={{ flex: 1 }} />
+        {canEdit && (
+          <button onClick={addShoot}
+            style={{ display: "flex", alignItems: "center", gap: 5, background: t.accent + "18", border: `1px solid ${t.accent}66`, borderRadius: 8, padding: "5px 12px", color: t.accent, cursor: "pointer", fontSize: 12, fontWeight: 800 }}>
+            <Camera size={13} /> add shoot
+          </button>
+        )}
       </div>
 
       {/* Weekday header */}
@@ -990,7 +1065,7 @@ function CalendarView({
           const ds = ymd(d);
           const inMonth = d.getMonth() === cursor.m;
           const isToday = ds === todayStr;
-          const dayRows = rowsByDay.get(ds) || [];
+          const dayRows = [...(rowsByDay.get(ds) || [])].sort(byTime);
           return (
             <div
               key={i}
@@ -1046,6 +1121,8 @@ function CalendarView({
                 const title = r.values[titleCol.id] || "(untitled)";
                 const typeVal = typeCol ? r.values[typeCol.id] : "";
                 const statusVal = statusCol ? r.values[statusCol.id] : "";
+                const shoot = isShoot(r);
+                const time = rowTime(r);
                 return (
                   <div
                     key={r.id}
@@ -1058,7 +1135,9 @@ function CalendarView({
                       borderRadius: 8, padding: "7px 10px", minWidth: 0,
                     }}
                   >
-                    {platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color: t.textSec }}><PlatformIcon value={platformVal} size={14} /></span>}
+                    {shoot
+                      ? <Camera size={14} style={{ flexShrink: 0, color: t.textSec }} />
+                      : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color: t.textSec }}><PlatformIcon value={platformVal} size={14} /></span>}
                     <span
                       onClick={() => openEdit(r)}
                       title={title}
@@ -1066,6 +1145,11 @@ function CalendarView({
                     >
                       {title}
                     </span>
+                    {time && (
+                      <span style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 700, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>
+                        <Clock size={10} /> {formatTime(time)}
+                      </span>
+                    )}
                     {typeVal && (
                       <span style={{ flexShrink: 0, fontSize: 10, color: t.textMuted, background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>{typeVal}</span>
                     )}
@@ -1107,7 +1191,7 @@ function CalendarView({
               <span style={{ fontSize: 13, fontWeight: 800, color: t.text }}>{formatDate(expandedDay)}</span>
               <button onClick={() => setExpandedDay(null)} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 15 }}>✕</button>
             </div>
-            {(rowsByDay.get(expandedDay) || []).map(r => chip(r, { block: true }))}
+            {[...(rowsByDay.get(expandedDay) || [])].sort(byTime).map(r => chip(r, { block: true }))}
             {canEdit && (
               <button onClick={() => { const day = expandedDay; setExpandedDay(null); openCreate(day); }}
                 style={{ marginTop: 4, background: "transparent", border: `1px dashed ${t.border}`, borderRadius: 8, padding: "7px", color: t.textMuted, cursor: "pointer", fontSize: 12, display: "flex", alignItems: "center", justifyContent: "center", gap: 4 }}>
@@ -1411,6 +1495,7 @@ function TableView({
             onAddRow={onAddRow}
             onUpdateRow={onUpdateRow}
             onDeleteRow={onDeleteRow}
+            onUpdateDb={onUpdateDb}
             isMobile={isMobile}
           />
         </div>
@@ -1487,7 +1572,7 @@ function TableView({
                       >
                         {col.name}
                         <span style={{ fontSize: 9, opacity: 0.5 }}>
-                          {col.type === "url" ? "↗" : col.type === "date" ? "📅" : col.type === "status" ? "◎" : col.type === "user" ? "👤" : col.type === "number" ? "#" : "T"}
+                          {col.type === "url" ? "↗" : col.type === "date" ? "📅" : col.type === "time" ? "◷" : col.type === "status" ? "◎" : col.type === "user" ? "👤" : col.type === "number" ? "#" : "T"}
                         </span>
                       </span>
                     )}
