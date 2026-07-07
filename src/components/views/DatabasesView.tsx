@@ -19,10 +19,9 @@ interface Props {
   openDbName?: string;
 }
 
-// Status pill color mapping — maps the common status vocabularies (content
-// pipeline, task states) onto theme tokens. Unknown values fall back to muted so
-// non-status chips (e.g. Type / Platform columns) stay visually neutral.
-function statusColor(value: string, t: ReturnType<typeof useModel>["t"]) {
+// Semantic status color when the value is a recognised status word, else null.
+// Maps the common status vocabularies (content pipeline, task states) onto tokens.
+function statusColorOrNull(value: string, t: ReturnType<typeof useModel>["t"]): string | null {
   const v = value.trim().toLowerCase();
   if (["active", "live", "published", "posted", "done", "complete", "completed", "shipped", "new"].includes(v)) return t.green;
   if (["scheduled", "planned", "ready", "approved", "queued", "in-progress", "in progress"].includes(v)) return t.cyan;
@@ -30,7 +29,29 @@ function statusColor(value: string, t: ReturnType<typeof useModel>["t"]) {
   if (["review", "in-review", "in review", "revision", "revisions"].includes(v)) return t.orange;
   if (["blocked", "cancelled", "canceled", "rejected"].includes(v)) return t.red;
   if (["archived", "old", "someday"].includes(v)) return t.slate;
-  return t.textMuted;
+  if (["idea", "concept", "backlog", "todo"].includes(v)) return t.textMuted;
+  return null;
+}
+
+// Status pill color — semantic when recognised, muted otherwise.
+function statusColor(value: string, t: ReturnType<typeof useModel>["t"]) {
+  return statusColorOrNull(value, t) ?? t.textMuted;
+}
+
+// Deterministic, distinct color for arbitrary categorical values (e.g. content
+// Type: Blog / Reel / Story…) so sibling options never share a color.
+function categoricalColor(value: string, t: ReturnType<typeof useModel>["t"]) {
+  const pal = [t.accent, t.green, t.cyan, t.amber, t.orange, t.pink, t.purple, t.lime, t.red, t.accent2];
+  const s = value.trim().toLowerCase();
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return pal[h % pal.length];
+}
+
+// Color for a picklist option: semantic when it's a known status, otherwise a
+// stable per-value color so options in a non-status column (Type, etc.) differ.
+function optionColor(value: string, t: ReturnType<typeof useModel>["t"]) {
+  return statusColorOrNull(value, t) ?? categoricalColor(value, t);
 }
 
 // Lucide icon for a platform / channel value — shown on calendar chips so the
@@ -311,7 +332,7 @@ function CellView({
   onEdit: () => void;
 }) {
   if (col.type === "status") {
-    const color = statusColor(value, t);
+    const color = optionColor(value, t);
     return (
       <div
         onClick={onEdit}
@@ -836,7 +857,7 @@ function RowDetailCard({
           t={t}
           renderLeft={isPlatform
             ? (val) => (val ? <span style={{ display: "inline-flex", width: 18, justifyContent: "center", flexShrink: 0, color: t.textSec }}><PlatformIcon value={val} size={15} /></span> : null)
-            : (val) => <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: val ? statusColor(val, t) : t.border, display: "inline-block" }} />}
+            : (val) => <span style={{ width: 10, height: 10, borderRadius: 3, flexShrink: 0, background: val ? optionColor(val, t) : t.border, display: "inline-block" }} />}
           onChange={x => set(col.id, x)}
         />
       );
@@ -871,16 +892,38 @@ function RowDetailCard({
     }
     return <input value={v} onChange={e => set(col.id, e.target.value)} placeholder={col.type === "url" ? "https://…" : ""} style={inputStyle} />;
   };
+
+  // A shoot is a production event, not a publication — show Title, Date, Time and
+  // shoot-relevant fields; drop Platform / URL / Type. Content entries keep their
+  // full field set but hide the shoot-only Time column. The date field is labelled
+  // "Date" for shoots ("Publish Date" reads wrong for a shoot).
+  const cc = pickCalendarCols(columns);
+  const urlCol = columns.find(c => c.type === "url");
+  const isShootEntry = cc.typeCol ? (vals[cc.typeCol.id] || "").toLowerCase() === "shoot" : false;
+  const displayFields: { col: DbColumn; label: string }[] = (() => {
+    if (isShootEntry) {
+      const exclude = new Set([cc.platformCol?.id, urlCol?.id, cc.typeCol?.id].filter(Boolean) as string[]);
+      const priorityIds = [cc.titleCol?.id, cc.dateCol?.id, cc.timeCol?.id].filter(Boolean) as string[];
+      const priority = priorityIds.map(id => columns.find(c => c.id === id)).filter((c): c is DbColumn => !!c);
+      const rest = columns.filter(c => !exclude.has(c.id) && !priorityIds.includes(c.id));
+      return [...priority, ...rest].map(c => ({ col: c, label: c.id === cc.dateCol?.id ? "Date" : c.name }));
+    }
+    return columns.filter(c => c.type !== "time").map(c => ({ col: c, label: c.name }));
+  })();
+
   return (
     <div onMouseDown={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 3000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
       <div onMouseDown={e => e.stopPropagation()} data-no-close style={{ width: "min(440px, 100%)", maxHeight: "85vh", overflowY: "auto", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 14, boxShadow: t.shadowLg, padding: 18, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: t.accent }}>{mode === "create" ? "new entry" : "edit entry"}</span>
+          <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 800, letterSpacing: "0.05em", textTransform: "uppercase", color: t.accent }}>
+            {isShootEntry && <Camera size={13} />}
+            {mode === "create" ? `new ${isShootEntry ? "shoot" : "entry"}` : `edit ${isShootEntry ? "shoot" : "entry"}`}
+          </span>
           <button onClick={onClose} style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>✕</button>
         </div>
-        {columns.map(col => (
+        {displayFields.map(({ col, label }) => (
           <label key={col.id} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted }}>{col.name}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.06em", color: t.textMuted }}>{label}</span>
             {field(col)}
           </label>
         ))}
@@ -1151,7 +1194,7 @@ function CalendarView({
                       </span>
                     )}
                     {typeVal && (
-                      <span style={{ flexShrink: 0, fontSize: 10, color: t.textMuted, background: t.bgSoft, border: `1px solid ${t.border}`, borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>{typeVal}</span>
+                      <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: optionColor(typeVal, t), background: optionColor(typeVal, t) + "1f", borderRadius: 6, padding: "1px 7px", whiteSpace: "nowrap" }}>{typeVal}</span>
                     )}
                     {statusVal && (
                       <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 700, color: statusColor(statusVal, t), background: statusColor(statusVal, t) + "1f", borderRadius: 6, padding: "1px 7px", textTransform: "uppercase", letterSpacing: "0.03em", whiteSpace: "nowrap" }}>{statusVal}</span>
