@@ -150,10 +150,49 @@ export type DeletesEnvelope = Record<string, string[]>;
  *   single subtask from a stage's array. (This matches how subtaskApproval
  *   keys are formed elsewhere in the app.)
  */
+// Catastrophe backstop: a single delete payload should never remove nearly all
+// of a slice's current items — that only happens when a buggy/un-hydrated client
+// diffs an empty local state against a full server. Blocking it protects the data
+// regardless of the client version. Returns how many current items the deletes
+// would remove and the current count, for the caller to judge.
+function deleteImpact(field: string, keys: unknown[], state: State): { current: number; removing: number } {
+  const cur = state[field];
+  if (field === "databases") {
+    const dbs = Array.isArray(cur) ? cur as DbLike[] : [];
+    const ids = new Set(dbs.map(d => String(d.id)));
+    const bareDrops = new Set(keys.filter(k => String(k).indexOf("::") === -1).map(String));
+    return { current: dbs.length, removing: [...bareDrops].filter(id => ids.has(id)).length };
+  }
+  if (SET_SLICE_KEYS.has(field)) {
+    const arr = Array.isArray(cur) ? cur as string[] : [];
+    const s = new Set(arr.map(String));
+    return { current: arr.length, removing: [...new Set(keys.map(String))].filter(k => s.has(k)).length };
+  }
+  if (ARRAY_BY_ID_SLICE_KEYS.has(field)) {
+    const arr = Array.isArray(cur) ? cur as ItemWithId[] : [];
+    const ids = new Set(arr.map(i => String(i.id)));
+    return { current: arr.length, removing: [...new Set(keys.map(String))].filter(k => ids.has(k)).length };
+  }
+  if (MAP_SLICE_KEYS.has(field)) {
+    const m = isObject(cur) ? cur as Record<string, unknown> : {};
+    const mk = new Set(Object.keys(m));
+    return { current: mk.size, removing: [...new Set(keys.map(String))].filter(k => mk.has(k)).length };
+  }
+  return { current: 0, removing: 0 }; // subtasks / unknown — not guarded here
+}
+
 function applyDeletes(state: State, deletes: DeletesEnvelope): State {
   const out: State = { ...state };
   for (const [field, keys] of Object.entries(deletes)) {
     if (!Array.isArray(keys) || keys.length === 0) continue;
+
+    // Refuse a mass-wipe: if these deletes would strip >=90% of a slice that has
+    // >=5 items, treat it as a bad diff and skip it (the individual items survive).
+    const { current, removing } = deleteImpact(field, keys, out);
+    if (current >= 5 && removing >= current * 0.9) {
+      console.warn(`[merge] blocked mass-delete of "${field}": would remove ${removing}/${current} items`);
+      continue;
+    }
 
     if (field === "subtasks") {
       const subtasks = isObject(out.subtasks) ? { ...out.subtasks } : {};
