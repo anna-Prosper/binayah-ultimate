@@ -243,33 +243,12 @@ export const PatchBodySchema = z.object({
   })).optional(),
 
   // Databases (Notion-style workspace tables)
-  databases: z.array(z.object({
-    id: z.number().int(),
-    workspaceId: z.string().max(80),
-    name: z.string().max(120),
-    icon: z.string().max(10),
-    columns: z.array(z.object({
-      id: z.string().max(40),
-      name: z.string().max(80),
-      type: z.enum(["text", "url", "date", "status", "user", "number"]),
-      width: z.number().int().min(40).max(800).optional(),
-      options: z.array(z.string().max(60)).max(20).optional(),
-    })).max(30),
-    rows: z.array(z.object({
-      id: z.number().int(),
-      values: z.record(z.string(), z.string().max(2000)),
-      createdBy: z.string().max(80),
-      createdAt: z.number(),
-    })).max(500),
-    views: z.array(z.object({
-      id: z.string().max(40),
-      name: z.string().max(80),
-      filterCol: z.string().max(40).optional(),
-      filterVal: z.string().max(120).optional(),
-    })).max(10).optional(),
-    createdAt: z.number(),
-    createdBy: z.string().max(80),
-  })).optional(),
+  // Databases are validated leniently (like customPipelines / users): the client
+  // sends the whole databases slice on every write, so a single malformed row or
+  // a newer column type must NOT reject the entire patch and block all writes.
+  // Structure is enforced client-side and normalised on merge; forbidden-key and
+  // size checks still apply via validateNestedKeys + content-length.
+  databases: z.array(z.unknown()).optional(),
 
   // Identity & workspace
   users: z.array(z.unknown()).optional(),
