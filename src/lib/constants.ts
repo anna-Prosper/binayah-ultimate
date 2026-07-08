@@ -32,7 +32,7 @@ export const MS_PER_DAY = 86_400_000;
 // ── Limits ────────────────────────────────────────────────────────────────────
 
 /** Max subtasks per stage (also enforced in validate.ts). */
-export const MAX_SUBTASKS_PER_STAGE = 20;
+export const MAX_SUBTASKS_PER_STAGE = 100;
 
 /** Max characters per subtask text. */
 export const MAX_SUBTASK_TEXT_LEN = 500;
