@@ -779,7 +779,7 @@ export default function HomeView({
       return {
         key: stageId,
         title: stageNameLabel(stageId),
-        pipelineName: pipeline ? ((pipeline as { displayName?: string }).displayName || pipeline.name) : "Inbox",
+        pipelineName: pipeline ? ((pipeline as { displayName?: string }).displayName || pipeline.name) : "All",
         pipelineId: pipeline?.id || "",
         status: getStatus(stageId),
         owners: itemOwnerIds(stageId),
@@ -809,7 +809,7 @@ export default function HomeView({
         return {
           key,
           title: sub.text,
-          pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "Inbox",
+          pipelineName: parent ? ((parent as { displayName?: string }).displayName || parent.name) : "All",
           pipelineId: parent?.id || "",
           status,
           owners: itemOwnerIds(key),

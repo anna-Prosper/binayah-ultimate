@@ -196,7 +196,7 @@ export function validatePatchKeys(patch: Record<string, unknown>): string | null
 }
 
 /** Max subtasks per stage */
-export const MAX_SUBTASKS_PER_STAGE = 20;
+export const MAX_SUBTASKS_PER_STAGE = 100;
 /** Max characters per subtask text */
 export const MAX_SUBTASK_TEXT_LEN = 500;
 

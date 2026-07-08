@@ -389,11 +389,11 @@ export default function TasksView(props: Props) {
   if (inboxStages.length > 0) {
     pipelines.unshift({
       id: INBOX_PIPELINE_ID,
-      name: "Inbox",
+      name: "All",
       icon: "📥",
       colorKey: "amber",
       stages: [],
-      displayName: "Inbox",
+      displayName: "All",
       allStages: inboxStages,
       color: t.amber,
     });
