@@ -1091,7 +1091,7 @@ export function ModelProvider({
       execProposals,
       subtasks, stageDescOverrides, stageDueDates, stageNameOverrides,
       subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
-      users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
+      archivedStages, archivedPipelines, archivedSubtasks,
       stagePointsOverride,
       stagePriorities,
       inboxStageWorkspace,
@@ -1100,6 +1100,16 @@ export function ModelProvider({
       notifReadIds,
       databases: databases.map(db => db.views ? db : { ...db, views: [] }),
     };
+    // Identity-critical slices: workspaces holds each workspace's pipelineIds
+    // (which pipeline lives in which workspace) and members; users holds the
+    // roster. Both are merged server-side by replacing the WHOLE object for an
+    // id (mergeArrayById), so a client that still holds a stale copy would
+    // clobber another client's reassignment the moment it saves anything else —
+    // e.g. a moved pipeline snapping back to its old workspace. Only push these
+    // when THIS client actually edited them recently; otherwise omit them and
+    // the server keeps its own copy (an absent slice is a no-op on merge).
+    if (isProtected("workspaces")) state.workspaces = workspaces;
+    if (isProtected("users")) state.users = users;
     const dirtyStatusKeys = dirtyMapKeysRef.current.stageStatusOverrides;
     if (dirtyStatusKeys?.size) {
       state.stageStatusOverrides = Object.fromEntries(
