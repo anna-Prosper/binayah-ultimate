@@ -425,13 +425,21 @@ export async function PATCH(req: NextRequest) {
   //    landed in between, matchedCount=0 and we retry (max 5 attempts). With low
   //    write volume this is effectively never contended; on a hot key the worst
   //    case is a few retries, no data loss.
-  const { _deletes, ...statePatch } = cleanPatch as Record<string, unknown> & {
+  const { _deletes, _deleteMode, ...statePatch } = cleanPatch as Record<string, unknown> & {
     _deletes?: DeletesEnvelope;
+    _deleteMode?: string;
   };
+  // Only honour deletions from clients that compute them from EXPLICIT user intent
+  // (they tag the patch). A legacy diff-based client omits the tag; ignoring its
+  // `_deletes` prevents it from vanishing data it simply hasn't loaded yet.
+  const honourDeletes = _deleteMode === "explicit";
+  if (_deletes && !honourDeletes) {
+    console.warn(`[pipeline-state] ignored _deletes from untagged (legacy) client: ${Object.keys(_deletes).join(", ")}`);
+  }
   // Defense-in-depth: validateNestedKeys doesn't recurse into arrays, so we
   // sanitize each _deletes member here.
   let safeDeletes: DeletesEnvelope | undefined;
-  if (_deletes && typeof _deletes === "object" && !Array.isArray(_deletes)) {
+  if (honourDeletes && _deletes && typeof _deletes === "object" && !Array.isArray(_deletes)) {
     safeDeletes = {};
     for (const [field, keys] of Object.entries(_deletes)) {
       if (!Array.isArray(keys)) continue;
