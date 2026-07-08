@@ -41,39 +41,36 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
   const currentIntervalRef = useRef(FAST_INTERVAL_MS);
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Initial hydrate. CRITICAL: only mark hydrated + flush queued writes when the
-  // GET actually SUCCEEDS. If it fails (offline / 5xx), staying un-hydrated keeps
-  // outbound writes queued — otherwise a fresh client with empty local state would
-  // flush that emptiness over the server and wipe data. Retry until it lands.
+  // Initial hydrate. Apply the server state if we got it, then ALWAYS mark hydrated
+  // and flush queued writes once the first GET attempt completes (success, empty, or
+  // error) — otherwise a slow/failing GET would silently block the user's writes
+  // forever. Flushing is safe now: deletions are explicit (see pendingDeletes), so a
+  // not-yet-hydrated client can't delete anything it merely hasn't loaded.
   useEffect(() => {
-    let cancelled = false;
-    const hydrate = () => {
-      fetchState().then(s => {
-        if (cancelled) return;
-        if (s) {
-          onPatch(s);
-          if (s.updatedAt) lastUpdatedAtRef.current = s.updatedAt;
-          setStatus("live");
-          isInitializedRef.current = true;
-          isHydratedRef.current = true;
-          // Flush any write that was queued before hydration completed.
-          if (pendingWriteRef.current) {
-            pendingWriteRef.current = false;
-            scheduleWriteRef.current?.();
-          }
-        } else {
-          // No server state read — do NOT hydrate or flush; retry shortly.
-          setStatus("offline");
-          if (!cancelled) setTimeout(() => { if (!cancelled && !isHydratedRef.current) hydrate(); }, 3000);
-        }
-      }).catch(() => {
-        if (cancelled) return;
-        setStatus("error");
-        setTimeout(() => { if (!cancelled && !isHydratedRef.current) hydrate(); }, 3000);
-      });
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      isInitializedRef.current = true;
+      isHydratedRef.current = true;
+      if (pendingWriteRef.current) {
+        pendingWriteRef.current = false;
+        scheduleWriteRef.current?.();
+      }
     };
-    hydrate();
-    return () => { cancelled = true; };
+    fetchState().then(s => {
+      if (s) {
+        onPatch(s);
+        if (s.updatedAt) lastUpdatedAtRef.current = s.updatedAt;
+        setStatus("live");
+      } else {
+        setStatus("offline");
+      }
+      finish();
+    }).catch(() => {
+      setStatus("error");
+      finish();
+    });
   // onPatch is stable (useCallback) — safe to include
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
