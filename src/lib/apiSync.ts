@@ -209,14 +209,26 @@ export async function fetchState(since?: number): Promise<SharedState | null> {
  */
 export type PatchEnvelope = Partial<SharedState> & {
   _deletes?: Record<string, string[]>;
+  // Marks a client that computes deletions from EXPLICIT user intent (not a
+  // local-vs-server diff). The server only honours `_deletes` when this is set,
+  // so an old diff-based client's spurious deletes are ignored — it can't vanish
+  // data it merely hasn't loaded.
+  _deleteMode?: "explicit";
   notificationEvents?: NotificationEventPatch[];
 };
+
+// Attach the explicit-delete marker whenever a patch carries deletions.
+function withDeleteMode(patch: PatchEnvelope): PatchEnvelope {
+  return patch._deletes && Object.keys(patch._deletes).length > 0
+    ? { ...patch, _deleteMode: "explicit" }
+    : patch;
+}
 
 // Bulk write for non-array state (claims, reactions, overrides, etc.)
 // chatMessages, comments, and activityLog are excluded — they use atomic appends
 export async function patchState(patch: PatchEnvelope, opts?: { keepalive?: boolean }): Promise<SyncResult> {
   try {
-    const body = JSON.stringify({ ...patch, updatedAt: Date.now() });
+    const body = JSON.stringify({ ...withDeleteMode(patch), updatedAt: Date.now() });
     const res = await fetch(API_BASE, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -239,7 +251,7 @@ export async function patchState(patch: PatchEnvelope, opts?: { keepalive?: bool
 export function beaconPatchState(patch: PatchEnvelope): boolean {
   if (typeof navigator === "undefined" || typeof Blob === "undefined") return false;
   try {
-    const body = JSON.stringify({ ...patch, updatedAt: Date.now() });
+    const body = JSON.stringify({ ...withDeleteMode(patch), updatedAt: Date.now() });
     if (body.length >= 60_000) return false;
     const blob = new Blob([body], { type: "application/json" });
     return navigator.sendBeacon?.(API_BASE, blob) ?? false;

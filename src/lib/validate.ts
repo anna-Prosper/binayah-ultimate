@@ -121,6 +121,10 @@ export const PATCH_KEY_WHITELIST = new Set([
   // Required because map slices are now merged per-key on the server, so
   // omitting a key from the patch no longer deletes it.
   "_deletes",
+  // Marker: the sender computes deletions from explicit user intent. The server
+  // only honours `_deletes` when this is "explicit"; old diff-based clients omit
+  // it, so their spurious deletes are ignored.
+  "_deleteMode",
 ]);
 
 /** Map slices on the server — per-key merged, not wholesale-replaced.

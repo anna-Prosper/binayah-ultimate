@@ -260,10 +260,14 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
         // minimal builder is provided, fall back to the full patch.
         const sent = getUnloadPatch ? getUnloadPatch() : getPatch();
         if (!sent) return; // nothing recently changed — nothing to flush
+        // Tag explicit-delete capability so the server honours any _deletes here.
+        const taggedSent = sent._deletes && Object.keys(sent._deletes).length > 0
+          ? { ...sent, _deleteMode: "explicit" as const }
+          : sent;
         fetch("/api/pipeline-state", {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...sent, updatedAt: Date.now() }),
+          body: JSON.stringify({ ...taggedSent, updatedAt: Date.now() }),
           keepalive: true,
         }).catch(() => { /* fire-and-forget */ });
       } catch { /* swallow — unload context, no UI to surface to */ }
