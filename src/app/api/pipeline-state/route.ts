@@ -328,24 +328,30 @@ export async function PATCH(req: NextRequest) {
   // sends the entire state slice on each scheduleWrite (even unchanged ones), so a naive
   // "patch contains key" check rejects every routine save from a crew member, which
   // bricks subtask/archive/etc. writes via collateral damage.
-  const DESTRUCTIVE_KEYS = new Set([
-    "archivedStages", "archivedPipelines", "archivedSubtasks",
-    "customPipelines", // pipeline deletions
-    // workspaces removed: createWorkspace is ADMIN_IDS-gated client-side and
-    // member edits are captain-gated; the server gate was rejecting legit
-    // workspace writes when the JWT was stale or session lookup raced.
-  ]);
-  const candidateDestructiveKeys = Object.keys(cleanPatch).filter(k => DESTRUCTIVE_KEYS.has(k));
+  // Genuinely destructive = an EXPLICIT deletion (the `_deletes` envelope with
+  // _deleteMode:"explicit") of a structural item — currently a custom pipeline.
+  // State slices are grow-merged, so a shorter incoming slice NEVER deletes on
+  // merge; real removals only ever arrive in `_deletes`. The previous gate
+  // compared whole-slice VALUES, which flagged a routine save as "destructive"
+  // whenever the client's copy merely differed in array order or simply hadn't
+  // synced a server-side change yet (e.g. a pipeline someone archived) — and then
+  // 401/403-bricked EVERY subsequent write when the session raced on role lookup.
+  // (The same fragility already forced `workspaces` out of this gate.) Gating on
+  // the explicit-delete envelope instead means normal saves are never blocked.
+  const dEnv = (cleanPatch as { _deletes?: DeletesEnvelope })._deletes;
+  const dExplicit = (cleanPatch as { _deleteMode?: string })._deleteMode === "explicit";
+  const DESTRUCTIVE_DELETE_KEYS = new Set(["customPipelines"]);
+  const candidateDestructiveKeys = (dExplicit && dEnv && typeof dEnv === "object" && !Array.isArray(dEnv))
+    ? Object.keys(dEnv).filter(k =>
+        DESTRUCTIVE_DELETE_KEYS.has(k) &&
+        Array.isArray((dEnv as Record<string, unknown>)[k]) &&
+        (dEnv as Record<string, string[]>)[k].length > 0)
+    : [];
   if (candidateDestructiveKeys.length > 0) {
-    // Compare each candidate key against current state; only count it as "destructive"
-    // if the value differs.
     const stateDoc = await PipelineState.findOne(WORKSPACE).lean() as { state?: Record<string, unknown> } | null;
     const currentState = stateDoc?.state ?? {};
-    const actuallyChanged = candidateDestructiveKeys.filter(k => {
-      const incoming = JSON.stringify((cleanPatch as Record<string, unknown>)[k] ?? null);
-      const existing = JSON.stringify((currentState as Record<string, unknown>)[k] ?? null);
-      return incoming !== existing;
-    });
+    // Every candidate here is already a real, explicit deletion.
+    const actuallyChanged = candidateDestructiveKeys;
 
     // Root admins (ADMIN_IDS) bypass every gate, every time. Resolved via
     // session.user.fixedUserId OR session.user.email → ADMIN_EMAIL_MAP.
