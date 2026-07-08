@@ -32,6 +32,7 @@ export interface ContentHandlersDeps {
   setSubtaskDescOverrides: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setSubtaskDueDates: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   markLocalWrite: (slice: string) => void;
+  queueDelete: (slice: string, key: string | string[]) => void;
   flushNow?: () => void;
   logActivity: (type: string, target: string, detail: string, notifyTo?: string[]) => void;
   showToast: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
@@ -59,6 +60,7 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
     setSubtaskDescOverrides,
     setSubtaskDueDates,
     markLocalWrite,
+    queueDelete,
     flushNow,
     logActivity,
     showToast,
@@ -269,8 +271,12 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
   const deleteNote = useCallback((id: number) => {
     if (!currentUser) return;
     markLocalWrite("notes");
-    setNotes(prev => prev.filter(note => note.id !== id || (note.by !== currentUser && !ADMIN_IDS.includes(currentUser))));
-  }, [currentUser, markLocalWrite, setNotes]);
+    setNotes(prev => {
+      const target = prev.find(n => n.id === id);
+      if (target && (target.by === currentUser || ADMIN_IDS.includes(currentUser))) queueDelete("notes", String(id));
+      return prev.filter(note => note.id !== id || (note.by !== currentUser && !ADMIN_IDS.includes(currentUser)));
+    });
+  }, [currentUser, markLocalWrite, setNotes, queueDelete]);
 
   const addBug = useCallback((input: { title: string; body?: string; steps?: string; expected?: string; actual?: string; type: BugType; severity: BugSeverity; status?: BugStatus; ownerId?: string; linkedTask?: string; attachments?: BugAttachment[] }) => {
     if (!currentUser) return;
@@ -333,9 +339,13 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
   const deleteBug = useCallback((id: number) => {
     if (!currentUser) return;
     markLocalWrite("bugs");
-    setBugs(prev => prev.filter(item => item.id !== id || (item.createdBy !== currentUser && item.ownerId !== currentUser && !ADMIN_IDS.includes(currentUser))));
+    setBugs(prev => {
+      const target = prev.find(b => b.id === id);
+      if (target && (target.createdBy === currentUser || target.ownerId === currentUser || ADMIN_IDS.includes(currentUser))) queueDelete("bugs", String(id));
+      return prev.filter(item => item.id !== id || (item.createdBy !== currentUser && item.ownerId !== currentUser && !ADMIN_IDS.includes(currentUser)));
+    });
     setTimeout(() => flushNow?.(), 0);
-  }, [currentUser, markLocalWrite, setBugs, flushNow]);
+  }, [currentUser, markLocalWrite, setBugs, flushNow, queueDelete]);
 
   const updateExecProposalStatus = useCallback((id: number, status: "reviewed" | "rejected" | "canceled") => {
     if (!currentUser || !ADMIN_IDS.includes(currentUser)) {
@@ -405,8 +415,11 @@ export function useContentHandlers(deps: ContentHandlersDeps) {
       return;
     }
     markLocalWrite("execProposals");
-    setExecProposals(prev => prev.filter(p => !(p.id === id && p.status !== "pending")));
-  }, [currentUser, markLocalWrite, setExecProposals, showToast, tAmber]);
+    setExecProposals(prev => {
+      if (prev.some(p => p.id === id && p.status !== "pending")) queueDelete("execProposals", String(id));
+      return prev.filter(p => !(p.id === id && p.status !== "pending"));
+    });
+  }, [currentUser, markLocalWrite, setExecProposals, showToast, tAmber, queueDelete]);
 
   return {
     addExecProposal,

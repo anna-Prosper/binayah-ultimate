@@ -461,6 +461,20 @@ export function ModelProvider({
   // server rows to compute those keys, exactly like serverSubtaskKeysRef.
   const serverDbRowKeysRef = useRef<Set<string>>(new Set());
 
+  // EXPLICIT deletion intent. The server merges every slice (keep-existing), so a
+  // removal only propagates via a `_deletes` key. We record deletions HERE when the
+  // user actually performs them — never by diffing local vs server. Inferring
+  // deletes from a diff is unsafe: any client whose local state is stale/partial
+  // would "delete everything it doesn't have" and wipe the shared state. Keys are
+  // per-slice: `${stage}::${id}` for subtasks, `${dbId}::${rowId}` (or bare dbId)
+  // for databases, and the item id for array-of-object slices.
+  const pendingDeletesRef = useRef<Record<string, Set<string>>>({});
+  const queueDelete = useCallback((slice: string, key: string | string[]) => {
+    const set = pendingDeletesRef.current[slice] ?? new Set<string>();
+    for (const k of (Array.isArray(key) ? key : [key])) set.add(String(k));
+    pendingDeletesRef.current[slice] = set;
+  }, []);
+
   // `protectedSlice` marks slices that mergePatch did NOT apply to local state
   // (a recent local write is protecting them). We must NOT record server keys for
   // those, because local doesn't reflect the server for them — recording would let
@@ -1094,75 +1108,13 @@ export function ModelProvider({
           .map(key => [key, stageStatusOverrides[key]])
       );
     }
-    // Compute _deletes by diffing current state against the last server-known
-    // membership. Anything the server thinks exists but no longer exists locally
-    // was deleted by the user and needs an explicit removal on the server.
+    // _deletes come ONLY from explicit user deletions recorded in pendingDeletesRef
+    // (drained on write success). We never infer deletions by diffing local vs
+    // server — that is the root cause of the data-wipe bug: a stale or partially
+    // hydrated client would report everything it hasn't loaded as "deleted".
     const deletes: Record<string, string[]> = {};
-    // MAP slices: by key name.
-    for (const slice of MAP_SLICES) {
-      if (slice === "stageStatusOverrides" || slice === "subtaskStages") continue;
-      const localVal = state[slice];
-      if (!localVal || typeof localVal !== "object" || Array.isArray(localVal)) continue;
-      const localKeys = new Set(Object.keys(localVal as Record<string, unknown>));
-      const serverKeys = serverKeysRef.current[slice];
-      if (!serverKeys || serverKeys.size === 0) continue;
-      const removed: string[] = [];
-      for (const k of serverKeys) if (!localKeys.has(k)) removed.push(k);
-      if (removed.length > 0) deletes[slice] = removed;
-    }
-    // ARRAY-BY-ID slices: by item.id.
-    for (const slice of ARRAY_BY_ID_SLICES) {
-      const localVal = state[slice];
-      if (!Array.isArray(localVal)) continue;
-      const localIds = new Set((localVal as { id: number | string }[]).map(i => String(i.id)));
-      const serverKeys = serverKeysRef.current[slice];
-      if (!serverKeys || serverKeys.size === 0) continue;
-      const removed: string[] = [];
-      for (const id of serverKeys) if (!localIds.has(id)) removed.push(id);
-      if (removed.length > 0) deletes[slice] = removed;
-    }
-    // SET slices: by member.
-    for (const slice of SET_SLICES) {
-      const localVal = state[slice];
-      if (!Array.isArray(localVal)) continue;
-      const localSet = new Set(localVal as string[]);
-      const serverKeys = serverKeysRef.current[slice];
-      if (!serverKeys || serverKeys.size === 0) continue;
-      const removed: string[] = [];
-      for (const k of serverKeys) if (!localSet.has(k)) removed.push(k);
-      if (removed.length > 0) deletes[slice] = removed;
-    }
-    // Subtasks (inner-array): track `${stage}::${id}` so we delete only the
-    // subtask the user removed, never wiping the whole stage's list.
-    {
-      const localSet = new Set<string>();
-      const subs = state.subtasks as Record<string, { id: number }[]> | undefined;
-      if (subs) for (const [stage, list] of Object.entries(subs)) {
-        if (Array.isArray(list)) for (const item of list) localSet.add(`${stage}::${item.id}`);
-      }
-      const removed: string[] = [];
-      for (const k of serverSubtaskKeysRef.current) if (!localSet.has(k)) removed.push(k);
-      if (removed.length > 0) deletes.subtasks = removed;
-    }
-    // Databases (inner-array rows): track `${dbId}::${rowId}` so a removed row
-    // propagates now that the server keeps existing rows on merge. Whole-database
-    // removals are already covered by the ARRAY_BY_ID pass above (bare dbId).
-    {
-      const localRowKeys = new Set<string>();
-      const localDbIds = new Set<string>();
-      const dbs = state.databases as { id: number | string; rows?: { id: number | string }[] }[] | undefined;
-      if (Array.isArray(dbs)) for (const db of dbs) {
-        localDbIds.add(String(db.id));
-        if (Array.isArray(db.rows)) for (const r of db.rows) localRowKeys.add(`${db.id}::${r.id}`);
-      }
-      const removed: string[] = [];
-      for (const k of serverDbRowKeysRef.current) {
-        const dbId = k.slice(0, k.indexOf("::"));
-        // Skip rows of a database that was removed wholesale (handled above).
-        if (!localDbIds.has(dbId)) continue;
-        if (!localRowKeys.has(k)) removed.push(k);
-      }
-      if (removed.length > 0) deletes.databases = [...(deletes.databases ?? []), ...removed];
+    for (const [slice, set] of Object.entries(pendingDeletesRef.current)) {
+      if (set.size > 0) deletes[slice] = [...set];
     }
     const envelope: PatchEnvelope = state as PatchEnvelope;
     if (Object.keys(deletes).length > 0) envelope._deletes = deletes;
@@ -1171,12 +1123,22 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, MAP_SLICES, ARRAY_BY_ID_SLICES, SET_SLICES]);
+       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases]);
 
   // After a successful PATCH, the server's truth now matches what we sent —
   // record those memberships as the new server-known set so we don't re-send
   // the same _deletes on the next scheduleWrite.
   const onWriteSuccess = useCallback((sent: PatchEnvelope) => {
+    // Explicit deletions that were just sent are now applied — drop them from the
+    // pending queue so we don't re-send them (which could fight a concurrent add).
+    if (sent._deletes) {
+      for (const [slice, keys] of Object.entries(sent._deletes)) {
+        const set = pendingDeletesRef.current[slice];
+        if (!set) continue;
+        for (const k of keys) set.delete(k);
+        if (set.size === 0) delete pendingDeletesRef.current[slice];
+      }
+    }
     if (sent.stageStatusOverrides && dirtyMapKeysRef.current.stageStatusOverrides) {
       for (const key of Object.keys(sent.stageStatusOverrides)) {
         const sentValue = sent.stageStatusOverrides[key];
@@ -1901,7 +1863,13 @@ export function ModelProvider({
   };
   const removeSubtask = (sid: string, taskId: number) => {
     markLocalWrite("subtasks");
-    setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).filter(t => t.id !== taskId || t.locked) }));
+    setSubtasks(prev => {
+      const list = prev[sid] || [];
+      const target = list.find(t => t.id === taskId);
+      // A locked subtask isn't removed; only record the delete when it actually goes.
+      if (target && !target.locked) queueDelete("subtasks", `${sid}::${taskId}`);
+      return { ...prev, [sid]: list.filter(t => t.id !== taskId || t.locked) };
+    });
   };
 
   const migrateSubtask = useCallback((oldKey: SubtaskKey, newParentStageId: string) => {
@@ -2563,6 +2531,7 @@ export function ModelProvider({
     setSubtaskDescOverrides,
     setSubtaskDueDates,
     markLocalWrite,
+    queueDelete,
     flushNow: () => writeNowRef.current?.(),
     logActivity,
     showToast,
@@ -2716,8 +2685,9 @@ export function ModelProvider({
 
   const deleteUsefulLink = useCallback((id: number) => {
     markLocalWrite("usefulLinks");
+    queueDelete("usefulLinks", String(id));
     setUsefulLinks(prev => prev.filter(item => item.id !== id));
-  }, [markLocalWrite]);
+  }, [markLocalWrite, queueDelete]);
 
   // ── Database (Notion-style tables) handlers ───────────────────────────────
   const createDatabase = useCallback((workspaceId: string, name: string, icon: string) => {
@@ -2750,9 +2720,10 @@ export function ModelProvider({
 
   const deleteDatabase = useCallback((id: number) => {
     markLocalWrite("databases");
+    queueDelete("databases", String(id));
     flushImmediatelyRef.current = true;
     setDatabases(prev => prev.filter(db => db.id !== id));
-  }, [markLocalWrite]);
+  }, [markLocalWrite, queueDelete]);
 
   const addDbRow = useCallback((dbId: number, values: Record<string, string> = {}, attachments?: import("@/lib/data").DbAttachment[]) => {
     if (!currentUser) return;
@@ -2779,12 +2750,13 @@ export function ModelProvider({
 
   const deleteDbRow = useCallback((dbId: number, rowId: number) => {
     markLocalWrite("databases");
+    queueDelete("databases", `${dbId}::${rowId}`);
     flushImmediatelyRef.current = true; // deleting a row is discrete — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
       return { ...db, rows: db.rows.filter(r => r.id !== rowId) };
     }));
-  }, [markLocalWrite]);
+  }, [markLocalWrite, queueDelete]);
 
   const addDbColumn = useCallback((dbId: number, col: Omit<DbColumn, "id">) => {
     const id = `col_${Date.now()}`;
