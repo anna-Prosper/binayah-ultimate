@@ -157,11 +157,31 @@ export type DeletesEnvelope = Record<string, string[]>;
 // would remove and the current count, for the caller to judge.
 function deleteImpact(field: string, keys: unknown[], state: State): { current: number; removing: number } {
   const cur = state[field];
+  if (field === "subtasks") {
+    // keys are `stage::id` (one subtask) or bare `stage` (whole stage's list).
+    const subs = isObject(cur) ? cur as Record<string, ItemWithId[]> : {};
+    let current = 0;
+    for (const l of Object.values(subs)) if (Array.isArray(l)) current += l.length;
+    let removing = 0;
+    for (const k of keys) {
+      const str = String(k); const sep = str.indexOf("::");
+      if (sep === -1) { const arr = subs[str]; if (Array.isArray(arr)) removing += arr.length; }
+      else { const stage = str.slice(0, sep), id = str.slice(sep + 2); const arr = subs[stage]; if (Array.isArray(arr) && arr.some(i => String(i.id) === id)) removing++; }
+    }
+    return { current, removing };
+  }
   if (field === "databases") {
     const dbs = Array.isArray(cur) ? cur as DbLike[] : [];
     const ids = new Set(dbs.map(d => String(d.id)));
-    const bareDrops = new Set(keys.filter(k => String(k).indexOf("::") === -1).map(String));
-    return { current: dbs.length, removing: [...bareDrops].filter(id => ids.has(id)).length };
+    let totalRows = 0;
+    for (const d of dbs) totalRows += Array.isArray(d.rows) ? d.rows.length : 0;
+    let removing = 0;
+    for (const k of keys) {
+      const str = String(k); const sep = str.indexOf("::");
+      if (sep === -1) { if (ids.has(str)) { const d = dbs.find(x => String(x.id) === str); removing += 1 + (Array.isArray(d?.rows) ? d!.rows!.length : 0); } }
+      else { const dbId = str.slice(0, sep), rowId = str.slice(sep + 2); const d = dbs.find(x => String(x.id) === dbId); if (d && Array.isArray(d.rows) && d.rows.some(r => String(r.id) === rowId)) removing++; }
+    }
+    return { current: dbs.length + totalRows, removing };
   }
   if (SET_SLICE_KEYS.has(field)) {
     const arr = Array.isArray(cur) ? cur as string[] : [];
@@ -185,6 +205,13 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
   const out: State = { ...state };
   for (const [field, keys] of Object.entries(deletes)) {
     if (!Array.isArray(keys) || keys.length === 0) continue;
+
+    // Identity-critical lists are never removed via sync — deleting a workspace or
+    // user is a deliberate, rare admin action, not something a state diff should do.
+    if (field === "workspaces" || field === "users") {
+      console.warn(`[merge] ignored _deletes for protected slice "${field}"`);
+      continue;
+    }
 
     // Refuse a mass-wipe: if these deletes would strip >=90% of a slice that has
     // >=5 items, treat it as a bad diff and skip it (the individual items survive).
