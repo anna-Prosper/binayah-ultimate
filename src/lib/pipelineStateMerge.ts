@@ -291,6 +291,38 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
  * `patch` is the cleanPatch (whitelist-checked, no `_deletes`).
  * `deletes` is the optional `_deletes` envelope.
  */
+/**
+ * A pipeline belongs to exactly one workspace. A browser tab still running the old
+ * "add every pipeline to Binayah Properties" migration re-bloats that workspace's
+ * pipelineIds on every save, which snapped moved pipelines back and repopulated
+ * Properties with Binayah AI's + Marketing's pipelines. This guard drops, from the
+ * just-merged workspaces, any pipelineId a workspace tries to hold while a DIFFERENT
+ * workspace owned it in the prior server state and still lists it. So an addition is
+ * only honoured when the pipeline was unassigned, or its previous owner relinquished
+ * it in the same write (a real move — the workspaces slice carries all workspaces, so
+ * a genuine move sends both sides). `__inbox__` is exempt: it's a shared per-workspace
+ * holder that legitimately appears in multiple workspaces.
+ */
+type WsLite = { id: string; pipelineIds?: string[] };
+function enforceSinglePipelineOwner(prior: WsLite[], merged: WsLite[]): WsLite[] {
+  const priorOwner = new Map<string, string>();
+  for (const w of prior) for (const pid of (w.pipelineIds || [])) if (!priorOwner.has(pid)) priorOwner.set(pid, w.id);
+  const mergedHas = (wsId: string, pid: string) => {
+    const w = merged.find(x => x.id === wsId);
+    return !!w && (w.pipelineIds || []).includes(pid);
+  };
+  return merged.map(w => {
+    const ids = w.pipelineIds || [];
+    const kept = ids.filter(pid => {
+      if (pid === "__inbox__") return true;
+      const owner = priorOwner.get(pid);
+      if (owner === undefined || owner === w.id) return true;
+      return !mergedHas(owner, pid); // prior owner relinquished it → allow the move
+    });
+    return kept.length === ids.length ? w : { ...w, pipelineIds: kept };
+  });
+}
+
 export function mergeStateWithPatch(
   current: State,
   patch: Record<string, unknown>,
@@ -334,6 +366,16 @@ export function mergeStateWithPatch(
     }
     // Default: replace (users, workspaces, scalars).
     next[k] = v;
+  }
+
+  // Single-owner guard for workspace pipeline assignments — neutralizes the stale
+  // "force every pipeline into Binayah Properties" client migration server-side, so
+  // it can't re-bloat a workspace no matter what code a client is running.
+  if ("workspaces" in patch && Array.isArray(next.workspaces) && Array.isArray(current.workspaces)) {
+    next.workspaces = enforceSinglePipelineOwner(
+      current.workspaces as WsLite[],
+      next.workspaces as WsLite[],
+    ) as State["workspaces"];
   }
 
   if (deletes && isObject(deletes)) {
