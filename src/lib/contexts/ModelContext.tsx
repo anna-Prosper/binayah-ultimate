@@ -483,6 +483,18 @@ export function ModelProvider({
   // succeeds (onWriteSuccess). This is the durable "never lose a write" guarantee.
   const unconfirmedSubtaskKeysRef = useRef<Set<string>>(new Set());
 
+  // Same guarantee for approvals (SET slices). A poll REPLACES the client's
+  // approved* set with the server's copy; a poll computed before our approve-write
+  // landed lacks the just-approved key, so the approval visibly flips back to
+  // "needs approval" on the next refresh. We keep any locally-approved key that
+  // isn't yet confirmed on the server through those poll-replaces, and clear it
+  // once a write carrying it succeeds (onWriteSuccess) or the item is un-approved.
+  const unconfirmedApprovalsRef = useRef<Record<string, Set<string>>>({
+    approvedStages: new Set(),
+    approvedSubtasks: new Set(),
+    approvedPipelines: new Set(),
+  });
+
   // `protectedSlice` marks slices that mergePatch did NOT apply to local state
   // (a recent local write is protecting them). We must NOT record server keys for
   // those, because local doesn't reflect the server for them — recording would let
@@ -1049,9 +1061,19 @@ export function ModelProvider({
     if (s.archivedSubtasks) setArchivedSubtasks(prev => Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])));
     if (s.stagePointsOverride && !isProtected("stagePointsOverride"))
       mergeMapOnHydrate(s.stagePointsOverride as Record<string, unknown>, setStagePointsOverrideState as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePointsOverrideState(v as Record<string, number>));
-    if (s.approvedStages && !isProtected("approvedStages")) setApprovedStages(s.approvedStages as string[]);
-    if (s.approvedSubtasks && !isProtected("approvedSubtasks")) setApprovedSubtasks(s.approvedSubtasks as string[]);
-    if (s.approvedPipelines && !isProtected("approvedPipelines")) setApprovedPipelines(s.approvedPipelines as string[]);
+    // Apply the server's approval sets, but keep any local approval whose write
+    // hasn't been confirmed yet (union with the un-confirmed set) so a poll can't
+    // flip a just-made approval back to "needs approval". Confirmed/un-approved
+    // keys are removed from the un-confirmed set elsewhere, so removals still
+    // propagate normally.
+    const applyApprovalSet = (server: string[], slice: "approvedStages" | "approvedSubtasks" | "approvedPipelines", setter: (v: string[]) => void) => {
+      if (isProtected(slice)) return;
+      const unconf = unconfirmedApprovalsRef.current[slice];
+      setter(unconf.size ? Array.from(new Set([...server, ...unconf])) : server);
+    };
+    if (s.approvedStages) applyApprovalSet(s.approvedStages as string[], "approvedStages", setApprovedStages);
+    if (s.approvedSubtasks) applyApprovalSet(s.approvedSubtasks as string[], "approvedSubtasks", setApprovedSubtasks);
+    if (s.approvedPipelines) applyApprovalSet(s.approvedPipelines as string[], "approvedPipelines", setApprovedPipelines);
     if (s.notifReads && !isProtected("notifReads")) setNotifReads(s.notifReads as Record<string, number>);
     if (s.notifDismissed && !isProtected("notifDismissed")) setNotifDismissed(s.notifDismissed as Record<string, string[]>);
     if (s.notifReadIds && !isProtected("notifReadIds")) setNotifReadIds(s.notifReadIds as Record<string, string[]>);
@@ -1100,6 +1122,7 @@ export function ModelProvider({
     }
     if (approvedToClear.size > 0) {
       markLocalWrite("approvedSubtasks");
+      for (const key of approvedToClear) unconfirmedApprovalsRef.current.approvedSubtasks.delete(key);
       setApprovedSubtasks(prev => prev.filter(key => !approvedToClear.has(key)));
     }
   }, [approvedSubtasks, markLocalWrite, subtasks, subtaskStages]);
@@ -1207,6 +1230,10 @@ export function ModelProvider({
       const v = (sent as Record<string, unknown>)[slice];
       if (Array.isArray(v)) {
         serverKeysRef.current[slice] = new Set(v as string[]);
+        // This write carried these approvals and the server accepted them — they're
+        // durably stored, so they no longer need poll-replace protection.
+        const unconf = unconfirmedApprovalsRef.current[slice];
+        if (unconf) for (const k of v as string[]) unconf.delete(k);
       }
     }
     if (sent.subtasks) {
@@ -1890,6 +1917,7 @@ export function ModelProvider({
     persistSubtaskStageNow(key, nextDone ? "active" : "planned");
     if (!nextDone && approvedSubtasks.includes(key)) {
       markLocalWrite("approvedSubtasks");
+      unconfirmedApprovalsRef.current.approvedSubtasks.delete(key);
       setApprovedSubtasks(prev => prev.filter(k => k !== key));
     }
   };
@@ -2304,6 +2332,7 @@ export function ModelProvider({
         }));
         if (leftActive && approvedSubtasks.includes(key)) {
           markLocalWrite("approvedSubtasks");
+          unconfirmedApprovalsRef.current.approvedSubtasks.delete(key);
           setApprovedSubtasks(prev => prev.filter(k => k !== key));
         }
       }
@@ -2354,6 +2383,7 @@ export function ModelProvider({
     if (approvedStages.includes(name)) return;
     const nextApprovedStages = [...approvedStages, name];
     markLocalWrite("approvedStages");
+    unconfirmedApprovalsRef.current.approvedStages.add(name);
     setApprovedStages(nextApprovedStages);
     logActivity("status", name, "→ approved");
     // Flush immediately — approvals are high-value; don't risk losing them to a
@@ -2375,6 +2405,7 @@ export function ModelProvider({
     const allApproved = allStages.every(s => nextApprovedStages.includes(s));
     if (!allApproved) return;
     markLocalWrite("approvedPipelines");
+    unconfirmedApprovalsRef.current.approvedPipelines.add(owningPipe.id);
     setApprovedPipelines(prev => [...prev, owningPipe.id]);
     const total = allStages.reduce((sum, s) => sum + (stageDefaults[s]?.points ?? ((stagePointsOverride[s] && stagePointsOverride[s] > 0) ? stagePointsOverride[s] : 10)), 0);
     const bonus = Math.floor(total * 0.25);
@@ -2389,6 +2420,7 @@ export function ModelProvider({
     }
     if (approvedSubtasks.includes(key)) return;
     markLocalWrite("approvedSubtasks");
+    unconfirmedApprovalsRef.current.approvedSubtasks.add(key);
     setApprovedSubtasks(prev => [...prev, key]);
     const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
     const subText = parsed ? (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId)?.text : undefined;
