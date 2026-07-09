@@ -432,6 +432,8 @@ export function ModelProvider({
   const localWritesRef = useRef<Record<string, number>>({});
   const dirtyMapKeysRef = useRef<Record<string, Set<string>>>({});
   const LOCAL_WRITE_PROTECT_MS = _LOCAL_WRITE_PROTECT_MS;
+  // Delta sync sends a full snapshot at most this often as a reconciliation net.
+  const FULL_SYNC_INTERVAL_MS = 60_000;
 
   // Diff-based delete tracking. The server merges every slice instead of
   // wholesale-replacing it (per-key for maps, by-id for arrays-of-objects,
@@ -494,6 +496,20 @@ export function ModelProvider({
     approvedSubtasks: new Set(),
     approvedPipelines: new Set(),
   });
+
+  // ── Delta-sync bookkeeping ────────────────────────────────────────────────
+  // Per-slice timestamp of the local write that was last CONFIRMED on the server.
+  // A slice is "dirty" (needs sending) when its localWritesRef timestamp is newer.
+  const lastConfirmedSendAtRef = useRef<Record<string, number>>({});
+  // When we last sent a FULL snapshot. A periodic full send is the safety net:
+  // even if some edit path forgot to markLocalWrite, the whole state reconciles
+  // within the interval, so a slice can never silently drift out of sync.
+  const lastFullSyncAtRef = useRef(0);
+  // The (slice → build-time write timestamp) map for the patch currently in
+  // flight. Consumed by onWriteSuccess to advance lastConfirmedSendAt to exactly
+  // the change that was sent — never to "now", which would swallow an edit made
+  // while the write was in flight.
+  const pendingSendSlicesRef = useRef<Record<string, number> | null>(null);
 
   // `protectedSlice` marks slices that mergePatch did NOT apply to local state
   // (a recent local write is protecting them). We must NOT record server keys for
@@ -1127,7 +1143,7 @@ export function ModelProvider({
     }
   }, [approvedSubtasks, markLocalWrite, subtasks, subtaskStages]);
 
-  const getCurrentState = useCallback((): PatchEnvelope => {
+  const buildFullState = useCallback((): PatchEnvelope => {
     const state: Record<string, unknown> = {
       owners,
       approvedStages, approvedSubtasks, approvedPipelines,
@@ -1183,10 +1199,43 @@ export function ModelProvider({
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
        stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases]);
 
+  // Delta wrapper around buildFullState: send only slices that changed since their
+  // last confirmed send, plus a periodic full snapshot as a reconciliation safety
+  // net. This cuts the ~700KB every-write payload (and the 409 contention it
+  // caused) down to just what moved, WITHOUT risking silent data loss — the full
+  // send re-syncs everything on a fixed interval regardless of dirty tracking.
+  const getCurrentState = useCallback((): PatchEnvelope => {
+    const full = buildFullState() as unknown as Record<string, unknown>;
+    const now = Date.now();
+    const doFull = lastFullSyncAtRef.current === 0 || now - lastFullSyncAtRef.current > FULL_SYNC_INTERVAL_MS;
+    const ts: Record<string, number> = {};
+    for (const k of Object.keys(full)) {
+      if (k === "_deletes") continue; // deletes are explicit intent — always send
+      if (doFull) { ts[k] = localWritesRef.current[k] ?? now; continue; }
+      const written = localWritesRef.current[k];
+      const confirmed = lastConfirmedSendAtRef.current[k] ?? 0;
+      if (written !== undefined && written > confirmed) ts[k] = written; // dirty → keep
+      else delete full[k];                                              // unchanged → omit
+    }
+    if (doFull) lastFullSyncAtRef.current = now;
+    pendingSendSlicesRef.current = ts;
+    return full as PatchEnvelope;
+  }, [buildFullState, FULL_SYNC_INTERVAL_MS]);
+
   // After a successful PATCH, the server's truth now matches what we sent —
   // record those memberships as the new server-known set so we don't re-send
   // the same _deletes on the next scheduleWrite.
   const onWriteSuccess = useCallback((sent: PatchEnvelope) => {
+    // Delta sync: advance each sent slice's confirmed-send timestamp to the write
+    // that was actually carried (captured at build time), NOT "now" — otherwise an
+    // edit made while this write was in flight would be marked confirmed and never
+    // resent. Slices dirtied after build stay dirty and go out on the next write.
+    if (pendingSendSlicesRef.current) {
+      for (const [slice, tstamp] of Object.entries(pendingSendSlicesRef.current)) {
+        lastConfirmedSendAtRef.current[slice] = tstamp;
+      }
+      pendingSendSlicesRef.current = null;
+    }
     // Explicit deletions that were just sent are now applied — drop them from the
     // pending queue so we don't re-send them (which could fight a concurrent add).
     if (sent._deletes) {
@@ -1289,7 +1338,10 @@ export function ModelProvider({
         .map(([slice]) => slice)
     );
     if (dirty.size === 0) return null;
-    const full = getCurrentState() as Record<string, unknown>;
+    // Use the FULL state (not the delta from getCurrentState) as the base; the
+    // unload path does its own dirty-slice filtering below and must not have the
+    // delta pre-trim or mutate the delta bookkeeping refs during a page close.
+    const full = buildFullState() as Record<string, unknown>;
     const out: Record<string, unknown> = { updatedAt: Date.now() };
     for (const [k, v] of Object.entries(full)) {
       if (k === "_deletes" || k === "updatedAt") continue;
@@ -1302,7 +1354,7 @@ export function ModelProvider({
       if (Object.keys(nd).length > 0) out._deletes = nd;
     }
     return out as PatchEnvelope;
-  }, [getCurrentState, UNLOAD_SKIP_SLICES, LOCAL_WRITE_PROTECT_MS]);
+  }, [buildFullState, UNLOAD_SKIP_SLICES, LOCAL_WRITE_PROTECT_MS]);
 
   const { status: syncStatus, scheduleWrite, writeNow, setOffline } = useSync({ onPatch: mergePatch, getPatch: getCurrentState, getUnloadPatch, onWriteSuccess });
   // Stash in a ref so handlers defined before scheduleWrite/writeNow are stable
