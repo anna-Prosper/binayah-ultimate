@@ -148,6 +148,11 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
   const dirtyRef = useRef(false);
   // Forward ref so the hydrate effect can call scheduleWrite without depending on it
   const scheduleWriteRef = useRef<(() => void) | null>(null);
+  // Durable-retry timer: after a burst of fast retries is exhausted, we DON'T drop
+  // the pending write — we schedule a slower retry so it eventually lands once the
+  // server/connection recovers. This is what makes an unsaved change survive a
+  // transient outage instead of being silently lost.
+  const durableRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const doWrite = useCallback(async () => {
     if (inFlightRef.current) return;
@@ -162,6 +167,7 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
           if (onWriteSuccess) onWriteSuccess(sent);
           retryCountRef.current = 0;
           dirtyRef.current = false;
+          if (durableRetryRef.current) { clearTimeout(durableRetryRef.current); durableRetryRef.current = null; }
           setStatus("live");
           return;
         }
@@ -182,8 +188,18 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
         setStatus("offline");
         await new Promise(r => setTimeout(r, backoff));
       }
-      // Exhausted retries — leave status offline; next state change re-arms scheduleWrite.
+      // Exhausted this fast-retry burst. DON'T drop the write — the change is still
+      // dirty and unsaved. Keep status offline (visible) and schedule a slower
+      // durable retry so it lands as soon as the server recovers. This is the core
+      // "never lose a write" guarantee: a write is only abandoned when it succeeds.
       retryCountRef.current = 0;
+      if (dirtyRef.current) {
+        if (durableRetryRef.current) clearTimeout(durableRetryRef.current);
+        durableRetryRef.current = setTimeout(() => {
+          durableRetryRef.current = null;
+          scheduleWriteRef.current?.();
+        }, 15000);
+      }
     } finally {
       inFlightRef.current = false;
       // If a state change landed during the in-flight write, arm a fresh debounce

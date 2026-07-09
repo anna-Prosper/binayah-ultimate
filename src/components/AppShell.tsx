@@ -200,6 +200,18 @@ function ShellInner({
   }, [activityLog.length]);
   useEffect(() => { const t = setTimeout(() => setIsHydrating(false), 3000); return () => clearTimeout(t); }, []);
   useEffect(() => { if (syncStatus !== "hydrating") setIsHydrating(false); }, [syncStatus]);
+  // Only surface the "not saved" banner when a save has been failing for a few
+  // seconds — a transient 409 (normal optimistic contention) recovers well within
+  // that window and shouldn't flash an alarming banner. A persistent offline state
+  // means a real problem the user should see.
+  const [showSyncBanner, setShowSyncBanner] = useState(false);
+  useEffect(() => {
+    if (syncStatus === "offline") {
+      const timer = setTimeout(() => setShowSyncBanner(true), 4000);
+      return () => clearTimeout(timer);
+    }
+    setShowSyncBanner(false);
+  }, [syncStatus]);
   useEffect(() => { lsSet("chatSize", chatSize); }, [chatSize]);
 
   // "While you were away" digest
@@ -539,6 +551,23 @@ function ShellInner({
   return (
     <div style={{ background: t.bg, minHeight: "100vh", color: t.text, fontFamily: "var(--font-dm-sans), sans-serif" }} onClick={() => { setShowThemePicker(false); setReactOpen(null); setViewingUser(null); setShowArchive(false); setShowChat(false); setShowActivity(false); setShowSettings(false); }}>
       <style>{`@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}@keyframes claimPulse{0%,100%{box-shadow:0 0 16px var(--c,#bf5af2)33,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 0 24px var(--c,#bf5af2)55,0 2px 12px rgba(0,0,0,0.4)}}@keyframes ptsCount{0%{transform:scale(1)}30%{transform:scale(1.5);color:#ffcc00}70%{transform:scale(1.2)}100%{transform:scale(1)}}*{box-sizing:border-box;}@media(max-width:768px){.bu-header{flex-wrap:wrap!important;gap:8px!important}.bu-header-btns{width:100%!important;flex-wrap:nowrap!important;gap:6px!important;overflow-x:auto!important;padding-bottom:2px!important;-webkit-overflow-scrolling:touch}.bu-header-btns>*{flex:0 0 auto!important}.bu-pipe-right{display:none!important}.bu-search-row{flex-direction:column!important;gap:6px!important}.bu-view-toggle{justify-content:stretch!important}.bu-mobile-nav{display:flex!important}}@media(max-width:640px){.bu-team{overflow-x:auto!important;flex-wrap:nowrap!important;padding:8px 12px!important;gap:12px!important;-webkit-overflow-scrolling:touch}.bu-header{flex-direction:column!important;align-items:stretch!important;gap:8px!important}.bu-header>div:first-child{min-width:0!important}.bu-header>div:first-child span+div+div span{display:none!important}}@keyframes bottomSheetIn{from{transform:translateY(100%)}to{transform:translateY(0)}}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}@keyframes fabPulse{0%,100%{box-shadow:0 4px 24px ${t.accent}55,0 2px 8px rgba(0,0,0,0.3)}50%{box-shadow:0 4px 32px ${t.accent}88,0 2px 12px rgba(0,0,0,0.4)}}@keyframes urgentPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(0.7)}}`}</style>
+
+      {showSyncBanner && (
+        <div
+          role="status"
+          aria-live="assertive"
+          data-tooltip="The app keeps retrying automatically — your changes are safe locally and will save when the connection recovers."
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 9999,
+            background: t.red, color: "#fff", textAlign: "center",
+            padding: "8px 14px", fontSize: 13, fontWeight: 800,
+            fontFamily: "var(--font-dm-mono), monospace", letterSpacing: -0.2,
+            boxShadow: "0 2px 10px rgba(0,0,0,0.35)", animation: "fadeIn 0.2s ease",
+          }}
+        >
+          ⚠ changes not saved yet — retrying… (don’t close the tab)
+        </div>
+      )}
 
       <ChromeShell
         sidebar={sidebarNode}
