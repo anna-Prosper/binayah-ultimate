@@ -475,6 +475,14 @@ export function ModelProvider({
     pendingDeletesRef.current[slice] = set;
   }, []);
 
+  // Subtask adds that have NOT yet been confirmed by a successful server write,
+  // keyed `${stage}::${id}`. A poll response computed before our add landed lacks
+  // it; without this a poll would wholesale-replace local subtasks and the unsaved
+  // task would vanish. We keep any local-only subtask whose key is in here (or is
+  // recent) on every poll-merge, and clear a key once a write that carried it
+  // succeeds (onWriteSuccess). This is the durable "never lose a write" guarantee.
+  const unconfirmedSubtaskKeysRef = useRef<Set<string>>(new Set());
+
   // `protectedSlice` marks slices that mergePatch did NOT apply to local state
   // (a recent local write is protecting them). We must NOT record server keys for
   // those, because local doesn't reflect the server for them — recording would let
@@ -897,7 +905,34 @@ export function ModelProvider({
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
     if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
-    if (s.subtasks && !isProtected("subtasks")) setSubtasks(s.subtasks as Record<string, SubtaskItem[]>);
+    if (s.subtasks && !isProtected("subtasks")) {
+      // Merge rather than wholesale-replace (mirrors the databases handling above).
+      // A poll response computed before our just-added task was persisted would
+      // otherwise drop that task locally — the classic "task appears then vanishes
+      // on refresh". Keep any local-only subtask that is either explicitly
+      // un-confirmed (its write hasn't been acked yet — kept no matter how long that
+      // takes) or recent enough to be an in-flight add. Once the server has it, it's
+      // in `remote` and won't be duplicated.
+      const SUBTASK_GRACE_MS = 120_000;
+      const nowTs = Date.now();
+      const remote = s.subtasks as Record<string, SubtaskItem[]>;
+      setSubtasks(local => {
+        const merged: Record<string, SubtaskItem[]> = { ...remote };
+        for (const [stage, localList] of Object.entries(local)) {
+          if (!Array.isArray(localList)) continue;
+          const remoteList = remote[stage] || [];
+          const remoteIds = new Set(remoteList.map(it => it.id));
+          const pending = localList.filter(it => {
+            if (remoteIds.has(it.id)) return false;
+            const key = `${stage}::${it.id}`;
+            return unconfirmedSubtaskKeysRef.current.has(key) ||
+              (typeof it.id === "number" && nowTs - it.id < SUBTASK_GRACE_MS);
+          });
+          if (pending.length) merged[stage] = [...remoteList, ...pending];
+        }
+        return merged;
+      });
+    }
     if (s.comments && !isProtected("comments")) {
       let pendingCommentNotif: { name: string; text: string; isComment: true; stage: string } | null = null;
       let pendingLiveNotif: { stage: string; name: string } | null = null;
@@ -1177,7 +1212,13 @@ export function ModelProvider({
     if (sent.subtasks) {
       const set = new Set<string>();
       for (const [stage, list] of Object.entries(sent.subtasks)) {
-        if (Array.isArray(list)) for (const item of list) set.add(`${stage}::${item.id}`);
+        if (Array.isArray(list)) for (const item of list) {
+          const key = `${stage}::${item.id}`;
+          set.add(key);
+          // This write carried the item, and the server accepted it — it's now
+          // durably stored, so it no longer needs poll-merge protection.
+          unconfirmedSubtaskKeysRef.current.delete(key);
+        }
       }
       serverSubtaskKeysRef.current = set;
     }
@@ -1805,6 +1846,7 @@ export function ModelProvider({
     if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast(`// max ${MAX_SUBTASKS} subtasks per stage`, t.amber); return null; }
     const taskId = Date.now();
     markLocalWrite("subtasks");
+    unconfirmedSubtaskKeysRef.current.add(`${sid}::${taskId}`);
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
     clearInput();
     logActivity("create", sid, `added subtask ${trimmed}`, ADMIN_IDS);
@@ -1867,7 +1909,11 @@ export function ModelProvider({
       const list = prev[sid] || [];
       const target = list.find(t => t.id === taskId);
       // A locked subtask isn't removed; only record the delete when it actually goes.
-      if (target && !target.locked) queueDelete("subtasks", `${sid}::${taskId}`);
+      if (target && !target.locked) {
+        queueDelete("subtasks", `${sid}::${taskId}`);
+        // No longer an un-synced add to protect — drop it so poll-merge won't resurrect it.
+        unconfirmedSubtaskKeysRef.current.delete(`${sid}::${taskId}`);
+      }
       return { ...prev, [sid]: list.filter(t => t.id !== taskId || t.locked) };
     });
   };
