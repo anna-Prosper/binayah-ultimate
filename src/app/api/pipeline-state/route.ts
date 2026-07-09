@@ -464,6 +464,17 @@ export async function PATCH(req: NextRequest) {
       | null;
     const currentState = current?.state ?? {};
     const lockUpdatedAt = current?.updatedAt;
+    // Guardrail: the optimistic-concurrency filter below matches on `updatedAt`,
+    // which Mongoose types as a Date. If a direct DB write ever stored it as a raw
+    // number (e.g. Date.now() from a repair script), the Date-cast filter never
+    // matches and EVERY write 409-freezes. Detect the wrong type, self-heal it to a
+    // Date (matched by workspace only, so it lands regardless of the bad type), and
+    // retry the CAS. This makes the freeze that happened once self-correcting.
+    if (lockUpdatedAt != null && !(lockUpdatedAt instanceof Date)) {
+      await PipelineState.updateOne(WORKSPACE, { $set: { updatedAt: new Date(lockUpdatedAt as string | number) } });
+      logApi(ROUTE, "healed_updatedAt_type", { was: typeof lockUpdatedAt });
+      continue;
+    }
     const nextState = mergeStateWithPatch(currentState, statePatch, safeDeletes);
     const newUpdatedAt = new Date();
     const writeFilter = lockUpdatedAt
