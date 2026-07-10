@@ -37,6 +37,6 @@ export async function sendStageEmail(opts: SendEmailOpts): Promise<void> {
   const transport = createTransporter();
   if (!transport) return; // misconfigured — skip silently
 
-  const from = `"Binayah Dashboard" <${process.env.SMTP_USER}>`;
+  const from = process.env.MAIL_FROM || `"Binayah Dashboard" <${process.env.SMTP_USER}>`;
   await transport.sendMail({ from, ...opts });
 }
