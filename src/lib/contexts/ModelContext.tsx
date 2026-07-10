@@ -1707,10 +1707,13 @@ export function ModelProvider({
 
   const unpinCallSeries = useCallback((wsId: string, topic: string) => {
     markLocalWrite("workspaces");
+    // Workspaces union-merge on the server, so a removal only propagates via an
+    // explicit scoped _delete — otherwise another tab re-adds the series.
+    queueDelete("workspaces", `${wsId}::callSeriesFilters::${topic}`);
     setWorkspaces(prev => prev.map(w => w.id === wsId
       ? { ...w, callSeriesFilters: (w.callSeriesFilters ?? []).filter(f => f !== topic) }
       : w));
-  }, [markLocalWrite, setWorkspaces]);
+  }, [markLocalWrite, setWorkspaces, queueDelete]);
 
   const setWorkspaceCallsLabel = useCallback((wsId: string, label: string) => {
     markLocalWrite("workspaces");
@@ -2616,6 +2619,7 @@ export function ModelProvider({
     workspaces,
     setWorkspaces,
     markLocalWrite,
+    queueDelete,
     logActivity,
     showToast,
     tAmber: t.amber,

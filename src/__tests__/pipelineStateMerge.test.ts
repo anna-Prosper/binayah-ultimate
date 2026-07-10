@@ -225,3 +225,70 @@ describe("databases row-level merge", () => {
     expect(next.databases[0].columns).toEqual([{ id: "c1", name: "V" }]);
   });
 });
+
+// ── Workspaces: by-id merge + array-field union (guards permission clobber) ────
+
+describe("workspaces by-id merge", () => {
+  const ws = (over: object = {}) => ({
+    id: "marketing", name: "Marketing Hub", icon: "📣", colorKey: "amber",
+    members: ["anna", "abdallah"], captains: ["anna", "abdallah"],
+    pipelineIds: [], callSeriesFilters: ["Binayah SMM"], ...over,
+  });
+
+  it("a stale tab missing a captain does NOT drop it (the Abdallah bug)", () => {
+    const current = { workspaces: [ws()] };
+    // Stale tab only has anna as captain and no pinned series
+    const patch = { workspaces: [ws({ captains: ["anna"], callSeriesFilters: [] })] };
+    const next = mergeStateWithPatch(current, patch) as { workspaces: { captains: string[]; callSeriesFilters: string[] }[] };
+    expect(next.workspaces[0].captains.sort()).toEqual(["abdallah", "anna"]);
+    expect(next.workspaces[0].callSeriesFilters).toEqual(["Binayah SMM"]);
+  });
+
+  it("concurrent member additions from two tabs both survive", () => {
+    const current = { workspaces: [ws({ members: ["anna", "prajeesh"] })] };
+    const patch = { workspaces: [ws({ members: ["anna", "yasmine"] })] };
+    const next = mergeStateWithPatch(current, patch) as { workspaces: { members: string[] }[] };
+    expect(next.workspaces[0].members.sort()).toEqual(["anna", "prajeesh", "yasmine"]);
+  });
+
+  it("scalar fields (name/icon) take the incoming value", () => {
+    const current = { workspaces: [ws({ name: "Marketing Hub" })] };
+    const patch = { workspaces: [ws({ name: "Marketing" })] };
+    const next = mergeStateWithPatch(current, patch) as { workspaces: { name: string }[] };
+    expect(next.workspaces[0].name).toBe("Marketing");
+  });
+
+  it("removing a member propagates via _deletes (wsId::field::value)", () => {
+    const current = { workspaces: [ws({ members: ["anna", "abdallah", "yasmine"] })] };
+    const patch = { workspaces: [ws({ members: ["anna", "abdallah"] })] };
+    const next = mergeStateWithPatch(current, patch, { workspaces: ["marketing::members::yasmine"] }) as { workspaces: { members: string[] }[] };
+    expect(next.workspaces[0].members.sort()).toEqual(["abdallah", "anna"]);
+  });
+
+  it("does NOT delete a whole workspace via a bare-id _delete (entity deletion is off-sync)", () => {
+    const current = { workspaces: [ws(), { id: "old", name: "Old", members: [], captains: [], pipelineIds: [] }] };
+    const next = mergeStateWithPatch(current, { workspaces: [] as unknown[] }, { workspaces: ["old"] }) as { workspaces: { id: string }[] };
+    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "old"]);
+  });
+
+  it("ignores a bare-id delete even when mixed with a valid scoped delete", () => {
+    const current = { workspaces: [ws({ members: ["anna", "abdallah", "yasmine"] }), { id: "old", name: "Old", members: [], captains: [], pipelineIds: [] }] };
+    const next = mergeStateWithPatch(current, { workspaces: [ws()] }, { workspaces: ["old", "marketing::members::yasmine"] }) as { workspaces: { id: string; members?: string[] }[] };
+    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "old"]); // "old" survives
+    expect(next.workspaces.find(w => w.id === "marketing")?.members?.sort()).toEqual(["abdallah", "anna"]); // yasmine removed
+  });
+
+  it("a new workspace is added, existing untouched", () => {
+    const current = { workspaces: [ws()] };
+    const patch = { workspaces: [{ id: "new", name: "New", members: ["anna"], captains: ["anna"], pipelineIds: [] }] };
+    const next = mergeStateWithPatch(current, patch) as { workspaces: { id: string }[] };
+    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "new"]);
+  });
+
+  it("does not blank pipelineIds when the patch omits the field", () => {
+    const current = { workspaces: [ws({ pipelineIds: ["core", "content"] })] };
+    const patch = { workspaces: [{ id: "marketing", name: "Marketing Hub" }] };
+    const next = mergeStateWithPatch(current, patch) as { workspaces: { pipelineIds: string[] }[] };
+    expect(next.workspaces[0].pipelineIds.sort()).toEqual(["content", "core"]);
+  });
+});

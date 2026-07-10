@@ -119,6 +119,43 @@ function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
   return out;
 }
 
+/**
+ * Merge the `workspaces` slice by workspace id, and union-merge the array fields
+ * inside each workspace (members, captains, pinned series, etc.). Workspaces were
+ * wholesale-replaced, so a stale tab autosaving its older copy could silently
+ * wipe another admin's membership / captain / pinned-series change. Here we keep
+ * every existing member/pipeline/series the patch doesn't mention, so concurrent
+ * edits never clobber. REMOVALS flow through `_deletes` with keys
+ * `${wsId}` (whole workspace) or `${wsId}::${field}::${value}` (one array member).
+ */
+const WS_ARRAY_FIELDS = ["members", "captains", "firstMates", "pipelineIds", "callSeriesFilters", "hiddenTabs"] as const;
+type WsLike = { id: string } & Record<string, unknown>;
+function mergeWorkspacesById(current: WsLike[], patch: WsLike[]): WsLike[] {
+  const out: WsLike[] = [...current];
+  const idxById = new Map<string, number>();
+  out.forEach((w, i) => idxById.set(String(w.id), i));
+  for (const incoming of patch) {
+    const key = String(incoming.id);
+    const existingIdx = idxById.get(key);
+    if (existingIdx === undefined) {
+      idxById.set(key, out.length);
+      out.push(incoming);
+      continue;
+    }
+    const existing = out[existingIdx];
+    const merged: WsLike = { ...existing, ...incoming }; // scalars (name/icon/label): incoming wins
+    for (const f of WS_ARRAY_FIELDS) {
+      const a = Array.isArray(existing[f]) ? (existing[f] as unknown[]) : [];
+      const b = Array.isArray(incoming[f]) ? (incoming[f] as unknown[]) : [];
+      // Union, preserving existing order then appending new — keep the field even
+      // if the patch omits it (never blank out members/captains).
+      if (a.length || b.length) merged[f] = Array.from(new Set([...a, ...b]));
+    }
+    out[existingIdx] = merged;
+  }
+  return out;
+}
+
 function mergeMapSlice(
   current: Record<string, unknown>,
   patch: Record<string, unknown>,
@@ -206,10 +243,18 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
   for (const [field, keys] of Object.entries(deletes)) {
     if (!Array.isArray(keys) || keys.length === 0) continue;
 
-    // Identity-critical lists are never removed via sync — deleting a workspace or
-    // user is a deliberate, rare admin action, not something a state diff should do.
-    if (field === "workspaces" || field === "users") {
-      console.warn(`[merge] ignored _deletes for protected slice "${field}"`);
+    // Identity ENTITIES are never removed via sync — deleting a whole workspace or
+    // a user is a deliberate, rare admin action, not something a state diff should
+    // do. But membership edits INSIDE a workspace (remove a member/captain/pinned
+    // series) are normal and use the scoped `${wsId}::${field}::${value}` form,
+    // handled in the dedicated workspaces branch below. So: block all `users`
+    // deletes and any bare-id (whole-workspace) delete; let scoped ones through.
+    if (field === "users") {
+      console.warn(`[merge] ignored _deletes for protected slice "users"`);
+      continue;
+    }
+    if (field === "workspaces" && keys.every(k => String(k).split("::").length < 3)) {
+      console.warn(`[merge] ignored entity-level _deletes for "workspaces"`);
       continue;
     }
 
@@ -236,6 +281,31 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
         subtasks[stage] = arr.filter(i => String(i.id) !== idStr);
       }
       out.subtasks = subtasks;
+      continue;
+    }
+
+    // Special: workspaces accepts ONLY scoped `${wsId}::${field}::${value}` keys to
+    // remove a single member/captain/pinned-series. Bare-id (whole-workspace) keys
+    // are ignored here — entity deletion is never done via a state diff.
+    if (field === "workspaces") {
+      const wss = Array.isArray(out.workspaces) ? [...(out.workspaces as WsLike[])] : [];
+      for (const key of keys) {
+        const str = String(key);
+        const first = str.indexOf("::");
+        if (first === -1) continue; // bare wsId — entity delete, never via sync
+        const wsId = str.slice(0, first);
+        const rest = str.slice(first + 2);
+        const sep = rest.indexOf("::");
+        if (sep === -1) continue; // malformed — need field + value
+        const f = rest.slice(0, sep);
+        const val = rest.slice(sep + 2);
+        if (!(WS_ARRAY_FIELDS as readonly string[]).includes(f)) continue;
+        const idx = wss.findIndex(w => String(w.id) === wsId);
+        if (idx === -1) continue;
+        const arr = Array.isArray(wss[idx][f]) ? (wss[idx][f] as unknown[]) : [];
+        wss[idx] = { ...wss[idx], [f]: arr.filter(x => String(x) !== val) };
+      }
+      out.workspaces = wss;
       continue;
     }
 
@@ -347,6 +417,13 @@ export function mergeStateWithPatch(
     if (k === "databases" && Array.isArray(v)) {
       const cur = Array.isArray(next.databases) ? next.databases as DbLike[] : [];
       next.databases = mergeDatabasesById(cur, v as DbLike[]);
+      continue;
+    }
+    // Special-case: workspaces merge by id + union of member/captain/series arrays,
+    // so a stale tab can't wipe another admin's membership or pinned-series change.
+    if (k === "workspaces" && Array.isArray(v)) {
+      const cur = Array.isArray(next.workspaces) ? next.workspaces as WsLike[] : [];
+      next.workspaces = mergeWorkspacesById(cur, v as WsLike[]);
       continue;
     }
     if (MAP_SLICE_KEYS.has(k) && isObject(v)) {

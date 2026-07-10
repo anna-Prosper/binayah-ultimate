@@ -6,6 +6,9 @@ export interface WorkspaceHandlersDeps {
   workspaces: Workspace[];
   setWorkspaces: React.Dispatch<React.SetStateAction<Workspace[]>>;
   markLocalWrite: (slice: string) => void;
+  // Records an explicit removal so it propagates through the server's
+  // keep-existing merge (workspaces union-merge; a removal needs a scoped delete).
+  queueDelete: (slice: string, key: string | string[]) => void;
   logActivity: (type: string, target: string, detail: string, notifyTo?: string[]) => void;
   showToast: (msg: string, color: string, durationMs?: number, action?: { label: string; onClick: () => void }) => void;
   tAmber: string;
@@ -19,6 +22,7 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     workspaces,
     setWorkspaces,
     markLocalWrite,
+    queueDelete,
     logActivity,
     showToast,
     tAmber,
@@ -55,8 +59,9 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can manage members", tAmber); return; }
     if (ws.captains.length === 1 && ws.captains[0] === userId) { showToast("// can't remove the only operator", tRed); return; }
     markLocalWrite("workspaces");
+    queueDelete("workspaces", [`${workspaceId}::members::${userId}`, `${workspaceId}::captains::${userId}`, `${workspaceId}::firstMates::${userId}`]);
     setWorkspaces(prev => prev.map(w => w.id === workspaceId ? { ...w, members: w.members.filter(id => id !== userId), captains: w.captains.filter(id => id !== userId) } : w));
-  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, queueDelete, showToast, tAmber, tRed]);
 
   const setMemberRank = useCallback((workspaceId: string, userId: string, rank: "operator" | "agent") => {
     if (!currentUser) return;
@@ -65,13 +70,15 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ws.captains.includes(currentUser) && !ADMIN_IDS.includes(currentUser)) { showToast("// only an operator can change ranks", tAmber); return; }
     if (ws.captains.length === 1 && ws.captains[0] === userId && rank !== "operator") { showToast("// can't demote the only operator", tRed); return; }
     markLocalWrite("workspaces");
+    // Demotion removes the user from captains — propagate that removal explicitly.
+    if (rank !== "operator") queueDelete("workspaces", `${workspaceId}::captains::${userId}`);
     setWorkspaces(prev => prev.map(w => {
       if (w.id !== workspaceId) return w;
       const captains = w.captains.filter(id => id !== userId);
       if (rank === "operator") captains.push(userId);
       return { ...w, captains, members: w.members.includes(userId) ? w.members : [...w.members, userId] };
     }));
-  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, queueDelete, showToast, tAmber, tRed]);
 
   const deleteWorkspace = useCallback((workspaceId: string) => {
     if (!currentUser) return;
