@@ -600,10 +600,12 @@ export function ModelProvider({
       return val;
     });
   }, [markLocalWrite]);
-  const isProtected = (slice: string) => {
+  // Stable identity (reads only refs/consts) so callbacks that depend on it don't
+  // recreate every render.
+  const isProtected = useCallback((slice: string) => {
     const t = localWritesRef.current[slice];
     return t !== undefined && Date.now() - t < LOCAL_WRITE_PROTECT_MS;
-  };
+  }, [LOCAL_WRITE_PROTECT_MS]);
 
   // ── LocalStorage persistence (batched) ────────────────────────────────────
   // Replaces 30+ individual useEffect+lsSet pairs. Tracks previous values via a
@@ -1197,7 +1199,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases]);
+       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, isProtected]);
 
   // Delta wrapper around buildFullState: send only slices that changed since their
   // last confirmed send, plus a periodic full snapshot as a reconciliation safety

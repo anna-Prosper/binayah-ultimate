@@ -1156,6 +1156,12 @@ const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", 
 // Present Monday-first to match the calendar grid, but store JS getDay (0=Sun).
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
 
+// Unique slot id. Kept at module scope so the impure Date.now() call isn't inside
+// a component/hook body (react-hooks/purity) — the sequence suffix guards against
+// two slots added within the same millisecond.
+let _slotSeq = 0;
+function newSlotId(): string { return `slot_${Date.now()}_${_slotSeq++}`; }
+
 // Manager for a date-bearing database's recurring slots ("every Tuesday → a Project
 // Reel"). Editing here only defines the RULES; CalendarView materializes them into
 // real rows a few weeks ahead. Kept intentionally simple: rules save immediately.
@@ -1182,7 +1188,7 @@ function RecurringSlotsPanel({ db, t, onSave, onClose }: {
   const addSlot = () => {
     const values: Record<string, string> = {};
     if (cc.statusCol && statusOpts[0]) values[cc.statusCol.id] = statusOpts[0];
-    onSave([...slots, { id: `slot_${Date.now()}`, label: "", weekday: 2, values, active: true }]);
+    onSave([...slots, { id: newSlotId(), label: "", weekday: 2, values, active: true }]);
   };
   const removeSlot = (id: string) => onSave(slots.filter(s => s.id !== id));
 
