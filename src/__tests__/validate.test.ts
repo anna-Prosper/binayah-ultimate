@@ -3,6 +3,7 @@ import {
   validateNestedKeys,
   validateStageKey,
   validateSubtasks,
+  MAX_SUBTASKS_PER_STAGE,
   PATCH_KEY_WHITELIST,
   MAP_SLICE_KEYS,
   ARRAY_BY_ID_SLICE_KEYS,
@@ -86,7 +87,7 @@ describe("validateSubtasks", () => {
   });
 
   it("rejects subtask list exceeding max", () => {
-    const items = Array.from({ length: 21 }, (_, i) => ({ id: i, text: `t${i}`, done: false, by: "anna" }));
+    const items = Array.from({ length: MAX_SUBTASKS_PER_STAGE + 1 }, (_, i) => ({ id: i, text: `t${i}`, done: false, by: "anna" }));
     expect(validateSubtasks({ "Stage A": items })).toMatch(/exceeds max/);
   });
 

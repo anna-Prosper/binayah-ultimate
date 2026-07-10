@@ -150,12 +150,21 @@ describe("reactions inner merge", () => {
 
 // ── Non-classified slices: full replace ───────────────────────────────────────
 
-describe("non-classified slices (users, workspaces)", () => {
-  it("replaces the whole value for unclassified fields", () => {
-    const current = { users: [{ id: "anna" }] };
-    const patch = { users: [{ id: "usama" }] };
-    const next = mergeStateWithPatch(current, patch);
-    expect(next.users).toEqual([{ id: "usama" }]);
+describe("identity-critical slices (users, workspaces)", () => {
+  it("merges by id (keep-existing) so a stale client can't shrink them", () => {
+    // Stale client's patch is missing anna — she must survive the merge.
+    const current = { users: [{ id: "anna" }, { id: "usama" }] };
+    const patch = { users: [{ id: "usama", name: "Usama" }] };
+    const next = mergeStateWithPatch(current, patch) as { users: { id: string; name?: string }[] };
+    expect(next.users.map(u => u.id).sort()).toEqual(["anna", "usama"]);
+    expect(next.users.find(u => u.id === "usama")?.name).toBe("Usama"); // updated in place
+  });
+
+  it("still replaces a genuinely unclassified field wholesale", () => {
+    const current = { activityLog: [{ type: "a" }, { type: "b" }] };
+    const patch = { activityLog: [{ type: "c" }] };
+    const next = mergeStateWithPatch(current, patch) as { activityLog: { type: string }[] };
+    expect(next.activityLog).toEqual([{ type: "c" }]);
   });
 });
 
