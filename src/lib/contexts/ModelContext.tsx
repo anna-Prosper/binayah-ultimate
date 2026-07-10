@@ -236,7 +236,7 @@ interface ModelContextValue {
   // Database (Notion-style tables)
   databases: WorkspaceDb[];
   createDatabase: (workspaceId: string, name: string, icon: string) => void;
-  updateDatabase: (id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
+  updateDatabase: (id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views" | "recurringSlots">>) => void;
   deleteDatabase: (id: number) => void;
   addDbRow: (dbId: number, values?: Record<string, string>, attachments?: import("@/lib/data").DbAttachment[]) => void;
   updateDbRow: (dbId: number, rowId: number, values: Record<string, string>, attachments?: import("@/lib/data").DbAttachment[]) => void;
@@ -2843,7 +2843,7 @@ export function ModelProvider({
     setDatabases(prev => [db, ...prev]);
   }, [currentUser, markLocalWrite]);
 
-  const updateDatabase = useCallback((id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => {
+  const updateDatabase = useCallback((id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views" | "recurringSlots">>) => {
     markLocalWrite("databases");
     setDatabases(prev => prev.map(db => db.id === id ? { ...db, ...patch } : db));
   }, [markLocalWrite]);
