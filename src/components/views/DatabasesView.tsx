@@ -2,10 +2,10 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { useModel } from "@/lib/contexts/ModelContext";
-import type { WorkspaceDb, DbColumn, DbRow, DbAttachment } from "@/lib/data";
+import type { WorkspaceDb, DbColumn, DbRow, DbAttachment, RecurringSlot } from "@/lib/data";
 import { ADMIN_IDS } from "@/lib/data";
 import { AvatarC } from "@/components/ui/Avatar";
-import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera, Paperclip, Upload, Link2, FileText, X, Pencil } from "lucide-react";
+import { Plus, Trash2, ExternalLink, ChevronDown, Table2, CalendarDays, ChevronLeft, ChevronRight, Globe, Mail, Hash, Clock, Camera, Paperclip, Upload, Link2, FileText, X, Pencil, Repeat } from "lucide-react";
 // Brand/platform logos — lucide (this version) has no brand icons, so these come
 // from Font Awesome's brand set via react-icons.
 import { FaInstagram, FaYoutube, FaLinkedin, FaFacebook, FaXTwitter, FaTiktok, FaReddit, FaWhatsapp } from "react-icons/fa6";
@@ -1152,6 +1152,97 @@ function RowDetailCard({
 // Month-grid calendar layout for date-bearing databases. Content pieces render as
 // color chips (by status) with a platform glyph on their publish date; click a day
 // to add, click a chip to edit, drag a chip to reschedule.
+const WEEKDAY_LABELS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+// Present Monday-first to match the calendar grid, but store JS getDay (0=Sun).
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+// Manager for a date-bearing database's recurring slots ("every Tuesday → a Project
+// Reel"). Editing here only defines the RULES; CalendarView materializes them into
+// real rows a few weeks ahead. Kept intentionally simple: rules save immediately.
+function RecurringSlotsPanel({ db, t, onSave, onClose }: {
+  db: WorkspaceDb;
+  t: ReturnType<typeof useModel>["t"];
+  onSave: (slots: RecurringSlot[]) => void;
+  onClose: () => void;
+}) {
+  const cc = pickCalendarCols(db.columns);
+  const slots = db.recurringSlots || [];
+  const statusOpts = cc.statusCol?.options || [];
+  const typeOpts = cc.typeCol?.options || [];
+  const platformOpts = cc.platformCol?.options || [];
+
+  const setField = (id: string, patch: Partial<RecurringSlot>) =>
+    onSave(slots.map(s => (s.id === id ? { ...s, ...patch } : s)));
+  const setVal = (id: string, colId: string, val: string) =>
+    onSave(slots.map(s => (s.id === id ? { ...s, values: { ...s.values, [colId]: val } } : s)));
+  const setTitle = (id: string, title: string) =>
+    onSave(slots.map(s => (s.id === id
+      ? { ...s, label: title, values: cc.titleCol ? { ...s.values, [cc.titleCol.id]: title } : s.values }
+      : s)));
+  const addSlot = () => {
+    const values: Record<string, string> = {};
+    if (cc.statusCol && statusOpts[0]) values[cc.statusCol.id] = statusOpts[0];
+    onSave([...slots, { id: `slot_${Date.now()}`, label: "", weekday: 2, values, active: true }]);
+  };
+  const removeSlot = (id: string) => onSave(slots.filter(s => s.id !== id));
+
+  const selStyle: React.CSSProperties = { background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "6px 8px", color: t.text, fontSize: 12, fontFamily: "inherit" };
+
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1000, display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "8vh 16px", overflowY: "auto" }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "min(680px, 100%)", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+          <Repeat size={17} style={{ color: t.accent }} />
+          <div style={{ fontSize: 16, fontWeight: 800, color: t.text }}>recurring slots</div>
+          <div style={{ flex: 1 }} />
+          <button onClick={onClose} style={{ background: "transparent", border: "none", color: t.textMuted, cursor: "pointer", display: "flex" }}><X size={18} /></button>
+        </div>
+        <div style={{ fontSize: 12, color: t.textMuted, marginBottom: 16 }}>
+          A weekly cadence that auto-creates entries ~6 weeks ahead — so the schedule never silently dies. Generated entries are normal rows you can edit, move or delete.
+        </div>
+
+        {slots.length === 0 && (
+          <div style={{ textAlign: "center", color: t.textDim, fontSize: 13, padding: "20px 0" }}>No recurring slots yet.</div>
+        )}
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {slots.map(slot => (
+            <div key={slot.id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: 10, opacity: slot.active ? 1 : 0.55 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted }}>every</span>
+              <select value={slot.weekday} onChange={e => setField(slot.id, { weekday: Number(e.target.value) })} style={selStyle}>
+                {WEEKDAY_ORDER.map(d => <option key={d} value={d}>{WEEKDAY_LABELS[d]}</option>)}
+              </select>
+              <input value={slot.label} onChange={e => setTitle(slot.id, e.target.value)} placeholder="title (e.g. Project Reel)"
+                style={{ ...selStyle, flex: "1 1 160px", minWidth: 120 }} />
+              {cc.typeCol && typeOpts.length > 0 && (
+                <select value={cc.typeCol ? slot.values[cc.typeCol.id] || "" : ""} onChange={e => setVal(slot.id, cc.typeCol!.id, e.target.value)} style={selStyle}>
+                  <option value="">— type —</option>
+                  {typeOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              )}
+              {cc.platformCol && platformOpts.length > 0 && (
+                <select value={cc.platformCol ? slot.values[cc.platformCol.id] || "" : ""} onChange={e => setVal(slot.id, cc.platformCol!.id, e.target.value)} style={selStyle}>
+                  <option value="">— platform —</option>
+                  {platformOpts.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              )}
+              <button onClick={() => setField(slot.id, { active: !slot.active })} title={slot.active ? "active — click to pause" : "paused — click to activate"}
+                style={{ background: slot.active ? t.green + "22" : "transparent", border: `1px solid ${slot.active ? t.green : t.border}`, borderRadius: 8, padding: "5px 10px", color: slot.active ? t.green : t.textMuted, cursor: "pointer", fontSize: 11, fontWeight: 700 }}>
+                {slot.active ? "active" : "paused"}
+              </button>
+              <button onClick={() => removeSlot(slot.id)} title="delete slot" style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", display: "flex", padding: 4 }}><Trash2 size={15} /></button>
+            </div>
+          ))}
+        </div>
+
+        <button onClick={addSlot} style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 14, background: t.accent + "18", border: `1px solid ${t.accent}66`, borderRadius: 10, padding: "8px 14px", color: t.accent, cursor: "pointer", fontSize: 13, fontWeight: 800 }}>
+          <Plus size={15} /> add slot
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function CalendarView({
   db,
   rows,
@@ -1174,7 +1265,7 @@ function CalendarView({
   onAddRow: (values?: Record<string, string>, attachments?: DbAttachment[]) => void;
   onUpdateRow: (rowId: number, values: Record<string, string>, attachments?: DbAttachment[]) => void;
   onDeleteRow: (rowId: number) => void;
-  onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
+  onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views" | "recurringSlots">>) => void;
   isMobile: boolean;
 }) {
   const { dateCol, timeCol, statusCol, platformCol, typeCol, titleCol } = pickCalendarCols(db.columns);
@@ -1185,9 +1276,49 @@ function CalendarView({
   const [dragOver, setDragOver] = useState<string | null>(null);
   const [hoverDay, setHoverDay] = useState<string | null>(null);
   const [hoverChip, setHoverChip] = useState<number | null>(null);
+  const [showSlots, setShowSlots] = useState(false);
 
   const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   const todayStr = ymd(new Date());
+
+  // Materialize recurring slots into real rows a rolling ~6 weeks ahead. Idempotent:
+  // each (slot, date) is created at most once (deduped by slotId+date AND bounded by
+  // the slot's lastGeneratedDate, so a user-deleted entry is NOT resurrected). Runs on
+  // mount and whenever a slot's rule changes — never on ordinary row edits.
+  const slotsSig = (db.recurringSlots || []).map(s => `${s.id}:${s.weekday}:${s.active ? 1 : 0}:${JSON.stringify(s.values)}`).join("|");
+  useEffect(() => {
+    if (!canEdit || !dateCol || !currentUser) return;
+    const slots = db.recurringSlots || [];
+    if (!slots.some(s => s.active)) return;
+    const HORIZON_DAYS = 42;
+    const shift = (base: string, n: number) => { const d = new Date(base + "T00:00:00"); d.setDate(d.getDate() + n); return ymd(d); };
+    const horizonStr = shift(todayStr, HORIZON_DAYS);
+    const existingKeys = new Set(db.rows.filter(r => r.slotId).map(r => `${r.slotId}@${(r.values[dateCol.id] || "").slice(0, 10)}`));
+    const newRows: DbRow[] = [];
+    let idBase = Date.now();
+    const nextSlots = slots.map(slot => {
+      if (!slot.active) return slot;
+      let far = slot.lastGeneratedDate && slot.lastGeneratedDate > horizonStr ? slot.lastGeneratedDate : "";
+      let cur = slot.lastGeneratedDate && slot.lastGeneratedDate >= todayStr ? shift(slot.lastGeneratedDate, 1) : todayStr;
+      while (cur <= horizonStr) {
+        if (new Date(cur + "T00:00:00").getDay() === slot.weekday) {
+          const key = `${slot.id}@${cur}`;
+          if (!existingKeys.has(key)) {
+            existingKeys.add(key);
+            newRows.push({ id: idBase, values: { ...slot.values, [dateCol.id]: cur }, createdBy: currentUser, createdAt: idBase, slotId: slot.id });
+            idBase += 1;
+          }
+          if (cur > far) far = cur;
+        }
+        cur = shift(cur, 1);
+      }
+      return far && far !== slot.lastGeneratedDate ? { ...slot, lastGeneratedDate: far } : slot;
+    });
+    const slotsChanged = nextSlots.some((s, i) => s !== slots[i]);
+    if (newRows.length > 0) onUpdateDb({ rows: [...db.rows, ...newRows], recurringSlots: nextSlots });
+    else if (slotsChanged) onUpdateDb({ recurringSlots: nextSlots });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [db.id, canEdit, currentUser, slotsSig]);
 
   if (!dateCol || !titleCol) {
     return <div style={{ padding: 40, textAlign: "center", color: t.textDim, fontSize: 13 }}>This table needs a date column to use the calendar.</div>;
@@ -1282,6 +1413,7 @@ function CalendarView({
           : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
         {time && <span style={{ flexShrink: 0, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10 }}>{formatTime(time)}</span>}
         <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+        {r.slotId && <Repeat size={9} style={{ flexShrink: 0, color: t.textMuted, opacity: 0.7 }} />}
         {!!r.attachments?.length && <Paperclip size={10} style={{ flexShrink: 0, marginLeft: "auto", color: t.textMuted }} />}
       </div>
     );
@@ -1306,12 +1438,26 @@ function CalendarView({
         </button>
         <div style={{ flex: 1 }} />
         {canEdit && (
+          <button onClick={() => setShowSlots(true)} title="recurring content slots"
+            style={{ display: "flex", alignItems: "center", gap: 5, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 12px", color: t.textMuted, cursor: "pointer", fontSize: 12, fontWeight: 800, position: "relative" }}>
+            <Repeat size={13} /> recurring
+            {(db.recurringSlots || []).some(s => s.active) && (
+              <span style={{ background: t.accent, color: "#fff", borderRadius: 999, fontSize: 10, fontWeight: 800, padding: "0 5px", marginLeft: 2 }}>
+                {(db.recurringSlots || []).filter(s => s.active).length}
+              </span>
+            )}
+          </button>
+        )}
+        {canEdit && (
           <button onClick={addShoot}
             style={{ display: "flex", alignItems: "center", gap: 5, background: t.accent + "18", border: `1px solid ${t.accent}66`, borderRadius: 8, padding: "5px 12px", color: t.accent, cursor: "pointer", fontSize: 12, fontWeight: 800 }}>
             <Camera size={13} /> add shoot
           </button>
         )}
       </div>
+      {showSlots && (
+        <RecurringSlotsPanel db={db} t={t} onClose={() => setShowSlots(false)} onSave={slots => onUpdateDb({ recurringSlots: slots })} />
+      )}
 
       {/* Weekday header */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6, minWidth: isMobile ? 640 : undefined, marginBottom: 6 }}>
@@ -1518,7 +1664,7 @@ function TableView({
   onDeleteRow: (rowId: number) => void;
   onAddRow: (values?: Record<string, string>, attachments?: DbAttachment[]) => void;
   onAddColumn: (col: Omit<DbColumn, "id">) => void;
-  onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => void;
+  onUpdateDb: (patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views" | "recurringSlots">>) => void;
   isMobile: boolean;
 }) {
   const hasDateCol = db.columns.some(c => c.type === "date");
@@ -2052,7 +2198,7 @@ export default function DatabasesView({ currentWorkspaceId, openDbName }: Props)
     createDatabase(wsId, name, icon);
   }, [createDatabase, wsId]);
 
-  const handleUpdateDb = useCallback((id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views">>) => {
+  const handleUpdateDb = useCallback((id: number, patch: Partial<Pick<WorkspaceDb, "name" | "icon" | "columns" | "rows" | "views" | "recurringSlots">>) => {
     updateDatabase(id, patch);
   }, [updateDatabase]);
 
