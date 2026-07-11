@@ -31,18 +31,32 @@ type StateDoc = {
   activityLog?: ActivityEntry[];
   stageStatusOverrides?: Record<string, string>;
   customStages?: Record<string, string[]>;
+  customPipelines?: Array<{ id: string; name?: string }>;
   execProposals?: Array<{ id: number; title: string; status: string; by: string; kind?: string }>;
-  bugs?: Array<{ id: number; title: string; status?: string; severity?: string; ownerId?: string }>;
+  bugs?: Array<{ id: number; title: string; status?: string; severity?: string; ownerId?: string; workspaceId?: string }>;
+  workspaces?: Array<{ id: string; name: string; pipelineIds?: string[] }>;
 };
 
-function stageToPipelineIndex(customStages: Record<string, string[]>) {
-  const idx = new Map<string, string>();
-  for (const p of pipelineData) for (const s of p.stages) idx.set(s, p.name);
-  for (const [pid, stages] of Object.entries(customStages)) {
-    const name = pipelineData.find(p => p.id === pid)?.name ?? cleanHumanText(pid);
-    for (const s of stages) idx.set(s, name);
-  }
-  return idx;
+// Map an activity target (a stage name, a "stage::subtaskId" key, or a
+// default-parent holder) to the workspace that owns its pipeline. Best-effort:
+// the digest tolerates a few unattributed items.
+function buildResolvers(state: StateDoc) {
+  const stageToPid = new Map<string, string>();
+  for (const p of pipelineData) for (const s of p.stages) stageToPid.set(s, p.id);
+  for (const [pid, stages] of Object.entries(state.customStages ?? {})) for (const s of stages) stageToPid.set(s, pid);
+  const pidToWs = new Map<string, string>();
+  for (const w of state.workspaces ?? []) for (const pid of (w.pipelineIds ?? [])) pidToWs.set(pid, w.name);
+
+  const targetToWorkspace = (rawTarget: string): string | null => {
+    const stage = String(rawTarget || "").split("::")[0];
+    if (stage.startsWith("default-parent-")) {
+      for (const w of state.workspaces ?? []) for (const pid of (w.pipelineIds ?? []))
+        if (stage === `default-parent-${pid}` || stage.startsWith(`default-parent-${pid}-`)) return w.name;
+    }
+    const pid = stageToPid.get(stage) ?? stage;
+    return pidToWs.get(pid) ?? null;
+  };
+  return { targetToWorkspace };
 }
 
 function buildDigestText(state: StateDoc): string {
@@ -51,54 +65,52 @@ function buildDigestText(state: StateDoc): string {
   const names: Record<string, string> = Object.fromEntries(USERS_DEFAULT.map(u => [u.id, u.name]));
   const nameOf = (id: string) => names[id] ?? id;
   const log = (state.activityLog ?? []).filter(a => a.time > weekAgo);
-  const idx = stageToPipelineIndex(state.customStages ?? {});
   const overrides = state.stageStatusOverrides ?? {};
-  const allStages = Array.from(new Set([
-    ...pipelineData.flatMap(p => p.stages),
-    ...Object.values(state.customStages ?? {}).flat(),
-  ]));
+  const { targetToWorkspace } = buildResolvers(state);
 
-  const completions = log.filter(a => a.type === "status_change" && /active/i.test(a.detail));
-  const approvals = log.filter(a => /→\s*approved|\bapproved\b/i.test(a.detail));
+  // Headline counts across the whole team, all workspaces
+  const created = log.filter(a => a.type === "create").length;
+  const assigned = log.filter(a => a.type === "assign").length;
+  const approved = log.filter(a => /→\s*approved|\bapproved\b/i.test(a.detail)).length;
+  const completed = log.filter(a => a.type === "status_change" && /→\s*(active|done)/i.test(a.detail)).length;
+  const comments = log.filter(a => a.type === "comment").length;
 
-  // Shipped, grouped by pipeline
-  const byPipe = new Map<string, number>();
-  for (const c of completions) {
-    const p = idx.get(c.target) ?? "General delivery";
-    byPipe.set(p, (byPipe.get(p) ?? 0) + 1);
-  }
-  const shippedRows = [...byPipe.entries()].sort((a, b) => b[1] - a[1]).slice(0, 6)
-    .map(([p, n]) => `• ${cleanHumanText(p)} — ${n}`);
+  // Per-workspace activity (in the workspace's own order)
+  const wsCount = new Map<string, number>();
+  for (const a of log) { const w = targetToWorkspace(a.target); if (w) wsCount.set(w, (wsCount.get(w) ?? 0) + 1); }
+  const wsRows = (state.workspaces ?? []).map(w => `• ${cleanHumanText(w.name)} — ${wsCount.get(w.name) ?? 0} updates`);
 
-  // On fire — top movers this week (completions + approvals earned)
+  // Team leaderboard — most active people this week
   const byUser = new Map<string, number>();
-  for (const c of completions) byUser.set(c.user, (byUser.get(c.user) ?? 0) + 1);
-  for (const a of approvals) byUser.set(a.user, (byUser.get(a.user) ?? 0) + 1);
-  const fireRows = [...byUser.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
-    .map(([uid, n], i) => `${["🥇", "🥈", "🥉"][i] ?? "•"} ${nameOf(uid)} — ${n} moves`);
+  for (const a of log) byUser.set(a.user, (byUser.get(a.user) ?? 0) + 1);
+  const medals = ["🥇", "🥈", "🥉"];
+  const leaderRows = [...byUser.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5)
+    .map(([uid, n], i) => `${medals[i] ?? "•"} ${nameOf(uid)} — ${n}`);
 
-  // Blocked
-  const blocked = allStages.filter(s => overrides[s] === "blocked");
-  const blockedRows = blocked.slice(0, 6).map(s => `• ${cleanHumanText(s)} · ${cleanHumanText(idx.get(s) ?? "")}`.replace(/ · $/, ""));
-
-  // Decisions pending
+  // Blocked + pending decisions (team-wide)
+  const blocked = Object.entries(overrides).filter(([, v]) => v === "blocked").map(([s]) => s);
+  const blockedRows = blocked.slice(0, 6).map(s => `• ${cleanHumanText(s)}`);
   const pending = (state.execProposals ?? []).filter(p => p.status === "pending");
   const decisionRows = pending.slice(0, 6).map(p => `• ${cleanHumanText(p.title)} — ${nameOf(p.by)}`);
+  const openBugs = (state.bugs ?? []).filter(b => !["fixed", "closed"].includes((b.status || "open").toLowerCase()));
 
   const weekOf = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-  const section = (title: string, rows: string[], empty: string) =>
-    `${title}\n${rows.length ? rows.join("\n") : empty}`;
+  const section = (title: string, rows: string[], empty: string) => `${title}\n${rows.length ? rows.join("\n") : empty}`;
 
   return [
-    `🏴 *Binayah Weekly Digest*`,
-    `Week of ${weekOf}`,
+    `🏴 *Binayah — Team Weekly Digest*`,
+    `Week of ${weekOf} · all workspaces`,
     ``,
-    section(`🚀 *Shipped* (${completions.length})`, shippedRows, `— nothing shipped this week`),
+    `📊 *Activity this week* (${log.length})`,
+    `${created} created · ${assigned} assigned · ${approved} approved`,
+    `${completed} completed · ${comments} comments`,
     ``,
-    section(`🔥 *On fire*`, fireRows, `— quiet week`),
+    section(`🏢 *By workspace*`, wsRows, `— no workspaces`),
     ``,
-    section(`⛔ *Blocked* (${blocked.length})`, blockedRows, `— nothing blocked ✅`),
+    section(`🔥 *Most active*`, leaderRows, `— quiet week`),
+    ...(blocked.length ? [``, section(`⛔ *Blocked* (${blocked.length})`, blockedRows, ``)] : []),
     ...(pending.length ? [``, section(`🗳️ *Decisions pending* (${pending.length})`, decisionRows, ``)] : []),
+    ...(openBugs.length ? [``, `🐞 *Open bugs*: ${openBugs.length}`] : []),
     ``,
     `Open dashboard:`,
     DASHBOARD_URL,
