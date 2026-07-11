@@ -276,6 +276,118 @@ async function pruneOldMongoBackups() {
   };
 }
 
+// ── Restore ──────────────────────────────────────────────────────────────────
+// Recover pipeline state from a PipelineStateBackup snapshot. Two modes:
+//   • full   — replace the entire live state with the snapshot.
+//   • slice  — replace ONE slice (e.g. `databases`) from the snapshot, keeping
+//              every other current slice as-is (surgical recovery, e.g. a wiped DB).
+// Dry-run by default; on apply we first snapshot the CURRENT live state (so the
+// restore is itself reversible), then write with an optimistic-lock (CAS) on
+// updatedAt so we never clobber a concurrent write.
+
+type SliceSummary = { slice: string; live: string; restored: string; changes: boolean };
+
+function describeValue(v: unknown): string {
+  if (v == null) return "absent";
+  if (Array.isArray(v)) return `${v.length} items (${(Buffer.byteLength(JSON.stringify(v)) / 1024).toFixed(0)}KB)`;
+  if (typeof v === "object") return `${Object.keys(v as object).length} keys (${(Buffer.byteLength(JSON.stringify(v)) / 1024).toFixed(0)}KB)`;
+  return String(v);
+}
+
+export async function listStateSnapshots(limit = 25, workspaceId = WORKSPACE.workspaceId): Promise<Array<{
+  snapshotId: string; snapshotAt: string | null; sourceUpdatedAt: string | null; slices: number; databases: number; sizeKB: number;
+}>> {
+  await connectMongo();
+  const snaps = await PipelineStateBackup.find({ workspaceId })
+    .sort({ snapshotAt: -1 }).limit(limit).lean() as Array<{ _id: unknown; state?: Record<string, unknown>; snapshotAt?: Date; sourceUpdatedAt?: Date }>;
+  return snaps.map(s => {
+    const state = s.state ?? {};
+    return {
+      snapshotId: String(s._id),
+      snapshotAt: s.snapshotAt ? new Date(s.snapshotAt).toISOString() : null,
+      sourceUpdatedAt: s.sourceUpdatedAt ? new Date(s.sourceUpdatedAt).toISOString() : null,
+      slices: Object.keys(state).length,
+      databases: Array.isArray(state.databases) ? (state.databases as unknown[]).length : 0,
+      sizeKB: Math.round(Buffer.byteLength(JSON.stringify(state)) / 1024),
+    };
+  });
+}
+
+export async function restoreState(opts: { snapshotId?: string; slice?: string; apply: boolean; workspaceId?: string }): Promise<Record<string, unknown>> {
+  await connectMongo();
+  const workspaceId = opts.workspaceId ?? WORKSPACE.workspaceId;
+  const mongooseAny = (await import("mongoose")).default;
+  const isValidId = opts.snapshotId && mongooseAny.isValidObjectId(opts.snapshotId);
+  const snap = (opts.snapshotId
+    ? (isValidId ? await PipelineStateBackup.findById(opts.snapshotId).lean() : null)
+    : await PipelineStateBackup.findOne({ workspaceId }).sort({ snapshotAt: -1 }).lean()
+  ) as { _id: unknown; state?: Record<string, unknown>; snapshotAt?: Date; sourceUpdatedAt?: Date } | null;
+  if (!snap) throw new Error(opts.snapshotId ? `snapshot "${opts.snapshotId}" not found (invalid id or missing)` : "no snapshots available");
+
+  const restoredState = snap.state ?? {};
+  const liveDoc = await PipelineState.findOne({ workspaceId }).lean() as { state?: Record<string, unknown>; updatedAt?: Date } | null;
+  const liveState = liveDoc?.state ?? {};
+
+  let nextState: Record<string, unknown>;
+  if (opts.slice) {
+    if (!(opts.slice in restoredState)) throw new Error(`slice "${opts.slice}" is not present in the snapshot`);
+    nextState = { ...liveState, [opts.slice]: restoredState[opts.slice] };
+  } else {
+    nextState = restoredState;
+  }
+
+  // Per-slice change summary.
+  const sliceNames = Array.from(new Set([...Object.keys(liveState), ...Object.keys(nextState)]));
+  const summary: SliceSummary[] = sliceNames.map(slice => {
+    const live = liveState[slice];
+    const next = nextState[slice];
+    return { slice, live: describeValue(live), restored: describeValue(next), changes: JSON.stringify(live) !== JSON.stringify(next) };
+  }).filter(s => s.changes);
+
+  const header = {
+    snapshotId: String(snap._id),
+    snapshotAt: snap.snapshotAt ? new Date(snap.snapshotAt).toISOString() : null,
+    mode: opts.slice ? `slice:${opts.slice}` : "full-state",
+    liveUpdatedAt: liveDoc?.updatedAt ? new Date(liveDoc.updatedAt).toISOString() : null,
+  };
+
+  if (!opts.apply) {
+    return { ...header, dryRun: true, wouldChange: summary.length, changes: summary };
+  }
+
+  if (summary.length === 0) {
+    return { ...header, applied: false, reason: "nothing to change — live already matches the snapshot" };
+  }
+
+  // Safety: snapshot the CURRENT live state before overwriting, so this restore is reversible.
+  const safety = await PipelineStateBackup.create({
+    workspaceId,
+    state: liveState,
+    sourceUpdatedAt: liveDoc?.updatedAt,
+    snapshotAt: new Date(),
+  });
+
+  // Optimistic-lock write — refuse if the live doc changed since we read it.
+  const filter = liveDoc?.updatedAt ? { workspaceId, updatedAt: liveDoc.updatedAt } : { workspaceId };
+  const result = await PipelineState.findOneAndUpdate(
+    filter,
+    { $set: { state: nextState, updatedAt: new Date() } },
+    { new: true },
+  ).lean();
+  if (!result) {
+    throw new Error("live state changed during restore (optimistic-lock failed) — re-run; no data was written");
+  }
+
+  return {
+    ...header,
+    applied: true,
+    changedSlices: summary.length,
+    changes: summary,
+    preRestoreSafetySnapshotId: String(safety._id),
+    note: "Current state was snapshotted before the restore — pass its id to restoreState to undo.",
+  };
+}
+
 export async function createDisasterRecoveryBackup(): Promise<DisasterRecoveryBackupResult | { ok: true; snapshotted: false; reason: string }> {
   await connectMongo();
   const live = await PipelineState.findOne(WORKSPACE).lean() as

@@ -12,7 +12,9 @@
     "test:behavioral": "playwright test --config=playwright.config.ts",
     "test:behavioral:local": "BASE_URL=http://localhost:3000 playwright test --config=playwright.config.ts",
     "dr:list": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts list",
-    "dr:backup": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts backup"
+    "dr:backup": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts backup",
+    "dr:snapshots": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts snapshots",
+    "dr:restore": "ts-node --compiler-options '{\"module\":\"commonjs\",\"moduleResolution\":\"node\"}' -r tsconfig-paths/register scripts/dr.ts restore"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1037.0",
