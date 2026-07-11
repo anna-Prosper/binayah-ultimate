@@ -265,17 +265,24 @@ describe("workspaces by-id merge", () => {
     expect(next.workspaces[0].members.sort()).toEqual(["abdallah", "anna"]);
   });
 
-  it("does NOT delete a whole workspace via a bare-id _delete (entity deletion is off-sync)", () => {
+  it("deletes a whole workspace via an explicit bare-id _delete", () => {
     const current = { workspaces: [ws(), { id: "old", name: "Old", members: [], captains: [], pipelineIds: [] }] };
     const next = mergeStateWithPatch(current, { workspaces: [] as unknown[] }, { workspaces: ["old"] }) as { workspaces: { id: string }[] };
-    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "old"]);
+    expect(next.workspaces.map(w => w.id)).toEqual(["marketing"]);
   });
 
-  it("ignores a bare-id delete even when mixed with a valid scoped delete", () => {
+  it("applies a bare-id delete AND a scoped delete in the same patch", () => {
     const current = { workspaces: [ws({ members: ["anna", "abdallah", "yasmine"] }), { id: "old", name: "Old", members: [], captains: [], pipelineIds: [] }] };
     const next = mergeStateWithPatch(current, { workspaces: [ws()] }, { workspaces: ["old", "marketing::members::yasmine"] }) as { workspaces: { id: string; members?: string[] }[] };
-    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "old"]); // "old" survives
+    expect(next.workspaces.map(w => w.id)).toEqual(["marketing"]); // "old" deleted
     expect(next.workspaces.find(w => w.id === "marketing")?.members?.sort()).toEqual(["abdallah", "anna"]); // yasmine removed
+  });
+
+  it("does NOT delete workspaces via a diff — omitting one from the patch keeps it", () => {
+    // The stale-tab safety: a patch that simply doesn't mention "old" must NOT drop it.
+    const current = { workspaces: [ws(), { id: "old", name: "Old", members: ["x"], captains: ["x"], pipelineIds: [] }] };
+    const next = mergeStateWithPatch(current, { workspaces: [ws()] }) as { workspaces: { id: string }[] };
+    expect(next.workspaces.map(w => w.id).sort()).toEqual(["marketing", "old"]);
   });
 
   it("a new workspace is added, existing untouched", () => {

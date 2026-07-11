@@ -87,9 +87,12 @@ export function useWorkspaceHandlers(deps: WorkspaceHandlersDeps) {
     if (!ADMIN_IDS.includes(currentUser)) { showToast("// only root can delete a workspace", tAmber); return; }
     if (workspaces.length === 1) { showToast("// can't delete your last workspace", tRed); return; }
     markLocalWrite("workspaces");
+    // Explicit bare-id delete so the removal propagates through the keep-existing
+    // merge (otherwise the workspace resurrects on the next sync).
+    queueDelete("workspaces", workspaceId);
     setWorkspaces(prev => prev.filter(w => w.id !== workspaceId));
     showToast(`// workspace "${ws.name}" deleted`, tAmber);
-  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, showToast, tAmber, tRed]);
+  }, [currentUser, workspaces, setWorkspaces, markLocalWrite, queueDelete, showToast, tAmber, tRed]);
 
   return { createWorkspace, addMemberToWorkspace, removeMemberFromWorkspace, setMemberRank, deleteWorkspace };
 }

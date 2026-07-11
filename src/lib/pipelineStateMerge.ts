@@ -243,18 +243,13 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
   for (const [field, keys] of Object.entries(deletes)) {
     if (!Array.isArray(keys) || keys.length === 0) continue;
 
-    // Identity ENTITIES are never removed via sync — deleting a whole workspace or
-    // a user is a deliberate, rare admin action, not something a state diff should
-    // do. But membership edits INSIDE a workspace (remove a member/captain/pinned
-    // series) are normal and use the scoped `${wsId}::${field}::${value}` form,
-    // handled in the dedicated workspaces branch below. So: block all `users`
-    // deletes and any bare-id (whole-workspace) delete; let scoped ones through.
+    // Users are seeded from code and never removed via sync. Workspaces DO support
+    // deletion (root-only deleteWorkspace) and membership edits — both flow through
+    // the EXPLICIT delete queue (never a diff), so they're safe to apply here:
+    // bare `${wsId}` drops a workspace, scoped `${wsId}::${field}::${value}` drops
+    // one member/captain/pinned-series. The mass-delete backstop below still guards.
     if (field === "users") {
       console.warn(`[merge] ignored _deletes for protected slice "users"`);
-      continue;
-    }
-    if (field === "workspaces" && keys.every(k => String(k).split("::").length < 3)) {
-      console.warn(`[merge] ignored entity-level _deletes for "workspaces"`);
       continue;
     }
 
@@ -284,15 +279,15 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
       continue;
     }
 
-    // Special: workspaces accepts ONLY scoped `${wsId}::${field}::${value}` keys to
-    // remove a single member/captain/pinned-series. Bare-id (whole-workspace) keys
-    // are ignored here — entity deletion is never done via a state diff.
+    // Special: workspaces accepts a bare `${wsId}` to drop a whole workspace, or a
+    // scoped `${wsId}::${field}::${value}` to drop one member/captain/pinned-series.
     if (field === "workspaces") {
-      const wss = Array.isArray(out.workspaces) ? [...(out.workspaces as WsLike[])] : [];
+      let wss = Array.isArray(out.workspaces) ? [...(out.workspaces as WsLike[])] : [];
+      const dropWhole = new Set<string>();
       for (const key of keys) {
         const str = String(key);
         const first = str.indexOf("::");
-        if (first === -1) continue; // bare wsId — entity delete, never via sync
+        if (first === -1) { dropWhole.add(str); continue; } // bare wsId — whole workspace
         const wsId = str.slice(0, first);
         const rest = str.slice(first + 2);
         const sep = rest.indexOf("::");
@@ -305,6 +300,7 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
         const arr = Array.isArray(wss[idx][f]) ? (wss[idx][f] as unknown[]) : [];
         wss[idx] = { ...wss[idx], [f]: arr.filter(x => String(x) !== val) };
       }
+      if (dropWhole.size > 0) wss = wss.filter(w => !dropWhole.has(String(w.id)));
       out.workspaces = wss;
       continue;
     }
