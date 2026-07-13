@@ -45,6 +45,9 @@ export function hydrateUsers(saved: UserType[], current: UserType[] = []): UserT
 }
 
 const PRIORITY_CYCLE = ["NOW", "HIGH", "MEDIUM", "LOW"] as const;
+// Cap the per-user "read notification ids" list so it can't grow without bound
+// (action-required item ids accumulate and are never otherwise removed).
+const MAX_NOTIF_READ_IDS = 500;
 
 
 interface ModelContextValue {
@@ -2924,7 +2927,10 @@ export function ModelProvider({
     if (ids && ids.length > 0) {
       setNotifReadIds(prev => {
         const merged = new Set([...(prev[currentUser] || []), ...ids]);
-        return { ...prev, [currentUser]: Array.from(merged) };
+        // Bound growth: keep only the most-recent ids. Action-required items
+        // resolve over time, so old read-ids become dead weight; capping stops
+        // this per-user list from growing without limit.
+        return { ...prev, [currentUser]: Array.from(merged).slice(-MAX_NOTIF_READ_IDS) };
       });
     } else {
       // No ids passed → reset the per-item set (cutoff handles everything).
@@ -2940,7 +2946,7 @@ export function ModelProvider({
     setNotifReadIds(prev => {
       const existing = prev[currentUser] || [];
       if (existing.includes(id)) return prev;
-      return { ...prev, [currentUser]: [...existing, id] };
+      return { ...prev, [currentUser]: [...existing, id].slice(-MAX_NOTIF_READ_IDS) };
     });
   }, [currentUser, markLocalWrite]);
 
