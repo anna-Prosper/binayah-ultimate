@@ -42,13 +42,11 @@ export const USERS_DEFAULT = [
   {id:"abhishek",name:"Abhishek",role:"The Operator",avatar:"",color:"#dc6b19"},   // burnt orange — data entry, SEO, platform management
   {id:"deepshikha",name:"Deepshikha",role:"SEO Sniper",avatar:"",color:"#059669"}, // emerald — SEO
   {id:"yasmine",name:"Yasmine",role:"Viral Alchemist",avatar:"",color:"#db2777"}, // rose — SMM specialist (Marketing Hub)
-  {id:"guest1",name:"Guest",role:"Agent",avatar:"",color:"#6366f1"},
-  {id:"guest2",name:"Exec Guest",role:"Executive",avatar:"",color:"#ec4899"},
 ];
 
 export const REACTIONS = ["🔥","💀","🚀","🧠","⚡","🫡"];
 export const ADMIN_IDS = ["anna"]; // root (super-admin) — auto-operator of every workspace, only role allowed to create/delete workspaces
-export const EXEC_IDS = ["usama", "abdallah", "guest2"]; // founder/exec view — broad read-only visibility + proposal requests
+export const EXEC_IDS = ["usama", "abdallah"]; // founder/exec view — broad read-only visibility + proposal requests
 export const USER_MIRROR_IDS: Record<string, string> = {};
 
 export function resolveEffectiveUserId(userId: string | null | undefined): string | null {

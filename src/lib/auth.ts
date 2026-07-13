@@ -7,7 +7,7 @@ import AuthUser from "@/lib/AuthUser";
 import { ADMIN_IDS, resolveEffectiveUserId } from "@/lib/data";
 
 // ─── Revoked accounts — login blocked, existing JWTs invalidated ──────────────
-const REVOKED_USER_IDS = new Set(["nida", "zahaib"]);
+const REVOKED_USER_IDS = new Set(["nida", "zahaib", "guest1", "guest2"]);
 
 // ─── Admin email → fixedUserId whitelist ──────────────────────────────────────
 // Hardcoded (not solely env-var driven) per spec — multiple emails map to same user.
@@ -24,9 +24,6 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "shyam.m.bhundiya@gmail.com": "shyam",
   "deepskarn15@gmail.com": "deepshikha",
   "yasmine@binayah.ae": "yasmine",
-  // TEMP users — remove when no longer needed
-  "guest1@binayah.com": "guest1",
-  "guest2@binayah.com": "guest2",
 };
 
 // Reverse map: fixedUserId → primary email for notifications
@@ -41,9 +38,6 @@ export const USER_PRIMARY_EMAIL: Record<string, string> = {
   shyam: "shyam.m.bhundiya@gmail.com",
   deepshikha: "deepskarn15@gmail.com",
   yasmine: "yasmine@binayah.ae",
-  // TEMP users
-  guest1: "guest1@binayah.com",
-  guest2: "guest2@binayah.com",
 };
 
 // Additional notification emails per user (beyond the primary)

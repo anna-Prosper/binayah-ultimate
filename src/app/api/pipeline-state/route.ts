@@ -66,7 +66,7 @@ function computeStreakByUser(activityLog: { type: string; user: string; time: nu
 const SEED_ADMIN_IDS = ["anna"];
 const SEED_DEFAULT_WORKSPACE_ID = "war-room";
 // Mirror of USERS_DEFAULT[*].id from src/lib/data.ts — used only for default-workspace bootstrap.
-const SEED_DEFAULT_USER_IDS = ["usama", "anna", "aakarshit", "ahsan", "abdallah", "prajeesh", "abhishek", "guest1", "guest2"];
+const SEED_DEFAULT_USER_IDS = ["usama", "anna", "aakarshit", "ahsan", "abdallah", "prajeesh", "abhishek"];
 
 export async function GET(req: NextRequest) {
   logApi(ROUTE, "GET");
