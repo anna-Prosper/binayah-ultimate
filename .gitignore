@@ -43,3 +43,7 @@ next-env.d.ts
 # iterate loop scratch (worktrees, archived state files)
 .claude/worktrees/
 .iterate/state.*.archived.json
+
+# Playwright test output (should never be committed)
+test-results/
+playwright-report/
