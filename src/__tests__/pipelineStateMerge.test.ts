@@ -375,3 +375,58 @@ describe("cross-stage dedup carries metadata to the surviving copy", () => {
     expect(next.owners["some task stage::5"]).toBeUndefined();
   });
 });
+
+describe("stray metadata consolidation (migrate leftovers)", () => {
+  it("promotes an active status stranded on an old stage key onto the canonical array stage", () => {
+    // Subtask lives (in the array) only under its default-parent home, but a prior
+    // migrate left the 'active' (done) status on the old task-named stage key.
+    const server = {
+      subtasks: { "default-parent-social": [{ id: 42, text: "post", done: false }] },
+      subtaskStages: { "Engaging Farming::42": "active" }, // stray; canonical key absent
+      owners: { "Engaging Farming::42": ["ahsan"] },
+    };
+    const next = mergeStateWithPatch(server, {}) as {
+      subtaskStages: Record<string, string>;
+      owners: Record<string, string[]>;
+    };
+    // Stray removed; status promoted to the stage the client actually reads.
+    expect(next.subtaskStages["default-parent-social::42"]).toBe("active");
+    expect(next.subtaskStages["Engaging Farming::42"]).toBeUndefined();
+    expect(next.owners["default-parent-social::42"]).toEqual(["ahsan"]);
+    expect(next.owners["Engaging Farming::42"]).toBeUndefined();
+  });
+
+  it("does not overwrite an explicit current status, and prefers active among strays", () => {
+    const server = {
+      subtasks: { "default-parent-x": [{ id: 7, text: "t", done: false }] },
+      subtaskStages: {
+        "default-parent-x::7": "planned",   // explicit current value — must win
+        "old-stage-a::7": "active",
+        "old-stage-b::7": "in-progress",
+      },
+    };
+    const next = mergeStateWithPatch(server, {}) as { subtaskStages: Record<string, string> };
+    expect(next.subtaskStages["default-parent-x::7"]).toBe("planned");
+    expect(next.subtaskStages["old-stage-a::7"]).toBeUndefined();
+    expect(next.subtaskStages["old-stage-b::7"]).toBeUndefined();
+  });
+
+  it("leaves fully-orphaned ids (no array copy anywhere) untouched", () => {
+    const server = {
+      subtasks: { "default-parent-x": [{ id: 1, text: "t" }] },
+      subtaskStages: { "ghost-stage::999": "active" }, // id 999 has no array entry
+    };
+    const next = mergeStateWithPatch(server, {}) as { subtaskStages: Record<string, string> };
+    expect(next.subtaskStages["ghost-stage::999"]).toBe("active");
+  });
+
+  it("does not touch bare stage-level keys (no ::id suffix)", () => {
+    const server = {
+      subtasks: { "default-parent-x": [{ id: 5, text: "t" }] },
+      owners: { "default-parent-x": ["anna"], "some-stage": ["usama"] },
+    };
+    const next = mergeStateWithPatch(server, {}) as { owners: Record<string, string[]> };
+    expect(next.owners["default-parent-x"]).toEqual(["anna"]);
+    expect(next.owners["some-stage"]).toEqual(["usama"]);
+  });
+});

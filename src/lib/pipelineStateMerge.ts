@@ -239,9 +239,10 @@ function dedupeSubtasksAcrossStages(state: State): State {
     }
     outSubs[stage] = filtered;
   }
-  if (!changed) return state;
 
-  const out: State = { ...state, subtasks: outSubs };
+  // Even when no array-level dedup fired (changed === false), stray metadata keys
+  // can linger from prior migrations — consolidation below still needs to run.
+  const out: State = changed ? { ...state, subtasks: outSubs } : state;
   // Relocate each dropped subtask's per-key metadata to its surviving stage so a
   // status/owner/due set on a soon-to-be-deduped copy isn't orphaned (e.g. a
   // "done" move that landed on a stray stage key).
@@ -264,7 +265,88 @@ function dedupeSubtasksAcrossStages(state: State): State {
       }
     }
   }
+  return consolidateStraySubtaskMetadata(out, chosenStage);
+}
+
+/**
+ * `migrateSubtask` moves a subtask's array entry AND its local metadata to the new
+ * stage, but the client can't propagate a MAP-key *deletion* through the union
+ * merge — so the OLD `${oldStage}::${id}` keys linger on the server forever. When
+ * the current-stage key is then empty while the real status ("active" = done)
+ * sits on such a stray key, the client's done↔status reconciliation falls back to
+ * the subtask's `done` flag and the card silently reverts to "planned".
+ *
+ * Here we converge every metadata map to a single key per subtask id — its
+ * canonical (array) stage. A stray key whose stage holds no array copy of that id
+ * is folded onto the canonical key (only filling a gap, never overwriting an
+ * explicit current value) and then removed, so a "done" stranded on an old stage
+ * is promoted to where the client actually reads it and can never resurface.
+ * Ids with no canonical array stage (fully orphaned) are left untouched.
+ */
+function consolidateStraySubtaskMetadata(state: State, chosenStage: Map<string, string>): State {
+  if (chosenStage.size === 0) return state;
+  let out = state;
+  let cloned = false;
+  const ensureClone = () => { if (!cloned) { out = { ...state }; cloned = true; } };
+
+  for (const mp of SUBTASK_KEYED_MAPS) {
+    const map = state[mp];
+    if (!isObject(map)) continue;
+    const src = map as Record<string, unknown>;
+    // Bucket every `${stage}::${id}` key by subtask id (ignore bare stage-level keys).
+    const strays: Array<{ key: string; id: string; stage: string }> = [];
+    for (const key of Object.keys(src)) {
+      const sep = key.lastIndexOf("::");
+      if (sep === -1) continue;
+      const id = key.slice(sep + 2);
+      if (!/^\d+$/.test(id)) continue;
+      const canonical = chosenStage.get(id);
+      if (!canonical) continue;               // fully orphaned id — leave alone
+      if (key.slice(0, sep) === canonical) continue; // already canonical
+      strays.push({ key, id, stage: key.slice(0, sep) });
+    }
+    if (strays.length === 0) continue;
+    ensureClone();
+    const copy = { ...src };
+    for (const { key, id } of strays) {
+      const canonicalKey = `${chosenStage.get(id)}::${id}`;
+      // Canonical (current-stage) value is authoritative when present — never
+      // overwrite it, so a task deliberately moved back to "planned" can't be
+      // resurrected to "active" by a lingering old-stage stray. Only when the
+      // canonical key is absent (status was written solely to a stray stage, the
+      // classic "move to done" revert) do we promote a stray — preferring an
+      // active/done value so the completion sticks where the client reads it.
+      if (!(canonicalKey in copy)) {
+        const activeStray = strays.find(s => s.id === id && isActiveStatus(copy[s.key]));
+        copy[canonicalKey] = activeStray ? copy[activeStray.key] : copy[key];
+      }
+      delete copy[key];
+    }
+    (out as Record<string, unknown>)[mp] = copy;
+  }
+
+  // approvedSubtasks is a SET of keys — rewrite stray-stage entries onto the canonical stage.
+  if (Array.isArray(state.approvedSubtasks)) {
+    const arr = state.approvedSubtasks as string[];
+    let approvedChanged = false;
+    const remapped = arr.map(k => {
+      const sep = k.lastIndexOf("::");
+      if (sep === -1) return k;
+      const id = k.slice(sep + 2);
+      const canonical = chosenStage.get(id);
+      if (!canonical || k.slice(0, sep) === canonical) return k;
+      approvedChanged = true;
+      return `${canonical}::${id}`;
+    });
+    if (approvedChanged) { ensureClone(); out.approvedSubtasks = Array.from(new Set(remapped)); }
+  }
+
   return out;
+}
+
+function isActiveStatus(v: unknown): boolean {
+  const s = String(v ?? "").trim().toLowerCase();
+  return s === "active" || s === "done" || s === "live" || s === "complete" || s === "completed";
 }
 
 export type DeletesEnvelope = Record<string, string[]>;
