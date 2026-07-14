@@ -6,6 +6,13 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
+  // Bake the deploy's git SHA into the client bundle so an already-open tab can
+  // detect when the server is running a newer build and auto-reload (kills the
+  // stale-tab clobber problem — a tab running old code can't linger). Vercel
+  // provides VERCEL_GIT_COMMIT_SHA at build time; empty in local dev (→ no-op).
+  env: {
+    NEXT_PUBLIC_BUILD_SHA: process.env.VERCEL_GIT_COMMIT_SHA || "",
+  },
 };
 
 // Sentry is gated on the DSN env var being set — safe to include the plugin

@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchState, patchState, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { fetchState, patchState, getServerBuildSha, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { SYNC_POLL_INTERVAL_MS, SYNC_WRITE_DEBOUNCE_MS } from "@/lib/constants";
 
 export type SyncStatus = "hydrating" | "live" | "offline" | "error";
@@ -41,6 +41,31 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
   const currentIntervalRef = useRef(FAST_INTERVAL_MS);
   const intervalIdRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // ── Auto-reload on new deploy ───────────────────────────────────────────────
+  // The SHA baked into this bundle at build time; empty in local dev.
+  const clientBuildSha = process.env.NEXT_PUBLIC_BUILD_SHA || "";
+  const reloadTriggeredRef = useRef(false);
+  const writeNowRef = useRef<(() => void) | null>(null);
+  // If the server reports a different deploy SHA than the one this tab is running,
+  // the tab is stale (old code that can, e.g., clobber sync slices). Flush any
+  // unsaved work, then reload once to pick up the new bundle. Guards: only when
+  // both SHAs are known and differ; only once per tab; a sessionStorage marker
+  // prevents a reload loop if a CDN briefly serves the old bundle after reload.
+  const maybeReloadForNewBuild = useCallback(() => {
+    if (reloadTriggeredRef.current) return;
+    const serverSha = getServerBuildSha();
+    if (!clientBuildSha || !serverSha || clientBuildSha === serverSha) return;
+    if (typeof window === "undefined") return;
+    try {
+      if (sessionStorage.getItem("reloadedForSha") === serverSha) return; // already tried
+      sessionStorage.setItem("reloadedForSha", serverSha);
+    } catch { /* sessionStorage unavailable — proceed */ }
+    reloadTriggeredRef.current = true;
+    // Flush pending writes so the reload can't drop an unsynced edit, then reload.
+    try { writeNowRef.current?.(); } catch { /* best effort */ }
+    setTimeout(() => { try { window.location.reload(); } catch { /* ignore */ } }, 1200);
+  }, [clientBuildSha]);
+
   // Initial hydrate. Apply the server state if we got it, then ALWAYS mark hydrated
   // and flush queued writes once the first GET attempt completes (success, empty, or
   // error) — otherwise a slow/failing GET would silently block the user's writes
@@ -66,6 +91,7 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
       } else {
         setStatus("offline");
       }
+      maybeReloadForNewBuild();
       finish();
     }).catch(() => {
       setStatus("error");
@@ -81,6 +107,8 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
       if (!isInitializedRef.current) return;
       try {
         const s = await fetchState(lastUpdatedAtRef.current);
+        // Even a 304 refreshes the server build SHA (via header) — check every tick.
+        maybeReloadForNewBuild();
         // null means 304 (no update) or fetch error
         if (s) {
           onPatch(s);
@@ -250,6 +278,8 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
     }
     void doWrite();
   }, [doWrite]);
+  // Let maybeReloadForNewBuild flush via writeNow without a forward-reference.
+  writeNowRef.current = writeNow;
 
   // beforeunload: if there are unflushed changes, fire a keepalive PATCH.
   // Without this, three scenarios lose data:

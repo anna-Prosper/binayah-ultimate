@@ -188,10 +188,20 @@ export type NotificationEventPatch = {
 
 export type SyncResult = { ok: true } | { ok: false; error: string; status?: number };
 
+// Deploy SHA reported by the server on the most recent fetch (from the x-build-sha
+// response header, present on 200s AND 304s). useSync compares this to the SHA
+// baked into the running bundle to auto-reload a stale tab after a new deploy.
+let lastServerBuildSha = "";
+export function getServerBuildSha(): string {
+  return lastServerBuildSha;
+}
+
 export async function fetchState(since?: number): Promise<SharedState | null> {
   try {
     const url = since !== undefined ? `${API_BASE}?since=${since}` : API_BASE;
     const res = await fetch(url, { cache: "no-store" });
+    const sha = res.headers.get("x-build-sha");
+    if (sha) lastServerBuildSha = sha;
     // 304 = client is already up-to-date; return null to signal no update
     if (res.status === 304) return null;
     if (!res.ok) return null;

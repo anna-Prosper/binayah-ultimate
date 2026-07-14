@@ -203,12 +203,18 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // Deploy SHA of the function serving this request — clients compare it to the
+  // SHA baked into their bundle and auto-reload when it changes (so a stale tab
+  // running old code can't linger and clobber). Sent as a header so it's present
+  // on 304s too (an idle client still needs to learn about a new deploy).
+  const buildSha = process.env.VERCEL_GIT_COMMIT_SHA || "";
+
   // If client is up-to-date, return 304
   if (since && doc?.updatedAt) {
     const sinceMs = parseInt(since, 10);
     const updatedMs = new Date(doc.updatedAt).getTime();
     if (!isNaN(sinceMs) && updatedMs <= sinceMs) {
-      return new NextResponse(null, { status: 304 });
+      return new NextResponse(null, { status: 304, headers: { "x-build-sha": buildSha } });
     }
   }
   // Compute server-derived streaks (not stored — always fresh)
@@ -216,7 +222,7 @@ export async function GET(req: NextRequest) {
     ? (state.activityLog as { type: string; user: string; time: number }[])
     : [];
   const streakByUser = computeStreakByUser(activityLog);
-  return NextResponse.json({ ...state, streakByUser });
+  return NextResponse.json({ ...state, streakByUser }, { headers: { "x-build-sha": buildSha } });
 }
 
 export async function PATCH(req: NextRequest) {
