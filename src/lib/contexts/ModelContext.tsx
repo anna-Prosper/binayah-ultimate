@@ -1112,6 +1112,7 @@ export function ModelProvider({
     let subtasksChanged = false;
     const approvedToClear = new Set<string>();
 
+    const changedStageKeys: string[] = [];
     for (const [parentStageId, list] of Object.entries(subtasks)) {
       if (!Array.isArray(list)) continue;
       const nextList = list.map(subtask => {
@@ -1121,6 +1122,7 @@ export function ModelProvider({
         if (!explicitStatus && subtask.done) {
           nextSubtaskStages[key] = "active";
           stagesChanged = true;
+          changedStageKeys.push(key);
         }
         const shouldBeDone = status === "active";
         if (subtask.done !== shouldBeDone) {
@@ -1134,7 +1136,7 @@ export function ModelProvider({
     }
 
     if (stagesChanged) {
-      markLocalWrite("subtaskStages");
+      for (const key of changedStageKeys) markLocalWrite("subtaskStages", key);
       setSubtaskStages(nextSubtaskStages);
     }
     if (subtasksChanged) {
@@ -1159,7 +1161,7 @@ export function ModelProvider({
       usefulLinks,
       execProposals,
       subtasks, stageDescOverrides, stageDueDates, stageNameOverrides,
-      subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+      subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
       archivedStages, archivedPipelines, archivedSubtasks,
       stagePointsOverride,
       stagePriorities,
@@ -1185,6 +1187,21 @@ export function ModelProvider({
         [...dirtyStatusKeys]
           .filter(key => Object.prototype.hasOwnProperty.call(stageStatusOverrides, key))
           .map(key => [key, stageStatusOverrides[key]])
+      );
+    }
+    // subtaskStages (per-subtask kanban status) has the SAME stale-client clobber
+    // exposure as stageStatusOverrides: a MAP merged last-write-wins per key, so a
+    // second tab's 60s full snapshot re-asserting a key it merely READ would revert
+    // another client's "move to done". Send ONLY keys this client actually edited
+    // (dirty) — never the whole map — so clean keys can't clobber. The immediate
+    // persistSubtaskStageNow PATCH still carries the happy-path write; this is the
+    // durable retry/reconciliation channel.
+    const dirtySubtaskStageKeys = dirtyMapKeysRef.current.subtaskStages;
+    if (dirtySubtaskStageKeys?.size) {
+      state.subtaskStages = Object.fromEntries(
+        [...dirtySubtaskStageKeys]
+          .filter(key => Object.prototype.hasOwnProperty.call(subtaskStages, key))
+          .map(key => [key, subtaskStages[key]])
       );
     }
     // _deletes come ONLY from explicit user deletions recorded in pendingDeletesRef
@@ -1263,11 +1280,24 @@ export function ModelProvider({
         delete dirtyMapKeysRef.current.stageStatusOverrides;
       }
     }
+    if (sent.subtaskStages && dirtyMapKeysRef.current.subtaskStages) {
+      for (const key of Object.keys(sent.subtaskStages)) {
+        const sentValue = (sent.subtaskStages as Record<string, unknown>)[key];
+        if (stateMirrorRef.current.subtaskStages[key] === sentValue) {
+          dirtyMapKeysRef.current.subtaskStages.delete(key);
+        }
+      }
+      if (dirtyMapKeysRef.current.subtaskStages.size === 0) {
+        delete dirtyMapKeysRef.current.subtaskStages;
+      }
+    }
     for (const slice of MAP_SLICES) {
       const v = (sent as Record<string, unknown>)[slice];
       if (v && typeof v === "object" && !Array.isArray(v)) {
         const keys = Object.keys(v as Record<string, unknown>);
-        if (slice === "stageStatusOverrides") {
+        // These two send only their DIRTY subset (not the whole map), so union
+        // into the known-server-keys set instead of replacing it.
+        if (slice === "stageStatusOverrides" || slice === "subtaskStages") {
           serverKeysRef.current[slice] = new Set([...(serverKeysRef.current[slice] ?? []), ...keys]);
         } else {
           serverKeysRef.current[slice] = new Set(keys);
@@ -1972,7 +2002,7 @@ export function ModelProvider({
     const nextDone = !current.done;
     markLocalWrite("subtasks");
     setSubtasks(prev => ({ ...prev, [sid]: (prev[sid] || []).map(t => t.id === taskId && !t.locked ? { ...t, done: nextDone } : t) }));
-    markLocalWrite("subtaskStages");
+    markLocalWrite("subtaskStages", key);
     setSubtaskStages(prev => ({ ...prev, [key]: nextDone ? "active" : "planned" }));
     persistSubtaskStageNow(key, nextDone ? "active" : "planned");
     if (!nextDone && approvedSubtasks.includes(key)) {
@@ -2059,7 +2089,7 @@ export function ModelProvider({
       return changed ? next : prev;
     });
 
-    markLocalWrite("subtaskStages");
+    markLocalWrite("subtaskStages", newKey);
     setSubtaskStages(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -2375,7 +2405,7 @@ export function ModelProvider({
       ? (subtasks[parsed.parentStageId] || []).some(s => s.id === parsed.subtaskId && s.done)
       : false;
     const prevStatus = normalizeStageStatus(subtaskStages[key] || (legacyDone ? "active" : "planned"));
-    markLocalWrite("subtaskStages");
+    markLocalWrite("subtaskStages", key);
     setSubtaskStages(prev => ({ ...prev, [key]: nextStatus }));
     lsSet("subtaskStages", { ...subtaskStages, [key]: nextStatus });
     persistSubtaskStageNow(key, nextStatus);
