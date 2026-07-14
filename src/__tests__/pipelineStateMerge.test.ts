@@ -323,3 +323,28 @@ describe("subtasks/databases dedup by id", () => {
     expect(next.databases[0].rows.map(r => r.id)).toEqual([9, 10]);
   });
 });
+
+// ── Cross-stage subtask dedup (self-heal corruption) ──────────────────────────
+
+describe("cross-stage subtask dedup", () => {
+  it("keeps a subtask under only one stage, preferring the default-parent home", () => {
+    const patch = { subtasks: {
+      "default-parent-notion-article-pages": [{ id: 1, text: "Medium Automation" }],
+      "Add a boolean field to news": [{ id: 1, text: "Medium Automation" }, { id: 2, text: "legit" }],
+      "Temporarily hide views": [{ id: 1, text: "Medium Automation" }],
+    } };
+    const next = mergeStateWithPatch({}, patch) as { subtasks: Record<string, { id: number }[]> };
+    expect(next.subtasks["default-parent-notion-article-pages"].map(s => s.id)).toEqual([1]);
+    expect(next.subtasks["Add a boolean field to news"].map(s => s.id)).toEqual([2]); // 1 dropped
+    expect(next.subtasks["Temporarily hide views"]).toEqual([]); // 1 dropped
+  });
+
+  it("re-added cross-stage duplicate is undone on the next merge (server converges)", () => {
+    const server = { subtasks: { "default-parent-x": [{ id: 9, text: "t" }] } };
+    // A stale client re-adds id 9 under a task-named stage.
+    const patch = { subtasks: { "some task stage": [{ id: 9, text: "t" }] } };
+    const next = mergeStateWithPatch(server, patch) as { subtasks: Record<string, { id: number }[]> };
+    expect(next.subtasks["default-parent-x"].map(s => s.id)).toEqual([9]);
+    expect(next.subtasks["some task stage"]).toEqual([]);
+  });
+});

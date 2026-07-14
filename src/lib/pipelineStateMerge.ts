@@ -193,6 +193,40 @@ function mergeSetSlice(current: string[], patch: string[]): string[] {
   return Array.from(new Set([...current, ...patch]));
 }
 
+/**
+ * Self-heal cross-stage subtask duplication. Subtask ids are globally unique
+ * (timestamps), so the SAME id under two stages is always corruption — and once
+ * it exists, the keep-existing merge re-adds it whenever any client that still
+ * holds a stray copy syncs (server-side removal alone never sticks). Here we
+ * converge every subtask id to a single stage, preferring a pipeline
+ * `default-parent-*` parent over a task-named stage (the real home), so a stray
+ * copy under another stage is dropped on the next merge and can't come back.
+ */
+function dedupeSubtasksAcrossStages(subtasks: Record<string, ItemWithId[]>): Record<string, ItemWithId[]> {
+  const chosenStage = new Map<string, string>(); // subtaskId -> the stage we keep it under
+  for (const [stage, arr] of Object.entries(subtasks)) {
+    if (!Array.isArray(arr)) continue;
+    for (const st of arr) {
+      const id = String(st?.id);
+      const cur = chosenStage.get(id);
+      if (!cur) { chosenStage.set(id, stage); continue; }
+      // Prefer a default-parent-* stage over a task-named one.
+      if (stage.startsWith("default-parent-") && !cur.startsWith("default-parent-")) {
+        chosenStage.set(id, stage);
+      }
+    }
+  }
+  let changed = false;
+  const out: Record<string, ItemWithId[]> = {};
+  for (const [stage, arr] of Object.entries(subtasks)) {
+    if (!Array.isArray(arr)) { out[stage] = arr; continue; }
+    const filtered = arr.filter(st => chosenStage.get(String(st?.id)) === stage);
+    if (filtered.length !== arr.length) changed = true;
+    out[stage] = filtered;
+  }
+  return changed ? out : subtasks;
+}
+
 export type DeletesEnvelope = Record<string, string[]>;
 
 /**
@@ -470,6 +504,12 @@ export function mergeStateWithPatch(
 
   if (deletes && isObject(deletes)) {
     next = applyDeletes(next, deletes as DeletesEnvelope);
+  }
+
+  // Self-heal: a subtask id may live under only one stage. Runs last so it also
+  // undoes any cross-stage duplicate a client re-added in this patch.
+  if (isObject(next.subtasks)) {
+    next.subtasks = dedupeSubtasksAcrossStages(next.subtasks as Record<string, ItemWithId[]>);
   }
 
   return next;
