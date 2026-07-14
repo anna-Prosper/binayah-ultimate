@@ -202,9 +202,17 @@ function mergeSetSlice(current: string[], patch: string[]): string[] {
  * `default-parent-*` parent over a task-named stage (the real home), so a stray
  * copy under another stage is dropped on the next merge and can't come back.
  */
-function dedupeSubtasksAcrossStages(subtasks: Record<string, ItemWithId[]>): Record<string, ItemWithId[]> {
+// Per-key subtask metadata maps that are keyed `${stage}::${id}` and must follow
+// a subtask when the dedup relocates it to its canonical stage.
+const SUBTASK_KEYED_MAPS = ["subtaskStages", "subtaskDueDates", "subtaskDescOverrides", "owners", "claims", "assignments"] as const;
+
+function dedupeSubtasksAcrossStages(state: State): State {
+  const subtasks = state.subtasks;
+  if (!isObject(subtasks)) return state;
+  const subMap = subtasks as Record<string, ItemWithId[]>;
+
   const chosenStage = new Map<string, string>(); // subtaskId -> the stage we keep it under
-  for (const [stage, arr] of Object.entries(subtasks)) {
+  for (const [stage, arr] of Object.entries(subMap)) {
     if (!Array.isArray(arr)) continue;
     for (const st of arr) {
       const id = String(st?.id);
@@ -216,15 +224,47 @@ function dedupeSubtasksAcrossStages(subtasks: Record<string, ItemWithId[]>): Rec
       }
     }
   }
+
+  const migrations: Array<{ id: string; from: string; to: string }> = [];
   let changed = false;
-  const out: Record<string, ItemWithId[]> = {};
-  for (const [stage, arr] of Object.entries(subtasks)) {
-    if (!Array.isArray(arr)) { out[stage] = arr; continue; }
-    const filtered = arr.filter(st => chosenStage.get(String(st?.id)) === stage);
-    if (filtered.length !== arr.length) changed = true;
-    out[stage] = filtered;
+  const outSubs: Record<string, ItemWithId[]> = {};
+  for (const [stage, arr] of Object.entries(subMap)) {
+    if (!Array.isArray(arr)) { outSubs[stage] = arr; continue; }
+    const filtered: ItemWithId[] = [];
+    for (const st of arr) {
+      const id = String(st?.id);
+      const chosen = chosenStage.get(id);
+      if (chosen === stage) filtered.push(st);
+      else if (chosen) { migrations.push({ id, from: stage, to: chosen }); changed = true; }
+    }
+    outSubs[stage] = filtered;
   }
-  return changed ? out : subtasks;
+  if (!changed) return state;
+
+  const out: State = { ...state, subtasks: outSubs };
+  // Relocate each dropped subtask's per-key metadata to its surviving stage so a
+  // status/owner/due set on a soon-to-be-deduped copy isn't orphaned (e.g. a
+  // "done" move that landed on a stray stage key).
+  for (const m of migrations) {
+    const fromKey = `${m.from}::${m.id}`;
+    const toKey = `${m.to}::${m.id}`;
+    for (const mp of SUBTASK_KEYED_MAPS) {
+      const map = out[mp];
+      if (isObject(map) && fromKey in (map as Record<string, unknown>)) {
+        const copy = { ...(map as Record<string, unknown>) };
+        if (!(toKey in copy)) copy[toKey] = copy[fromKey]; // only fill if the target has none
+        delete copy[fromKey];
+        out[mp] = copy;
+      }
+    }
+    if (Array.isArray(out.approvedSubtasks)) {
+      const arr = out.approvedSubtasks as string[];
+      if (arr.includes(fromKey)) {
+        out.approvedSubtasks = Array.from(new Set(arr.map(k => (k === fromKey ? toKey : k))));
+      }
+    }
+  }
+  return out;
 }
 
 export type DeletesEnvelope = Record<string, string[]>;
@@ -507,10 +547,9 @@ export function mergeStateWithPatch(
   }
 
   // Self-heal: a subtask id may live under only one stage. Runs last so it also
-  // undoes any cross-stage duplicate a client re-added in this patch.
-  if (isObject(next.subtasks)) {
-    next.subtasks = dedupeSubtasksAcrossStages(next.subtasks as Record<string, ItemWithId[]>);
-  }
+  // undoes any cross-stage duplicate a client re-added in this patch, and carries
+  // the dropped copy's status/owner/due metadata over to the surviving stage.
+  next = dedupeSubtasksAcrossStages(next);
 
   return next;
 }

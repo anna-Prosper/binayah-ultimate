@@ -348,3 +348,30 @@ describe("cross-stage subtask dedup", () => {
     expect(next.subtasks["some task stage"]).toEqual([]);
   });
 });
+
+describe("cross-stage dedup carries metadata to the surviving copy", () => {
+  it("moves subtaskStages/owners from the dropped stray copy to the canonical stage", () => {
+    // Server has the subtask under two stages; a status+owner were set on the stray one.
+    const server = {
+      subtasks: {
+        "default-parent-x": [{ id: 5, text: "t" }],
+        "some task stage": [{ id: 5, text: "t" }],
+      },
+      subtaskStages: { "some task stage::5": "active" },
+      owners: { "some task stage::5": ["ahsan"] },
+    };
+    const next = mergeStateWithPatch(server, {}) as {
+      subtasks: Record<string, { id: number }[]>;
+      subtaskStages: Record<string, string>;
+      owners: Record<string, string[]>;
+    };
+    // subtask consolidated under the default-parent stage
+    expect(next.subtasks["default-parent-x"].map(s => s.id)).toEqual([5]);
+    expect(next.subtasks["some task stage"]).toEqual([]);
+    // status + owner followed it (orphan key gone, canonical key set)
+    expect(next.subtaskStages["default-parent-x::5"]).toBe("active");
+    expect(next.subtaskStages["some task stage::5"]).toBeUndefined();
+    expect(next.owners["default-parent-x::5"]).toEqual(["ahsan"]);
+    expect(next.owners["some task stage::5"]).toBeUndefined();
+  });
+});
