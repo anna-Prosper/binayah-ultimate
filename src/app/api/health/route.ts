@@ -53,6 +53,7 @@ export async function GET() {
     return NextResponse.json(
       {
         ok,
+        buildSha: process.env.VERCEL_GIT_COMMIT_SHA || "",
         updatedAt: updatedAtIsDate ? (updatedAt as Date).toISOString() : String(updatedAt),
         updatedAtType: updatedAtIsDate ? "date" : typeof updatedAt,
         lastWriteAgeSeconds: updatedAtIsDate
