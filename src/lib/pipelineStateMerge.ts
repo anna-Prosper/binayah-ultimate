@@ -24,6 +24,22 @@ function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
 
+// Keep the first item per id. A buggy client can send an array with duplicate
+// ids (observed: a subtask copied 2-3× into one stage), and the merges below
+// append incoming as-is — so without this the duplicates persist and render as
+// repeated cards. Deduping at the merge boundary is the durable guard.
+function dedupeById<T extends ItemWithId>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of arr) {
+    const k = String(item?.id);
+    if (item == null || seen.has(k)) continue;
+    seen.add(k);
+    out.push(item);
+  }
+  return out;
+}
+
 /**
  * Merge `subtasks[stage]` arrays by item id rather than wholesale-replace.
  * Two users adding subtasks to the same stage from different tabs will both
@@ -42,7 +58,7 @@ function mergeSubtasksMap(
     const incomingIds = new Set(incomingArr.map(i => i.id));
     // Keep existing items whose ids aren't in the patch; replace the rest with incoming.
     const kept = existing.filter(i => !incomingIds.has(i.id));
-    out[stage] = [...kept, ...incomingArr];
+    out[stage] = dedupeById([...kept, ...incomingArr]);
   }
   return out;
 }
@@ -87,7 +103,8 @@ function mergeItemsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWit
   const merged: ItemWithId[] = existing.map(r => incomingById.get(String(r.id)) ?? r);
   // Append incoming items that are new (not already present).
   for (const r of incoming) if (!existingById.has(String(r.id))) merged.push(r);
-  return merged;
+  // Guard against duplicate ids in either input surviving the merge.
+  return dedupeById(merged);
 }
 function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
   const out: DbLike[] = [...current];

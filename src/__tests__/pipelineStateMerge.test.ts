@@ -299,3 +299,27 @@ describe("workspaces by-id merge", () => {
     expect(next.workspaces[0].pipelineIds.sort()).toEqual(["content", "core"]);
   });
 });
+
+// ── Dedup guard: a client sending duplicate ids must not persist them ──────────
+
+describe("subtasks/databases dedup by id", () => {
+  it("collapses duplicate subtask ids within a stage (the Medium Automation bug)", () => {
+    const current = { subtasks: { "Stage A": [] as { id: number; text: string }[] } };
+    // Client sends the same subtask 3× (identical copies).
+    const patch = { subtasks: { "Stage A": [
+      { id: 1, text: "Medium Automation" },
+      { id: 1, text: "Medium Automation" },
+      { id: 1, text: "Medium Automation" },
+      { id: 2, text: "other" },
+    ] } };
+    const next = mergeStateWithPatch(current, patch) as { subtasks: Record<string, { id: number }[]> };
+    expect(next.subtasks["Stage A"].map(s => s.id)).toEqual([1, 2]);
+  });
+
+  it("collapses duplicate database row ids", () => {
+    const current = { databases: [{ id: 1, name: "D", columns: [], rows: [] as { id: number }[] }] };
+    const patch = { databases: [{ id: 1, name: "D", columns: [], rows: [{ id: 9 }, { id: 9 }, { id: 10 }] }] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { rows: { id: number }[] }[] };
+    expect(next.databases[0].rows.map(r => r.id)).toEqual([9, 10]);
+  });
+});
