@@ -10,6 +10,7 @@ import { useAppShell } from "@/lib/contexts/AppShellContext";
 import { AvatarC } from "@/components/ui/Avatar";
 import NotificationPrefs from "@/components/NotificationPrefs";
 import { ADMIN_IDS, type UserType } from "@/lib/data";
+import { getEmailForUser } from "@/lib/userEmails";
 
 interface UserPopupProps {
   user: UserType;
@@ -31,6 +32,7 @@ export default function UserPopup({ user, onClose, onChangeAvatar, ptsFlash }: U
 
   const u = user;
   const isMe = u.id === currentUser;
+  const email = getEmailForUser(u.id);
   const uPts = getPoints(u.id);
   const claimedStages = Object.entries(claims)
     .filter(([, cl]) => (cl as string[]).includes(u.id))
@@ -60,6 +62,14 @@ export default function UserPopup({ user, onClose, onChangeAvatar, ptsFlash }: U
         <div>
           <div style={{ fontSize: 15, fontWeight: 900, color: u.color }}>{u.name} <span style={{ fontSize: 13 }}>{rankEmoji}</span></div>
           <div style={{ fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace" }}>{u.role}</div>
+          {email && (
+            <a
+              href={`mailto:${email}`}
+              onClick={e => e.stopPropagation()}
+              title={email}
+              style={{ display: "block", fontSize: 11, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", marginTop: 2, textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 200 }}
+            >{email}</a>
+          )}
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 4, marginBottom: 8 }}>
