@@ -89,7 +89,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
 
   // Filter users by mention query
   const mentionMatches = mentionState.open
-    ? users.filter(u => u.id !== currentUser && (u.id.includes(mentionState.query.toLowerCase()) || u.name.toLowerCase().includes(mentionState.query.toLowerCase()))).slice(0, 6)
+    ? users.filter(u => u.id !== currentUser && (u.id.includes(mentionState.query.toLowerCase()) || u.name.toLowerCase().includes(mentionState.query.toLowerCase()))).slice(0, 50)
     : [];
 
   const detectMention = (value: string, caretPos: number) => {
@@ -423,7 +423,7 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
           <div style={{ padding: "8px 16px", borderTop: `1px solid ${t.border}`, position: "relative" }}>
             {/* Mention autocomplete picker */}
             {mentionState.open && mentionMatches.length > 0 && (
-              <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(100% - 4px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 -8px 24px rgba(0,0,0,0.3)", overflow: "hidden", zIndex: 50 }}>
+              <div style={{ position: "absolute", left: 16, right: 16, bottom: "calc(100% - 4px)", background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, boxShadow: "0 -8px 24px rgba(0,0,0,0.3)", overflowY: "auto", maxHeight: 260, zIndex: 50 }}>
                 {mentionMatches.map((u, idx) => (
                   <button
                     key={u.id}

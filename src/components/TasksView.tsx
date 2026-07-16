@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from "react";
 import { User, Clipboard, Check, Cat, Globe, MessageSquare } from "lucide-react";
 import { T } from "@/lib/themes";
 import { REACTIONS, normalizeStageStatus, stageDefaults, type SubtaskItem, type UserType, type CommentItem, type Workspace, ADMIN_IDS } from "@/lib/data";
-import { deriveStageDisplayPoints } from "@/lib/points";
+import { deriveStageDisplayPoints, DEFAULT_SUBTASK_POINTS } from "@/lib/points";
 import { AvatarC } from "@/components/ui/Avatar";
 import ClaimChip from "@/components/ui/ClaimChip";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
@@ -1378,6 +1378,35 @@ interface SharedCardProps {
   readOnly?: boolean;
 }
 
+// Admin-only inline points editor. Renders inside a card's edit panel so an admin
+// can set a task/subtask's point value directly. Commits on blur/Enter; ignores
+// empty/non-positive input (reverts to current).
+function AdminPointsEditor({ current, onSave, t }: { current: number; onSave: (n: number) => void; t: T }) {
+  const [val, setVal] = useState(String(current));
+  useEffect(() => { setVal(String(current)); }, [current]);
+  const commit = () => {
+    const n = parseInt(val, 10);
+    if (!isNaN(n) && n > 0 && n !== current) onSave(n);
+    else setVal(String(current));
+  };
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+      <span style={{ fontSize: 11, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5, textTransform: "uppercase" as const }}>// points (admin)</span>
+      <input
+        type="number"
+        min={1}
+        value={val}
+        onChange={e => setVal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+        onClick={e => e.stopPropagation()}
+        data-no-close
+        style={{ width: 100, fontSize: 12, color: t.text, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
+      />
+    </div>
+  );
+}
+
 function TaskWithSubtasks({ task, isMine, onClaim, draggable: isDraggable, hideSubs, ...shared }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean; hideSubs?: boolean } & SharedCardProps & { subtaskStages?: Record<string, string> }) {
   const { subtasks, toggleSubtask, subtaskStages } = shared as SharedCardProps & { subtaskStages?: Record<string, string> };
   const taskSubs = (subtasks[task.stageId] || []).filter(s => !s.done && !subtaskStages?.[SubtaskKey.make(task.stageId, s.id)]);
@@ -1423,7 +1452,7 @@ function TaskCard({
   draggingSubtaskKey, stageDropOver, onStageDragOver, onStageDragLeave, onStageDrop,
   availablePipelines, getPoints, currentWorkspaceId, readOnly,
 }: { task: StageTask; isMine: boolean; onClaim: () => void; draggable?: boolean } & SharedCardProps & { editingStage?: string | null; setEditingStage?: (v: string | null) => void; editingVal?: string; setEditingVal?: (v: string) => void; setStageNameOverride?: (name: string, val: string) => void }) {
-  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, workspaceUsers, workspaces } = useModel();
+  const { stageDescOverrides, setStageDescOverride, stageDueDates, setStageDueDate, stagePriorities, setStagePriority, archiveStage, pipeMetaOverrides, cyclePriority, moveStageToPipeline, workspaceUsers, workspaces, stagePointsOverride, setStagePointsOverride } = useModel();
   const stagePriority = stagePriorities[task.stageId];
   const canArchive = !readOnly && !!currentUser;
   const [editOpen, setEditOpen] = useState(false);
@@ -1647,6 +1676,11 @@ function TaskCard({
             }}
             style={{ background: t.bgHover || t.bgSoft, border: `1px solid ${t.accent}33`, borderRadius: 8, padding: "4px 8px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none" }}
           />
+          {/* Admin points editor — only for leaf tasks (no subtasks); a task WITH
+              subtasks derives its points from their sum, so edit those instead. */}
+          {isAdmin && (subtasks[task.stageId] || []).length === 0 && (
+            <AdminPointsEditor current={stagePointsOverride[task.stageId] ?? task.points} onSave={n => setStagePointsOverride(task.stageId, n)} t={t} />
+          )}
           {canArchive && (
             <button
               onClick={e => { e.stopPropagation(); archiveStage(task.stageId); setEditOpen(false); setEditingStage?.(null); }}
@@ -1821,7 +1855,7 @@ function SubtaskCard({
   reactOpen, setReactOpen, commentOpen, setCommentOpen,
   assignOpen, setAssignOpen, assignments, assignTask,
   handleReact, shareStage, addComment, deleteComment, editComment, commentInput, setCommentInput, copied,
-  handleClaim, claims, getPoints, currentWorkspaceId, readOnly, moveParentPipelines,
+  handleClaim, claims, getPoints, currentWorkspaceId, readOnly, moveParentPipelines, isAdmin,
 }: {
   taskSub: SubtaskItem; stageId: string; parentStageName: string; pipelineId: string;
   pipelineColor: string; pipelineIcon: string; pipelineName: string;
@@ -1830,7 +1864,7 @@ function SubtaskCard({
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
-  const { renameSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces } = useModel();
+  const { renameSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces, setSubtaskPoints } = useModel();
   const subtaskRef = useRef<HTMLDivElement>(null);
   const [archiveConfirm, setArchiveConfirm] = useState(false);
   const [descVal, setDescVal] = useState("");
@@ -2001,6 +2035,9 @@ function SubtaskCard({
               style={{ fontSize: 12, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
             />
           </div>
+          {isAdmin && (
+            <AdminPointsEditor current={taskSub.points ?? DEFAULT_SUBTASK_POINTS} onSave={n => setSubtaskPoints(stageId, taskSub.id, n)} t={t} />
+          )}
           <button
             type="button"
             data-no-close
@@ -2099,7 +2136,7 @@ function SubtaskKanbanCard({
   sub: SubtaskKanbanTask; isMine: boolean; onRename?: (taskId: number, text: string) => void;
   onDragSubtaskStart?: () => void; onDragSubtaskEnd?: () => void;
 } & SharedCardProps) {
-  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces } = useModel();
+  const { handleClaim, claims, approvedSubtasks, approveSubtask, archiveSubtask, migrateSubtask, stageNameOverrides, archivedStages, subtaskDescOverrides, setSubtaskDescOverride, subtaskDueDates, setSubtaskDueDate, workspaceUsers, workspaces, setSubtaskPoints } = useModel();
   const [, setIsHovered] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [editVal, setEditVal] = useState("");
@@ -2371,6 +2408,12 @@ function SubtaskKanbanCard({
                 style={{ fontSize: 12, color: t.textMuted, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 6, padding: "4px 6px", outline: "none", fontFamily: "var(--font-dm-mono), monospace" }}
               />
             </div>
+            {isAdmin && (() => {
+              const parsed = SubtaskKey.parse(sub.key as Parameters<typeof SubtaskKey.parse>[0]);
+              return parsed ? (
+                <AdminPointsEditor current={sub.points ?? DEFAULT_SUBTASK_POINTS} onSave={n => setSubtaskPoints(parsed.parentStageId, parsed.subtaskId, n)} t={t} />
+              ) : null;
+            })()}
             <button
               type="button"
               data-no-close
@@ -2516,7 +2559,7 @@ function MentionTextarea({
           const q = picker.query;
           return !q || u.id.toLowerCase().includes(q) || u.name.toLowerCase().includes(q) || u.name.split(" ")[0].toLowerCase().includes(q);
         })
-        .slice(0, 6)
+        .slice(0, 50)
     : [];
 
   const updatePicker = (nextValue: string, caret: number | null) => {
@@ -2552,7 +2595,8 @@ function MentionTextarea({
             background: t.bgCard,
             border: `1px solid ${t.border}`,
             borderRadius: 10,
-            overflow: "hidden",
+            overflowY: "auto",
+            maxHeight: 240,
             boxShadow: "0 12px 28px rgba(0,0,0,0.18)",
           }}
         >
@@ -2818,7 +2862,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
     ? users.filter(u => {
         const firstName = u.name.split(" ")[0].toLowerCase();
         return firstName.startsWith(mentionQuery) || u.id.toLowerCase().startsWith(mentionQuery);
-      }).slice(0, 6)
+      }).slice(0, 50)
     : [];
   const insertMention = (u: UserType) => {
     if (!mentionMatch) return;
@@ -2887,7 +2931,7 @@ function CommentPopover({ t, users, comments, currentUser, inputValue, onInputCh
       )}
       {!readOnly && <div style={{ position: "relative" as const }}>
         {mentionQuery !== null && mentionMatches.length > 0 && (
-          <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+          <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflowY: "auto", maxHeight: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
             {mentionMatches.map(u => (
               <div
                 key={u.id}

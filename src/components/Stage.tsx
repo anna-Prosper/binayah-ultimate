@@ -132,7 +132,7 @@ function StageSubtaskCard({
     const matches = workspaceUsers.filter(u =>
       u.name.split(" ")[0].toLowerCase().startsWith(q) ||
       u.id.toLowerCase().startsWith(q)
-    ).slice(0, 6);
+    ).slice(0, 50);
     setMentionDropdown({ matches, selectedIdx: 0 });
   }, [workspaceUsers]);
 
@@ -393,7 +393,7 @@ function StageSubtaskCard({
           )}
           <div style={{ position: "relative" }}>
             {mentionDropdown && mentionDropdown.matches.length > 0 && (
-              <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflow: "hidden", boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
+              <div data-no-close onMouseDown={e => e.stopPropagation()} style={{ position: "absolute", bottom: "calc(100% + 4px)", left: 0, right: 0, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, overflowY: "auto", maxHeight: 240, boxShadow: "0 8px 24px rgba(0,0,0,0.3)", zIndex: 250 }}>
                 {mentionDropdown.matches.map((u, i) => (
                   <div
                     key={u.id}
