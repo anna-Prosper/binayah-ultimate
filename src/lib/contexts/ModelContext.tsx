@@ -29,6 +29,12 @@ export type CustomPipeline = {
   colorKey: string; priority: string; totalHours?: string; points: number; stages: string[];
 };
 
+// Slices excluded from the 60s reconciliation full-snapshot when this client has
+// no un-synced edits to them. These merge keep-existing per-row/id, so a stale
+// tab re-asserting a clean copy would resurrect rows/items another client just
+// deleted. The delta path still ships any real local edit, so nothing is lost.
+const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases"]);
+
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
 // user's chosen avatar in local state. Without this, picking an avatar would briefly
@@ -1233,11 +1239,18 @@ export function ModelProvider({
     const ts: Record<string, number> = {};
     for (const k of Object.keys(full)) {
       if (k === "_deletes") continue; // deletes are explicit intent — always send
-      if (doFull) { ts[k] = localWritesRef.current[k] ?? now; continue; }
       const written = localWritesRef.current[k];
       const confirmed = lastConfirmedSendAtRef.current[k] ?? 0;
-      if (written !== undefined && written > confirmed) ts[k] = written; // dirty → keep
-      else delete full[k];                                              // unchanged → omit
+      const isDirty = written !== undefined && written > confirmed;
+      // `databases` is merged keep-existing per-row, so re-asserting a clean copy
+      // in the 60s reconciliation snapshot lets a stale tab RESURRECT rows another
+      // client just deleted ("I removed all and it came back"). Never re-send it
+      // when this client has no un-synced database edits — the delta path already
+      // ships real edits, so nothing is lost. (Same principle as subtaskStages.)
+      if (SNAPSHOT_SKIP_WHEN_CLEAN.has(k) && !isDirty) { delete full[k]; continue; }
+      if (doFull) { ts[k] = localWritesRef.current[k] ?? now; continue; }
+      if (isDirty) ts[k] = written; // dirty → keep
+      else delete full[k];          // unchanged → omit
     }
     if (doFull) lastFullSyncAtRef.current = now;
     pendingSendSlicesRef.current = ts;
