@@ -66,7 +66,7 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
         <span style={{ fontSize: 13, fontWeight: 900, color: t.text, fontFamily: mono, letterSpacing: 0.3 }}>
           {isSelf ? "daily checklist" : `${viewUser?.name || viewUserId}'s daily`}
         </span>
-        <span style={{ fontSize: 11, color: allDone ? t.green : t.textDim, fontFamily: mono, fontWeight: allDone ? 700 : 400 }}>
+        <span style={{ fontSize: 11, color: allDone ? t.green : t.textMuted, fontFamily: mono, fontWeight: allDone ? 700 : 600 }}>
           {allDone ? "all done 🎉" : `${doneCount}/${activeItems.length}`} · +{cappedToday} pts{earnedToday > DAILY_POINTS_CAP ? ` (cap ${DAILY_POINTS_CAP})` : ""}
         </span>
         {streak > 0 && (
@@ -109,12 +109,12 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
           const done = isDone(item.id);
           const canCheck = isSelf; // you complete your own items only
           return (
-            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: done ? accent + "10" : (t.bgHover || "transparent"), border: `1px solid ${done ? accent + "40" : t.border}`, borderRadius: 10, padding: "7px 10px", opacity: item.active ? 1 : 0.5 }}>
+            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: done ? accent + "1a" : (t.bgSoft || t.bgHover), border: `1px solid ${done ? accent + "66" : t.border}`, borderRadius: 10, padding: "8px 11px", opacity: item.active ? 1 : 0.5 }}>
               <button
                 onClick={() => canCheck && toggleDailyDone(item.id)}
                 disabled={!canCheck}
                 title={canCheck ? (done ? "mark not done" : "mark done") : "only this user can check their items"}
-                style={{ width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: `1.5px solid ${done ? accent : t.textDim}`, background: done ? accent : "transparent", cursor: canCheck ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
+                style={{ width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: `2px solid ${done ? accent : t.textMuted}`, background: done ? accent : t.bgCard, cursor: canCheck ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
               >
                 {done && <Check size={13} color="#fff" strokeWidth={3} />}
               </button>
@@ -143,10 +143,10 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
                 </>
               ) : (
                 <>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 12.5, color: done ? t.textDim : t.textSec, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis" }}>
+                  <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {item.text}
                   </span>
-                  <span style={{ flexShrink: 0, color: accent, border: `1px solid ${accent}55`, borderRadius: 999, padding: "1px 7px", fontFamily: mono, fontSize: 10, fontWeight: 900 }}>
+                  <span title={`${item.points} pts`} style={{ flexShrink: 0, color: "#fff", background: accent, borderRadius: 999, minWidth: 22, textAlign: "center", padding: "2px 8px", fontFamily: mono, fontSize: 11, fontWeight: 800 }}>
                     {item.points}
                   </span>
                 </>
@@ -159,18 +159,21 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
       {/* 30-day completion heatmap */}
       {!editing && activeItems.length > 0 && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>last 30 days</div>
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6, fontWeight: 700 }}>last 30 days</div>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {heatDays.map(day => {
               const dc = byDay.get(day);
               const intensity = dc ? Math.min(dc.points / DAILY_POINTS_CAP, 1) : 0;
               const isToday = day === today;
-              const bg = dc ? `${accent}${Math.round(25 + intensity * 55).toString(16).padStart(2, "0")}` : (t.bgHover || t.border);
+              // Filled days scale from clearly-visible (0x66) to solid; empty days
+              // get a distinct surface fill + border so the grid reads on white.
+              const alpha = Math.round(102 + intensity * 153).toString(16).padStart(2, "0");
+              const bg = dc ? `${accent}${alpha}` : (t.surface || t.bgSoft);
               return (
                 <div
                   key={day}
                   title={dc ? `${day} · ${dc.count} done · ${dc.points} pts` : `${day} · none`}
-                  style={{ width: 13, height: 13, borderRadius: 3, background: bg, border: isToday ? `1.5px solid ${accent}` : `1px solid ${t.border}` }}
+                  style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: isToday ? `2px solid ${accent}` : `1px solid ${dc ? "transparent" : t.textDim + "55"}` }}
                 />
               );
             })}
