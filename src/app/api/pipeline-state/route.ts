@@ -27,19 +27,27 @@ async function ensureDoc() {
 }
 
 /** Compute consecutive-day streaks for each user in the activity log. */
+// Day boundary for streaks uses Asia/Dubai (UTC+4, no DST) — the team is
+// Dubai-based, so a 2am-Dubai action is "today", not the previous UTC day.
+function dubaiDay(ms: number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Dubai", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(new Date(ms));
+}
+
 function computeStreakByUser(activityLog: { type: string; user: string; time: number }[]): Record<string, number> {
   const QUALIFYING = new Set(["claim", "comment", "status_change"]);
 
-  // Build: userId → Set<"YYYY-MM-DD">
+  // Build: userId → Set<"YYYY-MM-DD"> (Dubai days)
   const userDays = new Map<string, Set<string>>();
   for (const entry of activityLog) {
     if (!QUALIFYING.has(entry.type)) continue;
-    const day = new Date(entry.time).toISOString().slice(0, 10);
+    const day = dubaiDay(entry.time);
     if (!userDays.has(entry.user)) userDays.set(entry.user, new Set());
     userDays.get(entry.user)!.add(day);
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = dubaiDay(Date.now());
   const result: Record<string, number> = {};
 
   for (const [userId, days] of userDays.entries()) {

@@ -1,4 +1,5 @@
 import { mergeStateWithPatch } from "@/lib/pipelineStateMerge";
+import { validatePatchKeys } from "@/lib/validate";
 
 // ── Map slices: per-key merge ──────────────────────────────────────────────────
 
@@ -428,5 +429,40 @@ describe("stray metadata consolidation (migrate leftovers)", () => {
     const next = mergeStateWithPatch(server, {}) as { owners: Record<string, string[]> };
     expect(next.owners["default-parent-x"]).toEqual(["anna"]);
     expect(next.owners["some-stage"]).toEqual(["usama"]);
+  });
+});
+
+describe("daily checklist slices", () => {
+  it("dailyDone (map) merges per-key without clobbering other completions", () => {
+    const current = { dailyDone: { "abhishek::2026-07-21::1": 2, "abhishek::2026-07-22::1": 2 } };
+    const patch = { dailyDone: { "abhishek::2026-07-22::2": 3 } }; // a new completion
+    const next = mergeStateWithPatch(current, patch) as { dailyDone: Record<string, number> };
+    // existing completions survive (a stale tab re-asserting them can't erase them)
+    expect(next.dailyDone).toEqual({
+      "abhishek::2026-07-21::1": 2,
+      "abhishek::2026-07-22::1": 2,
+      "abhishek::2026-07-22::2": 3,
+    });
+  });
+
+  it("dailyDone uncheck via _deletes removes exactly that day/item key", () => {
+    const current = { dailyDone: { "abhishek::2026-07-22::1": 2, "abhishek::2026-07-22::2": 3 } };
+    const next = mergeStateWithPatch(current, {}, { dailyDone: ["abhishek::2026-07-22::1"] }) as { dailyDone: Record<string, number> };
+    expect(next.dailyDone).toEqual({ "abhishek::2026-07-22::2": 3 });
+  });
+
+  it("dailyChecklistItems merge by id (keep-existing) and delete by id", () => {
+    const current = { dailyChecklistItems: [{ id: 1, userId: "abhishek", text: "A", points: 2, order: 0, active: true }] };
+    const patch = { dailyChecklistItems: [{ id: 2, userId: "abhishek", text: "B", points: 3, order: 1, active: true }] };
+    const merged = mergeStateWithPatch(current, patch) as { dailyChecklistItems: { id: number }[] };
+    expect(merged.dailyChecklistItems.map(i => i.id).sort()).toEqual([1, 2]);
+    const afterDelete = mergeStateWithPatch(merged, {}, { dailyChecklistItems: ["1"] }) as { dailyChecklistItems: { id: number }[] };
+    expect(afterDelete.dailyChecklistItems.map(i => i.id)).toEqual([2]);
+  });
+});
+
+describe("patch-key whitelist accepts daily slices", () => {
+  it("validatePatchKeys passes dailyChecklistItems and dailyDone", () => {
+    expect(validatePatchKeys({ dailyChecklistItems: [], dailyDone: {} })).toBeNull();
   });
 });

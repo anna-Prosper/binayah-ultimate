@@ -6,10 +6,11 @@
 // You complete YOUR OWN items; admins can view/configure anyone's.
 
 import { useState } from "react";
-import { CalendarCheck, Plus, Trash2, Check, X, Pencil } from "lucide-react";
+import { CalendarCheck, Plus, Trash2, Check, X, Pencil, Flame } from "lucide-react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { DAILY_POINTS_CAP } from "@/lib/data";
 import { dubaiDateStr } from "@/lib/date";
+import { dailyStreak, completionByDay, shiftDay } from "@/lib/dailyChecklist";
 import type { T } from "@/lib/themes";
 
 const mono = "var(--font-dm-mono), monospace";
@@ -44,6 +45,11 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
   const earnedToday = activeItems.reduce((s, i) => s + (isDone(i.id) ? i.points : 0), 0);
   const cappedToday = Math.min(earnedToday, DAILY_POINTS_CAP);
   const pct = activeItems.length ? Math.round((doneCount / activeItems.length) * 100) : 0;
+  const allDone = activeItems.length > 0 && doneCount === activeItems.length;
+  const streak = dailyStreak(viewUserId, dailyDone, today);
+  const byDay = completionByDay(viewUserId, dailyDone);
+  // Last 30 Dubai-days, oldest → newest, for the completion heatmap.
+  const heatDays = Array.from({ length: 30 }, (_, i) => shiftDay(today, -(29 - i)));
 
   const addItem = () => {
     const n = parseInt(newPts, 10);
@@ -60,9 +66,14 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
         <span style={{ fontSize: 13, fontWeight: 900, color: t.text, fontFamily: mono, letterSpacing: 0.3 }}>
           {isSelf ? "daily checklist" : `${viewUser?.name || viewUserId}'s daily`}
         </span>
-        <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>
-          {doneCount}/{activeItems.length} · +{cappedToday} pts{earnedToday > DAILY_POINTS_CAP ? ` (cap ${DAILY_POINTS_CAP})` : ""}
+        <span style={{ fontSize: 11, color: allDone ? t.green : t.textDim, fontFamily: mono, fontWeight: allDone ? 700 : 400 }}>
+          {allDone ? "all done 🎉" : `${doneCount}/${activeItems.length}`} · +{cappedToday} pts{earnedToday > DAILY_POINTS_CAP ? ` (cap ${DAILY_POINTS_CAP})` : ""}
         </span>
+        {streak > 0 && (
+          <span title={`${streak}-day streak`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 900, fontFamily: mono, color: t.orange, background: t.orange + "18", border: `1px solid ${t.orange}44`, borderRadius: 999, padding: "1px 7px" }}>
+            <Flame size={11} /> {streak}
+          </span>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           {isAdmin && (
             <select
@@ -144,6 +155,28 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
           );
         })}
       </div>
+
+      {/* 30-day completion heatmap */}
+      {!editing && activeItems.length > 0 && (
+        <div style={{ marginTop: 12 }}>
+          <div style={{ fontSize: 10, color: t.textDim, fontFamily: mono, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 5 }}>last 30 days</div>
+          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+            {heatDays.map(day => {
+              const dc = byDay.get(day);
+              const intensity = dc ? Math.min(dc.points / DAILY_POINTS_CAP, 1) : 0;
+              const isToday = day === today;
+              const bg = dc ? `${accent}${Math.round(25 + intensity * 55).toString(16).padStart(2, "0")}` : (t.bgHover || t.border);
+              return (
+                <div
+                  key={day}
+                  title={dc ? `${day} · ${dc.count} done · ${dc.points} pts` : `${day} · none`}
+                  style={{ width: 13, height: 13, borderRadius: 3, background: bg, border: isToday ? `1.5px solid ${accent}` : `1px solid ${t.border}` }}
+                />
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Empty state */}
       {items.length === 0 && (

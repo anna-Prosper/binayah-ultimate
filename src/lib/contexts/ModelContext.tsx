@@ -16,6 +16,7 @@ import {
 	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type UsefulLinkItem, type UsefulLinkIcon, type WorkspaceDb, type DbColumn, type DailyChecklistItem,
 	} from "@/lib/data";
 import { dubaiDateStr } from "@/lib/date";
+import { dailyPointsForUser } from "@/lib/dailyChecklist";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { beaconPatchState, deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
@@ -1723,18 +1724,7 @@ export function ModelProvider({
 
       // Daily-checklist points: sum this user's completion ledger, capped per day
       // (DAILY_POINTS_CAP) so steady routine work stays a modest contribution.
-      // Keys are `${userId}::${YYYY-MM-DD}::${itemId}` → points earned that day.
-      const perDay: Record<string, number> = {};
-      const prefix = `${uid}::`;
-      for (const [key, pts] of Object.entries(dailyDone)) {
-        if (!key.startsWith(prefix)) continue;
-        const rest = key.slice(prefix.length);
-        const sep = rest.indexOf("::");
-        if (sep === -1) continue;
-        const day = rest.slice(0, sep);
-        perDay[day] = (perDay[day] ?? 0) + (typeof pts === "number" ? pts : 0);
-      }
-      for (const dayTotal of Object.values(perDay)) p += Math.min(dayTotal, DAILY_POINTS_CAP);
+      p += dailyPointsForUser(uid, dailyDone, DAILY_POINTS_CAP);
 
       map[uid] = p;
     }
