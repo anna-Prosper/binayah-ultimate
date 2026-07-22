@@ -591,3 +591,21 @@ export interface UserType {
   color: string;
   aiAvatar?: string; // base64 data URL when using AI-generated pfp
 }
+
+// ── Daily checklist ───────────────────────────────────────────────────────────
+// Per-user recurring daily tasks that pay points immediately on check. The
+// checklist "refreshes" each day WITHOUT any destructive reset: completions are
+// recorded per (user, day, item), so a new day simply has no records yet and
+// every item shows unchecked — while points and history accumulate forever.
+export interface DailyChecklistItem {
+  id: number;
+  userId: string;
+  text: string;
+  points: number;
+  order: number;
+  active: boolean;
+}
+
+// Max daily-checklist points that count toward a user's PTS per day. Keeps steady
+// routine work a modest, capped contribution so it can't swamp project points.
+export const DAILY_POINTS_CAP = 20;

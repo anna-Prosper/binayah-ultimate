@@ -13,6 +13,7 @@ import { SubtaskKey } from "@/lib/subtaskKey";
 import { truncate, timeAgo, formatEventTime, toneColor, isExecutiveProposal } from "@/lib/timeHelpers";
 import { ExecutiveRequestsPanel } from "@/components/panels/ExecutiveRequestsPanel";
 import { ZoomIntegrationPanel } from "@/components/panels/ZoomIntegrationPanel";
+import DailyChecklistPanel from "@/components/panels/DailyChecklistPanel";
 
 const TasksView = dynamic(() => import("@/components/TasksView"), { ssr: false });
 
@@ -1353,6 +1354,7 @@ export default function HomeView({
             onCardNavigate={navigateToCard}
           />
           <RoadmapHomePanel t={t} events={homeRoadmapEvents} users={users} canSeeAll={isCaptainOfAny} />
+          <DailyChecklistPanel t={t} currentUser={currentUser} isAdmin={isRootAdmin} />
           {/* Standalone Reminder panel is redundant — inline '+ reminder' button is now in
               the AttentionOverview header for every role. Standalone Exec Requests panel kept
               only for non-admins (execs use it to submit; admins approve via the inline banner). */}

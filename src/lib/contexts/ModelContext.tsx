@@ -12,9 +12,10 @@ import {
 import { deriveStageDisplayPoints } from "@/lib/points";
 import {
   pipelineData, stageDefaults, USERS_DEFAULT, STATUS_ORDER, normalizeStageStatus, DEFAULT_USEFUL_LINKS,
-  ADMIN_IDS, DEFAULT_WORKSPACE_ID,
-	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type UsefulLinkItem, type UsefulLinkIcon, type WorkspaceDb, type DbColumn,
+  ADMIN_IDS, DEFAULT_WORKSPACE_ID, DAILY_POINTS_CAP,
+	  type UserType, type SubtaskItem, type CommentItem, type ActivityItem, type Workspace, type ExecProposal, type ReminderItem, type TimelineEvent, type TimelineEventStatus, type TimelineEventTier, type NoteItem, type BugItem, type BugAttachment, type BugSeverity, type BugStatus, type BugType, type UsefulLinkItem, type UsefulLinkIcon, type WorkspaceDb, type DbColumn, type DailyChecklistItem,
 	} from "@/lib/data";
+import { dubaiDateStr } from "@/lib/date";
 import { mkTheme, type T } from "@/lib/themes";
 import { SubtaskKey } from "@/lib/subtaskKey";
 import { beaconPatchState, deleteComment as deleteCommentRemote, patchComment as patchCommentRemote, patchState, pushComment, pushActivity, pushCommentReaction, type ChatAttachment, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
@@ -33,7 +34,7 @@ export type CustomPipeline = {
 // no un-synced edits to them. These merge keep-existing per-row/id, so a stale
 // tab re-asserting a clean copy would resurrect rows/items another client just
 // deleted. The delta path still ships any real local edit, so nothing is lost.
-const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases"]);
+const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases", "dailyChecklistItems", "dailyDone"]);
 
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
@@ -252,6 +253,14 @@ interface ModelContextValue {
   deleteDbRow: (dbId: number, rowId: number) => void;
   addDbColumn: (dbId: number, col: Omit<DbColumn, "id">) => void;
 
+  // Daily checklist
+  dailyChecklistItems: DailyChecklistItem[];
+  dailyDone: Record<string, number>;
+  addDailyItem: (userId: string, text: string, points: number) => void;
+  updateDailyItem: (id: number, patch: Partial<Pick<DailyChecklistItem, "text" | "points" | "order" | "active">>) => void;
+  removeDailyItem: (id: number) => void;
+  toggleDailyDone: (itemId: number) => void;
+
   // Undo stack
   undo: () => void;
   peek: UndoOp | null;
@@ -388,6 +397,10 @@ export function ModelProvider({
   const [usefulLinks, setUsefulLinks] = useState<UsefulLinkItem[]>(() => lsGet("usefulLinks", []));
   const [execProposals, setExecProposals] = useState<ExecProposal[]>(() => lsGet("execProposals", []));
   const [databases, setDatabases] = useState<WorkspaceDb[]>(() => lsGet("databases", []));
+  // Daily checklist: per-user item templates + a per-(user,day,item) completion
+  // ledger (`${userId}::${YYYY-MM-DD}::${itemId}` → points earned).
+  const [dailyChecklistItems, setDailyChecklistItems] = useState<DailyChecklistItem[]>(() => lsGet("dailyChecklistItems", []));
+  const [dailyDone, setDailyDone] = useState<Record<string, number>>(() => lsGet("dailyDone", {}));
   const usefulLinksSeededRef = useRef(false);
   const workspaceContentMigrationRef = useRef(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
@@ -455,9 +468,10 @@ export function ModelProvider({
     "subtaskStages", "subtaskDescOverrides", "subtaskDueDates",
     "pipeDescOverrides", "pipeMetaOverrides", "customStages",
     "notifReads", "notifDismissed", "notifReadIds", "inboxStageWorkspace",
+    "dailyDone",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
-    "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases",
+    "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases", "dailyChecklistItems",
   ] as const, []);
   const SET_SLICES = useMemo(() => [
     "approvedStages", "approvedSubtasks", "approvedPipelines",
@@ -942,6 +956,8 @@ export function ModelProvider({
     }
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
+    const dailyItemsIncoming = (s as Record<string, unknown>).dailyChecklistItems;
+    if (dailyItemsIncoming && !isProtected("dailyChecklistItems")) setDailyChecklistItems(dailyItemsIncoming as DailyChecklistItem[]);
     if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) {
@@ -1068,6 +1084,9 @@ export function ModelProvider({
       mergeMapOnHydrate((s as { inboxStageWorkspace: Record<string, string> }).inboxStageWorkspace as Record<string, unknown>, setInboxStageWorkspace as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setInboxStageWorkspace(v as Record<string, string>));
     if (s.subtaskStages && !isProtected("subtaskStages"))
       mergeMapOnHydrate(s.subtaskStages as Record<string, unknown>, setSubtaskStages as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskStages(v as Record<string, string>));
+    const dailyDoneIncoming = (s as Record<string, unknown>).dailyDone;
+    if (dailyDoneIncoming && !isProtected("dailyDone"))
+      mergeMapOnHydrate(dailyDoneIncoming as Record<string, unknown>, setDailyDone as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setDailyDone(v as Record<string, number>));
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides"))
       mergeMapOnHydrate(s.subtaskDescOverrides as Record<string, unknown>, setSubtaskDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDescOverrides(v as Record<string, string>));
     if (s.subtaskDueDates && !isProtected("subtaskDueDates"))
@@ -1176,6 +1195,8 @@ export function ModelProvider({
       notifDismissed,
       notifReadIds,
       databases: databases.map(db => db.views ? db : { ...db, views: [] }),
+      dailyChecklistItems,
+      dailyDone,
     };
     // Identity-critical slices: workspaces holds each workspace's pipelineIds
     // (which pipeline lives in which workspace) and members; users holds the
@@ -1225,7 +1246,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, isProtected]);
+       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, dailyChecklistItems, dailyDone, isProtected]);
 
   // Delta wrapper around buildFullState: send only slices that changed since their
   // last confirmed send, plus a periodic full snapshot as a reconciliation safety
@@ -1699,10 +1720,26 @@ export function ModelProvider({
       }
 
       Object.values(reactions).forEach(e => { Object.values(e).forEach(r => { if (r.includes(uid)) p += 2; }); });
+
+      // Daily-checklist points: sum this user's completion ledger, capped per day
+      // (DAILY_POINTS_CAP) so steady routine work stays a modest contribution.
+      // Keys are `${userId}::${YYYY-MM-DD}::${itemId}` → points earned that day.
+      const perDay: Record<string, number> = {};
+      const prefix = `${uid}::`;
+      for (const [key, pts] of Object.entries(dailyDone)) {
+        if (!key.startsWith(prefix)) continue;
+        const rest = key.slice(prefix.length);
+        const sep = rest.indexOf("::");
+        if (sep === -1) continue;
+        const day = rest.slice(0, sep);
+        perDay[day] = (perDay[day] ?? 0) + (typeof pts === "number" ? pts : 0);
+      }
+      for (const dayTotal of Object.values(perDay)) p += Math.min(dayTotal, DAILY_POINTS_CAP);
+
       map[uid] = p;
     }
     return map;
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reactions, subtasks, archivedSubtasks, stagePointsOverride, customPipelines, customStages, users]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reactions, subtasks, archivedSubtasks, stagePointsOverride, customPipelines, customStages, users, dailyDone]);
 
   const getPoints = useCallback((uid: string) => pointsMap[uid] ?? 0, [pointsMap]);
 
@@ -2950,6 +2987,66 @@ export function ModelProvider({
     }));
   }, [markLocalWrite]);
 
+  // ── Daily checklist ───────────────────────────────────────────────────────
+  // Item templates are admin-managed; completion is per (user, Dubai-day, item).
+  // Completing pays points immediately (no approval) and is naturally date-scoped,
+  // so a new day shows a fresh unchecked list while points/history accumulate.
+  const addDailyItem = useCallback((userId: string, text: string, points: number) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) return;
+    const clean = text.trim();
+    if (!clean) return;
+    const item: DailyChecklistItem = {
+      id: Date.now(),
+      userId,
+      text: clean.slice(0, 200),
+      points: Math.max(1, Math.min(1000, Math.floor(points) || 1)),
+      order: dailyChecklistItems.filter(i => i.userId === userId).length,
+      active: true,
+    };
+    markLocalWrite("dailyChecklistItems", String(item.id));
+    flushImmediatelyRef.current = true;
+    setDailyChecklistItems(prev => [...prev, item]);
+  }, [currentUser, dailyChecklistItems, markLocalWrite]);
+
+  const updateDailyItem = useCallback((id: number, patch: Partial<Pick<DailyChecklistItem, "text" | "points" | "order" | "active">>) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) return;
+    markLocalWrite("dailyChecklistItems", String(id));
+    flushImmediatelyRef.current = true;
+    setDailyChecklistItems(prev => prev.map(it => {
+      if (it.id !== id) return it;
+      const next = { ...it, ...patch };
+      if (patch.text !== undefined) next.text = patch.text.trim().slice(0, 200);
+      if (patch.points !== undefined) next.points = Math.max(1, Math.min(1000, Math.floor(patch.points) || 1));
+      return next;
+    }));
+  }, [currentUser, markLocalWrite]);
+
+  const removeDailyItem = useCallback((id: number) => {
+    if (!currentUser || !ADMIN_IDS.includes(currentUser)) return;
+    markLocalWrite("dailyChecklistItems", String(id));
+    queueDelete("dailyChecklistItems", String(id));
+    flushImmediatelyRef.current = true;
+    setDailyChecklistItems(prev => prev.filter(it => it.id !== id));
+  }, [currentUser, markLocalWrite, queueDelete]);
+
+  // Toggle today's completion for one item (the acting user's own checklist).
+  const toggleDailyDone = useCallback((itemId: number) => {
+    if (!currentUser) return;
+    const item = dailyChecklistItems.find(i => i.id === itemId);
+    if (!item || item.userId !== currentUser) return; // only complete your own items
+    const key = `${currentUser}::${dubaiDateStr()}::${itemId}`;
+    flushImmediatelyRef.current = true;
+    if (key in dailyDone) {
+      // Uncheck — explicit delete so the removal survives the keep-existing merge.
+      markLocalWrite("dailyDone", key);
+      queueDelete("dailyDone", key);
+      setDailyDone(prev => { const next = { ...prev }; delete next[key]; return next; });
+    } else {
+      markLocalWrite("dailyDone", key);
+      setDailyDone(prev => ({ ...prev, [key]: item.points }));
+    }
+  }, [currentUser, dailyChecklistItems, dailyDone, markLocalWrite, queueDelete]);
+
   // ── Notification read/dismiss handlers ───────────────────────────────────
   // markAllNotifsRead stamps "now" against the current user — items in the
   // updates feed with time > stamp count as unread. dismissNotif appends a
@@ -3056,6 +3153,12 @@ export function ModelProvider({
     updateDbRow,
     deleteDbRow,
     addDbColumn,
+    dailyChecklistItems,
+    dailyDone,
+    addDailyItem,
+    updateDailyItem,
+    removeDailyItem,
+    toggleDailyDone,
     undo: undoStack.undo,
     peek: undoStack.peek,
     stackLen: undoStack.stack.length,

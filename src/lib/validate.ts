@@ -106,6 +106,9 @@ export const PATCH_KEY_WHITELIST = new Set([
   "inboxStageWorkspace",
   "execProposals",
   "databases",
+  // Daily checklist — per-user item templates + per-key completions map.
+  "dailyChecklistItems",
+  "dailyDone",
   // Per-user notification read state — userId → last-read timestamp.
   "notifReads",
   // Per-user notification dismissals — userId → string[] of dismissed item ids.
@@ -154,6 +157,9 @@ export const MAP_SLICE_KEYS = new Set([
   "notifReads",
   "notifDismissed",
   "notifReadIds",
+  // Daily-checklist completions: key `${userId}::${YYYY-MM-DD}::${itemId}` →
+  // points earned. Per-key merge; append-only (uncheck goes via _deletes).
+  "dailyDone",
 ]);
 
 /** Arrays of objects with stable numeric `id` — merged by id (upsert each item),
@@ -167,6 +173,9 @@ export const ARRAY_BY_ID_SLICE_KEYS = new Set([
   "usefulLinks",
   "customPipelines",
   "databases",
+  // Per-user daily-checklist item templates — merge by id (keep-existing),
+  // removals via explicit _deletes.
+  "dailyChecklistItems",
   // Identity-critical lists: merge by id (keep-existing) instead of wholesale
   // replace, so a stale/partial client can never shrink them. Real removals go
   // through an explicit _deletes (guarded by the mass-delete backstop).
