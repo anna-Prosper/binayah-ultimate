@@ -1237,6 +1237,9 @@ function RecurringSlotsPanel({ db, t, onSave, onClose }: {
                 {slot.active ? "active" : "paused"}
               </button>
               <button onClick={() => removeSlot(slot.id)} title="delete slot" style={{ background: "transparent", border: "none", color: t.textDim, cursor: "pointer", display: "flex", padding: 4 }}><Trash2 size={15} /></button>
+              {slot.active && !slot.label.trim() && (
+                <span style={{ flexBasis: "100%", fontSize: 11, color: t.amber, fontWeight: 600 }}>⚠ add a title — an untitled slot won’t create entries</span>
+              )}
             </div>
           ))}
         </div>
@@ -1277,6 +1280,8 @@ function CalendarView({
   const { dateCol, timeCol, statusCol, platformCol, typeCol, titleCol } = pickCalendarCols(db.columns);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; });
   const [detail, setDetail] = useState<{ mode: "create" | "edit"; row?: DbRow; initial: Record<string, string> } | null>(null);
+  // A recurring-series entry pending delete — prompts "just this one vs stop the series".
+  const [confirmSeries, setConfirmSeries] = useState<DbRow | null>(null);
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [dragId, setDragId] = useState<number | null>(null);
   const [dragOver, setDragOver] = useState<string | null>(null);
@@ -1295,7 +1300,10 @@ function CalendarView({
   useEffect(() => {
     if (!canEdit || !dateCol || !currentUser) return;
     const slots = db.recurringSlots || [];
-    if (!slots.some(s => s.active)) return;
+    // Guard: a slot only materializes entries once it has a title — an untitled
+    // recurring entry is never useful and just spams the calendar with "(untitled)".
+    const generates = (s: RecurringSlot) => s.active && !!s.label.trim();
+    if (!slots.some(generates)) return;
     const HORIZON_DAYS = 42;
     const shift = (base: string, n: number) => { const d = new Date(base + "T00:00:00"); d.setDate(d.getDate() + n); return ymd(d); };
     const horizonStr = shift(todayStr, HORIZON_DAYS);
@@ -1303,7 +1311,7 @@ function CalendarView({
     const newRows: DbRow[] = [];
     let idBase = Date.now();
     const nextSlots = slots.map(slot => {
-      if (!slot.active) return slot;
+      if (!generates(slot)) return slot;
       let far = slot.lastGeneratedDate && slot.lastGeneratedDate > horizonStr ? slot.lastGeneratedDate : "";
       let cur = slot.lastGeneratedDate && slot.lastGeneratedDate >= todayStr ? shift(slot.lastGeneratedDate, 1) : todayStr;
       while (cur <= horizonStr) {
@@ -1638,9 +1646,52 @@ function CalendarView({
             else onAddRow(values, attachments);
             setDetail(null);
           }}
-          onDelete={detail.mode === "edit" && detail.row ? () => { onDeleteRow(detail.row!.id); setDetail(null); } : undefined}
+          onDelete={detail.mode === "edit" && detail.row ? () => {
+            const row = detail.row!;
+            setDetail(null);
+            // A recurring-series entry: ask whether to remove just this one or stop the whole series.
+            if (row.slotId && (db.recurringSlots || []).some(s => s.id === row.slotId)) setConfirmSeries(row);
+            else onDeleteRow(row.id);
+          } : undefined}
           onClose={() => setDetail(null)}
         />
+      )}
+
+      {confirmSeries && (
+        <div onClick={() => setConfirmSeries(null)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+          <div onClick={e => e.stopPropagation()} style={{ width: "min(420px, 100%)", background: t.bg, border: `1px solid ${t.border}`, borderRadius: 16, padding: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.4)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+              <Repeat size={16} style={{ color: t.accent }} />
+              <div style={{ fontSize: 15, fontWeight: 800, color: t.text }}>part of a recurring series</div>
+            </div>
+            <div style={{ fontSize: 13, color: t.textMuted, marginBottom: 18 }}>
+              This entry is auto-created by a recurring slot. Deleting just this one leaves the slot running (it can re-add this day). Stop the series to remove the slot and clear its untitled auto-entries.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <button onClick={() => { onDeleteRow(confirmSeries.id); setConfirmSeries(null); }}
+                style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 10, padding: "10px 14px", color: t.text, cursor: "pointer", fontSize: 13, fontWeight: 700, textAlign: "left" }}>
+                Delete just this one
+              </button>
+              <button onClick={() => {
+                const slotId = confirmSeries.slotId!;
+                // Stop the series: remove the slot, then delete its untitled auto-entries
+                // (never touch an entry the user gave a real title).
+                onUpdateDb({ recurringSlots: (db.recurringSlots || []).filter(s => s.id !== slotId) });
+                for (const r of db.rows) {
+                  if (r.slotId === slotId && (r.id === confirmSeries.id || !(r.values[titleCol.id] || "").trim())) onDeleteRow(r.id);
+                }
+                setConfirmSeries(null);
+              }}
+                style={{ background: t.red + "18", border: `1px solid ${t.red}66`, borderRadius: 10, padding: "10px 14px", color: t.red, cursor: "pointer", fontSize: 13, fontWeight: 800, textAlign: "left" }}>
+                Stop the series (remove the slot + its untitled entries)
+              </button>
+              <button onClick={() => setConfirmSeries(null)}
+                style={{ background: "transparent", border: "none", color: t.textMuted, cursor: "pointer", fontSize: 12, fontWeight: 700, padding: "6px 0", marginTop: 2 }}>
+                cancel
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
