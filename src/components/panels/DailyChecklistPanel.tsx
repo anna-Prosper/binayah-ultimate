@@ -146,7 +146,7 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
                   <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 500, color: done ? t.textMuted : t.text, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis" }}>
                     {item.text}
                   </span>
-                  <span title={`${item.points} pts`} style={{ flexShrink: 0, color: "#fff", background: accent, borderRadius: 999, minWidth: 22, textAlign: "center", padding: "2px 8px", fontFamily: mono, fontSize: 11, fontWeight: 800 }}>
+                  <span title={`${item.points} pts`} style={{ flexShrink: 0, color: accent, background: accent + "1f", border: `1px solid ${accent}66`, borderRadius: 999, minWidth: 24, textAlign: "center", padding: "2px 8px", fontFamily: mono, fontSize: 11.5, fontWeight: 800 }}>
                     {item.points}
                   </span>
                 </>
