@@ -6,7 +6,7 @@
 // You complete YOUR OWN items; admins can view/configure anyone's.
 
 import { useState } from "react";
-import { CalendarCheck, Plus, Trash2, Check, X, Pencil, Flame } from "lucide-react";
+import { CalendarCheck, Plus, Trash2, Check, X, Pencil, Flame, ChevronLeft, ChevronRight } from "lucide-react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { DAILY_POINTS_CAP } from "@/lib/data";
 import { dubaiDateStr } from "@/lib/date";
@@ -21,12 +21,14 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
     addDailyItem, updateDailyItem, removeDailyItem, users,
   } = useModel();
 
+  const today = dubaiDateStr();
   const [viewUserId, setViewUserId] = useState(currentUser);
+  const [viewDate, setViewDate] = useState(today);   // which day's checklist we're viewing
   const [editing, setEditing] = useState(false);
   const [newText, setNewText] = useState("");
   const [newPts, setNewPts] = useState("2");
 
-  const today = dubaiDateStr();
+  const isToday = viewDate === today;
   const isSelf = viewUserId === currentUser;
   const viewUser = users.find(u => u.id === viewUserId);
   const accent = viewUser?.color || t.accent;
@@ -38,18 +40,20 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
   // Nothing to show for a non-admin with no items.
   if (items.length === 0 && !isAdmin) return null;
 
-  const doneKey = (id: number) => `${viewUserId}::${today}::${id}`;
+  const doneKey = (id: number) => `${viewUserId}::${viewDate}::${id}`;
   const isDone = (id: number) => doneKey(id) in dailyDone;
   const activeItems = items.filter(i => i.active);
   const doneCount = activeItems.filter(i => isDone(i.id)).length;
-  const earnedToday = activeItems.reduce((s, i) => s + (isDone(i.id) ? i.points : 0), 0);
-  const cappedToday = Math.min(earnedToday, DAILY_POINTS_CAP);
+  const earned = activeItems.reduce((s, i) => s + (isDone(i.id) ? i.points : 0), 0);
+  const capped = Math.min(earned, DAILY_POINTS_CAP);
   const pct = activeItems.length ? Math.round((doneCount / activeItems.length) * 100) : 0;
   const allDone = activeItems.length > 0 && doneCount === activeItems.length;
   const streak = dailyStreak(viewUserId, dailyDone, today);
   const byDay = completionByDay(viewUserId, dailyDone);
   // Last 30 Dubai-days, oldest → newest, for the completion heatmap.
   const heatDays = Array.from({ length: 30 }, (_, i) => shiftDay(today, -(29 - i)));
+  const fmtDate = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" });
+  const goToday = () => setViewDate(today);
 
   const addItem = () => {
     const n = parseInt(newPts, 10);
@@ -67,18 +71,35 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
           {isSelf ? "daily checklist" : `${viewUser?.name || viewUserId}'s daily`}
         </span>
         <span style={{ fontSize: 11, color: allDone ? t.green : t.textMuted, fontFamily: mono, fontWeight: allDone ? 700 : 600 }}>
-          {allDone ? "all done 🎉" : `${doneCount}/${activeItems.length}`} · +{cappedToday} pts{earnedToday > DAILY_POINTS_CAP ? ` (cap ${DAILY_POINTS_CAP})` : ""}
+          {allDone ? "all done 🎉" : `${doneCount}/${activeItems.length}`} · +{capped} pts{earned > DAILY_POINTS_CAP ? ` (cap ${DAILY_POINTS_CAP})` : ""}
         </span>
         {streak > 0 && (
           <span title={`${streak}-day streak`} style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 900, fontFamily: mono, color: t.orange, background: t.orange + "18", border: `1px solid ${t.orange}44`, borderRadius: 999, padding: "1px 7px" }}>
             <Flame size={11} /> {streak}
           </span>
         )}
+        {/* Day navigation — browse previous days (read-only history) */}
+        {!editing && (
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 1, marginLeft: 2 }}>
+            <button onClick={() => setViewDate(d => shiftDay(d, -1))} title="previous day"
+              style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", cursor: "pointer", color: t.textMuted, padding: 2 }}>
+              <ChevronLeft size={15} />
+            </button>
+            <button onClick={goToday} title={isToday ? "" : "back to today"}
+              style={{ fontSize: 11, fontFamily: mono, fontWeight: 700, color: isToday ? t.textDim : accent, background: isToday ? "transparent" : accent + "18", border: isToday ? "none" : `1px solid ${accent}55`, borderRadius: 999, padding: isToday ? "1px 2px" : "1px 8px", cursor: isToday ? "default" : "pointer", minWidth: 44 }}>
+              {isToday ? "today" : fmtDate(viewDate)}
+            </button>
+            <button onClick={() => { if (!isToday) setViewDate(d => shiftDay(d, 1)); }} disabled={isToday} title="next day"
+              style={{ display: "flex", alignItems: "center", background: "transparent", border: "none", cursor: isToday ? "default" : "pointer", color: isToday ? t.textDim + "66" : t.textMuted, padding: 2 }}>
+              <ChevronRight size={15} />
+            </button>
+          </div>
+        )}
         <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           {isAdmin && (
             <select
               value={viewUserId}
-              onChange={e => { setViewUserId(e.target.value); setEditing(false); }}
+              onChange={e => { setViewUserId(e.target.value); setEditing(false); goToday(); }}
               style={{ fontSize: 11, fontFamily: mono, color: t.textMuted, background: t.bgHover || t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "3px 6px", outline: "none" }}
             >
               {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
@@ -86,7 +107,7 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
           )}
           {isAdmin && (
             <button
-              onClick={() => setEditing(v => !v)}
+              onClick={() => { setEditing(v => !v); goToday(); }}
               title={editing ? "done editing" : "edit items"}
               style={{ display: "flex", alignItems: "center", gap: 4, background: editing ? accent + "18" : "transparent", border: `1px solid ${editing ? accent + "66" : t.border}`, borderRadius: 8, padding: "3px 8px", cursor: "pointer", color: editing ? accent : t.textMuted, fontFamily: mono, fontSize: 11, fontWeight: 700 }}
             >
@@ -107,13 +128,14 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {items.map(item => {
           const done = isDone(item.id);
-          const canCheck = isSelf; // you complete your own items only
+          // You complete your OWN items, and only for today — past days are read-only history.
+          const canCheck = isSelf && isToday;
           return (
             <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: done ? accent + "1a" : (t.bgSoft || t.bgHover), border: `1px solid ${done ? accent + "66" : t.border}`, borderRadius: 10, padding: "8px 11px", opacity: item.active ? 1 : 0.5 }}>
               <button
                 onClick={() => canCheck && toggleDailyDone(item.id)}
                 disabled={!canCheck}
-                title={canCheck ? (done ? "mark not done" : "mark done") : "only this user can check their items"}
+                title={canCheck ? (done ? "mark not done" : "mark done") : (!isToday ? "past day — read only" : "only this user can check their items")}
                 style={{ width: 20, height: 20, flexShrink: 0, borderRadius: 6, border: `2px solid ${done ? accent : t.textMuted}`, background: done ? accent : t.bgCard, cursor: canCheck ? "pointer" : "default", display: "flex", alignItems: "center", justifyContent: "center", padding: 0 }}
               >
                 {done && <Check size={13} color="#fff" strokeWidth={3} />}
@@ -156,24 +178,28 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
         })}
       </div>
 
-      {/* 30-day completion heatmap */}
+      {/* 30-day completion heatmap — click a day to view it */}
       {!editing && activeItems.length > 0 && (
         <div style={{ marginTop: 12 }}>
-          <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6, fontWeight: 700 }}>last 30 days</div>
+          <div style={{ fontSize: 10, color: t.textMuted, fontFamily: mono, letterSpacing: 0.4, textTransform: "uppercase", marginBottom: 6, fontWeight: 700 }}>last 30 days · click to view</div>
           <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {heatDays.map(day => {
               const dc = byDay.get(day);
               const intensity = dc ? Math.min(dc.points / DAILY_POINTS_CAP, 1) : 0;
-              const isToday = day === today;
+              const cellToday = day === today;
+              const selected = day === viewDate;
               // Filled days scale from clearly-visible (0x66) to solid; empty days
               // get a distinct surface fill + border so the grid reads on white.
               const alpha = Math.round(102 + intensity * 153).toString(16).padStart(2, "0");
               const bg = dc ? `${accent}${alpha}` : (t.surface || t.bgSoft);
               return (
-                <div
+                <button
                   key={day}
+                  onClick={() => setViewDate(day)}
                   title={dc ? `${day} · ${dc.count} done · ${dc.points} pts` : `${day} · none`}
-                  style={{ width: 14, height: 14, borderRadius: 3, background: bg, border: isToday ? `2px solid ${accent}` : `1px solid ${dc ? "transparent" : t.textDim + "55"}` }}
+                  style={{ width: 14, height: 14, padding: 0, borderRadius: 3, background: bg, cursor: "pointer",
+                    border: cellToday ? `2px solid ${accent}` : `1px solid ${dc ? "transparent" : t.textDim + "55"}`,
+                    boxShadow: selected && !cellToday ? `0 0 0 2px ${accent}` : "none" }}
                 />
               );
             })}
