@@ -958,7 +958,20 @@ export function ModelProvider({
     if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
     if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
     const dailyItemsIncoming = (s as Record<string, unknown>).dailyChecklistItems;
-    if (dailyItemsIncoming && !isProtected("dailyChecklistItems")) setDailyChecklistItems(dailyItemsIncoming as DailyChecklistItem[]);
+    if (dailyItemsIncoming && !isProtected("dailyChecklistItems")) {
+      // Merge, don't wholesale-replace: a poll computed before a just-added item's
+      // write landed would otherwise drop that item locally — the "added a task,
+      // it vanished" bug. Keep local-only items recent enough to be un-synced adds
+      // (id is Date.now() at creation); older local-only items are remote deletes.
+      const remote = dailyItemsIncoming as DailyChecklistItem[];
+      const DAILY_ITEM_GRACE_MS = 120_000;
+      const nowTs = Date.now();
+      setDailyChecklistItems(local => {
+        const serverIds = new Set(remote.map(i => i.id));
+        const pending = local.filter(i => !serverIds.has(i.id) && nowTs - (i.id ?? 0) < DAILY_ITEM_GRACE_MS);
+        return pending.length ? [...remote, ...pending] : remote;
+      });
+    }
     if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
     if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
     if (s.subtasks && !isProtected("subtasks")) {
