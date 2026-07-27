@@ -53,10 +53,33 @@ function categoricalColor(value: string, t: ReturnType<typeof useModel>["t"]) {
   return pal[h % pal.length];
 }
 
-// Color for a picklist option: semantic when it's a known status, otherwise a
-// stable per-value color so options in a non-status column (Type, etc.) differ.
+// Fixed, theme-independent colors for common content TYPES. Needed because the
+// theme-derived categorical palette collapses to near-identical hues in the
+// monochrome themes (e.g. everything green in the green theme), so Reel/Post/
+// Story looked the same. These vivid mid-tones stay distinct in every theme and
+// read on both light and dark chips.
+const TYPE_COLORS: Record<string, string> = {
+  reel: "#e11d74",     // pink
+  post: "#2563eb",     // blue
+  story: "#f59e0b",    // amber
+  blog: "#7c3aed",     // violet
+  video: "#dc2626",    // red
+  email: "#0891b2",    // cyan
+  ad: "#ea580c",       // orange
+  listing: "#059669",  // emerald
+  shoot: "#9333ea",    // purple
+  carousel: "#0d9488", // teal
+  short: "#db2777",     // magenta
+};
+function typeColorOrNull(value: string): string | null {
+  return TYPE_COLORS[value.trim().toLowerCase()] ?? null;
+}
+
+// Color for a picklist option: semantic when it's a known status, a fixed vivid
+// color for a known content type, otherwise a stable per-value hash color so
+// options in a non-status column (Type, etc.) differ.
 function optionColor(value: string, t: ReturnType<typeof useModel>["t"]) {
-  return statusColorOrNull(value, t) ?? categoricalColor(value, t);
+  return statusColorOrNull(value, t) ?? typeColorOrNull(value) ?? categoricalColor(value, t);
 }
 
 // Lucide icon for a platform / channel value — shown on calendar chips so the
