@@ -127,7 +127,10 @@ function pickCalendarCols(columns: DbColumn[]) {
 
 function formatDate(value: string): string {
   if (!value) return "";
-  const d = new Date(value);
+  // A date-only value ("YYYY-MM-DD") must be parsed as LOCAL midnight, not UTC.
+  // `new Date("2026-07-20")` is UTC midnight, so formatting it in a timezone behind
+  // UTC renders the previous day (off-by-one). Appending T00:00:00 forces local.
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? new Date(value.trim() + "T00:00:00") : new Date(value);
   if (isNaN(d.getTime())) return value;
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
@@ -1449,7 +1452,7 @@ function CalendarView({
           ? <Camera size={12} style={{ flexShrink: 0, color }} />
           : platformVal && <span style={{ display: "inline-flex", flexShrink: 0, color }}><PlatformIcon value={platformVal} size={12} /></span>}
         {time && <span style={{ flexShrink: 0, fontWeight: 700, fontFamily: "var(--font-dm-mono), monospace", fontSize: 10 }}>{formatTime(time)}</span>}
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>{title}</span>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", minWidth: 0, flex: 1 }}>{title}</span>
         {r.slotId && <Repeat size={9} style={{ flexShrink: 0, color: t.textMuted, opacity: 0.7 }} />}
         {!!r.attachments?.length && <Paperclip size={10} style={{ flexShrink: 0, marginLeft: "auto", color: t.textMuted }} />}
       </div>
@@ -1521,6 +1524,11 @@ function CalendarView({
               onDrop={() => { if (dragId != null) { onUpdateRow(dragId, { [dateCol.id]: ds }); setDragId(null); setDragOver(null); } }}
               style={{
                 minHeight: isMobile ? 80 : 110,
+                // min-width:0 is REQUIRED: a grid item defaults to min-width:auto, so a
+                // long entry title would force its whole 1fr column wider than its share,
+                // shifting every later day one column right (Mon+Tue collapsing into one
+                // cell). This keeps all 7 columns equal and lets chips ellipsis-truncate.
+                minWidth: 0,
                 background: dragOver === ds ? t.accent + "22" : hoverDay === ds ? (t.bgHover || t.bgSoft) : inMonth ? t.bgCard : t.bgSoft,
                 border: `1px solid ${dragOver === ds ? t.accent : hoverDay === ds ? t.accent + "66" : t.border}`,
                 borderRadius: 10, padding: 6, display: "flex", flexDirection: "column", gap: 3,
