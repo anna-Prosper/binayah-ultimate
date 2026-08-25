@@ -569,6 +569,23 @@ function ShellInner({
         </div>
       )}
 
+      {syncStatus === "auth" && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          onClick={() => window.location.reload()}
+          style={{
+            position: "fixed", top: 0, left: 0, right: 0, zIndex: 10000,
+            background: t.red, color: "#fff", textAlign: "center", cursor: "pointer",
+            padding: "10px 14px", fontSize: 13, fontWeight: 800,
+            fontFamily: "var(--font-dm-mono), monospace", letterSpacing: -0.2,
+            boxShadow: "0 2px 12px rgba(0,0,0,0.4)", animation: "fadeIn 0.2s ease",
+          }}
+        >
+          🔒 your session expired — nothing you change is being saved. click here to reload &amp; sign in.
+        </div>
+      )}
+
       <ChromeShell
         sidebar={sidebarNode}
         header={headerNode}

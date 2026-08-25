@@ -196,12 +196,40 @@ export function getServerBuildSha(): string {
   return lastServerBuildSha;
 }
 
+// True once a request has been redirected to the login page — i.e. the session
+// expired (or the user isn't authenticated). The auth middleware answers an
+// unauthenticated /api/pipeline-state request with 307 → /login, and fetch's
+// default `redirect: "follow"` turns that into a 200 HTML response. Without the
+// guard below, patchState would read res.ok === true and report SUCCESS for a
+// write that never reached the API — the app clears its unsaved flag, shows
+// "synced", and the next poll silently reverts the change. That is the root
+// cause of the recurring "I move a card to done and it comes back" reports.
+let authExpired = false;
+export function isAuthExpired(): boolean {
+  return authExpired;
+}
+// A response is an auth redirect when fetch followed a cross-path redirect and
+// landed on /login (res.redirected), or the effective URL is the login page.
+function isLoginRedirect(res: Response): boolean {
+  try {
+    if (res.redirected && new URL(res.url).pathname.startsWith("/login")) return true;
+    return new URL(res.url).pathname.startsWith("/login");
+  } catch {
+    return false;
+  }
+}
+
 export async function fetchState(since?: number): Promise<SharedState | null> {
   try {
     const url = since !== undefined ? `${API_BASE}?since=${since}` : API_BASE;
     const res = await fetch(url, { cache: "no-store" });
     const sha = res.headers.get("x-build-sha");
     if (sha) lastServerBuildSha = sha;
+    // Session expired → redirected to the login HTML. Don't parse HTML as JSON
+    // (it would throw and look like a network blip); flag it so the UI can
+    // prompt a re-login instead of silently doing nothing.
+    if (isLoginRedirect(res)) { authExpired = true; return null; }
+    authExpired = false;
     // 304 = client is already up-to-date; return null to signal no update
     if (res.status === 304) return null;
     if (!res.ok) return null;
@@ -245,6 +273,15 @@ export async function patchState(patch: PatchEnvelope, opts?: { keepalive?: bool
       body,
       keepalive: opts?.keepalive === true && body.length < 60_000,
     });
+    // Session expired → the PATCH was redirected to the login page and returned
+    // 200 HTML. res.ok is true, but NOTHING was saved. Reporting success here is
+    // what makes the app silently discard the user's change and revert it on the
+    // next poll — so treat any login redirect as an explicit auth failure.
+    if (isLoginRedirect(res)) {
+      authExpired = true;
+      return { ok: false, error: "SESSION_EXPIRED: reload the page and sign in — your change was not saved", status: 401 };
+    }
+    authExpired = false;
     if (!res.ok) {
       const data = await res.json().catch(() => ({})) as { error?: string; reason?: string };
       const errMsg = data.reason

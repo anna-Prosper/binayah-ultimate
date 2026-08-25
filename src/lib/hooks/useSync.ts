@@ -1,9 +1,13 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchState, patchState, getServerBuildSha, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { fetchState, patchState, getServerBuildSha, isAuthExpired, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { SYNC_POLL_INTERVAL_MS, SYNC_WRITE_DEBOUNCE_MS } from "@/lib/constants";
 
-export type SyncStatus = "hydrating" | "live" | "offline" | "error";
+// "auth" = the session expired (requests redirect to /login). Distinct from
+// "offline" so the UI can prompt a re-login rather than imply a network blip —
+// this is the state that used to masquerade as "live" while silently dropping
+// every write.
+export type SyncStatus = "hydrating" | "live" | "offline" | "error" | "auth";
 
 interface UseSyncOptions {
   onPatch: (patch: SharedState) => void;  // ModelContext calls this to merge incoming state
@@ -109,6 +113,10 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
         const s = await fetchState(lastUpdatedAtRef.current);
         // Even a 304 refreshes the server build SHA (via header) — check every tick.
         maybeReloadForNewBuild();
+        // Session expired → every request redirects to /login. Surface it as its
+        // own state; otherwise the null return below is read as "304, still live"
+        // and the tab shows green while nothing saves.
+        if (isAuthExpired()) { setStatus("auth"); return; }
         // null means 304 (no update) or fetch error
         if (s) {
           onPatch(s);
@@ -205,7 +213,10 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
           // then sees "task disappears on reload" with no clue why. Drop the full
           // error string and status so we can see what's actually wrong.
           console.error("[useSync] PATCH failed (non-retryable):", res.status, (res as { error?: string }).error);
-          setStatus("offline");
+          // Session expired → distinct "auth" state so the UI prompts a re-login.
+          // dirtyRef stays true (not cleared) so the change is NOT marked saved and
+          // survives to be re-sent once the user signs back in.
+          setStatus(isAuthExpired() || res.status === 401 ? "auth" : "offline");
           retryCountRef.current = 0;
           return;
         }
