@@ -132,6 +132,48 @@ describe("subtasks inner-array merge", () => {
   });
 });
 
+// ── customStages: per-pipeline union merge ────────────────────────────────────
+
+describe("customStages union merge", () => {
+  it("a stale tab's older array does NOT drop a stage another client added", () => {
+    // Server already has a stage added by another client / a server-side script.
+    const serverState = {
+      customStages: { "prop-wp-website": ["Existing stage", "Fix News page"] },
+    };
+    // Stale client re-sends its older array (missing "Fix News page").
+    const patch = { customStages: { "prop-wp-website": ["Existing stage"] } };
+    const next = mergeStateWithPatch(serverState, patch);
+    const arr = (next.customStages as Record<string, string[]>)["prop-wp-website"];
+    expect(arr).toContain("Fix News page"); // survives — the bug that lost tasks
+    expect(arr).toContain("Existing stage");
+  });
+
+  it("unions concurrent additions to the same pipeline from two clients", () => {
+    const serverState = { customStages: { p1: ["a", "b"] } };
+    const patch = { customStages: { p1: ["a", "c"] } };
+    const next = mergeStateWithPatch(serverState, patch);
+    expect((next.customStages as Record<string, string[]>).p1).toEqual(["a", "b", "c"]);
+  });
+
+  it("_deletes removes one stage via `${pipelineId}::${stage}` (the move path)", () => {
+    const current = { customStages: { from: ["Task X", "Task Y"], to: ["Task X"] } };
+    // moveStageToPipeline emits this delete for the old pipeline.
+    const next = mergeStateWithPatch(current, { customStages: { to: ["Task X"] } }, { customStages: ["from::Task X"] });
+    const cs = next.customStages as Record<string, string[]>;
+    expect(cs.from).toEqual(["Task Y"]);
+    expect(cs.to).toContain("Task X");
+  });
+
+  it("a moved stage does not linger in both pipelines", () => {
+    const current = { customStages: { inbox: ["Solo"], dev: [] } };
+    // client union-adds to dev and deletes from inbox in the same write
+    const next = mergeStateWithPatch(current, { customStages: { dev: ["Solo"] } }, { customStages: ["inbox::Solo"] });
+    const cs = next.customStages as Record<string, string[]>;
+    expect(cs.dev).toContain("Solo");
+    expect(cs.inbox ?? []).not.toContain("Solo");
+  });
+});
+
 // ── Reactions: inner emoji set-union ──────────────────────────────────────────
 
 describe("reactions inner merge", () => {

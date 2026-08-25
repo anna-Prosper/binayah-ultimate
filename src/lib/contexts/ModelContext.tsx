@@ -2652,6 +2652,10 @@ export function ModelProvider({
   const moveStageToPipeline = useCallback((stageName: string, fromPid: string, toPid: string) => {
     if (fromPid === toPid) return;
     markLocalWrite("customStages");
+    // customStages now union-merges on the server, so removing the stage from the
+    // old pipeline only propagates via an explicit delete — without this the stage
+    // would linger in BOTH pipelines after a move.
+    queueDelete("customStages", `${fromPid}::${stageName}`);
     setCustomStages(prev => {
       const next = { ...prev };
       next[fromPid] = (next[fromPid] || []).filter(s => s !== stageName);

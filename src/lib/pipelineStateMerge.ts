@@ -180,6 +180,38 @@ function mergeMapSlice(
   return { ...current, ...patch };
 }
 
+/**
+ * Merge `customStages` (pipelineId → stage-name[]) by UNION per pipeline rather
+ * than wholesale-replacing each pipeline's array. `customStages` was a plain map
+ * slice, so the incoming array replaced the stored one — meaning any browser tab
+ * that still held an older copy of a pipeline's stage list silently dropped every
+ * stage another client (or a server-side script) had since added. Every client
+ * re-sends its full customStages on the periodic snapshot, so one stale tab was
+ * enough to make freshly-added tasks vanish minutes later. Union-merging makes
+ * additions from any source durable; the ONLY way to remove a stage from a
+ * pipeline is now the explicit `_deletes` channel (key `${pipelineId}::${stage}`,
+ * emitted by moveStageToPipeline), exactly like subtasks and database rows.
+ */
+function mergeCustomStagesMap(
+  current: Record<string, string[]>,
+  patch: Record<string, unknown>,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = { ...current };
+  for (const [pid, arr] of Object.entries(patch)) {
+    if (!Array.isArray(arr)) continue;
+    const existing = Array.isArray(out[pid]) ? out[pid] : [];
+    const seen = new Set(existing);
+    const merged = [...existing];
+    for (const st of arr) {
+      if (typeof st !== "string" || seen.has(st)) continue;
+      seen.add(st);
+      merged.push(st);
+    }
+    out[pid] = merged;
+  }
+  return out;
+}
+
 function mergeArrayById(
   current: ItemWithId[],
   patch: ItemWithId[],
@@ -393,6 +425,18 @@ function deleteImpact(field: string, keys: unknown[], state: State): { current: 
     }
     return { current: dbs.length + totalRows, removing };
   }
+  if (field === "customStages") {
+    const cs = isObject(cur) ? cur as Record<string, string[]> : {};
+    let current = 0;
+    for (const a of Object.values(cs)) if (Array.isArray(a)) current += a.length;
+    let removing = 0;
+    for (const k of keys) {
+      const str = String(k); const sep = str.indexOf("::");
+      if (sep === -1) { const a = cs[str]; if (Array.isArray(a)) removing += a.length; }
+      else { const pid = str.slice(0, sep), stage = str.slice(sep + 2); const a = cs[pid]; if (Array.isArray(a) && a.includes(stage)) removing++; }
+    }
+    return { current, removing };
+  }
   if (SET_SLICE_KEYS.has(field)) {
     const arr = Array.isArray(cur) ? cur as string[] : [];
     const s = new Set(arr.map(String));
@@ -498,6 +542,26 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
       continue;
     }
 
+    // Special: customStages accepts `${pipelineId}::${stage}` to drop a single
+    // stage from a pipeline's list (the move/remove path), or a bare
+    // `${pipelineId}` to drop a whole pipeline's stage list. Mirrors databases.
+    if (field === "customStages") {
+      const cs = isObject(out.customStages) ? { ...(out.customStages as Record<string, string[]>) } : {};
+      for (const key of keys) {
+        if (typeof key !== "string") continue;
+        const sep = key.indexOf("::");
+        if (sep === -1) { delete cs[key]; continue; }
+        const pid = key.slice(0, sep);
+        const stage = key.slice(sep + 2);
+        if (Array.isArray(cs[pid])) {
+          const filtered = cs[pid].filter(s => s !== stage);
+          if (filtered.length === 0) delete cs[pid]; else cs[pid] = filtered;
+        }
+      }
+      out.customStages = cs;
+      continue;
+    }
+
     if (MAP_SLICE_KEYS.has(field)) {
       const map = isObject(out[field]) ? { ...(out[field] as Record<string, unknown>) } : {};
       for (const key of keys) {
@@ -593,6 +657,14 @@ export function mergeStateWithPatch(
     if (k === "workspaces" && Array.isArray(v)) {
       const cur = Array.isArray(next.workspaces) ? next.workspaces as WsLike[] : [];
       next.workspaces = mergeWorkspacesById(cur, v as WsLike[]);
+      continue;
+    }
+    // Special-case: customStages union-merges per pipeline (never array-replace),
+    // so a stale tab can't drop stages another client just added. Removals flow
+    // through _deletes with `${pipelineId}::${stage}` keys (see applyDeletes).
+    if (k === "customStages" && isObject(v)) {
+      const cur = isObject(next.customStages) ? next.customStages as Record<string, string[]> : {};
+      next.customStages = mergeCustomStagesMap(cur, v);
       continue;
     }
     if (MAP_SLICE_KEYS.has(k) && isObject(v)) {
