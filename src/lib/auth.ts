@@ -20,6 +20,7 @@ export const ADMIN_EMAIL_MAP: Record<string, string> = {
   "ak@binayah.com": "abdallah",
   "abdallahkalyar@gmail.com": "abdallah",
   "abhishek@binayah.ae": "abhishek",
+  "abhishekdhakoliya3@gmail.com": "abhishek",
   // WordPress + content + SEO team
   "shyam.m.bhundiya@gmail.com": "shyam",
   "deepskarn15@gmail.com": "deepshikha",
