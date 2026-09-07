@@ -48,16 +48,30 @@ export function shiftDay(dateStr: string, n: number): string {
 }
 
 /**
+ * Rest day = Sunday. The daily checklist isn't required on rest days: an empty
+ * Sunday never breaks the streak (the streak bridges over it). Dates are Dubai
+ * date strings; parsing at UTC midnight yields the correct weekday for that
+ * calendar date. 0 = Sunday.
+ */
+export function isRestDay(dateStr: string): boolean {
+  return new Date(`${dateStr}T00:00:00Z`).getUTCDay() === 0;
+}
+
+/**
  * Consecutive-day streak of "completed ≥1 daily item", anchored at `todayStr`.
  * If today has no completion yet the streak isn't broken — it counts back from
  * yesterday (habit-tracker convention: a streak dies only after a full missed day).
+ * Sundays are rest days: the walk bridges over them (a missed Sunday never breaks
+ * the streak, and a Sunday isn't counted toward the streak number either).
  */
 export function dailyStreak(userId: string, dailyDone: Record<string, number>, todayStr: string): number {
   const days = completionByDay(userId, dailyDone);
   if (days.size === 0) return 0;
   let cursor = days.has(todayStr) ? todayStr : shiftDay(todayStr, -1);
   let streak = 0;
-  while (days.has(cursor)) {
+  while (true) {
+    if (isRestDay(cursor)) { cursor = shiftDay(cursor, -1); continue; } // rest day — bridge over it
+    if (!days.has(cursor)) break;
     streak++;
     cursor = shiftDay(cursor, -1);
   }

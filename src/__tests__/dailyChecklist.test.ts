@@ -1,4 +1,4 @@
-import { completionByDay, dailyPointsForUser, dailyStreak, shiftDay, parseDailyKey } from "@/lib/dailyChecklist";
+import { completionByDay, dailyPointsForUser, dailyStreak, shiftDay, parseDailyKey, isRestDay } from "@/lib/dailyChecklist";
 
 const K = (u: string, d: string, i: number | string) => `${u}::${d}::${i}`;
 
@@ -67,5 +67,21 @@ describe("dailyStreak", () => {
   });
   it("is 0 with no completions", () => {
     expect(dailyStreak("u", {}, "2026-07-22")).toBe(0);
+  });
+  // Sunday = rest day. 2026-09-05 Sat, 09-06 Sun, 09-07 Mon.
+  it("an empty Sunday does NOT break the streak (bridges over it)", () => {
+    // done Sat + Mon, empty Sunday in between, today Mon → streak = 2 (Mon + Sat)
+    expect(dailyStreak("u", days("2026-09-05", "2026-09-07"), "2026-09-07")).toBe(2);
+  });
+  it("a lone Sunday completion does not build a streak (Sunday not counted)", () => {
+    expect(dailyStreak("u", days("2026-09-06"), "2026-09-06")).toBe(0);
+  });
+});
+
+describe("isRestDay", () => {
+  it("is true for Sundays only", () => {
+    expect(isRestDay("2026-09-06")).toBe(true);  // Sunday
+    expect(isRestDay("2026-09-07")).toBe(false); // Monday
+    expect(isRestDay("2026-09-05")).toBe(false); // Saturday
   });
 });
