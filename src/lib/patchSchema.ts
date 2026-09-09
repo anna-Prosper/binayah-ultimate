@@ -254,6 +254,8 @@ export const PatchBodySchema = z.object({
   // per-key completions map (`${userId}::${date}::${itemId}` → points earned).
   dailyChecklistItems: z.array(z.unknown()).optional(),
   dailyDone: z.record(z.string(), z.number().int().min(0).max(10_000)).optional(),
+  // Traceability links per completion: `${user}::${day}::${itemId}` → URL[] (capped).
+  dailyLinks: z.record(z.string(), z.array(z.string().max(2000)).max(5)).optional(),
 
   // Identity & workspace
   users: z.array(z.unknown()).optional(),

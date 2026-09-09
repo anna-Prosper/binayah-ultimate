@@ -6,7 +6,7 @@
 // You complete YOUR OWN items; admins can view/configure anyone's.
 
 import { useState } from "react";
-import { CalendarCheck, Plus, Trash2, Check, X, Pencil, Flame, ChevronLeft, ChevronRight } from "lucide-react";
+import { CalendarCheck, Plus, Trash2, Check, X, Pencil, Flame, ChevronLeft, ChevronRight, Link2 } from "lucide-react";
 import { useModel } from "@/lib/contexts/ModelContext";
 import { DAILY_POINTS_CAP } from "@/lib/data";
 import { dubaiDateStr } from "@/lib/date";
@@ -15,9 +15,51 @@ import type { T } from "@/lib/themes";
 
 const mono = "var(--font-dm-mono), monospace";
 
+// Traceability links for one daily item on one day. Paste the URL of what you did
+// (Medium article, GBP post, enhanced project…) so it can be reviewed later.
+function DailyItemLinks({ t, accent, links, canEdit, onSave }: {
+  t: T; accent: string; links: string[]; canEdit: boolean; onSave: (links: string[]) => void;
+}) {
+  const [val, setVal] = useState("");
+  const add = () => {
+    const raw = val.trim();
+    if (!raw) return;
+    const url = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    if (!links.includes(url)) onSave([...links, url]);
+    setVal("");
+  };
+  const short = (u: string) => {
+    try { const x = new URL(u); return `${x.hostname.replace(/^www\./, "")}${x.pathname}`.replace(/\/$/, "").slice(0, 36) || x.hostname; }
+    catch { return u.slice(0, 36); }
+  };
+  const cyan = t.cyan || accent;
+  if (!canEdit && links.length === 0) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 5, paddingLeft: 28 }}>
+      {links.map(u => (
+        <span key={u} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: cyan + "14", border: `1px solid ${cyan}44`, borderRadius: 999, padding: canEdit ? "2px 4px 2px 8px" : "2px 8px", maxWidth: "100%" }}>
+          <a href={u} target="_blank" rel="noreferrer" title={u} style={{ display: "inline-flex", alignItems: "center", gap: 4, color: cyan, fontSize: 11, fontFamily: mono, fontWeight: 700, textDecoration: "none", maxWidth: 240, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            <Link2 size={11} /> {short(u)}
+          </a>
+          {canEdit && <button onClick={() => onSave(links.filter(l => l !== u))} title="remove link" style={{ display: "inline-flex", background: "transparent", border: "none", cursor: "pointer", color: t.textDim, padding: 0 }}><X size={11} /></button>}
+        </span>
+      ))}
+      {canEdit && links.length < 5 && (
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+          <input value={val} onChange={e => setVal(e.target.value)} onKeyDown={e => { if (e.key === "Enter") add(); }}
+            placeholder="+ paste a link"
+            style={{ width: 150, fontSize: 11, color: t.text, background: t.bgCard, border: `1px dashed ${t.border}`, borderRadius: 999, padding: "3px 9px", outline: "none", fontFamily: mono }} />
+          {val.trim() && <button onClick={add} title="add link" style={{ display: "inline-flex", background: accent, border: "none", borderRadius: 999, cursor: "pointer", color: "#fff", padding: 3 }}><Plus size={11} /></button>}
+        </span>
+      )}
+    </div>
+  );
+}
+
 export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T; currentUser: string; isAdmin: boolean }) {
   const {
     dailyChecklistItems, dailyDone, toggleDailyDone,
+    dailyLinks, setDailyLinksForItem,
     addDailyItem, updateDailyItem, removeDailyItem, users,
   } = useModel();
 
@@ -133,7 +175,8 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
           // You complete your OWN items, and only for today — past days are read-only history.
           const canCheck = isSelf && isToday;
           return (
-            <div key={item.id} style={{ display: "flex", alignItems: "center", gap: 8, background: done ? accent + "1a" : (t.bgSoft || t.bgHover), border: `1px solid ${done ? accent + "66" : t.border}`, borderRadius: 10, padding: "8px 11px", opacity: item.active ? 1 : 0.5 }}>
+            <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 7, background: done ? accent + "1a" : (t.bgSoft || t.bgHover), border: `1px solid ${done ? accent + "66" : t.border}`, borderRadius: 10, padding: "8px 11px", opacity: item.active ? 1 : 0.5 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <button
                 onClick={() => canCheck && toggleDailyDone(item.id)}
                 disabled={!canCheck}
@@ -174,6 +217,16 @@ export default function DailyChecklistPanel({ t, currentUser, isAdmin }: { t: T;
                     {item.points}
                   </span>
                 </>
+              )}
+              </div>
+              {!editing && (
+                <DailyItemLinks
+                  t={t}
+                  accent={accent}
+                  links={dailyLinks[`${viewUserId}::${viewDate}::${item.id}`] || []}
+                  canEdit={isSelf && isToday}
+                  onSave={(links) => setDailyLinksForItem(item.id, links)}
+                />
               )}
             </div>
           );

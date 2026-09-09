@@ -109,6 +109,7 @@ export const PATCH_KEY_WHITELIST = new Set([
   // Daily checklist — per-user item templates + per-key completions map.
   "dailyChecklistItems",
   "dailyDone",
+  "dailyLinks",
   // Per-user notification read state — userId → last-read timestamp.
   "notifReads",
   // Per-user notification dismissals — userId → string[] of dismissed item ids.
@@ -160,6 +161,8 @@ export const MAP_SLICE_KEYS = new Set([
   // Daily-checklist completions: key `${userId}::${YYYY-MM-DD}::${itemId}` →
   // points earned. Per-key merge; append-only (uncheck goes via _deletes).
   "dailyDone",
+  // Daily-checklist traceability links: same key → URL[]. Per-key merge; clear via _deletes.
+  "dailyLinks",
 ]);
 
 /** Arrays of objects with stable numeric `id` — merged by id (upsert each item),

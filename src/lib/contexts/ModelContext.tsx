@@ -35,7 +35,7 @@ export type CustomPipeline = {
 // no un-synced edits to them. These merge keep-existing per-row/id, so a stale
 // tab re-asserting a clean copy would resurrect rows/items another client just
 // deleted. The delta path still ships any real local edit, so nothing is lost.
-const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases", "dailyChecklistItems", "dailyDone"]);
+const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases", "dailyChecklistItems", "dailyDone", "dailyLinks"]);
 
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
@@ -257,6 +257,10 @@ interface ModelContextValue {
   // Daily checklist
   dailyChecklistItems: DailyChecklistItem[];
   dailyDone: Record<string, number>;
+  // Traceability links per (user, Dubai-day, item): paste the URL of the thing you did
+  // (Medium article, GBP post, enhanced project…) so it can be reviewed later.
+  dailyLinks: Record<string, string[]>;
+  setDailyLinksForItem: (itemId: number, links: string[]) => void;
   addDailyItem: (userId: string, text: string, points: number) => void;
   updateDailyItem: (id: number, patch: Partial<Pick<DailyChecklistItem, "text" | "points" | "order" | "active">>) => void;
   removeDailyItem: (id: number) => void;
@@ -402,6 +406,7 @@ export function ModelProvider({
   // ledger (`${userId}::${YYYY-MM-DD}::${itemId}` → points earned).
   const [dailyChecklistItems, setDailyChecklistItems] = useState<DailyChecklistItem[]>(() => lsGet("dailyChecklistItems", []));
   const [dailyDone, setDailyDone] = useState<Record<string, number>>(() => lsGet("dailyDone", {}));
+  const [dailyLinks, setDailyLinks] = useState<Record<string, string[]>>(() => lsGet("dailyLinks", {}));
   const usefulLinksSeededRef = useRef(false);
   const workspaceContentMigrationRef = useRef(false);
   const [archivedStages, setArchivedStages] = useState<string[]>(() => lsGet("archivedStages", []));
@@ -1101,6 +1106,9 @@ export function ModelProvider({
     const dailyDoneIncoming = (s as Record<string, unknown>).dailyDone;
     if (dailyDoneIncoming && !isProtected("dailyDone"))
       mergeMapOnHydrate(dailyDoneIncoming as Record<string, unknown>, setDailyDone as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setDailyDone(v as Record<string, number>));
+    const dailyLinksIncoming = (s as Record<string, unknown>).dailyLinks;
+    if (dailyLinksIncoming && !isProtected("dailyLinks"))
+      mergeMapOnHydrate(dailyLinksIncoming as Record<string, unknown>, setDailyLinks as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setDailyLinks(v as Record<string, string[]>));
     if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides"))
       mergeMapOnHydrate(s.subtaskDescOverrides as Record<string, unknown>, setSubtaskDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDescOverrides(v as Record<string, string>));
     if (s.subtaskDueDates && !isProtected("subtaskDueDates"))
@@ -1211,6 +1219,7 @@ export function ModelProvider({
       databases: databases.map(db => db.views ? db : { ...db, views: [] }),
       dailyChecklistItems,
       dailyDone,
+      dailyLinks,
     };
     // Identity-critical slices: workspaces holds each workspace's pipelineIds
     // (which pipeline lives in which workspace) and members; users holds the
@@ -1646,7 +1655,7 @@ export function ModelProvider({
       scheduleWrite();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, inboxStageWorkspace, workspaces, notifReads, notifDismissed, notifReadIds, databases, dailyDone, dailyChecklistItems]);
+  }, [owners, approvedStages, approvedSubtasks, approvedPipelines, reminders, timelineEvents, notes, bugs, usefulLinks, execProposals, subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides, subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines, users, archivedStages, archivedPipelines, archivedSubtasks, stagePointsOverride, stagePriorities, inboxStageWorkspace, workspaces, notifReads, notifDismissed, notifReadIds, databases, dailyDone, dailyChecklistItems, dailyLinks]);
 
   // ── Fetch initial chat messages ────────────────────────────────────────────
   useEffect(() => {
@@ -3054,6 +3063,26 @@ export function ModelProvider({
     }
   }, [currentUser, dailyChecklistItems, dailyDone, markLocalWrite, queueDelete]);
 
+  // Attach traceability link(s) to today's completion of one of YOUR OWN daily items.
+  // Keyed `${user}::${today}::${itemId}` → string[] (capped). Empty list clears the key
+  // via the explicit-delete channel so the removal survives the keep-existing merge.
+  const setDailyLinksForItem = useCallback((itemId: number, links: string[]) => {
+    if (!currentUser) return;
+    const item = dailyChecklistItems.find(i => i.id === itemId);
+    if (!item || item.userId !== currentUser) return; // only your own items
+    const key = `${currentUser}::${dubaiDateStr()}::${itemId}`;
+    const clean = Array.from(new Set(links.map(l => l.trim()).filter(Boolean))).slice(0, 5);
+    markLocalWrite("dailyLinks", key);
+    flushImmediatelyRef.current = true;
+    setDailyLinks(prev => {
+      const next = { ...prev };
+      if (clean.length === 0) delete next[key]; else next[key] = clean;
+      lsSet("dailyLinks", next);
+      return next;
+    });
+    if (clean.length === 0) queueDelete("dailyLinks", key);
+  }, [currentUser, dailyChecklistItems, markLocalWrite, queueDelete]);
+
   // ── Notification read/dismiss handlers ───────────────────────────────────
   // markAllNotifsRead stamps "now" against the current user — items in the
   // updates feed with time > stamp count as unread. dismissNotif appends a
@@ -3162,6 +3191,8 @@ export function ModelProvider({
     addDbColumn,
     dailyChecklistItems,
     dailyDone,
+    dailyLinks,
+    setDailyLinksForItem,
     addDailyItem,
     updateDailyItem,
     removeDailyItem,
