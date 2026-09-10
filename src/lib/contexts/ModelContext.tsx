@@ -474,7 +474,7 @@ export function ModelProvider({
     "subtaskStages", "subtaskDescOverrides", "subtaskDueDates",
     "pipeDescOverrides", "pipeMetaOverrides", "customStages",
     "notifReads", "notifDismissed", "notifReadIds", "inboxStageWorkspace",
-    "dailyDone",
+    "dailyDone", "dailyLinks",
   ] as const, []);
   const ARRAY_BY_ID_SLICES = useMemo(() => [
     "execProposals", "reminders", "timelineEvents", "notes", "bugs", "usefulLinks", "customPipelines", "databases", "dailyChecklistItems",
