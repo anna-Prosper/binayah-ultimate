@@ -1269,7 +1269,7 @@ export function ModelProvider({
        subtasks, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
        subtaskStages, subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
        users, workspaces, archivedStages, archivedPipelines, archivedSubtasks,
-       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, dailyChecklistItems, dailyDone, isProtected]);
+       stagePointsOverride, stagePriorities, inboxStageWorkspace, notifReads, notifDismissed, notifReadIds, databases, dailyChecklistItems, dailyDone, dailyLinks, isProtected]);
 
   // Delta wrapper around buildFullState: send only slices that changed since their
   // last confirmed send, plus a periodic full snapshot as a reconciliation safety

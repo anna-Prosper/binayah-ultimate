@@ -43,8 +43,27 @@ function writeTriggerDeps(src: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Extract the dependency array of the `buildFullState` useCallback. Even when the
+ * write-trigger effect fires, the PATCH payload is built by buildFullState — so a
+ * slice missing from ITS deps is captured stale and the mutation is sent with an
+ * old value (the "add a second link, the first vanishes" bug: dailyLinks was in
+ * the write-trigger deps but NOT in buildFullState's, so writes shipped a stale
+ * dailyLinks snapshot). Both dep arrays must list every plainly-persisted slice.
+ */
+function buildFullStateDeps(src: string): string[] {
+  const anchor = "const buildFullState = useCallback(";
+  const at = src.indexOf(anchor);
+  if (at === -1) throw new Error("buildFullState anchor not found");
+  const depsStart = src.indexOf("}, [", at);
+  const depsEnd = src.indexOf("]", depsStart);
+  if (depsStart === -1 || depsEnd === -1) throw new Error("buildFullState dep array not found");
+  return src.slice(depsStart + 4, depsEnd).split(",").map(s => s.trim()).filter(Boolean);
+}
+
 describe("daily checklist write persistence", () => {
   const deps = writeTriggerDeps(SRC);
+  const fullStateDeps = buildFullStateDeps(SRC);
 
   test("write-trigger effect depends on dailyDone (checking an item persists)", () => {
     expect(deps).toContain("dailyDone");
@@ -65,9 +84,15 @@ describe("daily checklist write persistence", () => {
       "archivedStages", "archivedPipelines", "archivedSubtasks",
       "inboxStageWorkspace", "workspaces", "timelineEvents", "notes", "bugs",
       "usefulLinks", "execProposals", "reminders", "databases",
-      "dailyDone", "dailyChecklistItems",
+      "dailyDone", "dailyChecklistItems", "dailyLinks",
     ];
     const missing = mustDepend.filter(s => !deps.includes(s));
     expect(missing).toEqual([]);
+  });
+
+  test("buildFullState depends on the daily slices (payload isn't built stale)", () => {
+    for (const s of ["dailyDone", "dailyChecklistItems", "dailyLinks"]) {
+      expect(fullStateDeps).toContain(s);
+    }
   });
 });
