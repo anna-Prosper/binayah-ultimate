@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateChatMessages, validateText } from "@/lib/validate";
+import { checkContentLength, validateChatMessages } from "@/lib/validate";
 import { logApi } from "@/lib/log";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
@@ -55,16 +55,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msgsErr }, { status: 400 });
   }
 
-  if (context) {
-    const ctxErr = validateText(context, "context", 8000);
-    if (ctxErr) {
-      logApi(ROUTE, "validation_fail", { reason: ctxErr });
-      return NextResponse.json({ error: ctxErr }, { status: 400 });
+  // The dashboard context grows with the number of pipelines/stages and can easily
+  // exceed a few thousand chars. Rather than hard-rejecting (which dead-ended the
+  // assistant with a misleading "start a fresh conversation" — the context is re-sent
+  // every message, so a fresh chat never helped), TRUNCATE it to a generous budget.
+  // gpt-4o-mini has a 128k-token window, so ~60k chars (~15k tokens) is safe & cheap.
+  const MAX_CONTEXT_CHARS = 60_000;
+  let safeContext: string | undefined;
+  if (context !== undefined && context !== null && context !== "") {
+    if (typeof context !== "string") {
+      logApi(ROUTE, "validation_fail", { reason: "context must be a string" });
+      return NextResponse.json({ error: "context must be a string" }, { status: 400 });
     }
+    safeContext = context.length > MAX_CONTEXT_CHARS
+      ? context.slice(0, MAX_CONTEXT_CHARS) + "\n…(dashboard context truncated — ask about a specific pipeline or person for more detail)"
+      : context;
   }
 
-  const systemContent = context
-    ? `${BASE_PROMPT}\n\n--- CURRENT DASHBOARD ---\n${context}`
+  const systemContent = safeContext
+    ? `${BASE_PROMPT}\n\n--- CURRENT DASHBOARD ---\n${safeContext}`
     : BASE_PROMPT;
 
   // 30s timeout via AbortController

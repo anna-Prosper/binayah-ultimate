@@ -18,7 +18,7 @@ interface ChatViewProps {
 }
 
 export default function ChatView({ showToast, fullScreen, defaultTab, defaultDmUserId, currentWorkspaceId }: ChatViewProps) {
-  const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, workspaceUsers, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, activityLog, getStatus, getPoints, workspaces, t } = useModel();
+  const { chatMessages, setChatMessages, sendChat, handleRemoteMessage, users, workspaceUsers, currentUser, hasMoreMessages, loadMoreMessages, allPipelinesGlobal, customStages, pipeMetaOverrides, pipeDescOverrides, claims, subtasks, comments, stageDescOverrides, stageNameOverrides, activityLog, archivedStages, archivedPipelines, getStatus, getPoints, workspaces, t } = useModel();
   const highlightId = useSearchParams().get("highlight");
 
   const allPipelines = currentWorkspaceId
@@ -46,11 +46,18 @@ export default function ChatView({ showToast, fullScreen, defaultTab, defaultDmU
     const lines: string[] = [];
     lines.push(`Current user: ${me?.name || currentUser} (id=${currentUser}, role=${me?.role || "?"}, points=${getPoints(currentUser!)})`);
     lines.push(`Team: ${workspaceUsers.map(u => `${u.name} (${u.id}, ${u.role}, ${getPoints(u.id)}pts)`).join("; ")}`);
-    lines.push(""); lines.push(`Pipelines (${allPipelines.length}):`);
-    allPipelines.forEach((p, pi) => {
-      const stages = [...p.stages, ...(customStages[p.id] || [])];
+    // Only CURRENT work: drop archived pipelines/stages and synthetic default-parent
+    // holders. This keeps the context relevant ("current tasks") and well under the
+    // size budget so the assistant never dead-ends on a too-long context.
+    const archPipes = new Set(archivedPipelines || []);
+    const archStages = new Set(archivedStages || []);
+    const isArch = (s: string) => archStages.has(s) || archStages.has(stageNameOverrides[s] || s);
+    const livePipelines = allPipelines.filter(p => !archPipes.has(p.id));
+    lines.push(""); lines.push(`Pipelines (${livePipelines.length}):`);
+    livePipelines.forEach((p, pi) => {
+      const stages = [...p.stages, ...(customStages[p.id] || [])].filter(s => !isArch(s) && !/^default-parent|^default$/.test(s));
       lines.push(`${pi + 1}. ${pipeMetaOverrides[p.id]?.name || p.name} — ${pipeMetaOverrides[p.id]?.priority || p.priority} — ${pipeDescOverrides[p.id] || p.desc}`);
-      stages.forEach((s, si) => { const st = getStatus(s); const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed"; const subN = (subtasks[s] || []).length; const comN = (comments[s] || []).length; const sDesc = stageDescOverrides[s] || ""; lines.push(`   ${pi + 1}.${si + 1} ${s} [${st}] — claimed by ${claimers}${subN ? ` — subtasks ${subN}` : ""}${comN ? ` — ${comN} comments` : ""}${sDesc ? ` — ${sDesc}` : ""}`); });
+      stages.forEach((s, si) => { const st = getStatus(s); const claimers = (claims[s] || []).map(id => users.find(u => u.id === id)?.name || id).join(", ") || "unclaimed"; const subN = (subtasks[s] || []).length; const comN = (comments[s] || []).length; const sDesc = stageDescOverrides[s] || ""; lines.push(`   ${pi + 1}.${si + 1} ${stageNameOverrides[s] || s} [${st}] — claimed by ${claimers}${subN ? ` — subtasks ${subN}` : ""}${comN ? ` — ${comN} comments` : ""}${sDesc ? ` — ${sDesc}` : ""}`); });
     });
     const recent = activityLog.slice(0, 8);
     if (recent.length) { lines.push(""); lines.push("Recent activity:"); recent.forEach(a => lines.push(`- ${a.user} ${a.type} ${a.target}${a.detail ? ` (${a.detail})` : ""}`)); }
