@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { rateLimit } from "@/lib/rateLimit";
 import { checkContentLength, validateChatMessages } from "@/lib/validate";
 import { logApi } from "@/lib/log";
+import { connectMongo } from "@/lib/mongo";
+import ZoomCallCache from "@/lib/ZoomCallCache";
 
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY!;
 const ROUTE = "/api/chat";
@@ -13,6 +15,8 @@ const BASE_PROMPT = `You are Binayah AI, a sharp and concise project management 
 - Quick code/product questions
 
 The user's live dashboard state is provided under "CURRENT DASHBOARD" below. Use it to answer questions about specific tasks, stages, pipelines, and teammates — refer to them by name when relevant. If the user asks about a task (e.g. "task 1", "what's Blaze working on"), look it up in the dashboard and answer from that data rather than asking for details.
+
+Recent Zoom call summaries are provided under "RECENT CALLS" when available — use them to answer questions about calls, meetings, and what was discussed or decided.
 
 Keep responses short, actionable, and to the point. Use bullet points for lists. Max 3-4 sentences unless the user asks for detail. No fluff.`;
 
@@ -72,9 +76,29 @@ export async function POST(req: NextRequest) {
       : context;
   }
 
-  const systemContent = safeContext
+  let systemContent = safeContext
     ? `${BASE_PROMPT}\n\n--- CURRENT DASHBOARD ---\n${safeContext}`
     : BASE_PROMPT;
+
+  // Append the most recent Zoom call summaries so the assistant can answer
+  // "what were the last few calls about". Best-effort: a DB hiccup must not break
+  // chat, and it's size-bounded (≤6 calls × ~1200 chars).
+  try {
+    await connectMongo();
+    const cache = await ZoomCallCache.findOne({ key: "main" }).lean() as
+      | { summaries?: { topic?: string; startTime?: string; summary?: string }[] }
+      | null;
+    const recent = (cache?.summaries ?? []).slice(0, 6);
+    if (recent.length) {
+      const block = recent.map(c => {
+        const when = c.startTime ? new Date(c.startTime).toISOString().slice(0, 16).replace("T", " ") : "";
+        return `• ${c.topic || "call"}${when ? ` (${when} UTC)` : ""}\n${(c.summary || "").slice(0, 1200)}`;
+      }).join("\n\n");
+      systemContent += `\n\n--- RECENT CALLS (${recent.length}) ---\n${block}`;
+    }
+  } catch (e) {
+    logApi(ROUTE, "calls_context_failed", { err: (e as Error).message });
+  }
 
   // 30s timeout via AbortController
   const controller = new AbortController();
