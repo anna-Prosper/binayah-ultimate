@@ -39,19 +39,32 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<ZoomSummary | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
+  const [syncing, setSyncing] = useState(false);
   const mono = "var(--font-dm-mono), monospace";
   const filters = callSeriesFilters ?? [];
   const visibleSummaries = filters.length > 0
     ? summaries.filter(s => filters.includes(s.topic))
     : summaries;
 
-  useEffect(() => {
-    fetch("/api/zoom/summaries")
+  const loadSummaries = () =>
+    fetch("/api/zoom/summaries", { cache: "no-store" })
       .then(r => r.json())
       .then(d => { if (d.ok) { setSummaries(d.summaries ?? []); setUpdatedAt(d.updatedAt ?? null); } })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, []);
+      .catch(() => {});
+
+  useEffect(() => { void loadSummaries().finally(() => setLoading(false)); }, []);
+
+  // Force a fresh pull from Zoom (same as the home-view ↺ resync), then reload the list.
+  const resync = async () => {
+    if (syncing) return;
+    setSyncing(true);
+    try {
+      await fetch("/api/zoom/meetings?force=true", { method: "POST", cache: "no-store" }).catch(() => {});
+      await loadSummaries();
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   if (loading) return <div style={{ padding: "32px 20px", color: t.textMuted, fontFamily: mono, fontSize: 13 }}>loading calls…</div>;
 
@@ -73,9 +86,13 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
 
   return (
     <div style={{ padding: "0 20px 40px" }}>
-      <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 20 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20, flexWrap: "wrap" }}>
         <div style={{ fontSize: 11, color: t.accent, fontFamily: mono, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase" }}>binayah calls — AI summaries</div>
         {updatedAt && <span style={{ fontSize: 11, color: t.textDim, fontFamily: mono }}>· synced {new Date(updatedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+        <button type="button" onClick={resync} disabled={syncing} title="Pull the latest Zoom calls now"
+          style={{ marginLeft: "auto", background: syncing ? (t.bgHover || t.bgSoft) : t.accent + "14", border: `1px solid ${t.accent}44`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: t.accent, fontFamily: mono, fontWeight: 700, cursor: syncing ? "default" : "pointer", whiteSpace: "nowrap" }}>
+          {syncing ? "syncing…" : "↺ resync"}
+        </button>
       </div>
       {filters.length > 0 && (
         <div style={{ display: "flex", gap: 5, flexWrap: "wrap", marginBottom: 12 }}>
@@ -89,7 +106,7 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
       )}
       {visibleSummaries.length === 0 ? (
         <div style={{ color: t.textMuted, fontSize: 13, fontFamily: mono }}>
-          {filters.length > 0 ? `No calls matching this workspace's series filter yet.` : "No summaries yet. Hit ↺ resync on the home view to load your Zoom calls."}
+          {filters.length > 0 ? `No calls matching this workspace's series filter yet.` : "No summaries yet. Hit ↺ resync above to load your Zoom calls."}
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
