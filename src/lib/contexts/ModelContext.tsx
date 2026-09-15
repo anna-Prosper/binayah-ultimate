@@ -491,6 +491,13 @@ export function ModelProvider({
   // propagates via an explicit `_deletes` key — this ref lets us diff local vs
   // server rows to compute those keys, exactly like serverSubtaskKeysRef.
   const serverDbRowKeysRef = useRef<Set<string>>(new Set());
+  // Just-added db rows whose write the server hasn't confirmed yet. A poll computed
+  // before the add landed doesn't carry the row, and the time-based grace alone drops
+  // it after 120s if the write is slow/retrying/failed — the "I added a row and it
+  // vanished" bug. Keyed `${dbId}::${rowId}`; the hydrate keeps these regardless of
+  // age, and onWriteSuccess clears the ones the server just acknowledged. Mirrors
+  // unconfirmedSubtaskKeysRef.
+  const unconfirmedDbRowKeysRef = useRef<Set<string>>(new Set());
 
   // EXPLICIT deletion intent. The server merges every slice (keep-existing), so a
   // removal only propagates via a `_deletes` key. We record deletions HERE when the
@@ -953,7 +960,16 @@ export function ModelProvider({
           const ldb = local.find(d => d.id === sdb.id);
           if (!ldb) return sdb;
           const srvRowIds = new Set(sdb.rows.map(r => r.id));
-          const pendingRows = ldb.rows.filter(r => !srvRowIds.has(r.id) && nowTs - (r.createdAt ?? 0) < DB_GRACE_MS);
+          // Any pending row the server now shows is confirmed — stop protecting it.
+          for (const rid of srvRowIds) unconfirmedDbRowKeysRef.current.delete(`${sdb.id}::${rid}`);
+          // Keep a local-only row if it's an un-synced add — either still within the
+          // time grace, OR explicitly pending (write not yet server-confirmed, which
+          // outlives 120s for a slow/retrying write). The unconfirmed set is the fix
+          // for "added a row, it vanished".
+          const pendingRows = ldb.rows.filter(r =>
+            !srvRowIds.has(r.id) &&
+            (unconfirmedDbRowKeysRef.current.has(`${sdb.id}::${r.id}`) || nowTs - (r.createdAt ?? 0) < DB_GRACE_MS)
+          );
           return pendingRows.length ? { ...sdb, rows: [...sdb.rows, ...pendingRows] } : sdb;
         });
         const pendingDbs = local.filter(d => !serverIds.has(d.id) && nowTs - (typeof d.id === "number" ? d.id : 0) < DB_GRACE_MS);
@@ -1395,7 +1411,13 @@ export function ModelProvider({
     if (Array.isArray((sent as Record<string, unknown>).databases)) {
       const set = new Set<string>();
       for (const db of (sent as { databases: { id: number | string; rows?: { id: number | string }[] }[] }).databases) {
-        if (Array.isArray(db.rows)) for (const r of db.rows) set.add(`${db.id}::${r.id}`);
+        if (Array.isArray(db.rows)) for (const r of db.rows) {
+          const key = `${db.id}::${r.id}`;
+          set.add(key);
+          // This write carried the row and the server accepted it — it's durably
+          // stored now, so it no longer needs the un-synced-add protection.
+          unconfirmedDbRowKeysRef.current.delete(key);
+        }
       }
       serverDbRowKeysRef.current = set;
     }
@@ -2970,6 +2992,9 @@ export function ModelProvider({
       ...(attachments && attachments.length ? { attachments } : {}),
     };
     markLocalWrite("databases");
+    // Keep this row locally until the server confirms it — survives a slow/retrying
+    // write beyond the 120s hydrate grace (see unconfirmedDbRowKeysRef).
+    unconfirmedDbRowKeysRef.current.add(`${dbId}::${row.id}`);
     flushImmediatelyRef.current = true; // adding a row is discrete — persist now
     setDatabases(prev => prev.map(db => db.id === dbId ? { ...db, rows: [...db.rows, row] } : db));
   }, [currentUser, markLocalWrite]);
@@ -2986,6 +3011,7 @@ export function ModelProvider({
   const deleteDbRow = useCallback((dbId: number, rowId: number) => {
     markLocalWrite("databases");
     queueDelete("databases", `${dbId}::${rowId}`);
+    unconfirmedDbRowKeysRef.current.delete(`${dbId}::${rowId}`); // no longer pending — it's being deleted
     flushImmediatelyRef.current = true; // deleting a row is discrete — persist now
     setDatabases(prev => prev.map(db => {
       if (db.id !== dbId) return db;
