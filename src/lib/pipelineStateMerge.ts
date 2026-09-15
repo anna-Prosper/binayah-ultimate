@@ -114,22 +114,41 @@ function mergeItemsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWit
  * column the incoming omits — e.g. one another client added concurrently — is
  * kept by appending it. Value updates (rename/width/type) ride along in-place.
  */
+// Deleted database rows are remembered here (`${dbId}::${rowId}` -> deletedAt) so a
+// stale tab re-sending the table can't resurrect them via the keep-existing merge —
+// the one-shot `_delete` is consumed on first send and can't catch a re-injection
+// that lands later. Row ids are unique timestamps, so a tombstone never blocks a
+// legit future row; the cap just bounds growth (newest kept).
+const TOMBSTONE_CAP = 3000;
+function pruneTombstones(tomb: Record<string, number>): Record<string, number> {
+  const keys = Object.keys(tomb);
+  if (keys.length <= TOMBSTONE_CAP) return tomb;
+  const kept = keys.sort((a, b) => (tomb[b] ?? 0) - (tomb[a] ?? 0)).slice(0, TOMBSTONE_CAP);
+  const out: Record<string, number> = {};
+  for (const k of kept) out[k] = tomb[k];
+  return out;
+}
+
 function mergeColumnsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWithId[] {
   if (incoming.length === 0) return existing;
   const incomingIds = new Set(incoming.map(c => String(c.id)));
   const kept = existing.filter(c => !incomingIds.has(String(c.id)));
   return dedupeById([...incoming, ...kept]);
 }
-function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
+function mergeDatabasesById(current: DbLike[], patch: DbLike[], tombstones?: Set<string>): DbLike[] {
   const out: DbLike[] = [...current];
   const idxById = new Map<string, number>();
   out.forEach((d, i) => idxById.set(String(d.id), i));
+  const dropDeleted = (dbId: string, rows: ItemWithId[]): ItemWithId[] =>
+    tombstones && tombstones.size ? rows.filter(r => !tombstones.has(`${dbId}::${r.id}`)) : rows;
   for (const incoming of patch) {
     const key = String(incoming.id);
     const existingIdx = idxById.get(key);
     if (existingIdx === undefined) {
       idxById.set(key, out.length);
-      out.push(incoming);
+      // A brand-new db can still carry a tombstoned row if a stale tab is the one
+      // "creating" it from an old copy — filter those out too.
+      out.push(Array.isArray(incoming.rows) ? { ...incoming, rows: dropDeleted(key, incoming.rows) } : incoming);
       continue;
     }
     const existing = out[existingIdx];
@@ -140,7 +159,9 @@ function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
     out[existingIdx] = {
       ...existing,
       ...incoming,
-      rows: mergeItemsById(existingRows, incomingRows),
+      // A row a stale tab re-adds (present in incoming, absent from server because it
+      // was deleted) is dropped when its id is tombstoned — that's the resurrection fix.
+      rows: dropDeleted(key, mergeItemsById(existingRows, incomingRows)),
       // Only merge columns when the patch carries them; never blank them out.
       // Incoming order wins so drag-to-reorder persists (see mergeColumnsById).
       columns: incomingCols.length
@@ -542,18 +563,23 @@ function applyDeletes(state: State, deletes: DeletesEnvelope): State {
     if (field === "databases") {
       const dbs = Array.isArray(out.databases) ? [...(out.databases as DbLike[])] : [];
       const dropWholeDb = new Set<string>();
+      const tomb = isObject(out.dbRowTombstones) ? { ...(out.dbRowTombstones as Record<string, number>) } : {};
+      const now = Date.now();
       for (const key of keys) {
         const str = String(key);
         const sep = str.indexOf("::");
         if (sep === -1) { dropWholeDb.add(str); continue; }
         const dbId = str.slice(0, sep);
         const rowId = str.slice(sep + 2);
+        // Tombstone the delete so a stale tab can't resurrect the row on its next sync.
+        tomb[`${dbId}::${rowId}`] = now;
         const idx = dbs.findIndex(d => String(d.id) === dbId);
         if (idx === -1) continue;
         const rows = Array.isArray(dbs[idx].rows) ? dbs[idx].rows as ItemWithId[] : [];
         dbs[idx] = { ...dbs[idx], rows: rows.filter(r => String(r.id) !== rowId) };
       }
       out.databases = dbs.filter(d => !dropWholeDb.has(String(d.id)));
+      out.dbRowTombstones = pruneTombstones(tomb);
       continue;
     }
 
@@ -664,7 +690,10 @@ export function mergeStateWithPatch(
     // Special-case: databases needs inner-row/column merge by id (not whole-db replace).
     if (k === "databases" && Array.isArray(v)) {
       const cur = Array.isArray(next.databases) ? next.databases as DbLike[] : [];
-      next.databases = mergeDatabasesById(cur, v as DbLike[]);
+      const tomb = isObject(next.dbRowTombstones)
+        ? new Set(Object.keys(next.dbRowTombstones as Record<string, number>))
+        : undefined;
+      next.databases = mergeDatabasesById(cur, v as DbLike[], tomb);
       continue;
     }
     // Special-case: workspaces merge by id + union of member/captain/series arrays,

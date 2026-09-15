@@ -233,6 +233,20 @@ describe("databases row-level merge", () => {
     expect(next.databases[0].rows.map(r => r.id).sort()).toEqual([1, 8, 9]);
   });
 
+  it("a deleted row is NOT resurrected when a stale tab re-sends it (tombstone)", () => {
+    const current = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "c" }])] };
+    // 1) delete row 2 (records a tombstone)
+    const afterDelete = mergeStateWithPatch(current, {}, { databases: ["1::2"] }) as {
+      databases: { rows: { id: number }[] }[]; dbRowTombstones?: Record<string, number>;
+    };
+    expect(afterDelete.databases[0].rows.map(r => r.id)).toEqual([1, 3]);
+    expect(afterDelete.dbRowTombstones?.["1::2"]).toBeGreaterThan(0);
+    // 2) a stale tab re-sends the table WITH row 2 — must stay gone
+    const stale = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "c" }])] };
+    const next = mergeStateWithPatch(afterDelete, stale) as { databases: { rows: { id: number }[] }[] };
+    expect(next.databases[0].rows.map(r => r.id)).toEqual([1, 3]); // row 2 NOT resurrected
+  });
+
   it("column reorder persists (incoming column order wins)", () => {
     const withCols = (cols: { id: string; name: string }[]) => ({ id: 1, name: "Content", columns: cols, rows: [] });
     const current = { databases: [withCols([{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }])] };
