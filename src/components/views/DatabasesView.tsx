@@ -1778,6 +1778,19 @@ function TableView({
   const [editingColId, setEditingColId] = useState<string | null>(null);
   const [colNameVal, setColNameVal] = useState("");
   const [confirmDeleteRowId, setConfirmDeleteRowId] = useState<number | null>(null);
+  // Column drag-to-reorder (drag a header onto another to move it there).
+  const [dragColId, setDragColId] = useState<string | null>(null);
+  const [dragOverColId, setDragOverColId] = useState<string | null>(null);
+  const moveColumn = (fromId: string, toId: string) => {
+    if (fromId === toId) return;
+    const cols = [...db.columns];
+    const from = cols.findIndex(c => c.id === fromId);
+    const to = cols.findIndex(c => c.id === toId);
+    if (from === -1 || to === -1) return;
+    const [moved] = cols.splice(from, 1);
+    cols.splice(to, 0, moved);
+    onUpdateDb({ columns: cols });
+  };
 
   useEffect(() => {
     if (!editingName) setNameVal(db.name);
@@ -2032,6 +2045,12 @@ function TableView({
                 {db.columns.map(col => (
                   <th
                     key={col.id}
+                    draggable={canEdit && editingColId !== col.id}
+                    onDragStart={e => { if (!canEdit) return; setDragColId(col.id); e.dataTransfer.effectAllowed = "move"; }}
+                    onDragOver={e => { if (!canEdit || !dragColId || dragColId === col.id) return; e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverColId !== col.id) setDragOverColId(col.id); }}
+                    onDragLeave={() => setDragOverColId(prev => prev === col.id ? null : prev)}
+                    onDrop={e => { if (!canEdit || !dragColId) return; e.preventDefault(); moveColumn(dragColId, col.id); setDragColId(null); setDragOverColId(null); }}
+                    onDragEnd={() => { setDragColId(null); setDragOverColId(null); }}
                     onDoubleClick={() => {
                       if (!canEdit) return;
                       setEditingColId(col.id);
@@ -2044,10 +2063,12 @@ function TableView({
                       textTransform: "uppercase", letterSpacing: "0.06em",
                       borderBottom: `1px solid ${t.border}`,
                       borderRight: `1px solid ${t.border}`,
+                      borderLeft: dragOverColId === col.id ? `2px solid ${t.accent}` : undefined,
                       whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                       position: "sticky", top: 0, zIndex: 2,
                       background: t.bgSoft || t.bg,
-                      cursor: canEdit ? "text" : "default",
+                      opacity: dragColId === col.id ? 0.4 : 1,
+                      cursor: canEdit ? (editingColId === col.id ? "text" : "grab") : "default",
                     }}
                   >
                     {editingColId === col.id ? (
@@ -2073,7 +2094,7 @@ function TableView({
                     ) : (
                       <span
                         style={{ display: "inline-flex", alignItems: "center", gap: 4 }}
-                        data-tooltip={`${col.name} · ${col.type}${canEdit ? " · double-click to rename" : ""}`}
+                        data-tooltip={`${col.name} · ${col.type}${canEdit ? " · double-click to rename · drag to reorder" : ""}`}
                       >
                         {col.name}
                         <span style={{ fontSize: 9, opacity: 0.5 }}>

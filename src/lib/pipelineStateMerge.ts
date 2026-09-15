@@ -106,6 +106,20 @@ function mergeItemsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWit
   // Guard against duplicate ids in either input surviving the merge.
   return dedupeById(merged);
 }
+/**
+ * Merge a database's COLUMNS. Unlike rows, column ORDER is user-meaningful (drag
+ * to reorder), and mergeItemsById pins the existing order — so a reorder would
+ * silently revert on the next sync. Here the INCOMING order wins (the client
+ * sends its full columns array, so its order is the intended one), while any
+ * column the incoming omits — e.g. one another client added concurrently — is
+ * kept by appending it. Value updates (rename/width/type) ride along in-place.
+ */
+function mergeColumnsById(existing: ItemWithId[], incoming: ItemWithId[]): ItemWithId[] {
+  if (incoming.length === 0) return existing;
+  const incomingIds = new Set(incoming.map(c => String(c.id)));
+  const kept = existing.filter(c => !incomingIds.has(String(c.id)));
+  return dedupeById([...incoming, ...kept]);
+}
 function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
   const out: DbLike[] = [...current];
   const idxById = new Map<string, number>();
@@ -128,8 +142,9 @@ function mergeDatabasesById(current: DbLike[], patch: DbLike[]): DbLike[] {
       ...incoming,
       rows: mergeItemsById(existingRows, incomingRows),
       // Only merge columns when the patch carries them; never blank them out.
-      columns: incomingCols.length || existingCols.length
-        ? mergeItemsById(existingCols, incomingCols)
+      // Incoming order wins so drag-to-reorder persists (see mergeColumnsById).
+      columns: incomingCols.length
+        ? mergeColumnsById(existingCols, incomingCols)
         : existing.columns,
     };
   }

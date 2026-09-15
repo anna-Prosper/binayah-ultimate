@@ -233,6 +233,25 @@ describe("databases row-level merge", () => {
     expect(next.databases[0].rows.map(r => r.id).sort()).toEqual([1, 8, 9]);
   });
 
+  it("column reorder persists (incoming column order wins)", () => {
+    const withCols = (cols: { id: string; name: string }[]) => ({ id: 1, name: "Content", columns: cols, rows: [] });
+    const current = { databases: [withCols([{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }])] };
+    // user dragged C to the front
+    const patch = { databases: [withCols([{ id: "c", name: "C" }, { id: "a", name: "A" }, { id: "b", name: "B" }])] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { columns: { id: string }[] }[] };
+    expect(next.databases[0].columns.map(c => c.id)).toEqual(["c", "a", "b"]);
+  });
+
+  it("column reorder keeps a column another tab added concurrently", () => {
+    const withCols = (cols: { id: string; name: string }[]) => ({ id: 1, name: "Content", columns: cols, rows: [] });
+    // server already has a 4th column "d" from another tab
+    const current = { databases: [withCols([{ id: "a", name: "A" }, { id: "b", name: "B" }, { id: "c", name: "C" }, { id: "d", name: "D" }])] };
+    // this tab reorders (a,b,c) but never saw "d"
+    const patch = { databases: [withCols([{ id: "c", name: "C" }, { id: "a", name: "A" }, { id: "b", name: "B" }])] };
+    const next = mergeStateWithPatch(current, patch) as { databases: { columns: { id: string }[] }[] };
+    expect(next.databases[0].columns.map(c => c.id)).toEqual(["c", "a", "b", "d"]); // reorder + d kept
+  });
+
   it("editing a row's cell updates in place, preserving order", () => {
     const current = { databases: [db([{ id: 1, v: "a" }, { id: 2, v: "b" }, { id: 3, v: "c" }])] };
     const patch = { databases: [db([{ id: 2, v: "EDITED" }])] };
