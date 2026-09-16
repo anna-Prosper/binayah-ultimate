@@ -12,6 +12,17 @@ const ROUTE = "/api/call-summary/share";
 
 type ShareTask = { title?: unknown; pipelineName?: unknown };
 
+// Drop the trailing "Attendees" footer (and any divider/blank lines before it)
+// that Zoom appends to its summaries — not wanted in the shared group message.
+function stripAttendees(text: string): string {
+  const lines = text.split("\n");
+  const idx = lines.findIndex(l => /^\s*[*#>_-]*\s*attendees\b/i.test(l));
+  if (idx < 0) return text;
+  let start = idx;
+  while (start > 0 && (lines[start - 1].trim() === "" || /^-{2,}$/.test(lines[start - 1].trim()))) start--;
+  return lines.slice(0, start).join("\n").trimEnd();
+}
+
 // Light markdown → WhatsApp formatting so summaries render cleanly in the group.
 function toWhatsApp(text: string): string {
   return text
@@ -39,7 +50,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const groupJid = process.env.WHATSAPP_GROUP_JID;
+  const groupJid = process.env.WHATSAPP_CALL_SUMMARY_GROUP_JID || process.env.WHATSAPP_GROUP_JID;
   if (!groupJid) return NextResponse.json({ error: "WhatsApp team group is not configured" }, { status: 500 });
 
   const body = await req.json().catch(() => null);
@@ -59,7 +70,7 @@ export async function POST(req: NextRequest) {
     : [];
 
   const header = typeof topic === "string" && topic.trim() ? `📞 *${topic.trim()}*` : "📞 *Call Summary*";
-  let text = `${header}\n\n${toWhatsApp((summary as string).trim())}`;
+  let text = `${header}\n\n${toWhatsApp(stripAttendees((summary as string).trim()))}`;
   if (cleanTasks.length) {
     const taskLines = cleanTasks
       .map(t => `• ${(t.title as string).trim()}${typeof t.pipelineName === "string" && t.pipelineName ? ` — ${t.pipelineName}` : ""}`)
