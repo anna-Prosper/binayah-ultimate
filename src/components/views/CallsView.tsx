@@ -40,7 +40,27 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
   const [selected, setSelected] = useState<ZoomSummary | null>(null);
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [shareStatus, setShareStatus] = useState<"idle" | "sharing" | "shared" | "error">("idle");
   const mono = "var(--font-dm-mono), monospace";
+
+  const openCall = (s: ZoomSummary) => { setSelected(s); setShareStatus("idle"); };
+
+  // Share this call's recap + next-steps to the team WhatsApp group
+  const shareToGroup = async () => {
+    if (!selected || shareStatus === "sharing") return;
+    setShareStatus("sharing");
+    try {
+      const res = await fetch("/api/call-summary/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: selected.summary, topic: selected.topic }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setShareStatus(res.ok && data.ok ? "shared" : "error");
+    } catch {
+      setShareStatus("error");
+    }
+  };
   const filters = callSeriesFilters ?? [];
   const visibleSummaries = filters.length > 0
     ? summaries.filter(s => filters.includes(s.topic))
@@ -70,10 +90,24 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
 
   if (selected) return (
     <div style={{ padding: "0 20px 40px", maxWidth: 760 }}>
-      <button type="button" onClick={() => setSelected(null)}
-        style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: t.textMuted, fontFamily: mono, cursor: "pointer", marginBottom: 20 }}>
-        ← all calls
-      </button>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+        <button type="button" onClick={() => setSelected(null)}
+          style={{ background: "transparent", border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 12px", fontSize: 12, color: t.textMuted, fontFamily: mono, cursor: "pointer" }}>
+          ← all calls
+        </button>
+        <button type="button" onClick={shareToGroup} disabled={shareStatus === "sharing"}
+          title="Post this recap + next-steps to the team WhatsApp group"
+          style={{
+            marginLeft: "auto",
+            background: shareStatus === "shared" ? `${t.green}18` : `${t.accent}14`,
+            border: `1px solid ${shareStatus === "shared" ? `${t.green}55` : shareStatus === "error" ? `${t.red}55` : `${t.accent}44`}`,
+            borderRadius: 8, padding: "5px 12px", fontSize: 12, fontFamily: mono, fontWeight: 700,
+            color: shareStatus === "shared" ? t.green : shareStatus === "error" ? t.red : t.accent,
+            cursor: shareStatus === "sharing" ? "default" : "pointer", whiteSpace: "nowrap",
+          }}>
+          {shareStatus === "sharing" ? "sharing…" : shareStatus === "shared" ? "✓ shared to group" : shareStatus === "error" ? "↻ retry share" : "share to group"}
+        </button>
+      </div>
       <div style={{ fontSize: 20, fontWeight: 800, color: t.text, marginBottom: 4 }}>{selected.topic}</div>
       <div style={{ fontSize: 12, color: t.textMuted, fontFamily: mono, marginBottom: 24 }}>
         {new Date(selected.startTime).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
@@ -111,7 +145,7 @@ export default function CallsView({ t, callSeriesFilters }: Props) {
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {visibleSummaries.map(s => (
-            <button key={s.uuid} type="button" onClick={() => setSelected(s)}
+            <button key={s.uuid} type="button" onClick={() => openCall(s)}
               style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 12, padding: "14px 18px", cursor: "pointer", textAlign: "left", transition: "border-color 0.1s", width: "100%" }}
               onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = t.accent + "66"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = t.border; }}>
