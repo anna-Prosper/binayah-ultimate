@@ -39,6 +39,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [addedCount, setAddedCount] = useState(0);
+  const [shareStatus, setShareStatus] = useState<"idle" | "sharing" | "shared" | "error">("idle");
 
   // Zoom fetch state
   const [zoomMeetings, setZoomMeetings] = useState<ZoomMeeting[]>([]);
@@ -59,6 +60,7 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
       setError(null);
       setAdding(false);
       setAddedCount(0);
+      setShareStatus("idle");
       setZoomDropOpen(false);
       setZoomError(null);
       setTimeout(() => textareaRef.current?.focus(), 80);
@@ -173,6 +175,26 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
     setTimeout(() => {
       onClose();
     }, 900);
+  };
+
+  // Share the summary + selected task list to the team WhatsApp group
+  const handleShare = async () => {
+    if (shareStatus === "sharing") return;
+    setShareStatus("sharing");
+    try {
+      const chosen = tasks
+        .filter((_, i) => selected.has(i))
+        .map(task => ({ title: task.title, pipelineName: task.pipelineName }));
+      const res = await fetch("/api/call-summary/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ summary: summary.trim(), tasks: chosen }),
+      });
+      const data = await res.json().catch(() => ({}));
+      setShareStatus(res.ok && data.ok ? "shared" : "error");
+    } catch {
+      setShareStatus("error");
+    }
   };
 
   if (!open) return null;
@@ -431,10 +453,26 @@ export default function CallSummaryModal({ open, onClose, t, pipelines, onAddTas
           {phase === "results" && (
             <>
               <button
-                onClick={() => { setPhase("input"); setTasks([]); setSelected(new Set()); }}
+                onClick={() => { setPhase("input"); setTasks([]); setSelected(new Set()); setShareStatus("idle"); }}
                 style={{ ...btnBase, background: "transparent", border: `1px solid ${t.border}`, color: t.textMuted }}
               >
                 back
+              </button>
+              <button
+                onClick={handleShare}
+                disabled={selected.size === 0 || shareStatus === "sharing"}
+                title="Post this summary + task list to the team WhatsApp group"
+                style={{
+                  ...btnBase,
+                  background: shareStatus === "shared" ? `${t.green}22` : "transparent",
+                  border: `1px solid ${shareStatus === "shared" ? `${t.green}66` : shareStatus === "error" ? `${t.red}66` : t.border}`,
+                  color: shareStatus === "shared" ? t.green : shareStatus === "error" ? t.red : t.textMuted,
+                  opacity: selected.size === 0 ? 0.5 : 1,
+                  marginRight: "auto",
+                }}
+              >
+                <Phone size={12} />
+                {shareStatus === "sharing" ? "sharing…" : shareStatus === "shared" ? "shared to group ✓" : shareStatus === "error" ? "retry share" : "share to group"}
               </button>
               <button
                 onClick={handleAdd}
