@@ -37,8 +37,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   }
 
   await connectMongo();
-  const doc = await BinayahDocument.findById(id).select("_id").lean();
+  const doc = await BinayahDocument.findById(id).select("_id createdBy visibility").lean();
   if (!doc) return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  if (doc.visibility === "owner" && doc.createdBy !== (session.user?.fixedUserId ?? "unknown")) {
+    return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  }
 
   try {
     const upload = await createPresignedFormUpload(`docs/${id}`, name, contentType, MAX_ATTACHMENT_BYTES);

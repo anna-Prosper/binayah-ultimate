@@ -23,6 +23,12 @@ export async function GET(
   const doc = await BinayahDocument.findById(id).lean();
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  // Owner-private docs are readable only by their creator — 404 (not 403) to avoid leaking existence
+  const me = session.user?.fixedUserId ?? "unknown";
+  if (doc.visibility === "owner" && doc.createdBy !== me) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   return NextResponse.json({ doc });
 }
 
@@ -72,10 +78,31 @@ export async function PATCH(
     update.pipelineId = pid;
   }
 
+  if ("visibility" in body) {
+    if (body.visibility !== "everyone" && body.visibility !== "owner") {
+      return NextResponse.json({ error: "visibility must be 'everyone' or 'owner'" }, { status: 400 });
+    }
+    update.visibility = body.visibility;
+  }
+
   // Always set updatedBy server-side from session — never accept from client body
-  update.updatedBy = session.user.fixedUserId;
+  const me = session.user.fixedUserId;
+  update.updatedBy = me;
 
   await connectMongo();
+
+  // Ownership guard: a private doc can only be edited (and its visibility changed)
+  // by its creator. Also blocks a non-owner from making someone else's doc private.
+  const existing = await BinayahDocument.findById(id).select("createdBy visibility").lean();
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const isOwner = existing.createdBy === me;
+  if (existing.visibility === "owner" && !isOwner) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+  if ("visibility" in update && !isOwner) {
+    return NextResponse.json({ error: "Only the owner can change visibility" }, { status: 403 });
+  }
+
   const doc = await BinayahDocument.findByIdAndUpdate(
     id,
     { $set: { ...update, updatedAt: new Date() } },

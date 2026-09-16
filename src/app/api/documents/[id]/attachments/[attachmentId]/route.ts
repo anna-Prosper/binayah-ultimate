@@ -19,6 +19,9 @@ export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: str
   await connectMongo();
   const doc = await BinayahDocument.findById(id);
   if (!doc) return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  if (doc.visibility === "owner" && doc.createdBy !== (session.user?.fixedUserId ?? "unknown")) {
+    return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  }
 
   const attachment = doc.attachments.find(a => a.id === attachmentId);
   if (!attachment) return NextResponse.json({ error: "attachment not found" }, { status: 404 });

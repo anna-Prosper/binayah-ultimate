@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { AtSign, Trash2 } from "lucide-react";
+import { AtSign, Trash2, Lock, LockOpen } from "lucide-react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { T } from "@/lib/themes";
@@ -60,6 +60,7 @@ interface DocListItem {
   createdBy: string;
   updatedBy: string | null;
   pipelineId: string | null;
+  visibility?: "everyone" | "owner";
   updatedAt: string;
 }
 
@@ -86,7 +87,7 @@ interface DocFull extends DocListItem {
   attachments?: DocAttachment[];
 }
 
-type DocPatchFields = Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null }>;
+type DocPatchFields = Partial<{ title: string; content: Record<string, unknown>; pipelineId: string | null; visibility: "everyone" | "owner" }>;
 
 interface Props {
   t: T;
@@ -266,6 +267,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           updatedBy: data.doc.updatedBy,
           ...(applyTitleFromServer ? { title: data.doc.title } : {}),
           ...("pipelineId" in fields ? { pipelineId: data.doc.pipelineId } : {}),
+          ...("visibility" in fields ? { visibility: data.doc.visibility } : {}),
         } : d));
         setActiveDoc(prev => prev && prev._id === id ? {
           ...prev,
@@ -274,6 +276,7 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
           ...(applyTitleFromServer ? { title: data.doc.title } : {}),
           ...("content" in fields ? { content: data.doc.content } : {}),
           ...("pipelineId" in fields ? { pipelineId: data.doc.pipelineId } : {}),
+          ...("visibility" in fields ? { visibility: data.doc.visibility } : {}),
         } : prev);
         setSaveStatus("saved");
         // Bust the search palette's doc-content cache so saved content is searchable
@@ -492,6 +495,15 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
     showToast(`// pinged ${users.find(u => u.id === userId)?.name || userId}`, t.green);
   }, [activeDoc, currentUser, getDocUrl, sendChat, showToast, t.green, users]);
 
+  // Lock toggle — flip a doc between private-to-owner and visible-to-everyone.
+  // Only the creator may change this (server enforces; UI hides it for non-owners).
+  const toggleVisibility = useCallback(() => {
+    if (!activeDoc || !activeId) return;
+    const next = activeDoc.visibility === "owner" ? "everyone" : "owner";
+    patchDoc(activeId, { visibility: next });
+    showToast(next === "owner" ? "// locked — private to you" : "// unlocked — visible to everyone", next === "owner" ? t.amber : t.green);
+  }, [activeDoc, activeId, patchDoc, showToast, t.amber, t.green]);
+
   const allPipelines = workspacePipelineIds
     ? pipelineData.filter(p => workspacePipelineIds.includes(p.id))
     : pipelineData;
@@ -707,6 +719,9 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                 <span style={{ fontSize: 13, fontWeight: isActive ? 700 : 600, color: t.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {doc.title || "untitled"}
                 </span>
+                {doc.visibility === "owner" && (
+                  <Lock size={12} strokeWidth={2.2} color={t.amber} aria-label="Private to you" />
+                )}
                 {creator && <AvatarC user={creator} size={16} />}
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
@@ -832,6 +847,29 @@ export default function DocumentsPanel({ t, initialDocId, workspacePipelineIds }
                   </div>
                 )}
               </div>
+              {/* Lock toggle — only the doc's creator can change visibility */}
+              {currentUser === activeDoc.createdBy && (() => {
+                const locked = activeDoc.visibility === "owner";
+                return (
+                  <button
+                    onClick={toggleVisibility}
+                    aria-label={locked ? "Private to you — click to share with everyone" : "Visible to everyone — click to make private"}
+                    data-tooltip={locked ? "Private to you — click to share" : "Shared — click to lock"}
+                    style={{
+                      background: locked ? t.amber + "22" : "transparent",
+                      border: `1px solid ${locked ? t.amber + "66" : t.border}`,
+                      borderRadius: 8,
+                      width: 30, height: 30,
+                      display: "inline-flex", alignItems: "center", justifyContent: "center",
+                      cursor: "pointer", color: locked ? t.amber : t.textMuted, transition: "all 0.15s",
+                    }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = t.amber; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = locked ? t.amber : t.textMuted; }}
+                  >
+                    {locked ? <Lock size={15} strokeWidth={2} /> : <LockOpen size={15} strokeWidth={2} />}
+                  </button>
+                );
+              })()}
               <button
                 onClick={() => deleteDoc(activeDoc._id)}
                 style={{

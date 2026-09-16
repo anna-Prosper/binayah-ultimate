@@ -73,8 +73,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     await connectMongo();
-    const doc = await BinayahDocument.findById(id).select("_id").lean();
+    const doc = await BinayahDocument.findById(id).select("_id createdBy visibility").lean();
     if (!doc) return NextResponse.json({ error: "doc not found" }, { status: 404 });
+    if (doc.visibility === "owner" && doc.createdBy !== userId) {
+      return NextResponse.json({ error: "doc not found" }, { status: 404 });
+    }
 
     const attachment: IDocAttachment = {
       id: `att-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
@@ -116,6 +119,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   await connectMongo();
   const doc = await BinayahDocument.findById(id).lean();
   if (!doc) return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  if (doc.visibility === "owner" && doc.createdBy !== userId) {
+    return NextResponse.json({ error: "doc not found" }, { status: 404 });
+  }
 
   let uploaded: Awaited<ReturnType<typeof uploadToS3>>;
   try {

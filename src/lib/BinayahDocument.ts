@@ -18,6 +18,8 @@ export interface IBinayahDocument {
   createdBy: string;
   updatedBy: string | null;
   pipelineId: string | null;
+  /** "everyone" = visible to all; "owner" = private to createdBy only */
+  visibility: "everyone" | "owner";
   attachments: IDocAttachment[];
   createdAt: Date;
   updatedAt: Date;
@@ -44,6 +46,7 @@ const BinayahDocumentSchema = new Schema<IBinayahDocument>(
     createdBy: { type: String, required: true },
     updatedBy: { type: String, default: null },
     pipelineId: { type: String, default: null },
+    visibility: { type: String, enum: ["everyone", "owner"], default: "everyone" },
     attachments: { type: [AttachmentSchema], default: [] },
   },
   { timestamps: true }

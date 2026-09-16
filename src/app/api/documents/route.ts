@@ -36,7 +36,11 @@ export async function GET(req: NextRequest) {
 
   await connectMongo();
 
-  const query = pipelineId ? { pipelineId } : {};
+  // Owner-private docs are only visible to their creator. Legacy docs have no
+  // `visibility` field, so `$ne: "owner"` (which matches missing) keeps them public.
+  const me = session.user?.fixedUserId ?? "unknown";
+  const visClause = { $or: [{ visibility: { $ne: "owner" } }, { createdBy: me }] };
+  const query = pipelineId ? { pipelineId, ...visClause } : visClause;
 
   if (includeContent) {
     // Include the content field so we can extract plaintext server-side
