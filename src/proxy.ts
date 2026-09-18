@@ -23,12 +23,12 @@ export const config = {
      * Match all request paths EXCEPT:
      * - /login (the auth page itself)
      * - /api/auth/* (next-auth internal routes)
-     * - /api/admin/*, /api/cron/* and /api/zoom/meetings (they enforce their own secret/session auth)
+     * - /api/admin/*, /api/cron/*, /api/zoom/meetings and /api/whatsapp/broadcast (they enforce their own secret/session auth)
      * - /api/health (public, read-only liveness probe — no session so monitors can poll it)
      * - /_next/* (Next.js internals)
      * - /favicon*, manifest and generated app icons
      * - /avatars*, /public static assets
      */
-    "/((?!login|api/auth|api/admin|api/cron|api/zoom/meetings|api/unsubscribe|api/health|_next/static|_next/image|favicon|icon.svg|apple-icon|opengraph-image|manifest.webmanifest|robots.txt|avatars|icons|images).*)",
+    "/((?!login|api/auth|api/admin|api/cron|api/zoom/meetings|api/whatsapp/broadcast|api/unsubscribe|api/health|_next/static|_next/image|favicon|icon.svg|apple-icon|opengraph-image|manifest.webmanifest|robots.txt|avatars|icons|images).*)",
   ],
 };
