@@ -1569,41 +1569,74 @@ export function ModelProvider({
     if (keys.size === 0) delete dirtyMapKeysRef.current[slice];
   }, []);
 
-  const persistStageStatusNow = useCallback((name: string, status: string) => {
-    const patch = { stageStatusOverrides: { [name]: status } };
+  // Pending durable-retry timers for focused status writes, keyed by `${slice}:${key}`.
+  // A newer write to the same key cancels the older key's pending retry.
+  const focusedRetryRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
+  // Focused status writes (stage/subtask) bypass useSync's debounced doWrite and PATCH
+  // directly, because the server ONLY accepts single-key status patches (bulk ones are
+  // stripped — see FOCUSED_ONLY_STATUS_SLICES). The original version was fire-and-forget:
+  // on ANY failure it set "offline" and dropped the write. Under concurrent use the
+  // server's optimistic-lock CAS can exhaust its retries and return 409 WRITE_CONTENTION;
+  // that transient loss meant the user's "move to done" never reached the DB and the next
+  // poll reverted the card ("I move it to done and it comes back"). Now we retry on
+  // transient failures (409/429/5xx/network) with jittered backoff, then a bounded durable
+  // retry — mirroring useSync.doWrite — so a status change is only abandoned when it lands,
+  // is superseded by a newer local value, or hits a real auth/validation error.
+  const persistFocusedStatus = useCallback((slice: "stageStatusOverrides" | "subtaskStages", key: string, status: string) => {
+    const patch = { [slice]: { [key]: status } } as PatchEnvelope;
     beaconPatchState(patch);
-    void patchState(patch, { keepalive: true }).then(result => {
-      if (!result.ok) {
+    const rk = `${slice}:${key}`;
+    const existing = focusedRetryRef.current.get(rk);
+    if (existing) { clearTimeout(existing); focusedRetryRef.current.delete(rk); }
+
+    const MAX_ATTEMPTS = 12; // ~5 fast (≤10s) + durable 8s steps (~1min) — outlasts contention
+    const isSuperseded = () => {
+      const mirror = stateMirrorRef.current as unknown as Record<string, Record<string, string>>;
+      return mirror[slice]?.[key] !== status;
+    };
+    const scheduleNext = (n: number) => {
+      if (n >= MAX_ATTEMPTS) { setSyncStatusRef.current("offline"); return; }
+      const delay = n < 5 ? Math.min(4000, 300 * 2 ** n) + Math.floor(Math.random() * 150) : 8000;
+      const timer = setTimeout(() => { focusedRetryRef.current.delete(rk); attempt(n + 1); }, delay);
+      focusedRetryRef.current.set(rk, timer);
+    };
+    const attempt = (n: number) => {
+      // A newer local write to this key owns it now — stop re-asserting our stale value.
+      if (isSuperseded()) return;
+      void patchState(patch, { keepalive: true }).then(result => {
+        if (result.ok) {
+          serverKeysRef.current[slice] = new Set([...(serverKeysRef.current[slice] ?? []), key]);
+          const mirror = stateMirrorRef.current as unknown as Record<string, Record<string, string>>;
+          if (mirror[slice]?.[key] === status) clearDirtyMapKey(slice, key);
+          setSyncStatusRef.current("live");
+          return;
+        }
+        // Auth/validation (401/403/400): not retryable. Keep the key dirty so a later
+        // write can re-send; surface auth vs offline.
+        if (result.status && result.status >= 400 && result.status < 500 && result.status !== 409 && result.status !== 429) {
+          setSyncStatusRef.current(result.status === 401 ? "auth" : "offline");
+          return;
+        }
+        // Transient (409 contention / 429 / 5xx): back off and retry — do NOT drop it.
         setSyncStatusRef.current("offline");
-        return;
-      }
-      serverKeysRef.current.stageStatusOverrides = new Set([
-        ...(serverKeysRef.current.stageStatusOverrides ?? []),
-        name,
-      ]);
-      if (stateMirrorRef.current.stageStatusOverrides[name] === status) {
-        clearDirtyMapKey("stageStatusOverrides", name);
-      }
-    });
+        scheduleNext(n);
+      }).catch(() => {
+        // Network error — treat as transient.
+        setSyncStatusRef.current("offline");
+        scheduleNext(n);
+      });
+    };
+    attempt(0);
   }, [clearDirtyMapKey]);
 
+  const persistStageStatusNow = useCallback((name: string, status: string) => {
+    persistFocusedStatus("stageStatusOverrides", name, status);
+  }, [persistFocusedStatus]);
+
   const persistSubtaskStageNow = useCallback((key: string, status: string) => {
-    const patch = { subtaskStages: { [key]: status } };
-    beaconPatchState(patch);
-    void patchState(patch, { keepalive: true }).then(result => {
-      if (!result.ok) {
-        setSyncStatusRef.current("offline");
-        return;
-      }
-      serverKeysRef.current.subtaskStages = new Set([
-        ...(serverKeysRef.current.subtaskStages ?? []),
-        key,
-      ]);
-      if (stateMirrorRef.current.subtaskStages[key] === status) {
-        clearDirtyMapKey("subtaskStages", key);
-      }
-    });
-  }, [clearDirtyMapKey]);
+    persistFocusedStatus("subtaskStages", key, status);
+  }, [persistFocusedStatus]);
 
   useEffect(() => {
     if (timelineSeededRef.current || syncStatus === "hydrating" || timelineEvents.length > 0 || !currentUser) return;
