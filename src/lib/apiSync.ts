@@ -219,6 +219,29 @@ function isLoginRedirect(res: Response): boolean {
   }
 }
 
+// Authoritatively confirm whether the session is actually gone before we alarm
+// the user with the "session expired" banner. A single /api/pipeline-state
+// request can transiently 307 → /login (edge/middleware blip) even while the
+// user is fully authenticated; trusting that one redirect made the red banner
+// flash on and off "a lot". `/api/auth/session` is served directly by NextAuth
+// (matcher-exempt, never behind the same redirect) and reads the same session
+// cookie, so it's the source of truth. Returns true ONLY when it confirms there
+// is no user; on any network/parse failure it returns false so a blip never
+// falsely reports a logout. Side effect: syncs the module `authExpired` flag to
+// reality so callers reading isAuthExpired() afterwards see the confirmed value.
+export async function confirmSessionLost(): Promise<boolean> {
+  try {
+    const res = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+    if (!res.ok) return false; // can't confirm → don't alarm
+    const data = await res.json().catch(() => null) as { user?: unknown } | null;
+    const lost = !data || !data.user;
+    authExpired = lost;
+    return lost;
+  } catch {
+    return false; // network blip → assume still signed in, don't alarm
+  }
+}
+
 export async function fetchState(since?: number): Promise<SharedState | null> {
   try {
     const url = since !== undefined ? `${API_BASE}?since=${since}` : API_BASE;

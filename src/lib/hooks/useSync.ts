@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef, useCallback } from "react";
-import { fetchState, patchState, getServerBuildSha, isAuthExpired, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
+import { fetchState, patchState, getServerBuildSha, isAuthExpired, confirmSessionLost, type SharedState, type PatchEnvelope } from "@/lib/apiSync";
 import { SYNC_POLL_INTERVAL_MS, SYNC_WRITE_DEBOUNCE_MS } from "@/lib/constants";
 
 // "auth" = the session expired (requests redirect to /login). Distinct from
@@ -113,10 +113,16 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
         const s = await fetchState(lastUpdatedAtRef.current);
         // Even a 304 refreshes the server build SHA (via header) — check every tick.
         maybeReloadForNewBuild();
-        // Session expired → every request redirects to /login. Surface it as its
-        // own state; otherwise the null return below is read as "304, still live"
-        // and the tab shows green while nothing saves.
-        if (isAuthExpired()) { setStatus("auth"); return; }
+        // A poll request redirected to /login. This is frequently a transient
+        // edge/middleware blip, not a real logout — trusting it flashed the red
+        // "session expired" banner on and off. Confirm against NextAuth's own
+        // session endpoint first; only alarm if the session is genuinely gone.
+        // If it's a false alarm, `s` is null (the redirect returned no data), so
+        // just treat this tick as "still live" and let the next tick refetch.
+        if (isAuthExpired()) {
+          if (await confirmSessionLost()) { setStatus("auth"); return; }
+          if (lastUpdatedAtRef.current !== undefined) { setStatus("live"); return; }
+        }
         // null means 304 (no update) or fetch error
         if (s) {
           onPatch(s);
@@ -213,10 +219,25 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
           // then sees "task disappears on reload" with no clue why. Drop the full
           // error string and status so we can see what's actually wrong.
           console.error("[useSync] PATCH failed (non-retryable):", res.status, (res as { error?: string }).error);
-          // Session expired → distinct "auth" state so the UI prompts a re-login.
-          // dirtyRef stays true (not cleared) so the change is NOT marked saved and
-          // survives to be re-sent once the user signs back in.
-          setStatus(isAuthExpired() || res.status === 401 ? "auth" : "offline");
+          if (isAuthExpired() || res.status === 401) {
+            // Looks like an auth failure — but a transient login-redirect can hit a
+            // write too. Confirm against the session endpoint before showing the
+            // "session expired" banner. If the session is genuinely gone → "auth"
+            // (dirtyRef stays true so the change survives to be re-sent after
+            // re-login). If it was a false alarm, the write still didn't land, so
+            // keep it dirty and schedule a durable retry instead of stranding it.
+            const lost = await confirmSessionLost();
+            setStatus(lost ? "auth" : "offline");
+            if (!lost && dirtyRef.current) {
+              if (durableRetryRef.current) clearTimeout(durableRetryRef.current);
+              durableRetryRef.current = setTimeout(() => {
+                durableRetryRef.current = null;
+                scheduleWriteRef.current?.();
+              }, 15000);
+            }
+          } else {
+            setStatus("offline");
+          }
           retryCountRef.current = 0;
           return;
         }
