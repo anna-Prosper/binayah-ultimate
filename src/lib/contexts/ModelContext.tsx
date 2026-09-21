@@ -37,6 +37,31 @@ export type CustomPipeline = {
 // deleted. The delta path still ships any real local edit, so nothing is lost.
 const SNAPSHOT_SKIP_WHEN_CLEAN = new Set<string>(["databases", "dailyChecklistItems", "dailyDone", "dailyLinks"]);
 
+// MAP slices sent as ONLY their dirty (locally-edited) keys, never the whole map.
+// These merge last-write-wins per key on the server, so re-sending a key this client
+// merely READ (in a full-map push or the 60s reconciliation snapshot) resurrects the
+// sender's stale value and reverts another session's concurrent edit to that key — the
+// recurring "someone else's task change snapped back" bug (sync-invariant #5). Sending
+// only the keys this client actually changed makes concurrent edits to different keys
+// safe. `stageStatusOverrides` + `subtaskStages` were the original two; the rest are the
+// per-task metadata maps that had the same exposure. `customStages` is excluded — it is
+// union-merged (safe to send whole); per-user `notif*`/`daily*` maps are out of scope.
+const DIRTY_KEYED_MAP_SLICES = new Set<string>([
+  "owners",
+  "stageStatusOverrides",
+  "stageDescOverrides",
+  "stageDueDates",
+  "stageNameOverrides",
+  "stagePriorities",
+  "stagePointsOverride",
+  "subtaskStages",
+  "subtaskDescOverrides",
+  "subtaskDueDates",
+  "pipeDescOverrides",
+  "pipeMetaOverrides",
+  "inboxStageWorkspace",
+]);
+
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
 // user's chosen avatar in local state. Without this, picking an avatar would briefly
@@ -620,22 +645,47 @@ export function ModelProvider({
   const protectLocalSlice = useCallback((slice: string) => {
     localWritesRef.current[slice] = Date.now();
   }, []);
+  // Record every key that differs between prev and next for a DIRTY_KEYED_MAP_SLICE,
+  // so buildFullState sends only these keys. Added/changed keys go to dirtyMapKeysRef;
+  // a REMOVED key additionally queues a `_deletes` (the per-key merge never drops an
+  // absent key on its own, so without this a delete would silently resurrect on poll).
+  // Used by bulk/cascade/rekey/delete writers and the whole-map Dispatch wrappers where
+  // the caller doesn't hand us a single key. Marks the slice dirty + bumps the action
+  // counter exactly once, only when something actually changed.
+  const markChangedMapKeys = useCallback((slice: string, prev: Record<string, unknown>, next: Record<string, unknown>) => {
+    const keys = dirtyMapKeysRef.current[slice] ?? new Set<string>();
+    let changed = false;
+    for (const k of new Set([...Object.keys(prev), ...Object.keys(next)])) {
+      const a = prev[k], b = next[k];
+      if (a === b) continue;
+      // value-equality for object values (owners arrays, pipeMeta objects, reactions maps)
+      if (a && b && typeof a === "object" && typeof b === "object" && JSON.stringify(a) === JSON.stringify(b)) continue;
+      changed = true;
+      if (b === undefined) queueDelete(slice, k); // key removed → propagate the deletion
+      else keys.add(k);
+    }
+    if (changed) {
+      dirtyMapKeysRef.current[slice] = keys;
+      localWritesRef.current[slice] = Date.now();
+      userActionCounterRef.current += 1;
+    }
+  }, [queueDelete]);
   const persistPipeDescOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, string>>>>((next) => {
-    markLocalWrite("pipeDescOverrides");
     setPipeDescOverrides(prev => {
       const val = typeof next === "function" ? next(prev) : next;
+      markChangedMapKeys("pipeDescOverrides", prev, val);
       lsSet("pipeDescOverrides", val);
       return val;
     });
-  }, [markLocalWrite]);
+  }, [markChangedMapKeys]);
   const persistPipeMetaOverrides = useCallback<React.Dispatch<React.SetStateAction<Record<string, { name?: string; priority?: string }>>>>((next) => {
-    markLocalWrite("pipeMetaOverrides");
     setPipeMetaOverrides(prev => {
       const val = typeof next === "function" ? next(prev) : next;
+      markChangedMapKeys("pipeMetaOverrides", prev, val);
       lsSet("pipeMetaOverrides", val);
       return val;
     });
-  }, [markLocalWrite]);
+  }, [markChangedMapKeys]);
   // Stable identity (reads only refs/consts) so callbacks that depend on it don't
   // recreate every render.
   const isProtected = useCallback((slice: string) => {
@@ -835,13 +885,22 @@ export function ModelProvider({
   const lastConflictToastRef = useRef(0);
   // Live mirror of state values mergePatch needs to read. Refs let us avoid
   // re-creating mergePatch on every render while still observing fresh values.
+  // Live mirror of every DIRTY_KEYED_MAP_SLICE — onWriteSuccess compares a just-sent key's
+  // value against the current one here so a key re-edited mid-flight stays dirty (isn't
+  // cleared) and re-sends. Must hold all 13 dirty-keyed slices.
   const stateMirrorRef = useRef({
     owners, stageStatusOverrides, stageDueDates, stagePriorities,
     stageDescOverrides, subtaskStages, subtaskDescOverrides,
+    stageNameOverrides, stagePointsOverride, subtaskDueDates,
+    pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace,
   });
   useEffect(() => {
-    stateMirrorRef.current = { owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides };
-  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides]);
+    stateMirrorRef.current = {
+      owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides,
+      stageNameOverrides, stagePointsOverride, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace,
+    };
+  }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides,
+      stageNameOverrides, stagePointsOverride, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace]);
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
@@ -1214,8 +1273,13 @@ export function ModelProvider({
   }, [approvedSubtasks, markLocalWrite, subtasks, subtaskStages]);
 
   const buildFullState = useCallback((): PatchEnvelope => {
+    // NOTE: the DIRTY_KEYED_MAP_SLICES (owners, stage*/subtask*/pipe* override maps,
+    // inboxStageWorkspace, stageStatusOverrides, subtaskStages) are deliberately NOT in
+    // this always-full literal — sending the whole map lets a stale key this client only
+    // READ clobber another session's concurrent edit (sync-invariant #5). They are emitted
+    // just below as ONLY their dirty (locally-edited) keys. customStages stays whole (it is
+    // union-merged), as do the per-user notif*/daily* maps.
     const state: Record<string, unknown> = {
-      owners,
       approvedStages, approvedSubtasks, approvedPipelines,
       reminders,
       timelineEvents,
@@ -1223,12 +1287,8 @@ export function ModelProvider({
       bugs,
       usefulLinks,
       execProposals,
-      subtasks, stageDescOverrides, stageDueDates, stageNameOverrides,
-      subtaskDescOverrides, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, customStages, customPipelines,
+      subtasks, customStages, customPipelines,
       archivedStages, archivedPipelines, archivedSubtasks,
-      stagePointsOverride,
-      stagePriorities,
-      inboxStageWorkspace,
       notifReads,
       notifDismissed,
       notifReadIds,
@@ -1247,28 +1307,24 @@ export function ModelProvider({
     // the server keeps its own copy (an absent slice is a no-op on merge).
     if (isProtected("workspaces")) state.workspaces = workspaces;
     if (isProtected("users")) state.users = users;
-    const dirtyStatusKeys = dirtyMapKeysRef.current.stageStatusOverrides;
-    if (dirtyStatusKeys?.size) {
-      state.stageStatusOverrides = Object.fromEntries(
-        [...dirtyStatusKeys]
-          .filter(key => Object.prototype.hasOwnProperty.call(stageStatusOverrides, key))
-          .map(key => [key, stageStatusOverrides[key]])
-      );
-    }
-    // subtaskStages (per-subtask kanban status) has the SAME stale-client clobber
-    // exposure as stageStatusOverrides: a MAP merged last-write-wins per key, so a
-    // second tab's 60s full snapshot re-asserting a key it merely READ would revert
-    // another client's "move to done". Send ONLY keys this client actually edited
-    // (dirty) — never the whole map — so clean keys can't clobber. The immediate
-    // persistSubtaskStageNow PATCH still carries the happy-path write; this is the
-    // durable retry/reconciliation channel.
-    const dirtySubtaskStageKeys = dirtyMapKeysRef.current.subtaskStages;
-    if (dirtySubtaskStageKeys?.size) {
-      state.subtaskStages = Object.fromEntries(
-        [...dirtySubtaskStageKeys]
-          .filter(key => Object.prototype.hasOwnProperty.call(subtaskStages, key))
-          .map(key => [key, subtaskStages[key]])
-      );
+    // Emit each dirty-keyed MAP slice as ONLY its locally-edited keys (never the whole
+    // map), so a key this client merely READ can't clobber another session's concurrent
+    // edit. The immediate/optimistic PATCH still carries the happy-path write; this is the
+    // durable retry + 60s reconciliation channel. onWriteSuccess clears confirmed keys.
+    const liveMaps: Record<string, Record<string, unknown>> = {
+      owners, stageStatusOverrides, stageDescOverrides, stageDueDates, stageNameOverrides,
+      stagePriorities, stagePointsOverride, subtaskStages, subtaskDescOverrides, subtaskDueDates,
+      pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace,
+    };
+    for (const slice of DIRTY_KEYED_MAP_SLICES) {
+      const dirty = dirtyMapKeysRef.current[slice];
+      if (!dirty?.size) continue;
+      const src = liveMaps[slice] ?? {};
+      const subset: Record<string, unknown> = {};
+      for (const key of dirty) {
+        if (Object.prototype.hasOwnProperty.call(src, key)) subset[key] = src[key];
+      }
+      if (Object.keys(subset).length > 0) state[slice] = subset;
     }
     // _deletes come ONLY from explicit user deletions recorded in pendingDeletesRef
     // (drained on write success). We never infer deletions by diffing local vs
@@ -1341,36 +1397,27 @@ export function ModelProvider({
         if (set.size === 0) delete pendingDeletesRef.current[slice];
       }
     }
-    if (sent.stageStatusOverrides && dirtyMapKeysRef.current.stageStatusOverrides) {
-      for (const key of Object.keys(sent.stageStatusOverrides)) {
-        const sentValue = sent.stageStatusOverrides[key];
-        const currentValue = stateMirrorRef.current.stageStatusOverrides[key];
-        if (currentValue === sentValue) {
-          dirtyMapKeysRef.current.stageStatusOverrides.delete(key);
-        }
+    // Clear confirmed dirty keys for every dirty-keyed MAP slice. Only clear a key whose
+    // current value still equals what we just sent — a key re-edited while the write was
+    // in flight stays dirty and re-sends on the next write (never lose a rapid re-edit).
+    const mirror = stateMirrorRef.current as Record<string, Record<string, unknown>>;
+    for (const slice of DIRTY_KEYED_MAP_SLICES) {
+      const sentMap = (sent as Record<string, unknown>)[slice];
+      const dirty = dirtyMapKeysRef.current[slice];
+      if (!sentMap || typeof sentMap !== "object" || !dirty) continue;
+      for (const key of Object.keys(sentMap as Record<string, unknown>)) {
+        if ((mirror[slice]?.[key]) === (sentMap as Record<string, unknown>)[key]) dirty.delete(key);
       }
-      if (dirtyMapKeysRef.current.stageStatusOverrides.size === 0) {
-        delete dirtyMapKeysRef.current.stageStatusOverrides;
-      }
-    }
-    if (sent.subtaskStages && dirtyMapKeysRef.current.subtaskStages) {
-      for (const key of Object.keys(sent.subtaskStages)) {
-        const sentValue = (sent.subtaskStages as Record<string, unknown>)[key];
-        if (stateMirrorRef.current.subtaskStages[key] === sentValue) {
-          dirtyMapKeysRef.current.subtaskStages.delete(key);
-        }
-      }
-      if (dirtyMapKeysRef.current.subtaskStages.size === 0) {
-        delete dirtyMapKeysRef.current.subtaskStages;
-      }
+      if (dirty.size === 0) delete dirtyMapKeysRef.current[slice];
     }
     for (const slice of MAP_SLICES) {
       const v = (sent as Record<string, unknown>)[slice];
       if (v && typeof v === "object" && !Array.isArray(v)) {
         const keys = Object.keys(v as Record<string, unknown>);
-        // These two send only their DIRTY subset (not the whole map), so union
-        // into the known-server-keys set instead of replacing it.
-        if (slice === "stageStatusOverrides" || slice === "subtaskStages") {
+        // Dirty-keyed slices send only a DIRTY subset (not the whole map), so UNION into
+        // the known-server-keys set rather than replacing it (a subset would otherwise
+        // shrink the set and wrongly infer deletions for keys we simply didn't re-send).
+        if (DIRTY_KEYED_MAP_SLICES.has(slice)) {
           serverKeysRef.current[slice] = new Set([...(serverKeysRef.current[slice] ?? []), ...keys]);
         } else {
           serverKeysRef.current[slice] = new Set(keys);
@@ -1911,8 +1958,11 @@ export function ModelProvider({
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleClaim = (sid: string) => {
     if (!currentUser) return;
-    const alreadyOwner = (owners[sid] || []).includes(currentUser);
-    markLocalWrite("owners");
+    const cur = owners[sid] || [];
+    const alreadyOwner = cur.includes(currentUser);
+    // toggling off the sole owner removes the key → must go through _deletes
+    if (alreadyOwner && cur.length === 1) { queueDelete("owners", sid); markLocalWrite("owners"); }
+    else markLocalWrite("owners", sid);
     setOwners(prev => {
       const c = prev[sid] || [];
       if (c.includes(currentUser)) {
@@ -1985,7 +2035,7 @@ export function ModelProvider({
 	      }
 	      return copy;
 	    };
-	    markLocalWrite("owners");
+	    markChangedMapKeys("owners", owners, applyAssignment(owners));
 	    setOwners(applyAssignment);
 	    if (isNewAssignment && userId) {
 	      const preview = applyAssignment(owners);
@@ -2022,7 +2072,10 @@ export function ModelProvider({
     const pendingKey = `${sid}::${emoji}`;
     pendingReactionsRef.current.add(pendingKey);
     setReactions(next);
-    patchState({ reactions: next }).then(result => {
+    // Send ONLY the reacted key, not the whole reactions map — `reactions` merges
+    // last-write-wins per key, so a full-map push would revert another session's
+    // concurrent reaction on a different task. Server unions {[sid]} into the rest.
+    patchState({ reactions: { [sid]: s } }).then(result => {
       pendingReactionsRef.current.delete(pendingKey);
       if (!result.ok) {
         if (result.status === 423) {
@@ -2183,7 +2236,7 @@ export function ModelProvider({
       return next;
     });
 
-    markLocalWrite("subtaskDescOverrides");
+    markLocalWrite("subtaskDescOverrides", newKey);
     setSubtaskDescOverrides(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -2193,7 +2246,7 @@ export function ModelProvider({
       return next;
     });
 
-    markLocalWrite("subtaskDueDates");
+    markLocalWrite("subtaskDueDates", newKey);
     setSubtaskDueDates(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -2203,7 +2256,7 @@ export function ModelProvider({
       return next;
     });
 
-    markLocalWrite("owners");
+    markLocalWrite("owners", newKey);
     setOwners(prev => {
       if (!(oldKey in prev)) return prev;
       const entry = prev[oldKey];
@@ -2421,24 +2474,24 @@ export function ModelProvider({
     if (requestInsteadOfMutate("edit", name, "edit task description", `Change description for "${name}" to:\n\n${val}`, { requestedValue: val })) return;
     const previous = stateMirrorRef.current.stageDescOverrides[name] || "";
     stateMirrorRef.current.stageDescOverrides = { ...stateMirrorRef.current.stageDescOverrides, [name]: val };
-    markLocalWrite("stageDescOverrides");
+    markLocalWrite("stageDescOverrides", name);
     setStageDescOverrides(prev => ({ ...prev, [name]: val }));
     lsSet("stageDescOverrides", { ...stageDescOverrides, [name]: val });
     notifyDescriptionMentions(name, val, previous, stageNameOverrides[name] || name);
   };
   const setStageDueDate = (name: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", name, "set due date", val ? `Set due date for "${name}" to ${val}.` : `Clear due date for "${name}".`, { requestedValue: val })) return;
-    markLocalWrite("stageDueDates");
     const nextStageDueDates = { ...stageDueDates };
-    if (!val) delete nextStageDueDates[name]; else nextStageDueDates[name] = val;
+    if (!val) { delete nextStageDueDates[name]; queueDelete("stageDueDates", name); markLocalWrite("stageDueDates"); }
+    else { nextStageDueDates[name] = val; markLocalWrite("stageDueDates", name); }
     setStageDueDates(nextStageDueDates);
     lsSet("stageDueDates", nextStageDueDates);
   };
   const setStagePriority = (stageId: string, val: "NOW" | "HIGH" | "MEDIUM" | "LOW" | null) => {
     if (requestInsteadOfMutate("edit", stageId, "set priority", val ? `Set priority for "${stageId}" to ${val}.` : `Clear priority for "${stageId}".`, { requestedValue: val })) return;
-    markLocalWrite("stagePriorities");
     const nextStagePriorities = { ...stagePriorities };
-    if (!val) delete nextStagePriorities[stageId]; else nextStagePriorities[stageId] = val;
+    if (!val) { delete nextStagePriorities[stageId]; queueDelete("stagePriorities", stageId); markLocalWrite("stagePriorities"); }
+    else { nextStagePriorities[stageId] = val; markLocalWrite("stagePriorities", stageId); }
     setStagePriorities(nextStagePriorities);
     lsSet("stagePriorities", nextStagePriorities);
   };
@@ -2447,9 +2500,9 @@ export function ModelProvider({
     const nextDesc = desc || "";
     const previous = stateMirrorRef.current.subtaskDescOverrides[key] || "";
     stateMirrorRef.current.subtaskDescOverrides = { ...stateMirrorRef.current.subtaskDescOverrides, [key]: nextDesc };
-    markLocalWrite("subtaskDescOverrides");
     const nextSubtaskDescOverrides = { ...subtaskDescOverrides };
-    if (desc === null) delete nextSubtaskDescOverrides[key]; else nextSubtaskDescOverrides[key] = desc;
+    if (desc === null) { delete nextSubtaskDescOverrides[key]; queueDelete("subtaskDescOverrides", key); markLocalWrite("subtaskDescOverrides"); }
+    else { nextSubtaskDescOverrides[key] = desc; markLocalWrite("subtaskDescOverrides", key); }
     setSubtaskDescOverrides(nextSubtaskDescOverrides);
     lsSet("subtaskDescOverrides", nextSubtaskDescOverrides);
     const parsed = SubtaskKey.isValid(key) ? SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]) : null;
@@ -2458,22 +2511,22 @@ export function ModelProvider({
   };
   const setSubtaskDueDate = (key: string, val: string | null) => {
     if (requestInsteadOfMutate("edit", key, "set subtask due date", val ? `Set due date for "${key}" to ${val}.` : `Clear due date for "${key}".`, { requestedValue: val })) return;
-    markLocalWrite("subtaskDueDates");
     const nextSubtaskDueDates = { ...subtaskDueDates };
-    if (!val) delete nextSubtaskDueDates[key]; else nextSubtaskDueDates[key] = val;
+    if (!val) { delete nextSubtaskDueDates[key]; queueDelete("subtaskDueDates", key); markLocalWrite("subtaskDueDates"); }
+    else { nextSubtaskDueDates[key] = val; markLocalWrite("subtaskDueDates", key); }
     setSubtaskDueDates(nextSubtaskDueDates);
     lsSet("subtaskDueDates", nextSubtaskDueDates);
   };
   const setStageNameOverride = (name: string, val: string) => {
     if (requestInsteadOfMutate("edit", name, "rename task", `Rename "${name}" to "${val}".`, { requestedValue: val })) return;
-    markLocalWrite("stageNameOverrides");
+    markLocalWrite("stageNameOverrides", name);
     setStageNameOverrides(prev => ({ ...prev, [name]: val }));
     lsSet("stageNameOverrides", { ...stageNameOverrides, [name]: val });
   };
   const setStagePointsOverride = (stageId: string, pts: number | null) => {
-    markLocalWrite("stagePointsOverride");
     const nextStagePointsOverride = { ...stagePointsOverride };
-    if (pts === null) { delete nextStagePointsOverride[stageId]; } else { nextStagePointsOverride[stageId] = pts; }
+    if (pts === null) { delete nextStagePointsOverride[stageId]; queueDelete("stagePointsOverride", stageId); markLocalWrite("stagePointsOverride"); }
+    else { nextStagePointsOverride[stageId] = pts; markLocalWrite("stagePointsOverride", stageId); }
     setStagePointsOverrideState(nextStagePointsOverride);
     lsSet("stagePointsOverride", nextStagePointsOverride);
   };
@@ -2654,7 +2707,7 @@ export function ModelProvider({
     // Tag the Inbox task to a workspace so it's only visible to that workspace's
     // members (falls back to the default workspace when none is provided).
     const tagWs = workspaceId || DEFAULT_WORKSPACE_ID;
-    markLocalWrite("inboxStageWorkspace");
+    markLocalWrite("inboxStageWorkspace", trimmed);
     setInboxStageWorkspace(prev => ({ ...prev, [trimmed]: tagWs }));
     logActivity("create", trimmed, "added to inbox", ADMIN_IDS);
     // Push immediately — see addCustomStage rationale.
@@ -2668,7 +2721,7 @@ export function ModelProvider({
       .then(r => r.ok ? r.json() : null)
       .then((data: { points?: number } | null) => {
         if (data && typeof data.points === "number") {
-          markLocalWrite("stagePointsOverride");
+          markLocalWrite("stagePointsOverride", trimmed);
           setStagePointsOverrideState(prev => ({ ...prev, [trimmed]: data.points! }));
         }
       })
@@ -2713,7 +2766,7 @@ export function ModelProvider({
 
   const cyclePriority = (pid: string, cur: string) => {
     const next = PRIORITY_CYCLE[(PRIORITY_CYCLE.indexOf(cur as typeof PRIORITY_CYCLE[number]) + 1) % PRIORITY_CYCLE.length];
-    markLocalWrite("pipeMetaOverrides");
+    markLocalWrite("pipeMetaOverrides", pid);
     setPipeMetaOverrides(prev => ({ ...prev, [pid]: { ...(prev[pid] || {}), priority: next } }));
   };
 
