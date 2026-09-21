@@ -86,3 +86,32 @@ describe("dirty-keyed MAP slice sync (sync-invariant #5)", () => {
     expect(setSrc).not.toContain('"customStages"');
   });
 });
+
+describe("status slices are focused-only (server strips them from bulk patches)", () => {
+  it("declares FOCUSED_ONLY_STATUS_SLICES with both status slices", () => {
+    const at = SRC.indexOf("const FOCUSED_ONLY_STATUS_SLICES = new Set<string>([");
+    expect(at).toBeGreaterThan(-1);
+    const block = SRC.slice(at, SRC.indexOf("]);", at));
+    expect(block).toContain('"stageStatusOverrides"');
+    expect(block).toContain('"subtaskStages"');
+  });
+
+  it("buildFullState skips focused-only status slices in the bulk delta", () => {
+    // The dirty-keys emission loop must `continue` on FOCUSED_ONLY_STATUS_SLICES,
+    // else a bulk envelope carries a status the server silently strips and
+    // onWriteSuccess wrongly marks it confirmed (status reverts).
+    expect(SRC).toContain("if (FOCUSED_ONLY_STATUS_SLICES.has(slice)) continue;");
+  });
+});
+
+describe("migrateSubtask propagates the old-stage removal (no dedup snap-back)", () => {
+  it("queueDeletes the old subtask member on migrate", () => {
+    // Without this, the server keeps the subtask under the old stage and
+    // dedupeSubtasksAcrossStages converges the id back — the move reverts.
+    const at = SRC.indexOf("const migrateSubtask = useCallback(");
+    expect(at).toBeGreaterThan(-1);
+    const body = SRC.slice(at, at + 2000);
+    expect(body).toContain('queueDelete("subtasks", `${oldParent}::${subtaskId}`)');
+    expect(body).toContain("unconfirmedSubtaskKeysRef.current.add(`${newParentStageId}::${subtaskId}`)");
+  });
+});

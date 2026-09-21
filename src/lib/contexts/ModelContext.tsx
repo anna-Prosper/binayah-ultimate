@@ -62,6 +62,16 @@ const DIRTY_KEYED_MAP_SLICES = new Set<string>([
   "inboxStageWorkspace",
 ]);
 
+// stageStatusOverrides + subtaskStages are dirty-key TRACKED (for the focused
+// persistStageStatusNow/persistSubtaskStageNow writes), but the server STRIPS them
+// from any multi-key (bulk) patch — only a single-key "focused" status patch may
+// mutate status (see /api/pipeline-state route: a stale tab's broad autosave must not
+// move a card back). So they must NEVER ride the bulk buildFullState delta: doing so
+// sent a value the server silently discarded, and onWriteSuccess then marked it
+// "confirmed" — cancelling the retry for a status the server never stored (reverts).
+// Emit + confirm these ONLY via the focused path; skip them in the bulk delta.
+const FOCUSED_ONLY_STATUS_SLICES = new Set<string>(["stageStatusOverrides", "subtaskStages"]);
+
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
 // user's chosen avatar in local state. Without this, picking an avatar would briefly
@@ -1317,6 +1327,9 @@ export function ModelProvider({
       pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace,
     };
     for (const slice of DIRTY_KEYED_MAP_SLICES) {
+      // status slices go ONLY via the focused persist*Now path — never the bulk delta
+      // (the server strips them from multi-key patches); see FOCUSED_ONLY_STATUS_SLICES.
+      if (FOCUSED_ONLY_STATUS_SLICES.has(slice)) continue;
       const dirty = dirtyMapKeysRef.current[slice];
       if (!dirty?.size) continue;
       const src = liveMaps[slice] ?? {};
@@ -2035,10 +2048,15 @@ export function ModelProvider({
 	      }
 	      return copy;
 	    };
-	    markChangedMapKeys("owners", owners, applyAssignment(owners));
-	    setOwners(applyAssignment);
+	    // Compute the cascade ONCE (was run 3×) and use it for the dirty-key diff, the
+	    // state set, and the focused patch — so the recorded dirty/deleted keys exactly
+	    // match what's applied (a closure-vs-functional-prev mismatch could otherwise miss
+	    // a cascaded subtask-owner delete and let a poll resurrect it).
+	    const nextOwners = applyAssignment(owners);
+	    markChangedMapKeys("owners", owners, nextOwners);
+	    setOwners(nextOwners);
 	    if (isNewAssignment && userId) {
-	      const preview = applyAssignment(owners);
+	      const preview = nextOwners;
 	      const assignedName = assignee?.name || userId;
 	      patchState({
 	        owners: { [sid]: preview[sid] || nextStageOwners },
@@ -2098,7 +2116,14 @@ export function ModelProvider({
     const trimmed = val.trim();
     if (trimmed.length > MAX_SUBTASK_LEN) { showToast(`// subtask too long — max ${MAX_SUBTASK_LEN} chars`, t.red); return null; }
     if ((subtasks[sid] || []).length >= MAX_SUBTASKS) { showToast(`// max ${MAX_SUBTASKS} subtasks per stage`, t.amber); return null; }
-    const taskId = Date.now();
+    // Subtask ids double as their metadata key (`${stage}::${id}`) and are assumed
+    // globally unique. Date.now() collides on a double-submit within the same ms —
+    // two subtasks then share one id and every id-keyed op mutates both. Bump past any
+    // existing id (across ALL stages) to guarantee uniqueness.
+    const existingIds = new Set<number>();
+    for (const arr of Object.values(subtasks)) for (const st of arr) existingIds.add(st.id);
+    let taskId = Date.now();
+    while (existingIds.has(taskId)) taskId++;
     markLocalWrite("subtasks");
     unconfirmedSubtaskKeysRef.current.add(`${sid}::${taskId}`);
     setSubtasks(prev => ({ ...prev, [sid]: [...(prev[sid] || []), { id: taskId, text: trimmed, done: false, by: currentUser }] }));
@@ -2183,12 +2208,25 @@ export function ModelProvider({
 
     // Atomic local state updates
     markLocalWrite("subtasks");
+    // CRITICAL: propagate the removal of the OLD-stage copy. Without this the server
+    // (keep-existing merge) still holds the subtask under oldParent, and its
+    // dedupeSubtasksAcrossStages then converges the id back to the old stage — the move
+    // silently reverts. Mirror removeSubtask: queueDelete the old member, clear its
+    // unconfirmed flag, and mark the NEW copy unconfirmed so a poll can't drop it before
+    // the add lands. (Old per-key metadata strays are folded onto the new stage by the
+    // server's consolidateStraySubtaskMetadata self-heal.)
+    queueDelete("subtasks", `${oldParent}::${subtaskId}`);
+    unconfirmedSubtaskKeysRef.current.delete(`${oldParent}::${subtaskId}`);
+    unconfirmedSubtaskKeysRef.current.add(`${newParentStageId}::${subtaskId}`);
     setSubtasks(prev => {
       const oldList = prev[oldParent] || [];
       const moving = oldList.find(s => s.id === subtaskId);
       if (!moving) return prev;
       const newOldList = oldList.filter(s => s.id !== subtaskId);
-      const newNewList = [...(prev[newParentStageId] || []), moving];
+      // Guard against a same-id collision at the destination (ids are timestamps): if
+      // the target already holds this id, replace it rather than push a duplicate.
+      const destList = (prev[newParentStageId] || []).filter(s => s.id !== subtaskId);
+      const newNewList = [...destList, moving];
       return { ...prev, [oldParent]: newOldList, [newParentStageId]: newNewList };
     });
 
