@@ -8,6 +8,12 @@ import ChatMessage from "@/lib/ChatMessage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Hold the SSE connection open for the platform max (5 min) instead of the short
+// default. Without this, Vercel killed the function after ~15s — before the 30s
+// keep-alive ping even fired — so every client reconnected every ~15s, producing the
+// perpetual "reconnecting…" flicker. Now the stream lasts 5 min between reconnects,
+// and the client's `since=<lastId>` catch-up makes each reconnect seamless.
+export const maxDuration = 300;
 
 type ChatMsg = { id: number; userId: string; text: string; time: string; workspaceId?: string; threadId?: string; attachments?: unknown[] };
 type ActivityItem = { type: string; user: string; target: string; detail: string; time: number; notifyTo?: string[] };
