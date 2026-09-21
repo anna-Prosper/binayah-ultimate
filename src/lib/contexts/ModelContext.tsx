@@ -72,6 +72,17 @@ const DIRTY_KEYED_MAP_SLICES = new Set<string>([
 // Emit + confirm these ONLY via the focused path; skip them in the bulk delta.
 const FOCUSED_ONLY_STATUS_SLICES = new Set<string>(["stageStatusOverrides", "subtaskStages"]);
 
+// Genuine deep equality (order-sensitive; a false "not equal" only costs an extra
+// render, never wrong data). Used to bail a poll-hydrate setX when the server value
+// is identical to current state: `setX(prev => sameJSON(server, prev) ? prev : server)`
+// returns the SAME reference, so React skips the re-render. Every poll returns the
+// whole state, mostly unchanged — without this each poll re-set a fresh-but-equal
+// object and re-rendered the entire board every ~5s.
+function sameJSON(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  try { return JSON.stringify(a) === JSON.stringify(b); } catch { return false; }
+}
+
 // Take name/role/color from USERS_DEFAULT — preserve avatar/aiAvatar from saved state.
 // Use `||` (not `??`) so an empty-string avatar from the server doesn't clobber a
 // user's chosen avatar in local state. Without this, picking an avatar would briefly
@@ -979,7 +990,7 @@ export function ModelProvider({
         }
       }
       prevClaimsRef.current = merged;
-      if (!isProtected("owners")) setOwners(merged);
+      if (!isProtected("owners")) setOwners(prev => sameJSON(merged, prev) ? prev : merged);
     }
     if (s.reactions) {
       const prev = prevReactionsRef.current;
@@ -1004,12 +1015,12 @@ export function ModelProvider({
       prevReactionsRef.current = s.reactions as Record<string, Record<string, string[]>>;
       // Don't overwrite reactions if there are in-flight optimistic toggles pending
       if (pendingReactionsRef.current.size === 0) {
-        setReactions(s.reactions);
+        setReactions(prev => sameJSON(s.reactions, prev) ? prev : (s.reactions as Record<string, Record<string, string[]>>));
       }
     }
-    if (s.activityLog) setActivityLog(s.activityLog);
-    if (s.reminders && !isProtected("reminders")) setReminders(s.reminders as ReminderItem[]);
-    if (s.timelineEvents && !isProtected("timelineEvents")) setTimelineEvents(s.timelineEvents as TimelineEvent[]);
+    if (s.activityLog) setActivityLog(prev => sameJSON(s.activityLog, prev) ? prev : (s.activityLog as typeof prev));
+    if (s.reminders && !isProtected("reminders")) setReminders(prev => sameJSON(s.reminders, prev) ? prev : (s.reminders as ReminderItem[]));
+    if (s.timelineEvents && !isProtected("timelineEvents")) setTimelineEvents(prev => sameJSON(s.timelineEvents, prev) ? prev : (s.timelineEvents as TimelineEvent[]));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).databases && !isProtected("databases")) {
       // Normalize: ensure every DB has a views array (older/migrated DBs may lack it)
@@ -1042,11 +1053,12 @@ export function ModelProvider({
           return pendingRows.length ? { ...sdb, rows: [...sdb.rows, ...pendingRows] } : sdb;
         });
         const pendingDbs = local.filter(d => !serverIds.has(d.id) && nowTs - (typeof d.id === "number" ? d.id : 0) < DB_GRACE_MS);
-        return pendingDbs.length ? [...merged, ...pendingDbs] : merged;
+        const result = pendingDbs.length ? [...merged, ...pendingDbs] : merged;
+        return sameJSON(result, local) ? local : result; // bail on identical poll
       });
     }
-    if (s.notes && !isProtected("notes")) setNotes(s.notes as NoteItem[]);
-    if (s.bugs && !isProtected("bugs")) setBugs(s.bugs as BugItem[]);
+    if (s.notes && !isProtected("notes")) setNotes(prev => sameJSON(s.notes, prev) ? prev : (s.notes as NoteItem[]));
+    if (s.bugs && !isProtected("bugs")) setBugs(prev => sameJSON(s.bugs, prev) ? prev : (s.bugs as BugItem[]));
     const dailyItemsIncoming = (s as Record<string, unknown>).dailyChecklistItems;
     if (dailyItemsIncoming && !isProtected("dailyChecklistItems")) {
       // Merge, don't wholesale-replace: a poll computed before a just-added item's
@@ -1059,11 +1071,12 @@ export function ModelProvider({
       setDailyChecklistItems(local => {
         const serverIds = new Set(remote.map(i => i.id));
         const pending = local.filter(i => !serverIds.has(i.id) && nowTs - (i.id ?? 0) < DAILY_ITEM_GRACE_MS);
-        return pending.length ? [...remote, ...pending] : remote;
+        const result = pending.length ? [...remote, ...pending] : remote;
+        return sameJSON(result, local) ? local : result; // bail on identical poll
       });
     }
-    if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(s.usefulLinks as UsefulLinkItem[]);
-    if (s.execProposals && !isProtected("execProposals")) setExecProposals(s.execProposals as ExecProposal[]);
+    if (s.usefulLinks && !isProtected("usefulLinks")) setUsefulLinks(prev => sameJSON(s.usefulLinks, prev) ? prev : (s.usefulLinks as UsefulLinkItem[]));
+    if (s.execProposals && !isProtected("execProposals")) setExecProposals(prev => sameJSON(s.execProposals, prev) ? prev : (s.execProposals as ExecProposal[]));
     if (s.subtasks && !isProtected("subtasks")) {
       // Merge rather than wholesale-replace (mirrors the databases handling above).
       // A poll response computed before our just-added task was persisted would
@@ -1089,7 +1102,7 @@ export function ModelProvider({
           });
           if (pending.length) merged[stage] = [...remoteList, ...pending];
         }
-        return merged;
+        return sameJSON(merged, local) ? local : merged; // bail on identical poll — no board re-render
       });
     }
     if (s.comments && !isProtected("comments")) {
@@ -1149,7 +1162,7 @@ export function ModelProvider({
       }
     }
     if (s.commentReactions) {
-      setCommentReactions(s.commentReactions as Record<string, Record<string, string[]>>);
+      setCommentReactions(prev => sameJSON(s.commentReactions, prev) ? prev : (s.commentReactions as Record<string, Record<string, string[]>>));
     }
     if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) {
       if (isInitialHydrateRef.current) {
@@ -1159,7 +1172,7 @@ export function ModelProvider({
         // here would flash the stale status until the next poll corrects it (~10s).
         setStageStatusOverrides(prev => ({ ...s.stageStatusOverrides!, ...prev }));
       } else {
-        setStageStatusOverrides(s.stageStatusOverrides);
+        setStageStatusOverrides(prev => sameJSON(s.stageStatusOverrides, prev) ? prev : s.stageStatusOverrides!);
       }
     }
     // Helper: on initial hydrate, merge server-into-local giving local precedence
@@ -1168,12 +1181,16 @@ export function ModelProvider({
     const mergeMapOnHydrate = <T extends Record<string, unknown>>(
       serverVal: T,
       setter: (fn: (prev: T) => T) => void,
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       directSetter: (val: T) => void,
     ) => {
       if (isInitialHydrateRef.current) {
         setter(prev => ({ ...serverVal, ...prev }));
       } else {
-        directSetter(serverVal);
+        // Server wins on polls — but bail (return prev ref) when identical so React
+        // doesn't re-render the board for a no-op map. (Was: directSetter(serverVal),
+        // which always set a fresh-but-equal object every poll.)
+        setter(prev => sameJSON(serverVal, prev) ? prev : serverVal);
       }
     };
     if (s.stageDescOverrides && !isProtected("stageDescOverrides"))
@@ -1202,16 +1219,16 @@ export function ModelProvider({
       mergeMapOnHydrate(s.pipeDescOverrides as Record<string, unknown>, setPipeDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeDescOverrides(v as Record<string, string>));
     if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides"))
       mergeMapOnHydrate(s.pipeMetaOverrides as Record<string, unknown>, setPipeMetaOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeMetaOverrides(v as Record<string, { name?: string; priority?: string }>));
-    if (s.customStages && !isProtected("customStages")) setCustomStages(s.customStages);
-    if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(s.customPipelines as CustomPipeline[]);
+    if (s.customStages && !isProtected("customStages")) setCustomStages(prev => sameJSON(s.customStages, prev) ? prev : (s.customStages as Record<string, string[]>));
+    if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(prev => sameJSON(s.customPipelines, prev) ? prev : (s.customPipelines as CustomPipeline[]));
     if (s.users && !isProtected("users")) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
-    if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(s.workspaces as Workspace[]);
+    if (s.workspaces && Array.isArray(s.workspaces) && s.workspaces.length > 0 && !isProtected("workspaces")) setWorkspaces(prev => sameJSON(s.workspaces, prev) ? prev : (s.workspaces as Workspace[]));
     // Archive slices always MERGE (union) with local state — never replace.
     // Replacing causes items archived locally to vanish when the next poll
     // arrives before the sync write has flushed to the server.
-    if (s.archivedStages) setArchivedStages(prev => Array.from(new Set([...prev, ...(s.archivedStages as string[])])));
-    if (s.archivedPipelines) setArchivedPipelines(prev => Array.from(new Set([...prev, ...(s.archivedPipelines as string[])])));
-    if (s.archivedSubtasks) setArchivedSubtasks(prev => Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])));
+    if (s.archivedStages) setArchivedStages(prev => { const next = Array.from(new Set([...prev, ...(s.archivedStages as string[])])); return sameJSON(next, prev) ? prev : next; });
+    if (s.archivedPipelines) setArchivedPipelines(prev => { const next = Array.from(new Set([...prev, ...(s.archivedPipelines as string[])])); return sameJSON(next, prev) ? prev : next; });
+    if (s.archivedSubtasks) setArchivedSubtasks(prev => { const next = Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])); return sameJSON(next, prev) ? prev : next; });
     if (s.stagePointsOverride && !isProtected("stagePointsOverride"))
       mergeMapOnHydrate(s.stagePointsOverride as Record<string, unknown>, setStagePointsOverrideState as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePointsOverrideState(v as Record<string, number>));
     // Apply the server's approval sets, but keep any local approval whose write
@@ -1219,17 +1236,18 @@ export function ModelProvider({
     // flip a just-made approval back to "needs approval". Confirmed/un-approved
     // keys are removed from the un-confirmed set elsewhere, so removals still
     // propagate normally.
-    const applyApprovalSet = (server: string[], slice: "approvedStages" | "approvedSubtasks" | "approvedPipelines", setter: (v: string[]) => void) => {
+    const applyApprovalSet = (server: string[], slice: "approvedStages" | "approvedSubtasks" | "approvedPipelines", setter: React.Dispatch<React.SetStateAction<string[]>>) => {
       if (isProtected(slice)) return;
       const unconf = unconfirmedApprovalsRef.current[slice];
-      setter(unconf.size ? Array.from(new Set([...server, ...unconf])) : server);
+      const next = unconf.size ? Array.from(new Set([...server, ...unconf])) : server;
+      setter(prev => sameJSON(next, prev) ? prev : next);
     };
     if (s.approvedStages) applyApprovalSet(s.approvedStages as string[], "approvedStages", setApprovedStages);
     if (s.approvedSubtasks) applyApprovalSet(s.approvedSubtasks as string[], "approvedSubtasks", setApprovedSubtasks);
     if (s.approvedPipelines) applyApprovalSet(s.approvedPipelines as string[], "approvedPipelines", setApprovedPipelines);
-    if (s.notifReads && !isProtected("notifReads")) setNotifReads(s.notifReads as Record<string, number>);
-    if (s.notifDismissed && !isProtected("notifDismissed")) setNotifDismissed(s.notifDismissed as Record<string, string[]>);
-    if (s.notifReadIds && !isProtected("notifReadIds")) setNotifReadIds(s.notifReadIds as Record<string, string[]>);
+    if (s.notifReads && !isProtected("notifReads")) setNotifReads(prev => sameJSON(s.notifReads, prev) ? prev : (s.notifReads as Record<string, number>));
+    if (s.notifDismissed && !isProtected("notifDismissed")) setNotifDismissed(prev => sameJSON(s.notifDismissed, prev) ? prev : (s.notifDismissed as Record<string, string[]>));
+    if (s.notifReadIds && !isProtected("notifReadIds")) setNotifReadIds(prev => sameJSON(s.notifReadIds, prev) ? prev : (s.notifReadIds as Record<string, string[]>));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
     // Mark initial hydrate complete — subsequent calls will fire claim/reaction notifications

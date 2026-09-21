@@ -468,30 +468,31 @@ export default function TasksView(props: Props) {
   // currently visible workspace pipelines so unrelated "unknown parent" subtasks
   // from other workspaces do not bleed into this board.
   const subtaskKanbanTasks = useMemo(() => {
+    // Build a stage → parent-pipeline index ONCE (was an O(subtasks × pipelines ×
+    // stages) nested scan per subtask). First pipeline that owns a stage wins, same
+    // as the previous `break`. allStages is the workspace-scoped list, so another
+    // workspace's Inbox subtasks don't leak onto this board.
+    const stageToPipeline = new Map<string, { id: string; icon: string; name: string; color: string }>();
+    for (const p of pipelines) {
+      const pStages = (p as { allStages?: string[] }).allStages || [...(p.stages || []), ...(customStages[p.id] || [])];
+      for (const st of pStages) {
+        if (!stageToPipeline.has(st)) {
+          stageToPipeline.set(st, { id: p.id, icon: p.icon, name: (p as { displayName?: string }).displayName || p.name, color: ck[p.colorKey] || t.accent });
+        }
+      }
+    }
     const tasks: SubtaskKanbanTask[] = [];
     for (const [parentStageId, subtaskList] of Object.entries(subtasks || {})) {
+      const parentInfo = stageToPipeline.get(parentStageId);
+      if (!parentInfo) continue;
+      const pipelineId = parentInfo.id;
+      const pipelineIcon = parentInfo.icon;
+      const pipelineName = parentInfo.name;
+      const pipelineColor = parentInfo.color;
       for (const sub of subtaskList) {
         const key = SubtaskKey.make(parentStageId, sub.id);
         if (archivedSubtaskKeySet.has(key)) continue;
         const parentStageName = stageNameOverrides?.[parentStageId] || parentStageId;
-        let pipelineId = "";
-        let pipelineIcon = "";
-        let pipelineName = "";
-        let pipelineColor = "";
-        for (const p of pipelines) {
-          // Use the pipeline's workspace-scoped stage list (allStages). For the
-          // virtual Inbox pipeline this is the per-workspace subset, so subtasks
-          // of another workspace's Inbox tasks don't leak onto this board.
-          const pStages = (p as { allStages?: string[] }).allStages || [...(p.stages || []), ...(customStages[p.id] || [])];
-          if (pStages.includes(parentStageId)) {
-            pipelineId = p.id;
-            pipelineIcon = p.icon;
-            pipelineName = (p as { displayName?: string }).displayName || p.name;
-            pipelineColor = ck[p.colorKey] || t.accent;
-            break;
-          }
-        }
-        if (!pipelineId) continue;
         const wsInfo = pipelineWorkspaceMap?.[pipelineId];
         const status = normalizeStageStatus(subtaskStages?.[key] || (sub.done ? "active" : "planned"));
         tasks.push({
