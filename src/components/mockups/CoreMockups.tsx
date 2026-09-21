@@ -54,7 +54,7 @@ export function KnowledgeBase({ t }: { t: T }) {
 
 export function KPIDashboard({ t }: { t: T }) {
   return (
-    <Browser t={t} url="crm.binayah.com/kpi">
+    <Browser t={t} url="crm.binayah.ae/kpi">
       <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Response" value="47s" color={t.green}/>
         <Stat t={t} label="Conv %" value="3.8" color={t.accent}/>

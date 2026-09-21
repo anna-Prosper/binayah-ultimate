@@ -101,7 +101,7 @@ export function WACommunities({ t }: { t: T }) {
 
 export function InvestorPortal({ t }: { t: T }) {
   return (
-    <Browser t={t} url="portal.binayah.com/portfolio">
+    <Browser t={t} url="portal.binayah.ae/portfolio">
       <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Occupancy" value="94%" color={t.green}/>
         <Stat t={t} label="Rent YTD" value="142K" color={t.accent}/>

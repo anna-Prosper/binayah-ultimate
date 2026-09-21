@@ -7,7 +7,7 @@ import { ScoreCircle } from "@/components/ui/primitives";
 
 export function LoginMyList({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/account">
+    <Browser t={t} url="binayah.ae/account">
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
         <div style={{width:28,height:28,borderRadius:"50%",background:t.accent+"22",border:`2px solid ${t.accent}44`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13}}>👤</div>
         <div>
@@ -27,7 +27,7 @@ export function LoginMyList({ t }: { t: T }) {
 
 export function PropertyMap({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/map">
+    <Browser t={t} url="binayah.ae/map">
       <div style={{display:"flex",flexDirection:"column",gap:2.5}}>
         {[{zone:"Marina",sqft:"1,840",trend:"+2.1%",risk:"⚠ 3 towers u/c",c:t.accent},{zone:"JVC",sqft:"980",trend:"+1.4%",risk:"✓ Low risk",c:t.green},{zone:"Downtown",sqft:"2,240",trend:"+3.1%",risk:"⚠ High service charge",c:t.amber}].map((x,i)=>(
           <div key={i} style={{background:t.surface,borderRadius:8,padding:"4px 4px",borderLeft:`2.5px solid ${x.c}`}}>
@@ -51,7 +51,7 @@ export function PropertyMap({ t }: { t: T }) {
 
 export function PropertyCompare({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/compare">
+    <Browser t={t} url="binayah.ae/compare">
       {[["","Marina T2","Creek Vista"],["Price","1.8M","1.3M"],["ROI","6.5%","7.8%"],["Developer","Emaar","Sobha"],["Ready","2019","2027"],["Score","82","76"]].map((r,i)=>(
         <div key={i} style={{display:"flex",gap:4,borderBottom:i<5?`1px solid ${t.border}22`:"none",paddingBottom:0,marginBottom:0}}>
           {r.map((c,j)=>(
@@ -68,7 +68,7 @@ export function PropertyCompare({ t }: { t: T }) {
 
 export function NeighbourhoodQuiz({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/quiz">
+    <Browser t={t} url="binayah.ae/quiz">
       <div style={{textAlign:"center",marginBottom:4}}>
         <span style={{fontSize:16}}>🏠</span>
         <div style={{fontSize:10,fontWeight:800,color:t.text,marginTop:0}}>Find your Dubai community</div>
@@ -88,7 +88,7 @@ export function NeighbourhoodQuiz({ t }: { t: T }) {
 
 export function CityCalculator({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/vs/dubai-vs-moscow">
+    <Browser t={t} url="binayah.ae/vs/dubai-vs-moscow">
       {[["","🇷🇺 Moscow","🇦🇪 Dubai"],["Yield","3.2%","7.1%"],["Tax","13%+","0%"],["Visa","—","Golden ✓"],["Growth 1Y","+1.8%","+14%"],["Currency","RUB risk","USD pegged"]].map((r,i)=>(
         <div key={i} style={{display:"flex",gap:4,borderBottom:i<5?`1px solid ${t.border}22`:"none",paddingBottom:1.5,marginBottom:1.5}}>
           {r.map((c,j)=>(
@@ -102,7 +102,7 @@ export function CityCalculator({ t }: { t: T }) {
 
 export function ScamChecker({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/scam-check">
+    <Browser t={t} url="binayah.ae/scam-check">
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:4}}>
         <ScoreCircle value={78} color={t.amber} size={40}/>
         <div>
@@ -123,7 +123,7 @@ export function ScamChecker({ t }: { t: T }) {
 
 export function AreaFutureMap({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/future-map">
+    <Browser t={t} url="binayah.ae/future-map">
       <div style={{fontSize:10,fontWeight:800,color:t.text,marginBottom:4}}>📍 Dubai Marina, Block 5</div>
       {[{icon:"🏗",label:"View corridor",verdict:"⚠ At risk",detail:"3 towers permitted behind",c:t.amber},{icon:"🚇",label:"Metro expansion",verdict:"✓ Line 2 planned",detail:"500m by 2028",c:t.green},{icon:"🔊",label:"Noise risk",verdict:"✓ Low",detail:"No roads planned nearby",c:t.green},{icon:"🏭",label:"Construction density",verdict:"🚨 High",detail:"12 towers in 2km radius",c:t.red},{icon:"📈",label:"Value trajectory",verdict:"✓ +8% proj.",detail:"Based on 5Y DLD data",c:t.green}].map((x,i)=>(
         <div key={i} style={{display:"flex",alignItems:"center",gap:4,padding:"1.5px 0",borderBottom:`1px solid ${t.border}11`}}>

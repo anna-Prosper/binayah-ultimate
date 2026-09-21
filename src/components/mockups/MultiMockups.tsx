@@ -7,7 +7,7 @@ import { Stat } from "@/components/ui/primitives";
 
 export function MultilingualDirs({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/tr">
+    <Browser t={t} url="binayah.ae/tr">
       <div style={{background:t.surface,borderRadius:8,padding:4,marginBottom:4}}>
         <div style={{fontSize:10.5,fontWeight:800,color:t.text}}>🏠 Binayah Dubai</div>
         <div style={{fontSize:10,color:t.textMuted}}>Dubai&apos;da en iyi gayrimenkuller</div>

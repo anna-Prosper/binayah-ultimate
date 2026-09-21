@@ -156,7 +156,7 @@ export function ROICalculator({ t }: { t: T }) {
 
 export function CryptoBuyerPage({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/buy-with-crypto">
+    <Browser t={t} url="binayah.ae/buy-with-crypto">
       <div style={{marginBottom:4}}>
         <div style={{fontSize:10,fontWeight:800,color:t.text}}>Buy Dubai Property with Crypto</div>
         <div style={{display:"flex",gap:0,marginTop:4,flexWrap:"wrap"}}>
@@ -180,7 +180,7 @@ export function CryptoBuyerPage({ t }: { t: T }) {
 
 export function AreaGuides({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/areas/downtown">
+    <Browser t={t} url="binayah.ae/areas/downtown">
       <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4}}>
         <div>
           <div style={{fontSize:10,fontWeight:800,color:t.text}}>Downtown Dubai</div>
@@ -203,7 +203,7 @@ export function AreaGuides({ t }: { t: T }) {
 
 export function MarketDashboard({ t }: { t: T }) {
   return (
-    <Browser t={t} url="binayah.com/market">
+    <Browser t={t} url="binayah.ae/market">
       <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Txns" value="1,247" color={t.accent}/>
         <Stat t={t} label="Sqft" value="1,840" color={t.green}/>
@@ -239,7 +239,7 @@ export function SocialAgent({ t }: { t: T }) {
 
 export function Newsletter({ t }: { t: T }) {
   return (
-    <Browser t={t} url="newsletter.binayah.com">
+    <Browser t={t} url="newsletter.binayah.ae">
       <div style={{display:"flex",gap:4,marginBottom:4}}>
         <Stat t={t} label="Subscribers" value="2.4K" color={t.accent}/>
         <Stat t={t} label="Open rate" value="48%" color={t.green}/>
