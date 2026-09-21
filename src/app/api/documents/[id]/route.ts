@@ -132,6 +132,17 @@ export async function DELETE(
   const { id } = await params;
 
   await connectMongo();
+
+  // Ownership guard: an owner-private doc may only be deleted by its creator — 404
+  // (not 403) so its existence isn't revealed. Mirrors the GET/PATCH guards; without
+  // this any authenticated user could destroy another user's private document.
+  const existing = await BinayahDocument.findById(id).select("createdBy visibility").lean();
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const me = session.user?.fixedUserId ?? "unknown";
+  if (existing.visibility === "owner" && existing.createdBy !== me) {
+    return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
   const doc = await BinayahDocument.findByIdAndDelete(id).lean();
   if (!doc) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

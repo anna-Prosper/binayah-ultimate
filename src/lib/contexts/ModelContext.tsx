@@ -1286,7 +1286,12 @@ export function ModelProvider({
     }
 
     if (stagesChanged) {
-      for (const key of changedStageKeys) markLocalWrite("subtaskStages", key);
+      // Local-only reconciliation: this backfills subtaskStages to match sub.done, which
+      // is derived from the `subtasks` slice (already synced). subtaskStages is
+      // focused-only, so marking these keys dirty never sends OR clears them — it just
+      // leaked into dirtyMapKeysRef for the page lifetime. A real status edit goes through
+      // setSubtaskStage/toggleSubtask → persistSubtaskStageNow; this derived backfill must
+      // not mark dirty.
       setSubtaskStages(nextSubtaskStages);
     }
     if (subtasksChanged) {
@@ -1785,6 +1790,7 @@ export function ModelProvider({
     const map: Record<string, number> = {};
     const archivedSubtaskKeySet = new Set(archivedSubtasks);
     const approvedSubtaskKeySet = new Set(approvedSubtasks);
+    const approvedStageSet = new Set(approvedStages); // O(1) membership vs repeated array scans in the U×K loop
 
     // Collect all user IDs that appear anywhere in owners
     const allUserIds = new Set<string>();
@@ -1806,7 +1812,7 @@ export function ModelProvider({
           if (!approvedSubtaskKeySet.has(key)) return;
           const parsed = SubtaskKey.parse(key as Parameters<typeof SubtaskKey.parse>[0]);
           if (!parsed) return;
-          if (approvedStages.includes(parsed.parentStageId)) return;
+          if (approvedStageSet.has(parsed.parentStageId)) return;
           const sub = (subtasks[parsed.parentStageId] || []).find(s => s.id === parsed.subtaskId);
           if (!sub) return;
           // Split subtask points among owners. Use Math.floor so totals are stable
@@ -1816,7 +1822,7 @@ export function ModelProvider({
         }
         // Stage — approving a task pays the same point value shown on its card.
         // For parent tasks this is the live subtask ledger total.
-        if (!approvedStages.includes(key)) return;
+        if (!approvedStageSet.has(key)) return;
         const stageDefaultPts = stageDefaults[key]?.points || 10;
         const stagePts = deriveStageDisplayPoints(key, subtasks[key], archivedSubtaskKeySet, stageDefaultPts, stagePointsOverride);
         p += Math.floor(stagePts / ownerCount);
@@ -2233,13 +2239,17 @@ export function ModelProvider({
     // unconfirmed flag, and mark the NEW copy unconfirmed so a poll can't drop it before
     // the add lands. (Old per-key metadata strays are folded onto the new stage by the
     // server's consolidateStraySubtaskMetadata self-heal.)
-    queueDelete("subtasks", `${oldParent}::${subtaskId}`);
-    unconfirmedSubtaskKeysRef.current.delete(`${oldParent}::${subtaskId}`);
-    unconfirmedSubtaskKeysRef.current.add(`${newParentStageId}::${subtaskId}`);
     setSubtasks(prev => {
       const oldList = prev[oldParent] || [];
       const moving = oldList.find(s => s.id === subtaskId);
+      // Only propagate the old-key delete when the item ACTUALLY moves. Queuing it
+      // unconditionally (outside this guard) would, when local trails the server for
+      // this id (a poll delivered it but the local list hasn't re-rendered), delete the
+      // server copy without creating a destination copy — destroying the subtask.
       if (!moving) return prev;
+      queueDelete("subtasks", `${oldParent}::${subtaskId}`);
+      unconfirmedSubtaskKeysRef.current.delete(`${oldParent}::${subtaskId}`);
+      unconfirmedSubtaskKeysRef.current.add(`${newParentStageId}::${subtaskId}`);
       const newOldList = oldList.filter(s => s.id !== subtaskId);
       // Guard against a same-id collision at the destination (ids are timestamps): if
       // the target already holds this id, replace it rather than push a duplicate.

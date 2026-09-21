@@ -60,6 +60,9 @@ export async function POST(req: NextRequest) {
 
   const summaryErr = validateText(summary, "summary", 12_000);
   if (summaryErr) return NextResponse.json({ error: summaryErr }, { status: 400 });
+  if (topic !== undefined && (typeof topic !== "string" || topic.length > 200)) {
+    return NextResponse.json({ error: "topic must be a string ≤ 200 chars" }, { status: 400 });
+  }
 
   // tasks is optional: the modal passes extracted tasks; the calls view passes
   // a summary that already embeds its "Next steps" list, so it sends none.

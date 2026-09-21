@@ -24,7 +24,8 @@ function groupJid(key: string): string | undefined {
 // POST — send a plain-text message to a known WhatsApp group. Server-to-server
 // only: authenticated with CRON_SECRET (the gateway is IP-locked to our servers).
 export async function POST(req: NextRequest) {
-  const secret = req.headers.get("x-cron-secret") || req.nextUrl.searchParams.get("secret");
+  // Header-only — never accept the secret via query string (leaks into access logs/Referer).
+  const secret = req.headers.get("x-cron-secret");
   if (!process.env.CRON_SECRET || secret !== process.env.CRON_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
