@@ -26,6 +26,26 @@ describe("map slices (stageStatusOverrides, owners, etc.)", () => {
     expect((next.owners as Record<string, string[]>)["Stage A"]).toEqual(["anna"]);
     expect((next.owners as Record<string, string[]>)["Stage B"]).toEqual(["usama", "aakarshit"]);
   });
+
+  // Concurrent-edit safety for every dirty-keyed metadata map: when each client
+  // sends ONLY the key it changed, a second session's edit to a different key
+  // survives (the "someone else's task change snapped back" bug, sync-invariant #5).
+  it.each([
+    ["stageNameOverrides", { "Stage A": "Old A" }, { "Stage B": "Renamed B" }],
+    ["stageDueDates", { "Stage A": "2026-01-01" }, { "Stage B": "2026-02-02" }],
+    ["stagePriorities", { "Stage A": "HIGH" }, { "Stage B": "NOW" }],
+    ["stagePointsOverride", { "Stage A": 5 }, { "Stage B": 8 }],
+    ["subtaskDueDates", { "S::1": "2026-03-03" }, { "S::2": "2026-04-04" }],
+    ["inboxStageWorkspace", { "Task A": "ws-1" }, { "Task B": "ws-2" }],
+    ["pipeDescOverrides", { "pipe-a": "desc A" }, { "pipe-b": "desc B" }],
+  ])("%s: a dirty-key-only patch keeps another session's key", (slice, existing, edit) => {
+    const current = { [slice]: { ...existing } } as Record<string, unknown>;
+    const patch = { [slice]: { ...edit } } as Record<string, unknown>;
+    const next = mergeStateWithPatch(current, patch);
+    const merged = next[slice] as Record<string, unknown>;
+    for (const [k, v] of Object.entries(existing)) expect(merged[k]).toEqual(v);
+    for (const [k, v] of Object.entries(edit)) expect(merged[k]).toEqual(v);
+  });
 });
 
 // ── Map slice _deletes ────────────────────────────────────────────────────────
