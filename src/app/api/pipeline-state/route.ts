@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth/next";
 import { authOptions, isRootAdminFromSession } from "@/lib/auth";
 import { chatBus } from "@/lib/chatBus";
 import { SubtaskKey } from "@/lib/subtaskKey";
+import { buildStatusSetFieldExpr } from "@/lib/focusedStatusWrite";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -472,7 +473,44 @@ export async function PATCH(req: NextRequest) {
 
   let doc: { state?: Record<string, unknown>; updatedAt?: Date } | null = null;
   let mergeOk = false;
-  for (let attempt = 0; attempt < 5; attempt++) {
+
+  // ── Focused status fast-path (contention-free) ──────────────────────────────
+  // A single-key stageStatusOverrides / subtaskStages write is applied ATOMICALLY
+  // per key with $setField — NO read-modify-write, NO updatedAt CAS. Because it
+  // never reads-then-writes the whole document, it cannot lose an optimistic-lock
+  // race, so it never returns 409 WRITE_CONTENTION no matter how many people are
+  // editing at once. This removes the contention the client used to have to retry
+  // through — the real cause of "move a card to done and it comes back". $setField
+  // stores the literal key verbatim, so keys containing '.', '::' or '$' (stage
+  // names are free-text) are safe — verified against the live server (MongoDB 8.0).
+  // $$NOW writes updatedAt as a proper Date, so the CAS-freeze guardrail below can
+  // never trip on this path either.
+  const focusedStatusSlice = isFocusedStageStatusPatch ? "stageStatusOverrides"
+    : isFocusedSubtaskStatusPatch ? "subtaskStages" : null;
+  if (focusedStatusSlice) {
+    const map = ((statePatch as Record<string, unknown>)[focusedStatusSlice] || {}) as Record<string, string>;
+    const setExpr = buildStatusSetFieldExpr(focusedStatusSlice, map);
+    const updated = await PipelineState.findOneAndUpdate(
+      WORKSPACE,
+      [{ $set: { [`state.${focusedStatusSlice}`]: setExpr, updatedAt: "$$NOW" } }],
+      // updatePipeline: true is REQUIRED — Mongoose otherwise throws "Cannot pass an array
+      // to query updates" for an aggregation-pipeline update (verified on mongoose 9.4.1).
+      { new: true, upsert: true, updatePipeline: true },
+    ).lean() as { state?: Record<string, unknown>; updatedAt?: Date } | null;
+    if (updated) {
+      doc = updated;
+      mergeOk = true;
+      logApi(ROUTE, "PATCH_focused_status_atomic", { slice: focusedStatusSlice, keys: Object.keys(map).length });
+    }
+  }
+
+  // Read-modify-write with optimistic locking (all other slices, and the rare focused
+  // fallback if the atomic write above somehow returned no doc):
+  // 1. Read current `state` + `updatedAt`.
+  // 2. Merge patch into state in JS (per-key for maps, by-id for arrays-of-objects,
+  //    set-union for set-like arrays — see pipelineStateMerge.ts).
+  // 3. Write with a filter that includes the original updatedAt; retry on a lost race.
+  if (!mergeOk) for (let attempt = 0; attempt < 5; attempt++) {
     const current = await PipelineState.findOne(WORKSPACE).lean() as
       | { state?: Record<string, unknown>; updatedAt?: Date }
       | null;
