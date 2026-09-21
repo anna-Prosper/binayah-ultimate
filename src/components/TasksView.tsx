@@ -248,7 +248,7 @@ export default function TasksView(props: Props) {
   const [newTaskCol, setNewTaskCol] = useState<string | null>(null);
   const [newSubTitle, setNewSubTitle] = useState("");
   const [newSubDueDate, setNewSubDueDate] = useState("");
-  const [newSubAssigneeId, setNewSubAssigneeId] = useState("");
+  const [newSubAssigneeIds, setNewSubAssigneeIds] = useState<string[]>([]); // up to ASSIGN_CAP (2)
   const [newSubWsId, setNewSubWsId] = useState<string>(""); // workspace for cross-workspace mode
   const [newSubPipeId, setNewSubPipeId] = useState<string>(""); // "" = orphan
   const [newSubPipeTitle, setNewSubPipeTitle] = useState<string>("");
@@ -271,7 +271,7 @@ export default function TasksView(props: Props) {
     : "";
 
   const resetNewSub = useCallback(() => {
-    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); setNewSubDesc(""); setCreateAtTop(false);
+    setNewTaskCol(null); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeIds([]); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); setNewSubDesc(""); setCreateAtTop(false);
   }, []);
 
   const createPipelineAndUse = useCallback(() => {
@@ -318,7 +318,7 @@ export default function TasksView(props: Props) {
         if (newSubDueDate) setSubtaskDueDate(key, newSubDueDate);
         if (newSubDesc.trim()) setSubtaskDescOverride(key, newSubDesc.trim());
         if (colStatus !== "planned") setSubtaskStage(key, colStatus);
-        if (newSubAssigneeId) assignTask(key, newSubAssigneeId);
+        if (newSubAssigneeIds.length) newSubAssigneeIds.forEach(uid => assignTask(key, uid));
         else if (currentUser) handleClaim(key);
       }
     } else {
@@ -329,7 +329,7 @@ export default function TasksView(props: Props) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
         if (newSubDueDate) setStageDueDate(stageName, newSubDueDate);
         if (newSubDesc.trim()) setStageDescOverride(stageName, newSubDesc.trim());
-        if (newSubAssigneeId) assignTask(stageName, newSubAssigneeId);
+        if (newSubAssigneeIds.length) newSubAssigneeIds.forEach(uid => assignTask(stageName, uid));
         else if (currentUser) handleClaim(stageName);
         if (formWsId) {
           setWorkspaces(prev => prev.map(w =>
@@ -341,7 +341,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubDueDate, newSubDesc, newSubAssigneeId, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setStageDescOverride, setSubtaskDueDate, setSubtaskStage, setSubtaskDescOverride, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubDesc, newSubAssigneeIds, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setStageDescOverride, setSubtaskDueDate, setSubtaskStage, setSubtaskDescOverride, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 
@@ -775,7 +775,7 @@ export default function TasksView(props: Props) {
                 setNewTaskCol("planned");
                 setNewSubTitle("");
                 setNewSubDueDate("");
-                setNewSubAssigneeId("");
+                setNewSubAssigneeIds([]);
                 setNewSubWsId("");
                 setNewSubPipeId("");
                 setNewSubPipeTitle("");
@@ -928,11 +928,11 @@ export default function TasksView(props: Props) {
             </div>
           )}
           <select
-            value={newSubAssigneeId}
-            onChange={e => setNewSubAssigneeId(e.target.value)}
+            multiple
+            value={newSubAssigneeIds}
+            onChange={e => setNewSubAssigneeIds(Array.from(e.target.selectedOptions, o => o.value).filter(Boolean).slice(0, 2))}
             style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "8px 10px", fontSize: 12, color: t.text, fontFamily: "var(--font-dm-mono), monospace", outline: "none", minWidth: 0 }}
           >
-            <option value="">assign to me</option>
             {users.filter(u => u.id !== "ai").map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
           <input
@@ -1116,22 +1116,23 @@ export default function TasksView(props: Props) {
 	                        style={{ background: t.bgCard, border: `1px solid ${t.border}`, borderRadius: 8, padding: "5px 8px", fontSize: 12, color: t.textMuted, fontFamily: "var(--font-dm-mono), monospace", outline: "none", width: "100%" }}
 	                      />
                       <div style={{ fontSize: 10, color: t.accent, fontFamily: "var(--font-dm-mono), monospace", fontWeight: 700, letterSpacing: 0.5 }}>
-                        {newSubAssigneeId
-                          ? `assign: ${users.find(u => u.id === newSubAssigneeId)?.name || newSubAssigneeId}`
-                          : "// assign to (optional)"}
+                        {newSubAssigneeIds.length
+                          ? `assign: ${newSubAssigneeIds.map(id => users.find(u => u.id === id)?.name || id).join(" + ")}`
+                          : "// assign to (optional, up to 2)"}
                       </div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-                        {newSubAssigneeId && (
-                          <button onMouseDown={e => { e.preventDefault(); setNewSubAssigneeId(""); }} data-no-close
+                        {newSubAssigneeIds.length > 0 && (
+                          <button onMouseDown={e => { e.preventDefault(); setNewSubAssigneeIds([]); }} data-no-close
                             style={{ background: t.amber + "22", border: `1px solid ${t.amber}55`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: t.amber, fontFamily: "var(--font-dm-mono), monospace" }}>
                             ✕ assign to me
                           </button>
                         )}
                         {users.filter(u => u.id !== "ai").map(u => {
-                          const sel = newSubAssigneeId === u.id;
+                          const sel = newSubAssigneeIds.includes(u.id);
+                          const atCap = !sel && newSubAssigneeIds.length >= 2;
                           return (
-                            <button key={u.id} onMouseDown={e => { e.preventDefault(); setNewSubAssigneeId(sel ? "" : u.id); }} data-no-close
-                              style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: "pointer", fontSize: 11, color: sel ? u.color : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
+                            <button key={u.id} disabled={atCap} onMouseDown={e => { e.preventDefault(); setNewSubAssigneeIds(prev => prev.includes(u.id) ? prev.filter(x => x !== u.id) : prev.length >= 2 ? prev : [...prev, u.id]); }} data-no-close
+                              style={{ background: sel ? u.color + "22" : t.bgHover || t.bgSoft, border: `1px solid ${sel ? u.color + "88" : t.accent + "33"}`, borderRadius: 8, padding: "2px 7px", cursor: atCap ? "not-allowed" : "pointer", opacity: atCap ? 0.4 : 1, fontSize: 11, color: sel ? u.color : t.text, fontFamily: "var(--font-dm-mono), monospace", fontWeight: sel ? 700 : 400 }}>
                               {u.name}
                             </button>
                           );
@@ -1292,7 +1293,7 @@ export default function TasksView(props: Props) {
                     </div>
                   ) : !readOnly ? (
                     <button
-                      onClick={() => { setCreateAtTop(false); setNewTaskCol(col.status); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeId(""); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
+                      onClick={() => { setCreateAtTop(false); setNewTaskCol(col.status); setNewSubTitle(""); setNewSubDueDate(""); setNewSubAssigneeIds([]); setNewSubWsId(""); setNewSubPipeId(""); setNewSubPipeTitle(""); setNewSubParentStage(""); setNewSubParentTitle(""); }}
                       style={{ border: `1.5px dashed ${t.border}`, background: "transparent", borderRadius: 12, padding: "10px 12px", textAlign: "center", fontSize: 12, color: t.textDim, fontFamily: "var(--font-dm-mono), monospace", cursor: "pointer", transition: "all 0.15s" }}
                       onMouseEnter={e => { e.currentTarget.style.borderColor = t.accent + "88"; e.currentTarget.style.color = t.accent; }}
                       onMouseLeave={e => { e.currentTarget.style.borderColor = t.border; e.currentTarget.style.color = t.textDim; }}
