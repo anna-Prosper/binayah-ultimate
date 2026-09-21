@@ -922,6 +922,45 @@ export function ModelProvider({
     };
   }, [owners, stageStatusOverrides, stageDueDates, stagePriorities, stageDescOverrides, subtaskStages, subtaskDescOverrides,
       stageNameOverrides, stagePointsOverride, subtaskDueDates, pipeDescOverrides, pipeMetaOverrides, inboxStageWorkspace]);
+  // Ref to the "re-send stranded dirty status keys" flusher, wired after the focused
+  // persist is defined below. Called at the end of every poll so a dirty status key
+  // whose focused write gave up (retry exhausted, or it was made while offline) is
+  // guaranteed to eventually flush — "dirty" is always transient, never a resting state.
+  const flushStrandedStatusRef = useRef<() => void>(() => {});
+
+  // Per-key, ledger-based reconciliation for the dirty-keyed MAP slices. On a poll the
+  // server wins for EVERY key except those with an unconfirmed local write
+  // (dirtyMapKeysRef): each such key keeps its local value (or stays locally deleted)
+  // until the write confirms and the key clears — after which a later poll accepts the
+  // now-equal server value. This replaces the old whole-map replace gated by a 10s time
+  // window, which reverted ANY pending change that outlived the window (and reverted the
+  // whole slice, not just the changed key) — the root cause of "I move a card to done and
+  // it comes back". A locally changed key can no longer be reverted by a poll while its
+  // write is in flight. On the FIRST hydrate we give local precedence so a still-in-flight
+  // keepalive write doesn't flash the stale server value.
+  const applyKeyedMapFromServer = useCallback(<T extends Record<string, unknown>>(
+    slice: string,
+    serverVal: T,
+    setter: (fn: (prev: T) => T) => void,
+  ) => {
+    if (isInitialHydrateRef.current) {
+      setter(prev => { const next = { ...serverVal, ...prev } as T; return sameJSON(next, prev) ? prev : next; });
+      return;
+    }
+    setter(prev => {
+      const dirty = dirtyMapKeysRef.current[slice];
+      if (!dirty || dirty.size === 0) return sameJSON(serverVal, prev) ? prev : serverVal;
+      const next = { ...serverVal } as Record<string, unknown>;
+      for (const k of dirty) {
+        // Keep the local value for an unconfirmed key; if it's locally absent (a pending
+        // deletion), keep it absent so the server can't resurrect it before we confirm.
+        if (Object.prototype.hasOwnProperty.call(prev, k)) next[k] = (prev as Record<string, unknown>)[k];
+        else delete next[k];
+      }
+      return sameJSON(next, prev) ? prev : (next as T);
+    });
+  }, []);
+
   // ── useSync: mergePatch callback (handles both initial hydrate + poll updates) ──
   const mergePatch = useCallback((s: SharedState) => {
     if (!s || !Object.keys(s).length) return;
@@ -990,7 +1029,7 @@ export function ModelProvider({
         }
       }
       prevClaimsRef.current = merged;
-      if (!isProtected("owners")) setOwners(prev => sameJSON(merged, prev) ? prev : merged);
+      applyKeyedMapFromServer("owners", merged as Record<string, unknown>, setOwners as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
     }
     if (s.reactions) {
       const prev = prevReactionsRef.current;
@@ -1164,17 +1203,8 @@ export function ModelProvider({
     if (s.commentReactions) {
       setCommentReactions(prev => sameJSON(s.commentReactions, prev) ? prev : (s.commentReactions as Record<string, Record<string, string[]>>));
     }
-    if (s.stageStatusOverrides && !isProtected("stageStatusOverrides")) {
-      if (isInitialHydrateRef.current) {
-        // On initial hydrate, merge server state into local, giving local precedence.
-        // The user's keepalive PATCH may still be in-flight when fetchState runs after
-        // a reload, so the server transiently returns the old value. Full-replacing
-        // here would flash the stale status until the next poll corrects it (~10s).
-        setStageStatusOverrides(prev => ({ ...s.stageStatusOverrides!, ...prev }));
-      } else {
-        setStageStatusOverrides(prev => sameJSON(s.stageStatusOverrides, prev) ? prev : s.stageStatusOverrides!);
-      }
-    }
+    if (s.stageStatusOverrides)
+      applyKeyedMapFromServer("stageStatusOverrides", s.stageStatusOverrides as Record<string, unknown>, setStageStatusOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
     // Helper: on initial hydrate, merge server-into-local giving local precedence
     // so a keepalive PATCH that hasn't landed yet doesn't flash the old value.
     // On subsequent polls, server wins (normal behaviour).
@@ -1193,32 +1223,32 @@ export function ModelProvider({
         setter(prev => sameJSON(serverVal, prev) ? prev : serverVal);
       }
     };
-    if (s.stageDescOverrides && !isProtected("stageDescOverrides"))
-      mergeMapOnHydrate(s.stageDescOverrides as Record<string, unknown>, setStageDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageDescOverrides(v as Record<string, string>));
-    if (s.stageDueDates && !isProtected("stageDueDates"))
-      mergeMapOnHydrate(s.stageDueDates as Record<string, unknown>, setStageDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageDueDates(v as Record<string, string>));
-    if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities && !isProtected("stagePriorities"))
-      mergeMapOnHydrate((s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities as Record<string, unknown>, setStagePriorities as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePriorities(v as Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW">));
-    if (s.stageNameOverrides && !isProtected("stageNameOverrides"))
-      mergeMapOnHydrate(s.stageNameOverrides as Record<string, unknown>, setStageNameOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStageNameOverrides(v as Record<string, string>));
-    if ((s as { inboxStageWorkspace?: Record<string, string> }).inboxStageWorkspace && !isProtected("inboxStageWorkspace"))
-      mergeMapOnHydrate((s as { inboxStageWorkspace: Record<string, string> }).inboxStageWorkspace as Record<string, unknown>, setInboxStageWorkspace as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setInboxStageWorkspace(v as Record<string, string>));
-    if (s.subtaskStages && !isProtected("subtaskStages"))
-      mergeMapOnHydrate(s.subtaskStages as Record<string, unknown>, setSubtaskStages as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskStages(v as Record<string, string>));
+    if (s.stageDescOverrides)
+      applyKeyedMapFromServer("stageDescOverrides", s.stageDescOverrides as Record<string, unknown>, setStageDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.stageDueDates)
+      applyKeyedMapFromServer("stageDueDates", s.stageDueDates as Record<string, unknown>, setStageDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if ((s as { stagePriorities?: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities)
+      applyKeyedMapFromServer("stagePriorities", (s as { stagePriorities: Record<string, "NOW" | "HIGH" | "MEDIUM" | "LOW"> }).stagePriorities as Record<string, unknown>, setStagePriorities as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.stageNameOverrides)
+      applyKeyedMapFromServer("stageNameOverrides", s.stageNameOverrides as Record<string, unknown>, setStageNameOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if ((s as { inboxStageWorkspace?: Record<string, string> }).inboxStageWorkspace)
+      applyKeyedMapFromServer("inboxStageWorkspace", (s as { inboxStageWorkspace: Record<string, string> }).inboxStageWorkspace as Record<string, unknown>, setInboxStageWorkspace as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.subtaskStages)
+      applyKeyedMapFromServer("subtaskStages", s.subtaskStages as Record<string, unknown>, setSubtaskStages as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
     const dailyDoneIncoming = (s as Record<string, unknown>).dailyDone;
     if (dailyDoneIncoming && !isProtected("dailyDone"))
       mergeMapOnHydrate(dailyDoneIncoming as Record<string, unknown>, setDailyDone as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setDailyDone(v as Record<string, number>));
     const dailyLinksIncoming = (s as Record<string, unknown>).dailyLinks;
     if (dailyLinksIncoming && !isProtected("dailyLinks"))
       mergeMapOnHydrate(dailyLinksIncoming as Record<string, unknown>, setDailyLinks as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setDailyLinks(v as Record<string, string[]>));
-    if (s.subtaskDescOverrides && !isProtected("subtaskDescOverrides"))
-      mergeMapOnHydrate(s.subtaskDescOverrides as Record<string, unknown>, setSubtaskDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDescOverrides(v as Record<string, string>));
-    if (s.subtaskDueDates && !isProtected("subtaskDueDates"))
-      mergeMapOnHydrate(s.subtaskDueDates as Record<string, unknown>, setSubtaskDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setSubtaskDueDates(v as Record<string, string>));
-    if (s.pipeDescOverrides && !isProtected("pipeDescOverrides"))
-      mergeMapOnHydrate(s.pipeDescOverrides as Record<string, unknown>, setPipeDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeDescOverrides(v as Record<string, string>));
-    if (s.pipeMetaOverrides && !isProtected("pipeMetaOverrides"))
-      mergeMapOnHydrate(s.pipeMetaOverrides as Record<string, unknown>, setPipeMetaOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setPipeMetaOverrides(v as Record<string, { name?: string; priority?: string }>));
+    if (s.subtaskDescOverrides)
+      applyKeyedMapFromServer("subtaskDescOverrides", s.subtaskDescOverrides as Record<string, unknown>, setSubtaskDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.subtaskDueDates)
+      applyKeyedMapFromServer("subtaskDueDates", s.subtaskDueDates as Record<string, unknown>, setSubtaskDueDates as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.pipeDescOverrides)
+      applyKeyedMapFromServer("pipeDescOverrides", s.pipeDescOverrides as Record<string, unknown>, setPipeDescOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
+    if (s.pipeMetaOverrides)
+      applyKeyedMapFromServer("pipeMetaOverrides", s.pipeMetaOverrides as Record<string, unknown>, setPipeMetaOverrides as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
     if (s.customStages && !isProtected("customStages")) setCustomStages(prev => sameJSON(s.customStages, prev) ? prev : (s.customStages as Record<string, string[]>));
     if (s.customPipelines && !isProtected("customPipelines")) setCustomPipelines(prev => sameJSON(s.customPipelines, prev) ? prev : (s.customPipelines as CustomPipeline[]));
     if (s.users && !isProtected("users")) setUsers(prev => hydrateUsers(s.users as UserType[], prev));
@@ -1229,8 +1259,8 @@ export function ModelProvider({
     if (s.archivedStages) setArchivedStages(prev => { const next = Array.from(new Set([...prev, ...(s.archivedStages as string[])])); return sameJSON(next, prev) ? prev : next; });
     if (s.archivedPipelines) setArchivedPipelines(prev => { const next = Array.from(new Set([...prev, ...(s.archivedPipelines as string[])])); return sameJSON(next, prev) ? prev : next; });
     if (s.archivedSubtasks) setArchivedSubtasks(prev => { const next = Array.from(new Set([...prev, ...(s.archivedSubtasks as string[])])); return sameJSON(next, prev) ? prev : next; });
-    if (s.stagePointsOverride && !isProtected("stagePointsOverride"))
-      mergeMapOnHydrate(s.stagePointsOverride as Record<string, unknown>, setStagePointsOverrideState as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void, v => setStagePointsOverrideState(v as Record<string, number>));
+    if (s.stagePointsOverride)
+      applyKeyedMapFromServer("stagePointsOverride", s.stagePointsOverride as Record<string, unknown>, setStagePointsOverrideState as (fn: (p: Record<string, unknown>) => Record<string, unknown>) => void);
     // Apply the server's approval sets, but keep any local approval whose write
     // hasn't been confirmed yet (union with the un-confirmed set) so a poll can't
     // flip a just-made approval back to "needs approval". Confirmed/un-approved
@@ -1250,6 +1280,9 @@ export function ModelProvider({
     if (s.notifReadIds && !isProtected("notifReadIds")) setNotifReadIds(prev => sameJSON(s.notifReadIds, prev) ? prev : (s.notifReadIds as Record<string, string[]>));
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((s as any).streakByUser) setStreakByUser((s as any).streakByUser as Record<string, number>);
+    // After each real poll, re-send any dirty status key whose focused write gave up, so
+    // "dirty" always resolves to confirmed (online) — never stranded, never left divergent.
+    if (!isInitialHydrateRef.current) flushStrandedStatusRef.current();
     // Mark initial hydrate complete — subsequent calls will fire claim/reaction notifications
     isInitialHydrateRef.current = false;
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1637,6 +1670,38 @@ export function ModelProvider({
   const persistSubtaskStageNow = useCallback((key: string, status: string) => {
     persistFocusedStatus("subtaskStages", key, status);
   }, [persistFocusedStatus]);
+
+  // Re-send any dirty status key (stage/subtask) that has no live retry pending — i.e. one
+  // whose focused write gave up (retry exhausted) or was made while offline. This is what
+  // guarantees "dirty" is always transient: a key held back from server reconciliation is
+  // always eventually flushed and confirmed, never left divergent. Keys with an active
+  // retry timer are skipped (that timer already owns delivery). Cheap and idempotent.
+  const flushStrandedFocusedStatus = useCallback(() => {
+    const mirror = stateMirrorRef.current as unknown as Record<string, Record<string, string>>;
+    for (const slice of ["stageStatusOverrides", "subtaskStages"] as const) {
+      const dirty = dirtyMapKeysRef.current[slice];
+      if (!dirty || dirty.size === 0) continue;
+      for (const key of Array.from(dirty)) {
+        if (focusedRetryRef.current.has(`${slice}:${key}`)) continue; // active retry owns it
+        const val = mirror[slice]?.[key];
+        if (typeof val === "string") persistFocusedStatus(slice, key, val);
+      }
+    }
+  }, [persistFocusedStatus]);
+  useEffect(() => { flushStrandedStatusRef.current = flushStrandedFocusedStatus; }, [flushStrandedFocusedStatus]);
+  // Also flush the moment connectivity or focus returns, so an offline edit lands promptly.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const h = () => flushStrandedFocusedStatus();
+    window.addEventListener("online", h);
+    window.addEventListener("focus", h);
+    return () => { window.removeEventListener("online", h); window.removeEventListener("focus", h); };
+  }, [flushStrandedFocusedStatus]);
+  // Clear any pending focused-status retry timers on unmount.
+  useEffect(() => {
+    const timers = focusedRetryRef.current;
+    return () => { for (const t of timers.values()) clearTimeout(t); timers.clear(); };
+  }, []);
 
   useEffect(() => {
     if (timelineSeededRef.current || syncStatus === "hydrating" || timelineEvents.length > 0 || !currentUser) return;
