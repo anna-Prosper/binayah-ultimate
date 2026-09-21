@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useRef, useEffect, useCallback } from "react";
+import { Suspense, useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { User } from "lucide-react";
 import { useEphemeral } from "@/lib/contexts/EphemeralContext";
 import { useModel, useRole } from "@/lib/contexts/ModelContext";
@@ -129,12 +129,18 @@ export default function PipelinesView({
   }, [pipelineEditMode, closePipelineEditMode]);
   const { reactOpen, setReactOpen, copied } = useEphemeral();
 
-  const allPipelines = currentWorkspaceId
-    ? (() => {
-        const ws = workspaces.find(w => w.id === currentWorkspaceId);
-        return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal;
-      })()
-    : allPipelinesGlobal;
+  // Memoized: passed to TasksView, whose derived-board memos key off its identity —
+  // a fresh array every render would defeat them.
+  const allPipelines = useMemo(() => {
+    if (!currentWorkspaceId) return allPipelinesGlobal;
+    const ws = workspaces.find(w => w.id === currentWorkspaceId);
+    return ws ? allPipelinesGlobal.filter(p => ws.pipelineIds.includes(p.id)) : allPipelinesGlobal;
+  }, [currentWorkspaceId, workspaces, allPipelinesGlobal]);
+  // Stable per-render map for TasksView (was rebuilt inline in JSX every render).
+  const pipelineWorkspaceMap = useMemo(
+    () => Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }])),
+    [allPipelines, currentWorkspaceId, currentWorkspace?.name, currentWorkspace?.icon]
+  );
 
   const toggleExpand = (id: string) => setExpanded(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const addCustomStageLocal = (pid: string) => { const val = newStageInput[pid]?.trim(); if (!val) return; addCustomStage(pid, val); setNewStageInput(prev => ({ ...prev, [pid]: "" })); };
@@ -195,7 +201,7 @@ export default function PipelinesView({
       {view === "kanban" && (
         <ErrorBoundary onError={() => showToast("// failed to load panel — refresh to retry", t.red)}>
           <Suspense fallback={<KanbanSkeleton t={t} />}>
-            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin || readOnly ? "all" : "my"} showConceptToggle defaultHideConcept pipelineWorkspaceMap={Object.fromEntries(allPipelines.map(p => [p.id, { id: currentWorkspaceId || "", name: currentWorkspace?.name || "", icon: currentWorkspace?.icon || "" }]))} currentWorkspaceId={currentWorkspaceId} readOnly={readOnly} />
+            <TasksView t={t} allPipelines={allPipelines} customStages={customStages} pipeMetaOverrides={pipeMetaOverrides} getStatus={getStatus} users={users} currentUser={currentUser} isAdmin={isAdmin} ck={ck} onPipelineClick={onPipelineClick} showMyAllFilter={true} defaultMyAllFilter={isAdmin || readOnly ? "all" : "my"} showConceptToggle defaultHideConcept pipelineWorkspaceMap={pipelineWorkspaceMap} currentWorkspaceId={currentWorkspaceId} readOnly={readOnly} />
           </Suspense>
         </ErrorBoundary>
       )}

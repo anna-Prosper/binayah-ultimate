@@ -667,6 +667,13 @@ export default function HomeView({
     return users.filter(u => scopedMemberIds.has(u.id));
   }, [users, myWorkspaces, homeWsFilter]);
 
+  // Stable prop for TasksView (was rebuilt inline in JSX every render, defeating
+  // TasksView's `pipelines` memo which keys off availableWorkspaces identity).
+  const availableWorkspacesProp = useMemo(
+    () => myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds })),
+    [myWorkspaces]
+  );
+
   const attention = useMemo(() => {
     const dayAgo = overviewNow - 24 * 60 * 60 * 1000;
     const weekAgo = overviewNow - 7 * 24 * 60 * 60 * 1000;
@@ -1392,7 +1399,7 @@ export default function HomeView({
         editMode={editMode}
         onPipelineClick={onPipelineClick}
         currentWorkspaceId={homeWsFilter}
-        availableWorkspaces={myWorkspaces.map(w => ({ id: w.id, name: w.name, icon: w.icon, pipelineIds: w.pipelineIds }))}
+        availableWorkspaces={availableWorkspacesProp}
         readOnly={false}
         hideConcept
       />

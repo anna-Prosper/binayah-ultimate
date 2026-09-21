@@ -9,9 +9,13 @@ type Window = { count: number; resetAt: number };
 const store = new Map<string, Window>();
 
 function getIp(req: { headers: { get(name: string): string | null } }): string {
+  // Prefer `x-real-ip` (set by the Vercel edge to the true client IP, NOT client-
+  // overridable) over `x-forwarded-for`, whose leftmost entry a client can spoof to
+  // rotate the rate-limit key and evade the limit. Fall back to XFF only when x-real-ip
+  // is absent (local/dev), then to loopback.
   return (
+    req.headers.get("x-real-ip")?.trim() ||
     req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    req.headers.get("x-real-ip") ||
     "127.0.0.1"
   );
 }

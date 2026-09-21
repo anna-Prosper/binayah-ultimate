@@ -352,42 +352,45 @@ export default function TasksView(props: Props) {
     () => new Set(Object.values(customStages).flat()),
     [customStages]
   );
-  const pipelines = allPipelines.map(p => {
-    const ownCustom = new Set(customStages[p.id] || []);
-    const deduped = p.stages.filter(s => !allCustomStageSet.has(s) || ownCustom.has(s));
-    // Dedupe by stage name — names are IDs, so duplicates would render the same
-    // task multiple times (all pointing at the same state). Earlier writes via
-    // addCustomStage didn't enforce uniqueness, leaving repeated entries in
-    // customStages that we silently fold here.
-    const seen = new Set<string>();
-    const merged: string[] = [];
-    for (const s of [...deduped, ...(customStages[p.id] || [])]) {
-      if (seen.has(s)) continue;
-      seen.add(s);
-      merged.push(s);
-    }
-    return {
-      ...p,
-      displayName: pipeMetaOverrides[p.id]?.name || p.name,
-      allStages: merged,
-      color: ck[p.colorKey] || t.accent,
-    };
-  });
-
-  // Virtual "inbox" pipeline — only rendered if it has unparented stages.
-  // Lets user-created tasks live without a real pipeline until they're assigned one.
-  // Inbox tasks are scoped per-workspace via inboxStageWorkspace: in a specific
-  // workspace show only that workspace's Inbox tasks; in the "All" view show Inbox
-  // tasks from workspaces the viewer belongs to. Untagged (legacy) tasks show only
-  // in the "All" view so they never leak into a specific workspace.
-  const memberWsIds = new Set((availableWorkspaces || []).map(w => w.id));
-  const inboxStages = (customStages[INBOX_PIPELINE_ID] || []).filter(st => {
-    const ws = inboxStageWorkspace[st];
-    if (currentWorkspaceId) return ws === currentWorkspaceId;
-    return !ws || memberWsIds.has(ws);
-  });
-  if (inboxStages.length > 0) {
-    pipelines.unshift({
+  // Memoized: this is the ROOT of the board's derived-data chain — leaving it a plain
+  // const rebuilt a fresh array every render and defeated every downstream useMemo
+  // (subtaskKanbanTasks, sorted*) that depends on it. Now it (and the whole chain
+  // below) only recomputes when its inputs actually change.
+  const pipelines = useMemo(() => {
+    const base = allPipelines.map(p => {
+      const ownCustom = new Set(customStages[p.id] || []);
+      const deduped = p.stages.filter(s => !allCustomStageSet.has(s) || ownCustom.has(s));
+      // Dedupe by stage name — names are IDs, so duplicates would render the same
+      // task multiple times (all pointing at the same state). Earlier writes via
+      // addCustomStage didn't enforce uniqueness, leaving repeated entries in
+      // customStages that we silently fold here.
+      const seen = new Set<string>();
+      const merged: string[] = [];
+      for (const s of [...deduped, ...(customStages[p.id] || [])]) {
+        if (seen.has(s)) continue;
+        seen.add(s);
+        merged.push(s);
+      }
+      return {
+        ...p,
+        displayName: pipeMetaOverrides[p.id]?.name || p.name,
+        allStages: merged,
+        color: ck[p.colorKey] || t.accent,
+      };
+    });
+    // Virtual "inbox" pipeline — only prepended if it has unparented stages.
+    // Inbox tasks are scoped per-workspace via inboxStageWorkspace: in a specific
+    // workspace show only that workspace's Inbox tasks; in the "All" view show Inbox
+    // tasks from workspaces the viewer belongs to. Untagged (legacy) tasks show only
+    // in the "All" view so they never leak into a specific workspace.
+    const memberWsIds = new Set((availableWorkspaces || []).map(w => w.id));
+    const inboxStages = (customStages[INBOX_PIPELINE_ID] || []).filter(st => {
+      const ws = inboxStageWorkspace[st];
+      if (currentWorkspaceId) return ws === currentWorkspaceId;
+      return !ws || memberWsIds.has(ws);
+    });
+    if (inboxStages.length === 0) return base;
+    return [{
       id: INBOX_PIPELINE_ID,
       name: "All",
       icon: "📥",
@@ -396,13 +399,13 @@ export default function TasksView(props: Props) {
       displayName: "All",
       allStages: inboxStages,
       color: t.amber,
-    });
-  }
+    }, ...base];
+  }, [allPipelines, customStages, allCustomStageSet, pipeMetaOverrides, ck, t, availableWorkspaces, inboxStageWorkspace, currentWorkspaceId]);
 
   const archivedSubtaskKeySet = useMemo(() => new Set(archivedSubtasks || []), [archivedSubtasks]);
 
   // Every non-concept stage becomes a task
-  const allStageTasks = pipelines.flatMap(p => {
+  const allStageTasks = useMemo(() => pipelines.flatMap(p => {
     const ws = pipelineWorkspaceMap?.[p.id];
     return p.allStages
       .filter(s => !(archivedStages || []).includes(s) && !(effectiveHideConcept && getStatus(s) === 'concept'))
@@ -428,12 +431,12 @@ export default function TasksView(props: Props) {
           stagePointsOverride || {},
         ),
       }));
-  });
+  }), [pipelines, pipelineWorkspaceMap, archivedStages, effectiveHideConcept, getStatus, stageNameOverrides, claims, stagePriorities, pipeMetaOverrides, stageDueDates, subtasks, archivedSubtaskKeySet, stagePointsOverride]);
 
   // Apply my/all filter when in cross-workspace mode
-  const visibleStageTasks = allStageTasks.filter(s => !isDefaultParentStageId(s.stageId));
+  const visibleStageTasks = useMemo(() => allStageTasks.filter(s => !isDefaultParentStageId(s.stageId)), [allStageTasks]);
 
-  const baseStageTasks = (showMyAllFilter && myAllFilter === "my")
+  const baseStageTasks = useMemo(() => (showMyAllFilter && myAllFilter === "my")
     ? visibleStageTasks.filter(s => {
         if (!currentUser) return false;
         if (s.claimers.includes(currentUser)) return true;
@@ -441,10 +444,10 @@ export default function TasksView(props: Props) {
         if ((owners[s.stageId] || []).includes(currentUser)) return true;
         return false;
       })
-    : visibleStageTasks;
+    : visibleStageTasks, [visibleStageTasks, showMyAllFilter, myAllFilter, currentUser, assignments, owners]);
 
-  // Same filter applied to virtual subtask kanban tasks below — declared after the useMemo
-  const dueMatches = (due?: string) => {
+  // Same filter applied to virtual subtask kanban tasks below.
+  const dueMatches = useCallback((due?: string) => {
     if (dueFilter === "all") return true;
     if (dueFilter === "none") return !due;
     if (!due) return false;
@@ -452,9 +455,9 @@ export default function TasksView(props: Props) {
     const now = filterNow;
     if (dueFilter === "overdue") return time < now;
     return time >= now && time <= now + 3 * 24 * 60 * 60 * 1000;
-  };
+  }, [dueFilter, filterNow]);
 
-  const stageTasks = baseStageTasks.filter(task => {
+  const stageTasks = useMemo(() => baseStageTasks.filter(task => {
     const taskOwners = [...new Set([...(owners[task.stageId] || []), ...(assignments[task.stageId] || []), ...(claims[task.stageId] || [])])];
     if (assigneeFilter === "unassigned" && taskOwners.length > 0) return false;
     if (assigneeFilter !== "all" && assigneeFilter !== "unassigned" && !taskOwners.includes(assigneeFilter)) return false;
@@ -462,7 +465,7 @@ export default function TasksView(props: Props) {
     if (priorityFilter !== "all" && priorityFilter !== "none" && task.priority !== priorityFilter) return false;
     if (pipelineFilter !== "all" && task.pipelineId !== pipelineFilter) return false;
     return dueMatches(stageDueDates[task.stageId]);
-  });
+  }), [baseStageTasks, owners, assignments, claims, assigneeFilter, priorityFilter, pipelineFilter, stageDueDates, dueMatches]);
 
   // Subtasks belong to their parent task's pipeline. Keep this scoped to the
   // currently visible workspace pipelines so unrelated "unknown parent" subtasks
@@ -519,14 +522,14 @@ export default function TasksView(props: Props) {
   }, [subtasks, subtaskStages, stageNameOverrides, pipelines, customStages, ck, t, archivedSubtaskKeySet, pipelineWorkspaceMap, stagePriorities, pipeMetaOverrides, subtaskDueDates]);
 
   // Filter subtasks by mine when active — matches stage task filter so the "mine" tab shows owned/assigned subtasks too
-  const filteredSubtaskKanbanTasksBase = (showMyAllFilter && myAllFilter === "my" && currentUser)
+  const filteredSubtaskKanbanTasksBase = useMemo(() => (showMyAllFilter && myAllFilter === "my" && currentUser)
     ? subtaskKanbanTasks.filter(s => {
         return (claims[s.key] || []).includes(currentUser)
           || (assignments[s.key] || []).includes(currentUser)
           || (owners[s.key] || []).includes(currentUser);
       })
-    : subtaskKanbanTasks;
-  const filteredSubtaskKanbanTasks = filteredSubtaskKanbanTasksBase.filter(sub => {
+    : subtaskKanbanTasks, [subtaskKanbanTasks, showMyAllFilter, myAllFilter, currentUser, claims, assignments, owners]);
+  const filteredSubtaskKanbanTasks = useMemo(() => filteredSubtaskKanbanTasksBase.filter(sub => {
     const subOwners = [...(owners[sub.key] || []), ...(assignments[sub.key] || []), ...(claims[sub.key] || [])];
     if (assigneeFilter === "unassigned" && subOwners.length > 0) return false;
     if (assigneeFilter !== "all" && assigneeFilter !== "unassigned" && !subOwners.includes(assigneeFilter)) return false;
@@ -534,7 +537,7 @@ export default function TasksView(props: Props) {
     if (priorityFilter !== "all" && priorityFilter !== "none" && sub.priority !== priorityFilter) return false;
     if (pipelineFilter !== "all" && sub.pipelineId !== pipelineFilter) return false;
     return dueMatches(subtaskDueDates[sub.key]);
-  });
+  }), [filteredSubtaskKanbanTasksBase, owners, assignments, claims, assigneeFilter, priorityFilter, pipelineFilter, subtaskDueDates, dueMatches]);
 
   const compareKanbanItems = useCallback((a: { displayName?: string; text?: string; priority?: string; dueDate?: string }, b: { displayName?: string; text?: string; priority?: string; dueDate?: string }) => {
     const aTitle = (a.displayName || a.text || "").toLowerCase();
