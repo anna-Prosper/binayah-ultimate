@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateStageKey, validateText } from "@/lib/validate";
+import { checkContentLength, validateCommentStageKey, validateText } from "@/lib/validate";
+import { buildAddCommentPipeline, buildEditCommentPipeline, buildDeleteCommentPipeline } from "@/lib/commentWrite";
 import { logApi } from "@/lib/log";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   const { stage, comment } = (await req.json()) as { stage: unknown; comment: Record<string, unknown> };
 
-  const stageErr = validateStageKey(stage);
+  const stageErr = validateCommentStageKey(stage);
   if (stageErr) {
     logApi(ROUTE, "validation_fail", { reason: stageErr });
     return NextResponse.json({ error: stageErr }, { status: 400 });
@@ -74,14 +75,13 @@ export async function POST(req: NextRequest) {
     await connectMongo();
     await ensureDoc();
 
-    // $slice: -100 keeps the most recent 100 comments per stage
+    // Append via $setField pipeline (keeps the most recent 100) so a dotted stage name is
+    // stored by name, not parsed as a Mongo path. updatePipeline:true is required for an
+    // aggregation-pipeline update in Mongoose.
     await PipelineState.findOneAndUpdate(
       WORKSPACE,
-      {
-        $push: { [`state.comments.${stage}`]: { $each: [comment], $slice: -100 } },
-        $set: { updatedAt: new Date() },
-      },
-      { new: true }
+      buildAddCommentPipeline(stage as string, comment),
+      { new: true, updatePipeline: true }
     );
     logApi(ROUTE, "success", { stage });
     const commentText = (comment.text as string) || "";
@@ -164,7 +164,7 @@ export async function DELETE(req: NextRequest) {
   if (!actorId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { stage, commentId } = (await req.json()) as { stage?: unknown; commentId?: unknown };
-  const stageErr = validateStageKey(stage);
+  const stageErr = validateCommentStageKey(stage);
   if (stageErr) return NextResponse.json({ error: stageErr }, { status: 400 });
   if (typeof commentId !== "number" || !Number.isFinite(commentId)) {
     return NextResponse.json({ error: "commentId must be a number" }, { status: 400 });
@@ -197,12 +197,8 @@ export async function DELETE(req: NextRequest) {
       : { ...WORKSPACE, updatedAt: { $exists: false } };
     const result = await PipelineState.findOneAndUpdate(
       writeFilter,
-      {
-        $pull: { [`state.comments.${stageKey}`]: { id: commentId } },
-        $unset: { [`state.commentReactions.${stageKey}::${commentId}`]: "" },
-        $set: { updatedAt: new Date() },
-      },
-      { new: true }
+      buildDeleteCommentPipeline(stageKey, commentId),
+      { new: true, updatePipeline: true }
     ).lean();
     if (result) { casOk = true; break; }
     await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));
@@ -233,7 +229,7 @@ export async function PATCH(req: NextRequest) {
 
   const { stage, commentId, text } = (await req.json()) as { stage?: unknown; commentId?: unknown; text?: unknown };
 
-  const stageErr = validateStageKey(stage);
+  const stageErr = validateCommentStageKey(stage);
   if (stageErr) return NextResponse.json({ error: stageErr }, { status: 400 });
   if (typeof commentId !== "number" || !Number.isFinite(commentId)) {
     return NextResponse.json({ error: "commentId must be a number" }, { status: 400 });
@@ -259,15 +255,17 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "FORBIDDEN" }, { status: 403 });
     }
     const lockUpdatedAt = doc?.updatedAt;
+    // The existence/ownership of the comment was just checked above under this same
+    // updatedAt lock, so the CAS filter alone is sufficient — no dotted-path `.id` match
+    // (which would break a dotted stage name). The $map no-ops if the id is gone.
     const writeFilter = {
       ...WORKSPACE,
       ...(lockUpdatedAt ? { updatedAt: lockUpdatedAt } : { updatedAt: { $exists: false } }),
-      [`state.comments.${stageKey}.id`]: commentId,
     };
     const result = await PipelineState.findOneAndUpdate(
       writeFilter,
-      { $set: { [`state.comments.${stageKey}.$.text`]: newText, updatedAt: new Date() } },
-      { new: true }
+      buildEditCommentPipeline(stageKey, commentId, newText),
+      { new: true, updatePipeline: true }
     ).lean();
     if (result) { casOk = true; break; }
     await new Promise(r => setTimeout(r, 30 + Math.floor(Math.random() * 70)));

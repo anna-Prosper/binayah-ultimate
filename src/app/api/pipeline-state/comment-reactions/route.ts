@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { connectMongo } from "@/lib/mongo";
 import PipelineState from "@/lib/PipelineState";
 import { rateLimit } from "@/lib/rateLimit";
-import { checkContentLength, validateStageKey } from "@/lib/validate";
+import { checkContentLength, validateCommentStageKey } from "@/lib/validate";
+import { buildToggleReactionPipeline } from "@/lib/commentWrite";
 import { logApi } from "@/lib/log";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -43,7 +44,7 @@ export async function POST(req: NextRequest) {
   const body = (await req.json()) as { stageId?: unknown; commentId?: unknown; emoji?: unknown };
 
   // Validate stageId
-  const stageErr = validateStageKey(body.stageId);
+  const stageErr = validateCommentStageKey(body.stageId);
   if (stageErr) {
     logApi(ROUTE, "validation_fail", { reason: stageErr });
     return NextResponse.json({ error: stageErr }, { status: 400 });
@@ -66,15 +67,13 @@ export async function POST(req: NextRequest) {
 
   // Composite key: stageId::commentId
   const reactionKey = `${stageId}::${commentId}`;
-  // MongoDB path: state.commentReactions.<reactionKey>.<emoji>
-  const mongoPath = `state.commentReactions.${reactionKey}.${emoji}`;
 
   await connectMongo();
 
-  // Single-op atomic toggle via aggregation-pipeline update. If userId is
-  // already in the array we filter it out; otherwise we concat-append it.
-  // Either way, this is one round-trip and one document mutation — no race
-  // window between read and write, no two-step pull/addToSet seam.
+  // Single-op atomic toggle via aggregation-pipeline update, addressing the reaction key by
+  // NAME ($setField/$getField) rather than a dotted path — so a dotted stage name works.
+  // One round-trip, one mutation — no read/write race. The pre-read is only to report which
+  // action happened (JS object access, safe for dotted keys).
   const pre = await PipelineState.findOne(WORKSPACE).lean() as
     | { state?: { commentReactions?: Record<string, Record<string, string[]>> } }
     | null;
@@ -83,20 +82,8 @@ export async function POST(req: NextRequest) {
 
   await PipelineState.findOneAndUpdate(
     WORKSPACE,
-    [
-      {
-        $set: {
-          [mongoPath]: {
-            $cond: [
-              { $in: [userId, { $ifNull: [`$${mongoPath}`, []] }] },
-              { $filter: { input: { $ifNull: [`$${mongoPath}`, []] }, as: "u", cond: { $ne: ["$$u", userId] } } },
-              { $concatArrays: [{ $ifNull: [`$${mongoPath}`, []] }, [userId]] },
-            ],
-          },
-          updatedAt: new Date(),
-        },
-      },
-    ]
+    buildToggleReactionPipeline(reactionKey, emoji, userId),
+    { updatePipeline: true }
   );
 
   logApi(ROUTE, "success", { stageId, commentId, emoji, action: wasPresent ? "removed" : "added" });

@@ -301,3 +301,20 @@ export function validateStageKey(stage: unknown): string | null {
   if (FORBIDDEN_KEY_PATTERN.test(s)) return `stage "${s}" contains forbidden characters`;
   return null;
 }
+
+/**
+ * Validate a stage key used by the comment / comment-reaction routes. Those routes now
+ * write via $setField/$getField ($literal field name) instead of interpolating the name
+ * into a Mongo dotted path, so "." is safe here (stage names legitimately contain it, e.g.
+ * "Fix binayah.com issues"). Still blocks Mongo-operator (leading "$") and prototype-
+ * pollution keys, and caps length. Use validateStageKey (strict) anywhere a stage key is
+ * still interpolated into a real dotted path.
+ */
+export function validateCommentStageKey(stage: unknown): string | null {
+  if (typeof stage !== "string") return "stage must be a string";
+  const s = stage.trim();
+  if (s.length === 0) return "stage must not be empty";
+  if (s.length > 240) return "stage exceeds 240 char limit";
+  if (FORBIDDEN_NESTED_KEY_PATTERN.test(s)) return `stage "${s}" contains forbidden characters`;
+  return null;
+}
