@@ -165,7 +165,7 @@ export default function TasksView(props: Props) {
   const {
     claims, reactions, comments, subtasks, assignments, owners, approvedStages, getPoints,
     handleClaim, handleReact, toggleSubtask, renameSubtask,
-    setStageStatusDirect: setStageStatus, approveStage, assignTask,
+    setStageStatusDirect: setStageStatus, approveStage, assignTask, assignTaskMulti,
     stageNameOverrides, setStageNameOverride, stageDueDates, setStageDueDate, stagePriorities, subtaskStages, setSubtaskStage, subtaskDueDates, setSubtaskDueDate,
     archivedStages, archivedSubtasks, stagePointsOverride,
     setStageDescOverride, setSubtaskDescOverride,
@@ -318,7 +318,7 @@ export default function TasksView(props: Props) {
         if (newSubDueDate) setSubtaskDueDate(key, newSubDueDate);
         if (newSubDesc.trim()) setSubtaskDescOverride(key, newSubDesc.trim());
         if (colStatus !== "planned") setSubtaskStage(key, colStatus);
-        if (newSubAssigneeIds.length) newSubAssigneeIds.forEach(uid => assignTask(key, uid));
+        if (newSubAssigneeIds.length) assignTaskMulti(key, newSubAssigneeIds);
         else if (currentUser) handleClaim(key);
       }
     } else {
@@ -329,7 +329,7 @@ export default function TasksView(props: Props) {
         if (colStatus !== "planned") setStageStatus(stageName, colStatus);
         if (newSubDueDate) setStageDueDate(stageName, newSubDueDate);
         if (newSubDesc.trim()) setStageDescOverride(stageName, newSubDesc.trim());
-        if (newSubAssigneeIds.length) newSubAssigneeIds.forEach(uid => assignTask(stageName, uid));
+        if (newSubAssigneeIds.length) assignTaskMulti(stageName, newSubAssigneeIds);
         else if (currentUser) handleClaim(stageName);
         if (formWsId) {
           setWorkspaces(prev => prev.map(w =>
@@ -341,7 +341,7 @@ export default function TasksView(props: Props) {
       }
     }
     resetNewSub();
-  }, [newSubTitle, newSubDueDate, newSubDesc, newSubAssigneeIds, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTask, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setStageDescOverride, setSubtaskDueDate, setSubtaskStage, setSubtaskDescOverride, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
+  }, [newSubTitle, newSubDueDate, newSubDesc, newSubAssigneeIds, newSubWsId, newSubPipeId, newSubParentStage, newSubParentTitle, needsWorkspacePick, formWsId, currentUser, handleClaim, assignTaskMulti, modelAddSubtask, modelAddCustomStage, addUnparentedStage, allPipelines, customStages, archivedStages, stageNameOverrides, setStageDueDate, setStageStatus, setStageDescOverride, setSubtaskDueDate, setSubtaskStage, setSubtaskDescOverride, setStageNameOverride, setWorkspaces, resetNewSub, readOnly]);
   const [editingStage, setEditingStage] = useState<string | null>(null);
   const [editingVal, setEditingVal] = useState("");
 

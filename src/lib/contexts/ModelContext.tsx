@@ -258,6 +258,7 @@ interface ModelContextValue {
   getSubtaskStatus: (key: string) => string;
   cycleSubtaskStatus: (key: string) => void;
   assignTask: (sid: string, userId: string | null) => void;
+  assignTaskMulti: (sid: string, userIds: string[]) => void;
   setStageStatusDirect: (name: string, status: string) => void;
   cycleStatus: (name: string) => void;
   approveStage: (name: string) => void;
@@ -2207,6 +2208,43 @@ export function ModelProvider({
 	    }
   };
 
+  // Assign SEVERAL users to a task in ONE operation. assignTask can't be called in a
+  // loop for this — it computes `nextOwners` from the stale render-closure `owners` and
+  // does an absolute setOwners + its own per-key patchState, so two back-to-back calls
+  // both build from the same base and the second overwrites the first (only the last
+  // assignee survives — the "assigned 2 people, only 1 stuck" bug at task creation).
+  // Here we SET the whole owner list for the key once (capped at ASSIGN_CAP) — one
+  // setOwners, one patchState — so all selected assignees land together.
+  const assignTaskMulti = (sid: string, userIds: string[]) => {
+    if (!currentUser) return;
+    const capped = Array.from(new Set(userIds.filter(Boolean))).slice(0, ASSIGN_CAP);
+    if (capped.length === 0) return;
+    const nameOf = (id: string) => users.find(u => u.id === id)?.name || id;
+    // Not allowed to assign directly → file one request per assignee (mirrors assignTask).
+    if (!canMutateDirectly()) {
+      for (const uid of capped) {
+        requestWorkChange({
+          kind: "assign", target: sid, requestedAction: `assign ${nameOf(uid)}`,
+          title: `assign: ${sid}`, body: `Assign "${sid}" to ${nameOf(uid)}.`,
+          requestedValue: null, requestedUserId: uid,
+        });
+      }
+      return;
+    }
+    markLocalWrite("owners", sid);
+    setOwners(prev => ({ ...prev, [sid]: capped }));
+    patchState({
+      owners: { [sid]: capped },
+      notificationEvents: [{
+        eventType: "assigned",
+        stageKey: sid,
+        userIds: capped,
+        detail: `${nameOf(currentUser)} assigned "${sid}" to ${capped.map(nameOf).join(" + ")}.`,
+      }],
+    }).then(result => { if (!result.ok) setSyncStatus("offline"); });
+    logActivity("assign", sid, `assigned ${capped.map(nameOf).join(" + ")}`);
+  };
+
   const handleReact = (sid: string, emoji: string) => {
     if (!currentUser) return;
     const prev = reactions;
@@ -3419,7 +3457,7 @@ export function ModelProvider({
     handleClaim, handleReact, addComment, deleteComment, editComment, addSubtask, toggleSubtask, renameSubtask,
     lockSubtask, removeSubtask, setSubtaskPoints,
     archiveStage, restoreStage, archivePipeline, restorePipeline, archiveSubtask, restoreSubtask,
-    setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask,
+    setStageDescOverride, setStageNameOverride, setSubtaskStage, getSubtaskStatus, cycleSubtaskStatus, assignTask, assignTaskMulti,
     setStageStatusDirect, cycleStatus, approveStage, approveSubtask,
     addCustomStage, addCustomPipeline, addUnparentedStage, moveStageToPipeline, cyclePriority,
     addStageImage, removeStageImage, sendChat, handleRemoteMessage, loadMoreMessages, logActivity,
