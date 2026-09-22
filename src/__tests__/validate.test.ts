@@ -41,12 +41,28 @@ describe("validateNestedKeys", () => {
     expect(validateNestedKeys({ foo: { bar: "baz" } })).toBe(true);
   });
 
-  it("rejects objects with $ keys at any depth", () => {
+  it("rejects nested keys that START with $ (Mongo operator-injection position)", () => {
     expect(validateNestedKeys({ foo: { "$where": "1=1" } })).toBe(false);
   });
 
-  it("rejects objects with . keys at any depth", () => {
-    expect(validateNestedKeys({ owners: { "stage.name": ["anna"] } })).toBe(false);
+  it("rejects prototype-pollution keys at any depth", () => {
+    // JSON.parse (how the route reads the body) creates an OWN "__proto__" key — the real
+    // vector — unlike an object literal, where "__proto__" sets the prototype instead.
+    expect(validateNestedKeys(JSON.parse('{"foo":{"__proto__":{"x":1}}}'))).toBe(false);
+    expect(validateNestedKeys({ foo: { "constructor": {} } })).toBe(false);
+  });
+
+  it("ALLOWS dotted free-text map keys — stage names legitimately contain '.'", () => {
+    // e.g. "Fix binayah.com issues" is a real stage name; its status/owner writes must
+    // not be rejected. The merge is a JS spread and the focused write uses $setField, so
+    // '.' is never interpreted as a Mongo path. (Was the cause of a persistent "changes
+    // not saved — retrying" offline banner when moving such a card.)
+    expect(validateNestedKeys({ owners: { "Fix binayah.com issues": ["shyam"] } })).toBe(true);
+    expect(validateNestedKeys({ subtaskStages: { "default-parent-x::123": "active" } })).toBe(true);
+  });
+
+  it("allows a '$' that is not the first character", () => {
+    expect(validateNestedKeys({ stageDueDates: { "Add $ pricing page": "2026-01-01" } })).toBe(true);
   });
 
   it("passes arrays (not recursed as object keys)", () => {

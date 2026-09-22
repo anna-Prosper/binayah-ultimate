@@ -1645,10 +1645,17 @@ export function ModelProvider({
           setSyncStatusRef.current("live");
           return;
         }
-        // Auth/validation (401/403/400): not retryable. Keep the key dirty so a later
-        // write can re-send; surface auth vs offline.
+        // 401 (session expired): keep the key dirty so it re-sends after re-login.
+        if (result.status === 401) { setSyncStatusRef.current("auth"); return; }
+        // Other non-retryable 4xx (400 validation / 403): the server permanently rejects
+        // this write — retrying or re-driving it won't help. Clear the dirty key so
+        // flushStrandedFocusedStatus stops re-sending it every poll (which would pin the
+        // tab "offline" forever). Log loudly; the value reconciles to server truth on the
+        // next poll instead of the tab getting stuck.
         if (result.status && result.status >= 400 && result.status < 500 && result.status !== 409 && result.status !== 429) {
-          setSyncStatusRef.current(result.status === 401 ? "auth" : "offline");
+          console.error("[persistFocusedStatus] permanent rejection — giving up on", slice, key, result.status, (result as { error?: string }).error);
+          clearDirtyMapKey(slice, key);
+          setSyncStatusRef.current("offline");
           return;
         }
         // Transient (409 contention / 429 / 5xx): back off and retry — do NOT drop it.

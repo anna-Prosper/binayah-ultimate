@@ -199,6 +199,16 @@ export const SET_SLICE_KEYS = new Set([
 
 const FORBIDDEN_KEY_PATTERN = /[.$]|__proto__|constructor|prototype/;
 
+// Nested MAP keys are free-text user data (stage names, "parent::id" subtask keys) and
+// legitimately contain "." (e.g. "Fix binayah.com issues") and mid-string "$". Those are
+// safe to store and read: the merge builds the object with a JS spread and the focused
+// status write uses $setField/$literal — neither ever interprets "." as a Mongo path.
+// Only two things are genuinely dangerous in a nested key and stay forbidden: a key that
+// STARTS with "$" (Mongo operator-injection position) and the prototype-pollution names.
+// (The stricter FORBIDDEN_KEY_PATTERN still guards the top-level slice names and any stage
+// key that gets interpolated into a real Mongo dotted path — see validateStageKey.)
+const FORBIDDEN_NESTED_KEY_PATTERN = /^\$|__proto__|constructor|prototype/;
+
 export function validatePatchKeys(patch: Record<string, unknown>): string | null {
   for (const k of Object.keys(patch)) {
     if (FORBIDDEN_KEY_PATTERN.test(k)) return `key "${k}" contains forbidden characters`;
@@ -252,7 +262,7 @@ export function validateNestedKeys(obj: unknown, depth = 0): boolean {
   if (depth > 6) return true; // stop recursing at max depth
   if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return true;
   for (const k of Object.keys(obj as Record<string, unknown>)) {
-    if (FORBIDDEN_KEY_PATTERN.test(k)) return false;
+    if (FORBIDDEN_NESTED_KEY_PATTERN.test(k)) return false;
     const child = (obj as Record<string, unknown>)[k];
     if (!validateNestedKeys(child, depth + 1)) return false;
   }
@@ -270,7 +280,7 @@ export function findForbiddenNestedKey(obj: unknown, path = "", depth = 0): stri
   if (typeof obj !== "object" || obj === null || Array.isArray(obj)) return null;
   for (const k of Object.keys(obj as Record<string, unknown>)) {
     const here = path ? `${path}.${k}` : k;
-    if (FORBIDDEN_KEY_PATTERN.test(k)) return here;
+    if (FORBIDDEN_NESTED_KEY_PATTERN.test(k)) return here;
     const child = (obj as Record<string, unknown>)[k];
     const inner = findForbiddenNestedKey(child, here, depth + 1);
     if (inner) return inner;
