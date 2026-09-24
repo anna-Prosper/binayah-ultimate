@@ -180,10 +180,28 @@ export default function ChatPanel({ messages, onSend, onRemoteMessage, users, cu
       };
     };
 
-    connect();
+    // Cost/throttle: only hold the SSE stream open while the tab is visible. A backgrounded
+    // tab closes the stream (the poll loop still catches up at a cheap 60s cadence) and
+    // reconnects on focus — connect()'s `since=lastId` replays anything missed. This removes
+    // the biggest idle-tab cost: a 5-min server function held open per hidden tab.
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+        esRef.current?.close();
+        esRef.current = null;
+        setSseConnected(false);
+      } else if (!esRef.current) {
+        backoffRef.current = 1000;
+        connect();
+      }
+    };
+
+    if (!document.hidden) connect();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mountedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisibility);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       esRef.current?.close();
       esRef.current = null;

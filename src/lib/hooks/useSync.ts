@@ -39,6 +39,11 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
   // (SLOW_INTERVAL_MS = 30s). Snap back on user activity or real data.
   const FAST_INTERVAL_MS = intervalMs;
   const SLOW_INTERVAL_MS = 30_000;
+  // Background (tab hidden) cadence. People leave this dashboard open all day; a hidden tab
+  // has no reason to poll every 15-30s (and its SSE streams are closed too — see the chat/
+  // notification components). Drop to a cheap 60s heartbeat while hidden, snap back to fast +
+  // an immediate catch-up poll on focus. This removes most of the idle-tab serverless load.
+  const HIDDEN_INTERVAL_MS = 60_000;
   // 24 ticks at 5s = 120s = 2min idle threshold
   const IDLE_BEFORE_BACKOFF_TICKS = Math.max(1, Math.floor((2 * 60_000) / FAST_INTERVAL_MS));
   const idleTickRef = useRef(0);
@@ -150,19 +155,33 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
       currentIntervalRef.current = ms;
       intervalIdRef.current = setInterval(tick, ms);
     };
-    armPoll(FAST_INTERVAL_MS);
+    const startHidden = typeof document !== "undefined" && document.hidden;
+    armPoll(startHidden ? HIDDEN_INTERVAL_MS : FAST_INTERVAL_MS);
 
-    // User activity → snap back to fast cadence
+    // User activity → snap back to fast cadence (only meaningful while visible)
     const onActivity = () => {
+      if (typeof document !== "undefined" && document.hidden) return;
       if (currentIntervalRef.current !== FAST_INTERVAL_MS) {
         idleTickRef.current = 0;
         armPoll(FAST_INTERVAL_MS);
+      }
+    };
+    // Tab hidden → cheap 60s heartbeat; visible → fast cadence + immediate catch-up poll.
+    const onVisibility = () => {
+      if (typeof document === "undefined") return;
+      if (document.hidden) {
+        if (currentIntervalRef.current !== HIDDEN_INTERVAL_MS) armPoll(HIDDEN_INTERVAL_MS);
+      } else {
+        idleTickRef.current = 0;
+        armPoll(FAST_INTERVAL_MS);
+        void tick();
       }
     };
     if (typeof document !== "undefined") {
       document.addEventListener("mousemove", onActivity, { passive: true });
       document.addEventListener("keydown", onActivity);
       window.addEventListener("focus", onActivity);
+      document.addEventListener("visibilitychange", onVisibility);
     }
     return () => {
       if (intervalIdRef.current) clearInterval(intervalIdRef.current);
@@ -170,6 +189,7 @@ export function useSync({ onPatch, getPatch, getUnloadPatch, onWriteSuccess, int
         document.removeEventListener("mousemove", onActivity);
         document.removeEventListener("keydown", onActivity);
         window.removeEventListener("focus", onActivity);
+        document.removeEventListener("visibilitychange", onVisibility);
       }
     };
   // onPatch + intervalMs are stable references

@@ -172,10 +172,27 @@ export default function NotificationBell({ t, currentUserId, users }: Props) {
       };
     };
 
-    connect();
+    // Cost/throttle: hold the SSE stream open only while the tab is visible. Backgrounded
+    // tabs close it (the sync poll still surfaces bell items at a 60s cadence) and reconnect
+    // on focus — connect()'s `sinceActivity` replays anything missed. Removes the held-open
+    // 5-min server function per hidden tab.
+    const onVisibility = () => {
+      if (document.hidden) {
+        if (reconnectTimerRef.current) { clearTimeout(reconnectTimerRef.current); reconnectTimerRef.current = null; }
+        esRef.current?.close();
+        esRef.current = null;
+      } else if (!esRef.current) {
+        backoffRef.current = 1000;
+        connect();
+      }
+    };
+
+    if (!document.hidden) connect();
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       mountedRef.current = false;
+      document.removeEventListener("visibilitychange", onVisibility);
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       esRef.current?.close();
       esRef.current = null;
