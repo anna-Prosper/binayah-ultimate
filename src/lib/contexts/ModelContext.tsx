@@ -546,6 +546,16 @@ export function ModelProvider({
   // unconfirmedSubtaskKeysRef.
   const unconfirmedDbRowKeysRef = useRef<Set<string>>(new Set());
 
+  // Per-database baseline of the server's last-known JSON (dbId -> JSON string). Lets the
+  // delta write ship ONLY the database(s) this client actually edited instead of the whole
+  // ~500KB `databases` slice on every cell edit. That giant slow write was losing the
+  // updatedAt CAS to faster concurrent writes (activity/status pushes, other tabs) and
+  // getting dropped — the intermittent "changes not saved, row vanishes" report. Updated
+  // from the server on every poll (authoritative) and from our own confirmed sends. Safe by
+  // construction: a db we didn't edit matches the baseline (never re-sent → no resurrection),
+  // and a db we DID edit differs until confirmed (never dropped → no data loss).
+  const dbSentBaselineRef = useRef<Map<string, string>>(new Map());
+
   // EXPLICIT deletion intent. The server merges every slice (keep-existing), so a
   // removal only propagates via a `_deletes` key. We record deletions HERE when the
   // user actually performs them — never by diffing local vs server. Inferring
@@ -1068,6 +1078,10 @@ export function ModelProvider({
       const normalized = ((s as any).databases as WorkspaceDb[]).map(db =>
         db.views ? db : { ...db, views: [] }
       );
+      // Record the server's authoritative per-db JSON so the delta write can send only
+      // locally-changed databases (see dbSentBaselineRef). This is the server's truth for
+      // each db this poll carried.
+      for (const sdb of normalized) dbSentBaselineRef.current.set(String(sdb.id), JSON.stringify(sdb));
       // Merge rather than wholesale-replace: a poll response computed before our
       // just-added row was persisted would otherwise drop that row locally (it only
       // reappears on reload). Keep local-only rows/DBs that are recent enough to be
@@ -1438,6 +1452,17 @@ export function ModelProvider({
       if (isDirty) ts[k] = written; // dirty → keep
       else delete full[k];          // unchanged → omit
     }
+    // Databases: ship ONLY the database(s) this client actually changed, never all of them.
+    // The server merges `databases` by id and keeps databases the patch omits, so a subset is
+    // safe. This turns a single cell edit from a ~500KB write (which loses the CAS and drops)
+    // into a tiny one that lands. A db that matches the server baseline is omitted; if that
+    // leaves nothing changed, drop the slice entirely (local already equals the server).
+    if (Array.isArray(full.databases)) {
+      const baseline = dbSentBaselineRef.current;
+      const changed = (full.databases as WorkspaceDb[]).filter(db => baseline.get(String(db.id)) !== JSON.stringify(db));
+      if (changed.length === 0) { delete full.databases; delete ts.databases; }
+      else full.databases = changed;
+    }
     if (doFull) lastFullSyncAtRef.current = now;
     pendingSendSlicesRef.current = ts;
     return full as PatchEnvelope;
@@ -1523,20 +1548,21 @@ export function ModelProvider({
       }
       serverSubtaskKeysRef.current = set;
     }
-    // Rebuild known db-row keys from what we sent (deleted rows are already absent,
-    // so this captures the post-write truth; others' rows are re-learned on poll).
+    // We now send only the CHANGED database(s), not all of them — so UNION the sent rows
+    // into the known-keys set (never replace, which would drop the other dbs' rows), and
+    // record each sent db as the new server baseline so we stop re-sending it until it
+    // changes again (the next poll refreshes the baseline from the server authoritatively).
     if (Array.isArray((sent as Record<string, unknown>).databases)) {
-      const set = new Set<string>();
-      for (const db of (sent as { databases: { id: number | string; rows?: { id: number | string }[] }[] }).databases) {
+      for (const db of (sent as { databases: (WorkspaceDb & { id: number | string; rows?: { id: number | string }[] })[] }).databases) {
         if (Array.isArray(db.rows)) for (const r of db.rows) {
           const key = `${db.id}::${r.id}`;
-          set.add(key);
+          serverDbRowKeysRef.current.add(key);
           // This write carried the row and the server accepted it — it's durably
           // stored now, so it no longer needs the un-synced-add protection.
           unconfirmedDbRowKeysRef.current.delete(key);
         }
+        dbSentBaselineRef.current.set(String(db.id), JSON.stringify(db));
       }
-      serverDbRowKeysRef.current = set;
     }
     if (sent._deletes) {
       for (const [slice, keys] of Object.entries(sent._deletes)) {
